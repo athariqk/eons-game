@@ -2,8 +2,8 @@
 
 #include <cstdint>
 
-class SDL_Renderer;
-class SDL_Window;
+struct SDL_Renderer;
+struct SDL_Window;
 struct Vector2D;
 
 class Window {
@@ -24,6 +24,6 @@ public:
     int ShowMessageBox(uint32_t flags, const char *title, const char *message) const;
 
 private:
-    SDL_Window *sdlWindow;
-    SDL_Renderer *renderer;
+    SDL_Window *sdlWindow{};
+    SDL_Renderer *renderer{};
 };

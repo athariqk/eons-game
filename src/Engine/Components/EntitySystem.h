@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <bitset>
+#include <cassert>
 #include <memory>
 #include <vector>
 
@@ -36,7 +37,7 @@ using ComponentArray = std::array<Component *, maxComponents>;
 
 class Component {
 public:
-    Entity *entity;
+    Entity *entity{};
 
     virtual void OnInit() {}
 
@@ -56,16 +57,27 @@ public:
     Entity(EntityManager &mManager) : manager(mManager) {}
 
     void OnUpdate(float delta) {
-        for (auto &c: components)
+        const auto componentCount = components.size();
+        for (std::size_t i = 0; i < componentCount && enabled; i++) {
+            auto &c = components[i];
             c->OnUpdate(delta);
+        }
     }
 
     void OnDraw() {
+        if (!enabled) {
+            return;
+        }
+
         for (auto &c: components)
             c->OnDraw();
     }
 
     void OnEvent() {
+        if (!enabled) {
+            return;
+        }
+
         for (auto &c: components)
             c->OnEvent();
     }
@@ -106,6 +118,7 @@ public:
     template<typename T>
     T &GetComponent() const {
         auto ptr(componentArray[getComponentTypeID<T>()]);
+        assert(ptr != nullptr && "Entity does not have requested component");
         return *static_cast<T *>(ptr);
     }
 
@@ -114,26 +127,41 @@ private:
     bool enabled = true;
     std::vector<std::unique_ptr<Component>> components;
 
-    ComponentArray componentArray;
-    ComponentBitSet componentBitSet;
-    GroupBitset groupBitset;
+    ComponentArray componentArray{};
+    ComponentBitSet componentBitSet{};
+    GroupBitset groupBitset{};
 };
 
 class EntityManager {
 public:
     void Update(float delta) {
-        for (auto &e: entities)
-            e->OnUpdate(delta);
+        const auto entityCount = entities.size();
+        for (std::size_t i = 0; i < entityCount; i++) {
+            auto &e = entities[i];
+            if (e->isEnabled()) {
+                e->OnUpdate(delta);
+            }
+        }
     }
 
     void Draw() {
-        for (auto &e: entities)
-            e->OnDraw();
+        const auto entityCount = entities.size();
+        for (std::size_t i = 0; i < entityCount; i++) {
+            auto &e = entities[i];
+            if (e->isEnabled()) {
+                e->OnDraw();
+            }
+        }
     }
 
     void Event() {
-        for (auto &e: entities)
-            e->OnEvent();
+        const auto entityCount = entities.size();
+        for (std::size_t i = 0; i < entityCount; i++) {
+            auto &e = entities[i];
+            if (e->isEnabled()) {
+                e->OnEvent();
+            }
+        }
     }
 
     void Clear() {

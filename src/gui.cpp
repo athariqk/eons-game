@@ -18,11 +18,23 @@
 
 #include "Camera.h"
 
-void GUI::OnInit() { imgui = new ImGuiLayer(Scene::Get()->GetWindow().GetWindow()); }
+GUI::GUI() = default;
 
-void GUI::OnImGuiEvent() const { imgui->OnEvent(Scene::Get()->m_event); }
+GUI::~GUI() = default;
+
+void GUI::OnInit() { imgui = std::make_unique<ImGuiLayer>(Scene::Get()->GetWindow().GetWindow()); }
+
+void GUI::OnImGuiEvent() const {
+    if (imgui != nullptr) {
+        imgui->OnEvent(Scene::Get()->m_event);
+    }
+}
 
 void GUI::OnImGuiRender() {
+    if (imgui == nullptr) {
+        return;
+    }
+
     imgui->Begin();
     {
         /* ----- Environment Window|begin| ------- */
@@ -177,4 +189,9 @@ void GUI::OnImGuiRender() {
     imgui->End(Scene::Get()->GetWindow().GetWindow());
 }
 
-void GUI::OnImGuiClear() const { imgui->Clear(); }
+void GUI::OnImGuiClear() {
+    if (imgui != nullptr) {
+        imgui->Clear();
+        imgui.reset();
+    }
+}

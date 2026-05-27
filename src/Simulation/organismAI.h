@@ -18,7 +18,7 @@ class Genes;
 class OrganismAI : public Component {
 public:
     OrganismAI(float organismSpeed, float aiInterval) : moveSpeed(organismSpeed), actInterval(aiInterval) {}
-    ~OrganismAI() {}
+    ~OrganismAI() override = default;
 
     void OnInit() override;
     void OnUpdate(float delta) override;
@@ -39,11 +39,11 @@ public:
     bool runAI = false;
 
 private:
-    BehaviourState behaviourState;
-    OrganismComponent *organism;
-    TransformComponent *transform;
-    RigidBodyComponent *rb;
-    Nutrient *caughtNutrient;
+    BehaviourState behaviourState = BehaviourState::Idling;
+    OrganismComponent *organism{};
+    TransformComponent *transform{};
+    RigidBodyComponent *rb{};
+    Nutrient *caughtNutrient{};
 
     float actInterval = 10;
     float movingInterval = 10;

@@ -5,7 +5,7 @@
 #include "EntitySystem.h"
 
 class TransformComponent;
-class SDL_Texture;
+struct SDL_Texture;
 
 class SpriteComponent : public Component {
 public:

@@ -44,26 +44,33 @@ Species *Environment::getSpecies(std::string name) {
 std::vector<Species *> &Environment::getAllSpecies() { return speciesInEnvironment; }
 
 void Environment::makeExtinct(Species *species) {
-    for (auto &it: speciesInEnvironment) {
-        if (it == species) {
-            it->entity->Destroy();
-            speciesInEnvironment.erase(speciesInEnvironment.begin() + getSpeciesIndex(species));
-
-            /* Clear the population */
-            it->clearOrganisms();
-
-            LOG_INFO("Species {} has gone extinct!", species->getFormattedName(false));
-        }
+    if (species == nullptr) {
+        LOG_ERROR("Tried to make a null species extinct!");
+        return;
     }
+
+    const auto it = std::ranges::find(speciesInEnvironment, species);
+    if (it == speciesInEnvironment.end()) {
+        LOG_ERROR("Species {} is not found!", species->getID());
+        return;
+    }
+
+    const auto formattedName = species->getFormattedName(false);
+
+    species->entity->Destroy();
+    species->clearOrganisms();
+    speciesInEnvironment.erase(it);
+
+    LOG_INFO("Species {} has gone extinct!", formattedName);
 }
 
-int Environment::getSpeciesIndex(Species *species) {
+int Environment::getSpeciesIndex(const Species *species) const {
     if (const auto it = std::ranges::find(speciesInEnvironment, species); it != speciesInEnvironment.end()) {
-        return std::distance(speciesInEnvironment.begin(), it);
-    } else {
-        LOG_ERROR("Index of species {} is not found!", species->getID());
-        return NULL;
+        return static_cast<int>(std::distance(speciesInEnvironment.begin(), it));
     }
+
+    LOG_ERROR("Index of species {} is not found!", species != nullptr ? species->getID() : 0);
+    return -1;
 }
 
 void Environment::spawnNutrients(int amount) {

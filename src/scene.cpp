@@ -45,43 +45,42 @@ void Scene::Init() {
 }
 
 void Scene::HandleEvents() {
-    SDL_PollEvent(&m_event);
+    while (SDL_PollEvent(&m_event)) {
+        entityManager.Event();
+        gui.OnImGuiEvent();
 
-    entityManager.Event();
-    gui.OnImGuiEvent();
-
-    switch (m_event.type) {
-        case SDL_EVENT_QUIT: {
-            m_running = false;
-            break;
-        }
-        case SDL_EVENT_WINDOW_RESIZED: {
-            SDL_SetWindowSize(mainWindow.GetWindow(), m_event.window.data1, m_event.window.data2);
-            LOG_INFO("Window resolution changed: {} x {}", m_event.window.data1, m_event.window.data2);
-            break;
-        }
-        case SDL_EVENT_MOUSE_BUTTON_DOWN: {
-            if (m_event.button.button == SDL_BUTTON_LEFT) {
-                isPanning = true;
+        switch (m_event.type) {
+            case SDL_EVENT_QUIT: {
+                m_running = false;
+                break;
             }
-            break;
-        }
-        case SDL_EVENT_MOUSE_BUTTON_UP: {
-            if (m_event.button.button == SDL_BUTTON_LEFT) {
-                isPanning = false;
+            case SDL_EVENT_WINDOW_RESIZED: {
+                SDL_SetWindowSize(mainWindow.GetWindow(), m_event.window.data1, m_event.window.data2);
+                LOG_INFO("Window resolution changed: {} x {}", m_event.window.data1, m_event.window.data2);
+                break;
             }
-            break;
-        }
-        case SDL_EVENT_MOUSE_MOTION: {
-            if (isPanning) {
-                const auto motion = reinterpret_cast<SDL_MouseMotionEvent *>(&m_event);
-                mainCamera.position.x -= motion->xrel * cameraSpeed;
-                mainCamera.position.y -= motion->yrel * cameraSpeed;
+            case SDL_EVENT_MOUSE_BUTTON_DOWN: {
+                if (m_event.button.button == SDL_BUTTON_LEFT) {
+                    isPanning = true;
+                }
+                break;
             }
-            break;
-        }
-        default: {
-            break;
+            case SDL_EVENT_MOUSE_BUTTON_UP: {
+                if (m_event.button.button == SDL_BUTTON_LEFT) {
+                    isPanning = false;
+                }
+                break;
+            }
+            case SDL_EVENT_MOUSE_MOTION: {
+                if (isPanning) {
+                    mainCamera.position.x -= m_event.motion.xrel * cameraSpeed;
+                    mainCamera.position.y -= m_event.motion.yrel * cameraSpeed;
+                }
+                break;
+            }
+            default: {
+                break;
+            }
         }
     }
 }

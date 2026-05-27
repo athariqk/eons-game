@@ -1,6 +1,6 @@
 #pragma once
 
-class SDL_Window;
+struct SDL_Window;
 union SDL_Event;
 
 class ImGuiLayer {

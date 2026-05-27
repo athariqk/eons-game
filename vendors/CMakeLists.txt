@@ -20,6 +20,9 @@ set_target_properties(ImGui PROPERTIES
 
 # Box2D
 add_subdirectory(box2d)
+if(MSVC AND TARGET box2d)
+        set_property(TARGET box2d PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+endif()
 
 # spdlog
 add_subdirectory(spdlog)

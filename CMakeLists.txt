@@ -7,16 +7,28 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Define build configurations
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;Dist" CACHE STRING "Configs" FORCE)
+set(CMAKE_C_FLAGS_DIST "${CMAKE_C_FLAGS_RELEASE}" CACHE STRING "C flags for Dist builds" FORCE)
+set(CMAKE_CXX_FLAGS_DIST "${CMAKE_CXX_FLAGS_RELEASE}" CACHE STRING "C++ flags for Dist builds" FORCE)
+set(CMAKE_EXE_LINKER_FLAGS_DIST "${CMAKE_EXE_LINKER_FLAGS_RELEASE}" CACHE STRING "Executable linker flags for Dist builds" FORCE)
+set(CMAKE_SHARED_LINKER_FLAGS_DIST "${CMAKE_SHARED_LINKER_FLAGS_RELEASE}" CACHE STRING "Shared linker flags for Dist builds" FORCE)
+set(CMAKE_STATIC_LINKER_FLAGS_DIST "${CMAKE_STATIC_LINKER_FLAGS_RELEASE}" CACHE STRING "Static linker flags for Dist builds" FORCE)
+set(CMAKE_MODULE_LINKER_FLAGS_DIST "${CMAKE_MODULE_LINKER_FLAGS_RELEASE}" CACHE STRING "Module linker flags for Dist builds" FORCE)
+
+if(MSVC)
+    add_compile_options(/FS /wd5105)
+endif()
 
 # Output directories
-set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/bin/${CMAKE_BUILD_TYPE})
+set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_DIR})
+foreach(CONFIG_TYPE Debug Release Dist)
+    string(TOUPPER ${CONFIG_TYPE} CONFIG_TYPE_UPPER)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} ${OUTPUT_DIR}/${CONFIG_TYPE})
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} ${OUTPUT_DIR}/${CONFIG_TYPE})
+endforeach()
 
 add_subdirectory(vendors)
-
-# Include directories
-include_directories(${CMAKE_SOURCE_DIR}/vendors/imgui)
 
 # Source files
 file(GLOB_RECURSE SRC_FILES
@@ -55,24 +67,34 @@ if(MINGW)
 endif()
 
 # Build configurations
-set_property(TARGET eons PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${OUTPUT_DIR}")
+set_property(TARGET eons PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:eons>")
 
 # Add Debug Configuration
 set_target_properties(eons PROPERTIES DEBUG_POSTFIX "_d")
-add_compile_definitions($<$<CONFIG:Debug>:DEBUG>)
+target_compile_definitions(eons PRIVATE $<$<CONFIG:Debug>:DEBUG>)
 
 # Add Release Configuration
-add_compile_definitions($<$<CONFIG:Release>:RELEASE>)
-add_compile_options($<$<CONFIG:Release>:-O3>)
+target_compile_definitions(eons PRIVATE $<$<CONFIG:Release>:RELEASE>)
+target_compile_options(eons PRIVATE
+        $<$<AND:$<CONFIG:Release>,$<CXX_COMPILER_ID:MSVC>>:/O2>
+        $<$<AND:$<CONFIG:Release>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-O3>
+)
 
 # Add Distribution Configuration
-add_compile_definitions($<$<CONFIG:Dist>:DIST>)
-add_compile_options($<$<CONFIG:Dist>:-O3>)
+target_compile_definitions(eons PRIVATE $<$<CONFIG:Dist>:DIST>)
+target_compile_options(eons PRIVATE
+        $<$<AND:$<CONFIG:Dist>,$<CXX_COMPILER_ID:MSVC>>:/O2>
+        $<$<AND:$<CONFIG:Dist>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-O3>
+)
 
 target_include_directories(eons PUBLIC
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_SOURCE_DIR}/src/Engine
+        ${CMAKE_SOURCE_DIR}/vendors/imgui
 )
 
-file(GLOB ASSETS "assets/*")
-file(COPY ${ASSETS} DESTINATION "${OUTPUT_DIR}/assets/")
+add_custom_command(TARGET eons POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets
+        $<TARGET_FILE_DIR:eons>/assets
+)

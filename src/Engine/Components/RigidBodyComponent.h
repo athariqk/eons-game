@@ -5,7 +5,7 @@
 #include "box2d/id.h"
 
 class TransformComponent;
-class Vector2D;
+struct Vector2D;
 
 class RigidBodyComponent : public Component {
 public:

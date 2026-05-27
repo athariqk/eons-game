@@ -55,12 +55,19 @@ void Species::addOrganism(Genes &genes, const bool mutate) {
 }
 
 void Species::deleteOrganism(OrganismComponent *organism) {
-    for (const auto &it: organisms) {
-        if (it == organism) {
-            it->entity->Destroy();
-            organisms.erase(organisms.begin() + getOrganismIndex(organism));
-        }
+    if (organism == nullptr) {
+        LOG_ERROR("Tried to delete a null organism!");
+        return;
     }
+
+    const auto it = std::ranges::find(organisms, organism);
+    if (it == organisms.end()) {
+        LOG_ERROR("Organism {} is not found!", organism->getID());
+        return;
+    }
+
+    organism->entity->Destroy();
+    organisms.erase(it);
 }
 
 void Species::clearOrganisms() {
@@ -75,10 +82,10 @@ void Species::clearOrganisms() {
 
 int Species::getOrganismIndex(OrganismComponent *organism) {
     if (const auto it = std::ranges::find(organisms, organism); it != organisms.end()) {
-        return std::distance(organisms.begin(), it);
+        return static_cast<int>(std::distance(organisms.begin(), it));
     }
 
-    LOG_ERROR("Index of organism {} is not found!", organism->getID());
+    LOG_ERROR("Index of organism {} is not found!", organism != nullptr ? organism->getID() : 0);
     return -1;
 }
 

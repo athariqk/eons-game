@@ -12,8 +12,8 @@ public:
     void PlayWAV(const char *path);
 
 private:
-    SDL_AudioStream *stream;
-    SDL_AudioSpec wavSpec;
-    Uint32 wavLength;
-    Uint8 *wavBuffer;
+    SDL_AudioStream *stream{};
+    SDL_AudioSpec wavSpec{};
+    Uint32 wavLength{};
+    Uint8 *wavBuffer{};
 };

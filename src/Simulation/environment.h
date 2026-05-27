@@ -26,7 +26,7 @@ public:
     //! \brief Returns species by its name (identifier)
     Species *getSpecies(std::string name);
 
-    int getSpeciesIndex(Species *species);
+    int getSpeciesIndex(const Species *species) const;
 
 private:
     std::vector<Species *> speciesInEnvironment;

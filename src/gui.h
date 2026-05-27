@@ -1,27 +1,29 @@
 #pragma once
 
+#include <memory>
 #include <string>
 
 class ImGuiLayer;
 
 class GUI {
 public:
-    GUI() {}
-    ~GUI() = default;
+    GUI();
+    ~GUI();
 
     void OnInit();
     void OnImGuiRender();
     void OnImGuiEvent() const;
-    void OnImGuiClear() const;
+    void OnImGuiClear();
 
     bool debugMode = false;
 
 private:
-    ImGuiLayer *imgui{};
+    std::unique_ptr<ImGuiLayer> imgui;
     bool showCreateSpecies = false;
 
     std::string sGenus;
     std::string sEpithet;
 
-    float xRel, yRel;
+    float xRel{};
+    float yRel{};
 };

@@ -70,14 +70,18 @@ void OrganismAI::OnUpdate(float delta) {
 
                 if (!isNutrientFound) {
                     isAbsorbing = false;
-                    caughtNutrient->caught = false;
+                    if (caughtNutrient != nullptr) {
+                        caughtNutrient->caught = false;
+                    }
                     actTimer = 0;
                     behaviourState = RunAndTumble;
                 }
 
                 if (actTimer > actInterval * 5) {
                     isNutrientFound = false;
-                    caughtNutrient->caught = false;
+                    if (caughtNutrient != nullptr) {
+                        caughtNutrient->caught = false;
+                    }
                     isAbsorbing = false;
                     actTimer = 0;
                     behaviourState = Evaluate;
