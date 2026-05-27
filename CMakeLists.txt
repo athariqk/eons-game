@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(kGeneticAlgorithm LANGUAGES C CXX)
+project(eons LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -13,10 +13,10 @@ set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/bin/${CMAKE_BUILD_TYPE})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_DIR})
 
-add_subdirectory(ThirdParty)
+add_subdirectory(vendors)
 
 # Include directories
-include_directories(${CMAKE_SOURCE_DIR}/ThirdParty/imgui)
+include_directories(${CMAKE_SOURCE_DIR}/vendors/imgui)
 
 # Source files
 file(GLOB_RECURSE SRC_FILES
@@ -25,18 +25,18 @@ file(GLOB_RECURSE SRC_FILES
 )
 
 # Create executable
-add_executable(kGeneticAlgorithm ${SRC_FILES}
+add_executable(eons ${SRC_FILES}
         src/Engine/Random.h)
 
 # Define preprocessor macros
-target_compile_definitions(kGeneticAlgorithm PRIVATE _CRT_SECURE_NO_WARNINGS)
+target_compile_definitions(eons PRIVATE _CRT_SECURE_NO_WARNINGS)
 
 find_package(SDL3 CONFIG REQUIRED COMPONENTS SDL3-shared)
 
 find_package(SDL3_image CONFIG REQUIRED)
 
 # Link external libraries
-target_link_libraries(kGeneticAlgorithm PRIVATE
+target_link_libraries(eons PRIVATE
         ImGui
         box2d::box2d
         spdlog::spdlog
@@ -55,10 +55,10 @@ if(MINGW)
 endif()
 
 # Build configurations
-set_property(TARGET kGeneticAlgorithm PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${OUTPUT_DIR}")
+set_property(TARGET eons PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${OUTPUT_DIR}")
 
 # Add Debug Configuration
-set_target_properties(kGeneticAlgorithm PROPERTIES DEBUG_POSTFIX "_d")
+set_target_properties(eons PROPERTIES DEBUG_POSTFIX "_d")
 add_compile_definitions($<$<CONFIG:Debug>:DEBUG>)
 
 # Add Release Configuration
@@ -69,7 +69,7 @@ add_compile_options($<$<CONFIG:Release>:-O3>)
 add_compile_definitions($<$<CONFIG:Dist>:DIST>)
 add_compile_options($<$<CONFIG:Dist>:-O3>)
 
-target_include_directories(kGeneticAlgorithm PUBLIC
+target_include_directories(eons PUBLIC
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_SOURCE_DIR}/src/Engine
 )
