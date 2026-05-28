@@ -2,10 +2,11 @@
 !premake/
 bin-int/
 
+out/
 build/
-/cmake-build-debug/
-/cmake-build-release/
-/cmake-build-dist/
+cmake-build-debug/
+cmake-build-release/
+cmake-build-dist/
 
 # visual studio project files
 .vs/

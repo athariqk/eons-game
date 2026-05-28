@@ -30,21 +30,48 @@ endforeach()
 
 add_subdirectory(vendors)
 
-# Source files
-file(GLOB_RECURSE SRC_FILES
-        ${CMAKE_SOURCE_DIR}/src/*.cpp
-        ${CMAKE_SOURCE_DIR}/src/*.h
+# Create executable with source files
+add_executable(eons "src/main.cpp"
+    "src/config.h"
+    "src/engine/audio/AudioManager.h" "src/engine/audio/AudioManager.cpp"
+    "src/engine/core/EntitySystem.h" "src/engine/core/EntitySystem.cpp"
+    "src/engine/core/Logger.h" "src/engine/core/Logger.cpp"
+    "src/engine/core/MainLoop.h" "src/engine/core/MainLoop.cpp"
+    "src/engine/core/Random.h"
+    "src/engine/core/Vector2D.h" "src/engine/core/Vector2D.cpp"
+    "src/engine/core/Window.h" "src/engine/core/Window.cpp"
+	"src/engine/core/Event.h" "src/engine/core/Event.cpp"
+    "src/engine/graphics/PrimitiveShape.h"
+    "src/engine/graphics/TextureManager.h" "src/engine/graphics/TextureManager.cpp"
+    "src/engine/graphics/Viewport.h" "src/engine/graphics/Viewport.cpp"
+    "src/engine/graphics/ICamera.h"
+    "src/engine/graphics/Camera.h" "src/engine/graphics/Camera.cpp"
+    "src/engine/graphics/IGraphicsContext.h"
+    "src/engine/graphics/backends/SDLGraphicsContext.h"
+    "src/engine/gui/backends/ImGuiSDL.h" "src/engine/gui/backends/ImGuiSDL.cpp"
+    "src/engine/gui/backends/ImGuiSDLRenderer.h" "src/engine/gui/backends/ImGuiSDLRenderer.cpp"
+    "src/engine/gui/ImGuiLayer.h" "src/engine/gui/ImGuiLayer.cpp"
+    "src/engine/physics/Physics.h" "src/engine/physics/Physics.cpp"
+    "src/engine/scene/Scene.h" "src/engine/scene/Scene.cpp"
+    "src/engine/scene/TransformComponent.h" "src/engine/scene/TransformComponent.cpp"
+    "src/engine/scene/RigidBodyComponent.h" "src/engine/scene/RigidBodyComponent.cpp"
+    "src/engine/scene/SpriteComponent.h" "src/engine/scene/SpriteComponent.cpp"
+    "src/game/experimental/NeuralNetwork/neural_network.h" "src/game/experimental/NeuralNetwork/neural_network.cpp"
+    "src/game/microcosm/Evolution.cpp"
+    "src/game/microcosm/evolution.h"
+    "src/game/microcosm/Genes.h"
+    "src/game/microcosm/Gui.h" "src/game/microcosm/Gui.cpp"
+    "src/game/microcosm/Microcosm.h" "src/game/microcosm/Microcosm.cpp"
+    "src/game/microcosm/Nutrient.h" "src/game/microcosm/Nutrient.cpp"
+    "src/game/microcosm/Organism.h" "src/game/microcosm/Organism.cpp"
+    "src/game/microcosm/OrganismAI.h" "src/game/microcosm/OrganismAI.cpp"
+    "src/game/microcosm/Species.h" "src/game/microcosm/Species.cpp"
 )
-
-# Create executable
-add_executable(eons ${SRC_FILES}
-        src/Engine/Random.h)
 
 # Define preprocessor macros
 target_compile_definitions(eons PRIVATE _CRT_SECURE_NO_WARNINGS)
 
 find_package(SDL3 CONFIG REQUIRED COMPONENTS SDL3-shared)
-
 find_package(SDL3_image CONFIG REQUIRED)
 
 # Link external libraries
@@ -89,7 +116,17 @@ target_compile_options(eons PRIVATE
 
 target_include_directories(eons PUBLIC
         ${CMAKE_SOURCE_DIR}/src
-        ${CMAKE_SOURCE_DIR}/src/Engine
+        ${CMAKE_SOURCE_DIR}/src/engine/audio
+        ${CMAKE_SOURCE_DIR}/src/engine/core
+        ${CMAKE_SOURCE_DIR}/src/engine/graphics
+        ${CMAKE_SOURCE_DIR}/src/engine/graphics/backends
+        ${CMAKE_SOURCE_DIR}/src/engine/gui
+        ${CMAKE_SOURCE_DIR}/src/engine/gui/backends
+        ${CMAKE_SOURCE_DIR}/src/engine/physics
+        ${CMAKE_SOURCE_DIR}/src/engine/scene
+        ${CMAKE_SOURCE_DIR}/src/game
+        ${CMAKE_SOURCE_DIR}/src/game/experimental
+        ${CMAKE_SOURCE_DIR}/src/game/microcosm
         ${CMAKE_SOURCE_DIR}/vendors/imgui
 )
 
