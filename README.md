@@ -4,4 +4,4 @@ Personal repository for learning C++ and experimenting with (what hopefully woul
 ### Note
 This effort is evidently still in its very **earliest** stage, so no full-fledged working GA for now, as most works are still being done for the frameworks itself (basic game engine things).
 
-For a future reminder, make sure to clone the repository with `--recursive` to also fetch all of the submodules and then simply use one of the .bat files that match your installed Visual Studio version (Visual Studio 2019 for vs16 or 2017 for vs15).
+For a future reminder, make sure the vendored dependencies under `vendors/` are present, then configure and build with CMake. The legacy Premake project generation scripts are still present, but CMake is the actively maintained build path.
