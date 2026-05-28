@@ -17,8 +17,9 @@ int main(int argc, char *argv[]) {
     Logger::Init();
     LOG_TRACE("Log initialized");
 
-    constexpr char title[20] = "Eons";
-    Window window(title, WINDOW_WIDTH, WINDOW_HEIGHT, false);
+    std::string title = std::format("EONS v{}.{}.{}-{}", GAME_VERSION_MAJOR, GAME_VERSION_MINOR, GAME_VERSION_PATCH,
+                                    GAME_VERSION_IDENTIFIER);
+    Window window(title.c_str(), WINDOW_WIDTH, WINDOW_HEIGHT, false);
 
     // Report info
     LOG_INFO("SDL Renderer name: {}", SDL_GetRendererName(window.GetRenderer()));
@@ -63,10 +64,10 @@ int main(int argc, char *argv[]) {
             frameCount = 0;
             lastFPSUpdateTime = currentTime;
 
-            std::array<char, 100> titleWAttrs{};
-            std::snprintf(titleWAttrs.data(), titleWAttrs.size(), "%s - FPS: %.1f - Delta: %.5f", title, currentFPS,
-                          delta);
-            window.SetTitle(titleWAttrs.data());
+            std::array<char, 100> attrs{};
+            std::snprintf(attrs.data(), attrs.size(), "FPS: %.1f - Delta: %.5f", currentFPS, delta);
+            std::string fullTitle = std::format("{} - {}", title, attrs.data());
+            window.SetTitle(fullTitle.c_str());
         }
 
         frameCount++;
