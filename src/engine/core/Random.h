@@ -7,6 +7,8 @@
 
 #include <random>
 
+namespace Aeon {
+
 class Random {
 public:
     /**
@@ -37,3 +39,4 @@ public:
 };
 
 #endif // RANDOM_H
+}

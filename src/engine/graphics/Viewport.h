@@ -7,6 +7,8 @@
 #include "ICamera.h"
 #include "Vector2D.h"
 
+namespace Aeon {
+
 //! \brief Defines the screen rectangle where rendering occurs
 //! Also manages the main camera for view transformation
 class Viewport2D {
@@ -36,12 +38,14 @@ public:
     Vector2D WorldToScreen(const Vector2D &worldPos) const;
     Vector2D ScreenToWorld(const Vector2D &screenPos) const;
 
+	float GetPixelsPerMeter() const { return m_pixelsPerMeter; }
+
     bool IsPointVisible(const Vector2D &worldPos) const;
     bool IsRectVisible(const Vector2D &worldPos, const Vector2D &size) const;
 
     // System access through interfaces
     IGraphicsContext *GetGraphicsContext() const { return m_graphicsContext.get(); }
-    SDL_Window *GetWindow() const { return m_window; } // HACK: For ImGui which needs SDL_Window
+    SDL_Window *GetSDLWindow() const { return m_window; } // HACK: For ImGui which needs SDL_Window
 
 private:
     void Init(Window &p_window);
@@ -51,6 +55,7 @@ private:
     float m_y = 0.0f;
     float m_width = 0.0f;
     float m_height = 0.0f;
+    float m_pixelsPerMeter = 32.0f; // 32 pixels = 1 meter, default scale factor for world-to-screen conversion
 
     std::unique_ptr<IGraphicsContext> m_graphicsContext;
 
@@ -58,3 +63,5 @@ private:
 
     SDL_Window *m_window = nullptr; // HACK: Needed for ImGui initialization
 };
+
+} // namespace Aeon

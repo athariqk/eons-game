@@ -26,3 +26,6 @@ endif()
 
 # spdlog
 add_subdirectory(spdlog)
+
+add_library(mINI INTERFACE mINI/ini.h)
+target_include_directories(mINI INTERFACE mINI)

@@ -2,6 +2,8 @@
 
 #include "Logger.h"
 
+namespace Aeon {
+
 AudioManager::AudioManager() {
     if (!SDL_Init(SDL_INIT_AUDIO)) {
         LOG_ERROR("Failed to initialize SDL audio submodule");
@@ -55,3 +57,5 @@ void AudioManager::PlayWAV(const char *path) {
         SDL_PutAudioStreamData(stream, wavBuffer, wavLength);
     }
 }
+
+} // namespace Aeon

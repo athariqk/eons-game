@@ -1,11 +1,14 @@
 #include "Logger.h"
 
-#include "spdlog/sinks/stdout_sinks.h"
+namespace Aeon {
 
-std::shared_ptr<spdlog::logger> Logger::Log;
+std::shared_ptr<spdlog::logger> Logger::m_engineLogger;
 
 void Logger::Init() {
-    spdlog::set_pattern("%^[%T] %n: %v%$");
-    Log = spdlog::stdout_logger_mt("Application");
-    Log->set_level(spdlog::level::trace);
+    m_engineLogger = spdlog::stdout_logger_mt("Engine");
+    m_engineLogger->set_pattern("%^[%T] [%!:%#] %v%$");
+    m_engineLogger->set_level(spdlog::level::trace);
+    LOG_TRACE("Engine log initialized");
 }
+
+} // namespace Aeon

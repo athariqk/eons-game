@@ -1,9 +1,7 @@
 #pragma once
 
-class NeuralNetwork
-{
+class NeuralNetwork {
 public:
-	NeuralNetwork();
-	~NeuralNetwork();
+    NeuralNetwork();
+    ~NeuralNetwork();
 };
-

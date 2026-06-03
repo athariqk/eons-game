@@ -2,6 +2,8 @@
 
 #include "Vector2D.h"
 
+namespace Aeon {
+
 //! \brief Camera interface for 2D rendering
 //! Defines the view transformation (what to see in the world)
 class ICamera {
@@ -20,3 +22,5 @@ public:
     //! \brief Set camera zoom
     virtual void SetZoom(float zoom) = 0;
 };
+
+} // namespace Aeon
