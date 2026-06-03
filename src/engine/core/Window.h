@@ -4,6 +4,9 @@
 
 struct SDL_Renderer;
 struct SDL_Window;
+
+namespace Aeon {
+
 struct Vector2D;
 
 class Window {
@@ -13,11 +16,11 @@ public:
 
     SDL_Renderer *GetRenderer() const;
 
-    SDL_Window *GetWindow() const;
+    SDL_Window *GetSDLWindow() const;
 
     Vector2D GetResolution() const;
 
-    uint32_t GetSDLWindowID() const;
+    uint32_t GetWindowID() const;
 
     void SetTitle(const char *title) const;
 
@@ -27,3 +30,5 @@ private:
     SDL_Window *sdlWindow{};
     SDL_Renderer *renderer{};
 };
+
+} // namespace Aeon

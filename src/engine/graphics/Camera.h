@@ -3,6 +3,8 @@
 #include "ICamera.h"
 #include "Vector2D.h"
 
+namespace Aeon {
+
 //! \brief Default 2D camera implementation
 class Camera2D : public ICamera {
 public:
@@ -24,3 +26,5 @@ private:
     Vector2D m_position{0.0f, 0.0f};
     float m_zoom = 1.0f;
 };
+
+} // namespace Aeon

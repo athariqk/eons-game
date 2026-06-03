@@ -1,22 +1,28 @@
 #pragma once
 
 // From Kass Engine
+#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE
+#include "spdlog/sinks/stdout_sinks.h"
 #include "spdlog/spdlog.h"
+
+namespace Aeon {
 
 class Logger {
 public:
     static void Init();
 
-    inline static std::shared_ptr<spdlog::logger> &GetLogger() { return Log; }
+    inline static std::shared_ptr<spdlog::logger> &GetEngineLogger() { return m_engineLogger; }
 
 private:
-    static std::shared_ptr<spdlog::logger> Log;
+    static std::shared_ptr<spdlog::logger> m_engineLogger;
 };
 
+} // namespace Aeon
+
 // Log macros
-#define LOG_TRACE(...) Logger::GetLogger()->trace(__VA_ARGS__)
-#define LOG_DEBUG(...) Logger::GetLogger()->debug(__VA_ARGS__)
-#define LOG_INFO(...) Logger::GetLogger()->info(__VA_ARGS__)
-#define LOG_WARN(...) Logger::GetLogger()->warn(__VA_ARGS__)
-#define LOG_ERROR(...) Logger::GetLogger()->error(__VA_ARGS__)
-#define LOG_FATAL(...) Logger::GetLogger()->fatal(__VA_ARGS__)
+#define LOG_TRACE(...) SPDLOG_LOGGER_TRACE(Aeon::Logger::GetEngineLogger(), __VA_ARGS__)
+#define LOG_DEBUG(...) SPDLOG_LOGGER_DEBUG(Aeon::Logger::GetEngineLogger(), __VA_ARGS__)
+#define LOG_INFO(...) SPDLOG_LOGGER_INFO(Aeon::Logger::GetEngineLogger(), __VA_ARGS__)
+#define LOG_WARN(...) SPDLOG_LOGGER_WARN(Aeon::Logger::GetEngineLogger(), __VA_ARGS__)
+#define LOG_ERROR(...) SPDLOG_LOGGER_ERROR(Aeon::Logger::GetEngineLogger(), __VA_ARGS__)
+#define LOG_FATAL(...) SPDLOG_LOGGER_FATAL(Aeon::Logger::GetEngineLogger(), __VA_ARGS__)

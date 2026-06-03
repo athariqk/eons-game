@@ -1,46 +1,69 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
-#include <AudioManager.h>
-#include <Physics.h>
-#include <Window.h>
-#include <Scene.h>
-#include <Viewport.h>
-#include <Event.h>
+#include <string>
+
+#include <InputEvents.h>
+#include <Services.h>
 
 enum SDL_Scancode;
-class IGraphicsContext;
+
+namespace Aeon {
+
+class World;
 
 class MainLoop {
 public:
-	MainLoop(Window &p_window);
-	~MainLoop();
+    MainLoop(const std::string &p_appName, Services &p_serviceRegistry);
+    ~MainLoop();
 
-	void SetCurrentScene(std::unique_ptr<Scene> scene);
-	Scene *GetCurrentScene();
+    int Run();
+    void Stop() { m_running = false; }
+    bool IsRunning() const { return m_running; }
 
-	void Init();
-	void HandleEvents();
-	void Update(double p_delta, uint64_t p_ticks);
-	void Render();
-	void Clean();
+    /**
+     * @brief Poll events from the OS side
+     */
+    void PollEvents();
 
-	bool running() const { return m_running; }
+    void FixedUpdate(double p_delta);
 
-	uint64_t &GetTick() { return m_ticks; }
+    void Update(double p_delta);
+
+    void Clean();
+
+    void ChangeWorld(std::unique_ptr<World> p_world);
+    World &GetCurrentWorld();
+
+    uint64_t &GetTick() { return m_ticks; }
+
+	// Access to the engine's main services
+    Services &GetServices() { return m_services; }
+
+	EventBus &GetEventBus() { return m_eventBus; }
 
 private:
-	bool m_running = false;
+    void UpdateActiveWorld();
 
-	Window &m_mainWindow;
+private:
+    bool m_running = false;
 
-	std::unique_ptr<Scene> m_currentScene;
+    std::string m_appName;
 
-	Viewport2D m_viewport2d;
-	Physics2D m_physics2d{};
-	AudioManager m_audio{};
+    // Referenced service registry
+    Services &m_services;
 
-	uint64_t m_ticks = 0;
+    // Event bus
+    EventBus m_eventBus;
 
-	KeyEvent::Key MapSDLKeyToKey(SDL_Scancode scancode);
+    std::unique_ptr<World> m_activeWorld;
+    std::unique_ptr<World> m_nextWorld;
+    bool m_worldDirty = false;
+
+    uint64_t m_ticks = 0;
+
+    KeyboardEvent::Key MapSDLKeyToKey(SDL_Scancode scancode);
 };
+
+} // namespace Aeon

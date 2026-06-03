@@ -4,6 +4,8 @@
 
 #include <SDL3/SDL.h>
 
+namespace Aeon {
+
 class AudioManager {
 public:
     AudioManager();
@@ -18,3 +20,5 @@ private:
     Uint32 wavLength{};
     Uint8 *wavBuffer{};
 };
+
+} // namespace Aeon

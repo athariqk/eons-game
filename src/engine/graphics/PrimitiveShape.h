@@ -1,16 +1,18 @@
 #pragma once
 
-#include "config.h"
-
 #include <SDL3/SDL.h>
 
 struct SDL_Renderer;
 
+namespace Aeon {
+
 class PrimitiveShape {
 public:
     /* \todo Add enum for color codes */
-    static void DrawCircle(SDL_Renderer *renderer, float posX, float posY, float radius, SDL_Color color, bool filled, bool edge) {
-        if (!renderer) return;
+    static void DrawCircle(SDL_Renderer *renderer, float posX, float posY, float radius, SDL_Color color, bool filled,
+                           bool edge) {
+        if (!renderer)
+            return;
 
         SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
 
@@ -46,11 +48,21 @@ public:
 
     // Parameters doesn't work
     static void DrawRectangle(SDL_Renderer *renderer, float posX, float posY, float size) {
-        if (!renderer) return;
+        if (!renderer)
+            return;
 
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
         SDL_FRect rect = {posX, posY, size, size};
         SDL_RenderRect(renderer, &rect);
     }
+
+    static void DrawLine(SDL_Renderer *renderer, float x1, float y1, float x2, float y2, SDL_Color color) {
+        if (!renderer)
+            return;
+        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+        SDL_RenderLine(renderer, x1, y1, x2, y2);
+    }
 };
+
+} // namespace Aeon

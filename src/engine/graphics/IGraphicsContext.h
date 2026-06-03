@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+namespace Aeon {
+
 struct Color {
     uint8_t r, g, b, a;
 };
@@ -17,13 +19,15 @@ public:
     // Basic rendering
     virtual void Clear() = 0;
     virtual void Present() = 0;
-    virtual void SetDrawColor(const Color& color) = 0;
+    virtual void SetDrawColor(const Color &color) = 0;
 
     // Shape drawing
-    virtual void DrawRect(const Rect& rect) = 0;
-    virtual void FillRect(const Rect& rect) = 0;
+    virtual void DrawRect(const Rect &rect) = 0;
+    virtual void FillRect(const Rect &rect) = 0;
     virtual void DrawPoint(float x, float y) = 0;
 
     // Get implementation handle (for internal use only by engine systems)
-    virtual void* GetNativeHandle() const = 0;
+    virtual void *GetNativeHandle() const = 0;
 };
+
+} // namespace Aeon

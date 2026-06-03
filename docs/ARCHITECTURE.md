@@ -1,145 +1,311 @@
-# Architecture Summary
+# ECS + Systems Architecture - Complete
 
-## Diagram
+## Overview
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                         MainLoop                             │
-│                                                              │
-│  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐     │
-│  │   Window    │  │   Physics2D  │  │  AudioManager    │     │
-│  └─────────────┘  └──────────────┘  └──────────────────┘     │
-│         │                                                    │
-│         ▼                                                    │
-│  ┌─────────────────────┐                                     │
-│  │ SDLGraphicsContext  │ (IGraphicsContext)                  │
-│  └─────────────────────┘                                     │
-│         │                                                    │
-│         │ Events (KeyEvent, MouseEvent)                      │
-│         ▼                                                    │
-└────────────────────────────────────────────────────────────┬─┘
-                                                             │
-                 ┌───────────────────────────────────────────┘
-                 ▼
-         ┌───────────────┐
-         │  Scene (Base) │  (Abstract, no game logic)
-         └───────────────┘
-                 │
-                 │ provides: IGraphicsContext*, Physics2D, Viewport
-                 │ receives: Events
-                 │
-                 ▼
-      ┌──────────────────────┐
-      │  MicrocosmScene      │  (Game-specific)
-      │                      │ ✅ Game logic here
-      │  - Species tracking  │
-      │  - Event handling    │
-      └──────────────────────┘
-                 │
-                 ▼
-         ┌────────────────┐
-         │ EntityManager  │
-         │   - Entities   │
-         │   - Components │
-         └────────────────┘
+The engine now uses a clean **ECS (Entity-Component-System)** architecture with **Services** for subsystem access.
+
+---
+
+## Core Concepts
+
+### 1. **Components = Pure Data**
+Components are POD (Plain Old Data) structures:
+
+```cpp
+struct TransformComponent : public Component {
+    Vector2D position{0.0f, 0.0f};
+    float rotation = 0.0f;
+    Vector2D scale{1.0f, 1.0f};
+};
 ```
 
-## Event Flow
+**No logic in components!**  
+- No `OnUpdate()`, `OnDraw()`, `OnInit()`
+- Just data + constructors
 
-```
-1. User presses 'W' key
-         ↓
-2. SDL generates SDL_EVENT_KEY_DOWN
-         ↓
-3. MainLoop::HandleEvents() converts to KeyEvent
-         ↓
-4. scene->OnEvent(keyEvent)
-         ↓
-5. MicrocosmScene::OnEvent() tracks key as pressed
-         ↓
-6. MainLoop::Update() → scene->_OnUpdate()
-         ↓
-7. Scene::_OnUpdate() updates EntityManager + calls scene->OnUpdate()
-         ↓
-8. MicrocosmScene::OnUpdate() moves camera based on pressed keys
-```
+---
 
-## Render Flow
+### 2. **Systems = Logic**
+Systems process entities with specific component combinations:
 
-```
-1. MainLoop::Render()
-         ↓
-2. Clear frame via IGraphicsContext
-         ↓
-3. scene->_OnRender()
-         ↓
-4. Scene::_OnRender() calls EntityManager::Draw()
-         ↓
-5. Component OnDraw() methods render world objects
-         ↓
-6. scene->OnRender() renders scene-specific overlays/UI (ImGui)
-         ↓
-7. Present frame
+```cpp
+class PhysicsSystem : public System {
+    void OnFixedUpdate(World &world, double fixedDelta) override {
+        m_physics.Step();
+
+        // Iterate entities and sync physics → transforms
+        for (auto &entity : world.GetEntities()) {
+            if (entity->HasComponent<PhysicsBody>() && 
+                entity->HasComponent<TransformComponent>()) {
+                // Sync logic here
+            }
+        }
+    }
+
+    Physics2D m_physics;  // System owns the subsystem
+};
 ```
 
-## Viewport & Coordinates
+**Systems own engine subsystems:**
+- `PhysicsSystem` owns `Physics2D`
+- `AudioSystem` queues audio events
+- `RenderSystem` accesses `Viewport2D` via Services
 
-- `Viewport2D` stores the SDL window pointer and graphics context.
-- Camera defaults to world position `(0,0)` with zoom `1.0`.
-- `WorldToScreen` uses:
-  - camera-relative translation: `(world - camera)`
-  - zoom scaling
-  - viewport centering: `+ (width/2, height/2)`
-- `ScreenToWorld` is the inverse transformation.
-- Gameplay entities are spawned in world space; rendering converts to screen space through `Viewport2D`.
+---
 
-## File Structure
+### 3. **Services = Subsystem Registry**
+Type-safe service locator for engine subsystems:
 
-```
-src/engine/
-├── core/
-│   ├── Event.h/cpp              KeyEvent, MouseEvent, BaseEvent
-│   ├── MainLoop.h/cpp           Event generation, update/render loop
-│   ├── EntitySystem.h           ECS architecture
-│   └── ...
-├── graphics/
-│   ├── IGraphicsContext.h       Graphics abstraction interface
-│   ├── SDLGraphicsContext.h     SDL implementation
-│   ├── Viewport.h/cpp           Camera + world/screen coordinate transforms
-│   └── ...
-└── scene/
-    └── Scene.h/cpp              Abstract base class + _OnUpdate/_OnRender wrappers
+```cpp
+// Register during engine init
+Services services;
+services.Register<Window>(window);
+services.Register<Viewport2D>(viewport);
+services.Register<AudioManager>(audio);
 
-src/game/microcosm/
-├── microcosm.h/cpp              Game scene with camera and simulation logic
-├── organism.cpp                 Game component
-└── ...
-
-docs/
-├── ARCHITECTURE_REFACTORING.md  Detailed architectural overview
-├── EVENT_SYSTEM.md              Event system deep dive
-└── QUICK_REFERENCE.md           Developer quick reference
+// Access in systems
+auto &viewport = world.GetServices().Get<Viewport2D>();
+auto *audio = world.GetServices().TryGet<AudioManager>();  // Returns nullptr if not found
 ```
 
-## Future Enhancements
+**Benefits:**
+- ✅ No global state
+- ✅ No EngineContext struct bloat
+- ✅ Type-safe access
+- ✅ Easy to mock for testing
 
-Possible future improvements:
+---
 
-1. **More Event Types**
-   - GamepadEvent for controller support
-   - TouchEvent for mobile
-   - TextInputEvent for text fields
+## World Setup Example
 
-2. **Event Filtering**
-   - Scenes can opt out of certain events
-   - Event priority system
+```cpp
+class GameWorld : public World {
+    void OnInit() override {
+        // Add systems (they auto-sort by priority)
+        auto &physics = AddSystem<PhysicsSystem>();
+        auto &audio = AddSystem<AudioSystem>();
+        auto &render = AddSystem<RenderSystem>();
 
-3. **Complete SDL Abstraction**
-   - IWindow interface
-   - ITexture interface
-   - No SDL types anywhere in public API
+        // Create entities with components
+        auto &player = CreateEntity();
+        player.AddComponent<TransformComponent>(Vector2D(100, 100));
+        player.AddComponent<SpriteComponent>("player.png");
 
-4. **Serialization**
-   - Record/replay event streams
-   - Network synchronization
-   - Automated testing via event playback
+        // Access physics from world
+        auto &phys = GetSystem<PhysicsSystem>()->GetPhysics();
+        player.AddComponent<PhysicsBodyComponent>(phys);
+
+        // Or access services
+        auto &audio = GetServices().Get<AudioManager>();
+        audio.PlayWAV("game_start.wav");
+    }
+};
+```
+
+---
+
+## System Lifecycle
+
+Systems have 5 lifecycle hooks:
+
+1. **`OnInit(World &world)`** - Called once when world starts
+2. **`OnFixedUpdate(World &world, double fixedDelta)`** - Deterministic, fixed 60 Hz
+3. **`OnVariableUpdate(World &world, double delta)`** - Variable framerate, for animation/particles
+4. **`OnRender(World &world)`** - Called during render phase
+5. **`OnShutdown(World &world)`** - Called when world ends
+
+**Execution Order:**
+```
+Frame Loop:
+  1. PollEvents()
+  2. FixedUpdate Loop (1-5 times per frame)
+     - PhysicsSystem::OnFixedUpdate  (priority -100)
+     - GameplaySystem::OnFixedUpdate (priority 0)
+  3. VariableUpdate (once per frame)
+     - AnimationSystem::OnVariableUpdate (priority 10)
+     - AudioSystem::OnVariableUpdate (priority 50)
+  4. Render (once per frame)
+     - RenderSystem::OnRender (priority 100)
+```
+
+---
+
+## Fixed Timestep
+
+The game loop now uses a **fixed timestep accumulator**:
+
+```cpp
+constexpr double FIXED_DT = 1.0 / 60.0;  // 16.67ms
+
+while (accumulator >= FIXED_DT) {
+    Update(FIXED_DT);  // Deterministic!
+    accumulator -= FIXED_DT;
+}
+
+Render();  // Can run at any FPS
+```
+
+**Benefits:**
+- ✅ Physics runs at consistent 60 Hz
+- ✅ Same inputs → same outputs (deterministic)
+- ✅ Ready for networked multiplayer
+- ✅ No spiral of death (clamped accumulator)
+
+---
+
+## API Changes from Old System
+
+### **Old (Removed):**
+```cpp
+// Components had logic
+struct MyComponent : Component {
+    void OnUpdate(float delta) override { /* logic here */ }
+    void OnDraw() override { /* drawing here */ }
+};
+
+// EngineContext passed everywhere
+EngineContext ctx {.window = ..., .viewport = ..., .audio = ...};
+world.SetEngineContext(ctx);
+
+// Components accessed entity->GetWorld().GetWindow()
+```
+
+### **New (Current):**
+```cpp
+// Components are pure data
+struct MyComponent : Component {
+    int health = 100;
+    float speed = 5.0f;
+};
+
+// Services registered centrally
+Services services;
+services.Register<Window>(window);
+services.Register<Viewport2D>(viewport);
+
+world.SetServices(services);
+
+// Systems access services
+auto &viewport = world.GetServices().Get<Viewport2D>();
+```
+
+---
+
+## How to Add a New System
+
+1. **Create the system class:**
+```cpp
+// src/engine/systems/MySystem.h
+class MySystem : public System {
+public:
+    MySystem() {
+        SetPriority(0);  // Set execution order
+    }
+
+    void OnFixedUpdate(World &world, double fixedDelta) override {
+        // Game logic here
+        for (auto &entity : world.GetEntities()) {
+            if (entity->HasComponent<MyComponent>()) {
+                auto &comp = entity->GetComponent<MyComponent>();
+                // Process component
+            }
+        }
+    }
+};
+```
+
+2. **Add to CMakeLists.txt:**
+```cmake
+"src/engine/systems/MySystem.h"
+```
+
+3. **Register in world:**
+```cpp
+void GameWorld::OnInit() override {
+    AddSystem<MySystem>();
+}
+```
+
+---
+
+## How to Access Engine APIs from Components
+
+**Don't!** Components should not have logic.
+
+**Instead, use systems:**
+
+```cpp
+// Want audio? Use AudioSystem
+auto *audioSys = world.GetSystem<AudioSystem>();
+audioSys->PlaySound("boom.wav");
+
+// Want physics? Use PhysicsSystem
+auto *physicsSys = world.GetSystem<PhysicsSystem>();
+auto &physics = physicsSys->GetPhysics();
+b2BodyId body = physics.CreateBody(&bodyDef);
+
+// Want rendering? Use RenderSystem + components
+entity.AddComponent<SpriteComponent>("texture.png");
+entity.AddComponent<TransformComponent>(position);
+```
+
+---
+
+## Key Files
+
+- **`src/engine/ecs/System.h`** - System base class
+- **`src/engine/ecs/Component.h`** - Component base class (pure data)
+- **`src/engine/ecs/Entity.h`** - Entity (component container)
+- **`src/engine/core/World.h`** - World (entity + system manager)
+- **`src/engine/core/Services.h`** - Service locator
+- **`src/engine/systems/PhysicsSystem.h`** - Physics system
+- **`src/engine/systems/AudioSystem.h`** - Audio system
+- **`src/engine/systems/RenderSystem.h`** - Rendering system
+
+---
+
+## Migration Guide (For Your Game Code)
+
+Your old game code has these issues:
+
+1. **Components with `override` methods** → Remove, implement as systems
+2. **`GetWindow()` / `GetViewport2D()` calls** → Use `GetServices()`
+3. **`entity->GetManager()`** → Use `entity->GetWorld()`
+
+Example fix:
+
+```cpp
+// Old
+class MyComponent : public Component {
+    void OnUpdate(float delta) override {
+        auto &audio = entity->GetManager().GetWorld().GetAudioManager();
+        audio.PlayWAV("sound.wav");
+    }
+};
+
+// New
+class MySystem : public System {
+    void OnVariableUpdate(World &world, double delta) override {
+        auto *audio = world.GetServices().TryGet<AudioManager>();
+        if (!audio) return;
+
+        for (auto &entity : world.GetEntities()) {
+            if (entity->HasComponent<MyComponent>()) {
+                audio->PlayWAV("sound.wav");
+            }
+        }
+    }
+};
+```
+
+---
+
+## Summary
+
+✅ **Clean ECS architecture** - components = data, systems = logic  
+✅ **Fixed timestep** - deterministic simulation  
+✅ **Services pattern** - no more EngineContext  
+✅ **System priorities** - predictable execution order  
+✅ **Ready for multiplayer** - deterministic + state-based  
+
+The core engine is now production-ready. Happy refactoring! 🚀

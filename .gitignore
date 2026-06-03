@@ -20,3 +20,5 @@ cmake-build-dist/
 **.**.bak
 
 imgui.ini
+
+CMakeUserPresets.json

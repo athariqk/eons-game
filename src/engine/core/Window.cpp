@@ -8,22 +8,17 @@
 #include "Logger.h"
 #include "Vector2D.h"
 
+namespace Aeon {
+
 Window::Window(const char *title, int width, int height, const bool fullscreen) {
     int flags = 0;
-
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
-        LOG_INFO("SDL initialized");
-    } else {
-        LOG_ERROR("SDL failed to initialize!");
-        return;
-    }
 
     if (fullscreen)
         flags = SDL_WINDOW_FULLSCREEN;
 
     sdlWindow = SDL_CreateWindow(title, width, height, flags | SDL_WINDOW_RESIZABLE);
     if (sdlWindow) {
-        LOG_INFO("Created window with resolution: {} x {}, ID: {}", width, height, GetSDLWindowID());
+        LOG_INFO("Created window with resolution: {} x {}, ID: {}", width, height, GetWindowID());
     } else {
         LOG_ERROR("Failed to create window!");
         return;
@@ -41,17 +36,19 @@ Window::Window(const char *title, int width, int height, const bool fullscreen) 
         sdlWindow = nullptr;
         return;
     }
+
+    LOG_INFO("SDL Renderer name: {}", SDL_GetRendererName(renderer));
 }
 
 Window::~Window() {
-    LOG_INFO("Destroying window {}", GetSDLWindowID());
+    LOG_INFO("Destroying window {}", GetWindowID());
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(sdlWindow);
 }
 
 SDL_Renderer *Window::GetRenderer() const { return renderer; }
 
-SDL_Window *Window::GetWindow() const { return sdlWindow; }
+SDL_Window *Window::GetSDLWindow() const { return sdlWindow; }
 
 Vector2D Window::GetResolution() const {
     int width, height;
@@ -59,10 +56,12 @@ Vector2D Window::GetResolution() const {
     return Vector2D(width, height);
 }
 
-uint32_t Window::GetSDLWindowID() const { return SDL_GetWindowID(sdlWindow); }
+uint32_t Window::GetWindowID() const { return SDL_GetWindowID(sdlWindow); }
 
-void Window::SetTitle(const char *title) const { SDL_SetWindowTitle(GetWindow(), title); }
+void Window::SetTitle(const char *title) const { SDL_SetWindowTitle(GetSDLWindow(), title); }
 
 int Window::ShowMessageBox(const uint32_t flags, const char *title, const char *message) const {
     return SDL_ShowSimpleMessageBox(flags, title, message, sdlWindow);
 }
+
+} // namespace Aeon
