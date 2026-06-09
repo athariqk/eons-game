@@ -56,10 +56,5 @@ void OrganismSystem::OnFixedUpdate(Aeon::World &world, double fixedDelta) {
         if (organism.fitness > 100) {
             organism.fitness = 100;
         }
-
-        // Do random mutations
-        /*if (organism.genome.mutate(5, 1)) {
-            Aeon::LOG_INFO("Mutation occurred on organism {}", organism.entity->GetID());
-        }*/
     }
 }

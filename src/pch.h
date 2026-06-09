@@ -9,6 +9,8 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+#define RADIAN_TO_DEGREE 57.2957795131
+
 #define _AEON_FE_1(M, S, a) M(S, a)
 #define _AEON_FE_2(M, S, a, ...) M(S, a) _AEON_FE_1(M, S, __VA_ARGS__)
 #define _AEON_FE_3(M, S, a, ...) M(S, a) _AEON_FE_2(M, S, __VA_ARGS__)

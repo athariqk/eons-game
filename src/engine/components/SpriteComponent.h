@@ -11,8 +11,9 @@ struct SpriteComponent : public Component {
     SpriteComponent(std::string texturePath) : texturePath(texturePath) {}
 
     std::string texturePath;
-    SDL_Texture *texturePtr = nullptr;
-    SDL_FRect rect{};
+    void *texturePtr = nullptr;
+    Rect rect{};
+    float angle = 0; // in radians
 };
 
 /**
@@ -20,7 +21,7 @@ struct SpriteComponent : public Component {
  */
 struct TempCircleComponent : public Component {
     float radius = 1.0f;
-    SDL_Color color{0, 0, 0, 255};
+    Color color{0, 0, 0, 255};
     bool filled = false;
     bool edge = false;
 };

@@ -4,6 +4,7 @@
 #include <RigidBodyComponent.h>
 #include <TransformComponent.h>
 #include <World.h>
+#include <imgui.h>
 
 namespace Aeon {
 
@@ -64,8 +65,14 @@ void PhysicsSystem::OnFixedUpdate(World &world, double fixedDelta) {
         auto [x, y] = b2Body_GetPosition(body.b2Id);
         transform.position.x = x;
         transform.position.y = y;
-        transform.rotation = b2Rot_GetAngle(b2Body_GetRotation(body.b2Id));
+        transform.angle = b2Rot_GetAngle(b2Body_GetRotation(body.b2Id));
     }
+}
+
+void PhysicsSystem::OnGuiRender(World &world) {
+    ImGui::Begin("Physics");
+    ImGui::Checkbox("Debug Draw", &m_physics->isDebugDraw);
+    ImGui::End();
 }
 
 void PhysicsSystem::InitializeRigidBody(RigidBodyComponent &body, TransformComponent &transform) {

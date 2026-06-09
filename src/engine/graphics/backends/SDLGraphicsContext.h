@@ -7,27 +7,16 @@ namespace Aeon {
 
 class SDLGraphicsContext : public IGraphicsContext {
 public:
-    explicit SDLGraphicsContext(SDL_Renderer *renderer) : m_renderer(renderer) {}
+    SDLGraphicsContext(SDL_Renderer *renderer) : m_renderer(renderer) {}
 
-    void Clear() override { SDL_RenderClear(m_renderer); }
+    void Clear() override;
+    void Present() override;
+    void SetDrawColor(const Color &color) override;
 
-    void Present() override { SDL_RenderPresent(m_renderer); }
-
-    void SetDrawColor(const Color &color) override {
-        SDL_SetRenderDrawColor(m_renderer, color.r, color.g, color.b, color.a);
-    }
-
-    void DrawRect(const Rect &rect) override {
-        SDL_FRect sdlRect = {rect.x, rect.y, rect.w, rect.h};
-        SDL_RenderRect(m_renderer, &sdlRect);
-    }
-
-    void FillRect(const Rect &rect) override {
-        SDL_FRect sdlRect = {rect.x, rect.y, rect.w, rect.h};
-        SDL_RenderFillRect(m_renderer, &sdlRect);
-    }
-
-    void DrawPoint(float x, float y) override { SDL_RenderPoint(m_renderer, x, y); }
+	void DrawLine(const Rect &rect) override;
+    void DrawRect(const Rect &rect) override;
+    void FillRect(const Rect &rect) override;
+    void DrawPoint(float x, float y) override;
 
     void *GetNativeHandle() const override { return m_renderer; }
 

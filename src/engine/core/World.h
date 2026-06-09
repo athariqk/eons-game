@@ -19,7 +19,8 @@ class IGraphicsContext;
 
 /**
  * @brief The World class manages entities and systems, driven by the MainLoop.
- * It serves as the "core" of the ECS architecture.
+ * It serves as the "core" of the ECS architecture
+ * and context bridge between the engine and the game.
  */
 class World {
 public:

@@ -54,31 +54,31 @@ add_executable(eons "src/main.cpp"
 	"src/engine/systems/RenderSystem.h" "src/engine/systems/RenderSystem.cpp"
 	"src/engine/systems/AudioSystem.h" "src/engine/systems/AudioSystem.cpp"
 	"src/engine/systems/InputSystem.h" "src/engine/systems/InputSystem.cpp"
-	"src/engine/graphics/PrimitiveShape.h"
     "src/engine/graphics/TextureManager.h" "src/engine/graphics/TextureManager.cpp"
     "src/engine/graphics/Viewport.h" "src/engine/graphics/Viewport.cpp"
     "src/engine/graphics/ICamera.h"
     "src/engine/graphics/Camera.h" "src/engine/graphics/Camera.cpp"
-    "src/engine/graphics/IGraphicsContext.h"
-    "src/engine/graphics/backends/SDLGraphicsContext.h"
+    "src/engine/graphics/IGraphicsContext.h" "src/engine/graphics/IGraphicsContext.cpp"
+    "src/engine/graphics/backends/SDLGraphicsContext.h" "src/engine/graphics/backends/SDLGraphicsContext.cpp"
+	"src/engine/graphics/Color.h"
     "src/engine/gui/backends/ImGuiSDL.h" "src/engine/gui/backends/ImGuiSDL.cpp"
     "src/engine/gui/backends/ImGuiSDLRenderer.h" "src/engine/gui/backends/ImGuiSDLRenderer.cpp"
     "src/engine/gui/Gui.h" "src/engine/gui/Gui.cpp"
     "src/engine/physics/Physics.h" "src/engine/physics/Physics.cpp"
 	"src/engine/utils/Config.h"
     "src/game/experimental/NeuralNetwork/neural_network.h" "src/game/experimental/NeuralNetwork/neural_network.cpp"
-    "src/game/microcosm/Evolution.cpp"
-    "src/game/microcosm/evolution.h"
-    "src/game/microcosm/Genes.h"
-    "src/game/microcosm/MicrocosmWorld.h" "src/game/microcosm/MicrocosmWorld.cpp"
-    "src/game/microcosm/components/NutrientComponent.h"
-    "src/game/microcosm/components/OrganismComponent.h" "src/game/microcosm/components/OrganismComponent.cpp"
-    "src/game/microcosm/components/OrganismAIComponent.h" "src/game/microcosm/components/OrganismAIComponent.cpp"
-    "src/game/microcosm/components/SpeciesComponent.h" "src/game/microcosm/components/SpeciesComponent.cpp"
-	"src/game/microcosm/systems/NutrientSystem.h" "src/game/microcosm/systems/NutrientSystem.cpp"
-    "src/game/microcosm/systems/OrganismSystem.h" "src/game/microcosm/systems/OrganismSystem.cpp"
-    "src/game/microcosm/systems/OrganismAISystem.h" "src/game/microcosm/systems/OrganismAISystem.cpp"
-    "src/game/microcosm/systems/SpeciesSystem.h" "src/game/microcosm/systems/SpeciesSystem.cpp"
+    "src/game/microcosmos/Evolution.cpp"
+    "src/game/microcosmos/evolution.h"
+    "src/game/microcosmos/Genes.h"
+    "src/game/microcosmos/MicrocosmWorld.h" "src/game/microcosmos/MicrocosmWorld.cpp"
+    "src/game/microcosmos/components/NutrientComponent.h"
+    "src/game/microcosmos/components/OrganismComponent.h" "src/game/microcosmos/components/OrganismComponent.cpp"
+    "src/game/microcosmos/components/OrganismAIComponent.h" "src/game/microcosmos/components/OrganismAIComponent.cpp"
+    "src/game/microcosmos/components/SpeciesComponent.h" "src/game/microcosmos/components/SpeciesComponent.cpp"
+	"src/game/microcosmos/systems/NutrientSystem.h" "src/game/microcosmos/systems/NutrientSystem.cpp"
+    "src/game/microcosmos/systems/OrganismSystem.h" "src/game/microcosmos/systems/OrganismSystem.cpp"
+    "src/game/microcosmos/systems/OrganismAISystem.h" "src/game/microcosmos/systems/OrganismAISystem.cpp"
+    "src/game/microcosmos/systems/SpeciesSystem.h" "src/game/microcosmos/systems/SpeciesSystem.cpp"
 )
 
 # Define preprocessor macros
@@ -147,7 +147,7 @@ target_include_directories(eons PUBLIC
         ${CMAKE_SOURCE_DIR}/src/engine/utils
         ${CMAKE_SOURCE_DIR}/src/game
         ${CMAKE_SOURCE_DIR}/src/game/experimental
-        ${CMAKE_SOURCE_DIR}/src/game/microcosm
+        ${CMAKE_SOURCE_DIR}/src/game/microcosmos
         ${CMAKE_SOURCE_DIR}/vendors/imgui
 )
 

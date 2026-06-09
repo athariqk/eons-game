@@ -32,7 +32,7 @@ Gui::Gui(Window &window) : m_window(window) {
         return;
     }
 
-    ImGui::StyleColorsClassic();
+    ImGui::StyleColorsLight();
 
     m_initialized = true;
     LOG_INFO("ImGui Initialized");

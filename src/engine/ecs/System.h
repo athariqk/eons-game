@@ -64,7 +64,8 @@ public:
     virtual void OnRender(World &world, IGraphicsContext &graphics) {}
 
     /**
-     * @brief Called during the GUI render phase. ImGui calls can be placed here.
+     * @brief Called during the GUI render phase.
+	 * Immediate-mode GUI calls can be placed here.
      */
     virtual void OnGuiRender(World &world) {}
 

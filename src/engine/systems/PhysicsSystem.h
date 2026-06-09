@@ -26,6 +26,7 @@ public:
 
     bool OnInit(World &world) override;
     void OnFixedUpdate(World &world, double fixedDelta) override;
+    void OnGuiRender(World &world) override;
 
 private:
     void InitializeRigidBody(RigidBodyComponent &body, TransformComponent &transform);

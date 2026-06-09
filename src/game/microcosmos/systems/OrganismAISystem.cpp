@@ -243,6 +243,11 @@ void OrganismAISystem::Reproduce(Aeon::World &world, Aeon::Entity &entity, Organ
         offspringTransform.position = transform.position;
     }
 
+    // Do random mutations
+    if (offspring.genome.mutate(5, 1)) {
+        LOG_INFO("Mutation occurred on organism {}", offspring.entity->GetID());
+    }
+
     organism.curEnergy -= 15.0f; // Childbirth tax
     LOG_INFO("Organism {} reproduced", organism.entity->GetID());
 }

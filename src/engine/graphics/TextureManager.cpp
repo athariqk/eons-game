@@ -17,8 +17,8 @@ SDL_Texture *TextureManager::LoadTexture(SDL_Renderer *renderer, const char *pat
     return texture;
 }
 
-void TextureManager::Draw(SDL_Renderer *renderer, SDL_Texture *tex, SDL_FRect *src, SDL_FRect *dest) {
-    SDL_RenderTexture(renderer, tex, src, dest);
+void TextureManager::Draw(SDL_Renderer *renderer, SDL_Texture *tex, SDL_FRect *src, SDL_FRect *dest, double angle) {
+    SDL_RenderTextureRotated(renderer, tex, src, dest, angle * RADIAN_TO_DEGREE, NULL, SDL_FlipMode::SDL_FLIP_NONE);
 }
 
 } // namespace Aeon

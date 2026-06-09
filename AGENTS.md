@@ -7,21 +7,25 @@ Guidance for AI coding agents working in this repository.
 Read these before making non-trivial changes:
 
 1. [README.md](README.md)
-2. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+2. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — see [docs gotchas](#known-doc-discrepancies) below
 3. [CMakeLists.txt](CMakeLists.txt)
 4. [CMakePresets.json](CMakePresets.json)
-5. [CMakeUserPresets.json](CMakeUserPresets.json)
-6. [src/main.cpp](src/main.cpp)
+5. [src/main.cpp](src/main.cpp)
+6. [src/pch.h](src/pch.h) — version macros, AEON_FOR_EACH
 
 ## Build And Run (Windows)
+
+Prerequisite: `$env:VCPKG_ROOT` must point to a working vcpkg clone.
 
 Preferred build path is CMake.
 
 1. Configure:
 
 ```powershell
-cmake --preset default
+cmake --preset windows-debug
 ```
+
+*(Also available: `windows-release`)*
 
 2. Build:
 
@@ -34,12 +38,12 @@ cmake --build build --config Debug
 ```powershell
 .\build\bin\Debug\eons_d.exe
 ```
+*(Debug builds append `_d` per `CMakeLists.txt:116`)*
 
 Notes:
 
-- The `default` preset inherits `vcpkg`; ensure `VCPKG_ROOT` is set.
-- Release variants are `Release` and `Dist`.
-- Assets are copied to the output directory after build by [CMakeLists.txt](CMakeLists.txt).
+- Release variants: `cmake --build build --config Release` (binary `eons.exe`), `--config Dist`.
+- Assets and `.ini` files are auto-copied to the output directory at build time by `cmake/copy_files.cmake`.
 
 ## Code Boundaries
 
@@ -65,10 +69,19 @@ There is no dedicated automated test suite configured at repository root; rely o
 
 - Main loop and lifecycle: [src/engine/core/MainLoop.h](src/engine/core/MainLoop.h)
 - Event model: [src/engine/core/Event.h](src/engine/core/Event.h)
-- Scene base type: [src/engine/scene/World.h](src/engine/scene/World.h)
+- Scene base type: [src/engine/core/World.h](src/engine/core/World.h)
 - Rendering abstraction: [src/engine/graphics/IGraphicsContext.h](src/engine/graphics/IGraphicsContext.h)
 - View transforms: [src/engine/graphics/Viewport.h](src/engine/graphics/Viewport.h)
-- Current game scene: [src/game/microcosm/Microcosm.h](src/game/microcosm/Microcosm.h)
+- Current game scene: [src/game/microcosm/MicrocosmWorld.h](src/game/microcosm/MicrocosmWorld.h)
+
+## Known Doc Discrepancies
+
+`docs/ARCHITECTURE.md` contains stale claims that will cause compile errors if followed literally:
+
+- **`world.GetServices()` does not exist.** The correct access is `world.GetMainLoop().GetServices()`.
+- **`OnRender` signature** is `OnRender(World &world, IGraphicsContext &graphics)`, not just `(World &world)`.
+- **Actual system hooks** (in `src/engine/ecs/System.h`): `OnInit`, `OnFixedUpdate`, `OnVariableUpdate`, `OnPostUpdate`, `OnRender`, `OnGuiRender`, `OnShutdown`. The doc lists 5 of 7, missing `OnPostUpdate` and `OnGuiRender`.
+- **Camera class** is `Camera2D`, not `Camera`.
 
 ## Dependency Notes
 

@@ -25,8 +25,8 @@ int Engine::Init() {
 
     m_mainWindow = std::make_shared<Window>(m_app_name.c_str(), m_windowConf.SizeWidth, m_windowConf.SizeHeight,
                                             m_windowConf.Fullscreen);
-    m_physics2d = std::make_shared<Physics2D>();
     m_viewport2d = std::make_shared<Viewport2D>(*m_mainWindow, m_renderConf.PixelsPerMeter);
+    m_physics2d = std::make_shared<Physics2D>();
     m_audio = std::make_shared<AudioManager>();
     m_gui = std::make_shared<Gui>(*m_mainWindow);
 
