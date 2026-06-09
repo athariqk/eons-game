@@ -64,6 +64,8 @@ private:
     uint64_t m_ticks = 0;
 
     KeyboardEvent::Key MapSDLKeyToKey(SDL_Scancode scancode);
+    ButtonAction MapSDLEventTypeToAction(uint32_t sdlEventType);
+    ButtonIndex MapSDLButtonToButtonIndex(uint8_t sdlButton);
 };
 
 } // namespace Aeon

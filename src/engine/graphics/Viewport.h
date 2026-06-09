@@ -13,7 +13,7 @@ namespace Aeon {
 //! Also manages the main camera for view transformation
 class Viewport2D {
 public:
-    Viewport2D(Window &p_window);
+    Viewport2D(Window &p_window, float ppm);
     Viewport2D(Window &p_window, float x, float y, float width, float height);
     ~Viewport2D();
 
@@ -38,7 +38,8 @@ public:
     Vector2D WorldToScreen(const Vector2D &worldPos) const;
     Vector2D ScreenToWorld(const Vector2D &screenPos) const;
 
-	float GetPixelsPerMeter() const { return m_pixelsPerMeter; }
+    float GetPixelsPerMeter() const { return m_pixelsPerMeter; }
+    void SetPixelsPerMeter(float ppm) { m_pixelsPerMeter = ppm; }
 
     bool IsPointVisible(const Vector2D &worldPos) const;
     bool IsRectVisible(const Vector2D &worldPos, const Vector2D &size) const;
@@ -55,7 +56,7 @@ private:
     float m_y = 0.0f;
     float m_width = 0.0f;
     float m_height = 0.0f;
-    float m_pixelsPerMeter = 32.0f; // 32 pixels = 1 meter, default scale factor for world-to-screen conversion
+    float m_pixelsPerMeter = 32.0f; // default scale factor for world-to-screen conversion
 
     std::unique_ptr<IGraphicsContext> m_graphicsContext;
 

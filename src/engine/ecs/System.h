@@ -51,12 +51,22 @@ public:
     virtual void OnVariableUpdate(World &world, double delta) {}
 
     /**
+     * @brief Called after update
+     */
+    virtual void OnPostUpdate(World &world, double delta) {}
+
+    /**
      * @brief Called during the render phase
      * @param world Reference to the world
      *
      * Use this for rendering entities, debug visualization, etc.
      */
     virtual void OnRender(World &world, IGraphicsContext &graphics) {}
+
+    /**
+     * @brief Called during the GUI render phase. ImGui calls can be placed here.
+     */
+    virtual void OnGuiRender(World &world) {}
 
     /**
      * @brief Called when the world is being destroyed

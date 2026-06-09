@@ -55,6 +55,14 @@ void World::_OnVariableUpdate(double p_delta) {
     OnUpdate(p_delta);
 }
 
+void World::_OnPostUpdate(double p_delta) {
+    for (auto &system: m_systems) {
+        if (system->IsEnabled()) {
+            system->OnPostUpdate(*this, p_delta);
+        }
+    }
+}
+
 void World::_OnRender(IGraphicsContext &graphics) {
     // Render systems
     for (auto &system: m_systems) {
@@ -66,7 +74,19 @@ void World::_OnRender(IGraphicsContext &graphics) {
     OnRender(graphics);
 }
 
+void World::_OnGuiRender() {
+    for (auto &system: m_systems) {
+        if (system->IsEnabled()) {
+            system->OnGuiRender(*this);
+        }
+    }
+
+    OnGuiRender();
+}
+
 void World::_OnFinish() {
+    entities.clear();
+
     // Shutdown systems
     for (auto &system: m_systems) {
         if (system->IsEnabled()) {

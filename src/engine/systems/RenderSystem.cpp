@@ -7,6 +7,7 @@
 #include <TextureManager.h>
 #include <TransformComponent.h>
 #include <World.h>
+#include <imgui.h>
 
 namespace Aeon {
 
@@ -47,10 +48,26 @@ void RenderSystem::OnRender(World &world, IGraphicsContext &graphics) {
             RenderTempCircle(entityPtr.get(), renderer);
         }
 
-        if (entityPtr->HasComponent<RigidBodyComponent>()) {
+        if (GetDebugRender() && entityPtr->HasComponent<RigidBodyComponent>()) {
             RenderPhysicsDebug(entityPtr.get(), renderer);
         }
     }
+}
+
+void RenderSystem::OnGuiRender(World &world) {
+    ImGui::Begin("Rendering");
+
+    ImGui::Checkbox("Debug mode", &m_debugRender);
+
+    if (auto cam = m_viewport->GetMainCamera()) {
+        const auto &camPos = cam->GetPosition();
+        ImGui::Text("Camera position: (x: %f, y: %f)", camPos.x, camPos.y);
+
+        float zoom = cam->GetZoom();
+        ImGui::Text("Camera zoom: %f", zoom);
+    }
+
+    ImGui::End();
 }
 
 void RenderSystem::RenderSprite(Entity *entityPtr, SDL_Renderer *renderer) {

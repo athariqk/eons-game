@@ -23,7 +23,7 @@ public:
     void Move(float dx, float dy);
 
 private:
-    Vector2D m_position{0.0f, 0.0f};
+    Vector2D m_position;
     float m_zoom = 1.0f;
 };
 

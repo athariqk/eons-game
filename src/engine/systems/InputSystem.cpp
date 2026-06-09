@@ -7,31 +7,36 @@ namespace Aeon {
 bool InputSystem::OnInit(World &world) {
     auto &eventBus = world.GetMainLoop().GetEventBus();
 
-    // Subscribe to keyboard events
     m_keyDownSub = eventBus.Subscribe<KeyboardEvent>([this](const KeyboardEvent &e) {
-        if (e.action == KeyboardEvent::Action::Press) {
+        if (e.action == ButtonAction::Press) {
             m_pressedKeys.insert(e.key);
         } else {
             m_pressedKeys.erase(e.key);
         }
     });
 
-    // Subscribe to mouse button events
     m_mouseButtonSub = eventBus.Subscribe<MouseButtonEvent>([this](const MouseButtonEvent &e) {
-        if (e.action == MouseButtonEvent::Action::Press) {
+        if (e.action == ButtonAction::Press) {
             m_pressedButtons.insert(e.button);
         } else {
             m_pressedButtons.erase(e.button);
         }
     });
 
-    // Subscribe to mouse motion
     m_mouseMotionSub = eventBus.Subscribe<MouseMotionEvent>([this](const MouseMotionEvent &e) {
         m_mousePosition = e.position;
-        m_mouseDelta = e.delta;
+        m_lastMouseDelta = e.delta;
     });
 
-	return true;
+    m_mouseWheelSub = eventBus.Subscribe<MouseWheelEvent>(
+        [this](const MouseWheelEvent &e) { m_lastMouseWheelDelta = Vector2D(e.scrollX, e.scrollY); });
+
+    return true;
+}
+
+void InputSystem::OnPostUpdate(World &world, double delta) {
+    m_lastMouseDelta.Zero();
+    m_lastMouseWheelDelta.Zero();
 }
 
 void InputSystem::OnShutdown(World &world) {
@@ -39,6 +44,7 @@ void InputSystem::OnShutdown(World &world) {
     eventBus.Unsubscribe(m_keyDownSub);
     eventBus.Unsubscribe(m_mouseButtonSub);
     eventBus.Unsubscribe(m_mouseMotionSub);
+    eventBus.Unsubscribe(m_mouseWheelSub);
 }
 
 } // namespace Aeon

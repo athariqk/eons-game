@@ -30,7 +30,9 @@ public:
     void _OnInit();
     void _OnFixedUpdate(double p_delta, uint64_t ticks);
     void _OnVariableUpdate(double p_delta);
+    void _OnPostUpdate(double p_delta);
     void _OnRender(IGraphicsContext &graphics);
+    void _OnGuiRender();
     void _OnFinish();
 
     // System management

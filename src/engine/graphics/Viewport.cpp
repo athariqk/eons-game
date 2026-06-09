@@ -8,7 +8,10 @@
 
 namespace Aeon {
 
-Viewport2D::Viewport2D(Window &p_window) : m_x(0.0f), m_y(0.0f), m_width(0.0f), m_height(0.0f) { Init(p_window); }
+Viewport2D::Viewport2D(Window &p_window, float ppm) :
+    m_x(0.0f), m_y(0.0f), m_width(0.0f), m_height(0.0f), m_pixelsPerMeter(ppm) {
+    Init(p_window);
+}
 
 Viewport2D::Viewport2D(Window &p_window, float x, float y, float width, float height) :
     m_x(x), m_y(y), m_width(width), m_height(height) {

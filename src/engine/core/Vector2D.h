@@ -29,14 +29,21 @@ struct Vector2D {
     Vector2D &operator-=(const Vector2D &vec);
     Vector2D &operator*=(const Vector2D &vec);
     Vector2D &operator/=(const Vector2D &vec);
+    Vector2D &Zero();
 
     Vector2D operator+(const float f) const;
     Vector2D operator-(const float f) const;
     Vector2D operator*(const float f) const;
     Vector2D operator/(const float f) const;
 
+    Vector2D &operator+=(const float f);
+    Vector2D &operator-=(const float f);
+    Vector2D &operator*=(const float f);
+    Vector2D &operator/=(const float f);
+
     Vector2D operator*(const int i) const;
-    Vector2D Zero();
+
+    Vector2D operator-() const;
 
     float Length() const;
     float LengthSqr() const;

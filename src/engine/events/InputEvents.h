@@ -8,24 +8,29 @@
 
 namespace Aeon {
 
-struct MouseButtonEvent : public Event {
-    enum class Action { Press, Release };
+enum class ButtonIndex {
+    Unknown = 0,
+    Left,
+    Middle,
+    Right,
+};
 
-    Action action;
-    uint8_t button; // SDL mouse button ID
+enum class ButtonAction { Unknown = 0, Press, Release };
+
+struct MouseButtonEvent : public Event {
+    ButtonAction action;
+    ButtonIndex button;
     Vector2D position; // Screen position
 
-    MouseButtonEvent(Action act, uint8_t btn, Vector2D pos) :
-        action(act), button(btn), position(pos) {}
+    MouseButtonEvent(ButtonAction act, ButtonIndex btn, Vector2D pos) : action(act), button(btn), position(pos) {}
 };
 
 struct MouseMotionEvent : public Event {
     Vector2D position; // Current screen position
     Vector2D delta; // Relative motion since last event
-    uint32_t buttonState; // Bitmask of pressed buttons
+    uint32_t buttonState;
 
-    MouseMotionEvent(Vector2D pos, Vector2D d, uint32_t state) :
-        position(pos), delta(d), buttonState(state) {}
+    MouseMotionEvent(Vector2D pos, Vector2D d, uint32_t state) : position(pos), delta(d), buttonState(state) {}
 
     std::string ToString();
 };
@@ -38,8 +43,6 @@ struct MouseWheelEvent : public Event {
 };
 
 struct KeyboardEvent : public Event {
-    enum class Action { Press, Release };
-
     enum class Key {
         Unknown = 0,
         W,
@@ -58,14 +61,13 @@ struct KeyboardEvent : public Event {
         Alt,
         Tab,
         Backspace,
-        // Add more as needed
     };
 
-    Action action;
+    ButtonAction action;
     Key key;
     bool repeat; // Is this a key repeat?
 
-    KeyboardEvent(Action act, Key k, bool rep) : action(act), key(k), repeat(rep) {}
+    KeyboardEvent(ButtonAction act, Key k, bool rep) : action(act), key(k), repeat(rep) {}
 
     std::string ToString();
 };

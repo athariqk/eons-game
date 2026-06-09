@@ -1,4 +1,5 @@
 #include "Vector2D.h"
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -57,6 +58,12 @@ Vector2D &Vector2D::operator/=(const Vector2D &vec) {
     return *this;
 }
 
+Vector2D &Vector2D::Zero() {
+    this->x = 0;
+    this->y = 0;
+    return *this;
+}
+
 Vector2D Vector2D::operator+(const float f) const { return this->Add(f); }
 
 Vector2D Vector2D::operator-(const float f) const { return this->Subtract(f); }
@@ -65,11 +72,32 @@ Vector2D Vector2D::operator*(const float f) const { return this->Multiply(f); }
 
 Vector2D Vector2D::operator/(const float f) const { return this->Divide(f); }
 
+Vector2D &Vector2D::operator+=(const float f) {
+    x += f;
+    y += f;
+    return *this;
+}
+Vector2D &Vector2D::operator-=(const float f) {
+    x -= f;
+    y -= f;
+    return *this;
+}
+Vector2D &Vector2D::operator*=(const float f) {
+    x *= f;
+    y *= f;
+    return *this;
+}
+Vector2D &Vector2D::operator/=(const float f) {
+    x /= f;
+    y /= f;
+    return *this;
+}
+
 Vector2D Vector2D::operator*(const int i) const {
     return Vector2D(this->x * static_cast<float>(i), this->y * static_cast<float>(i));
 }
 
-Vector2D Vector2D::Zero() { return Vector2D(0.0f, 0.0f); }
+Vector2D Vector2D::operator-() const { return Vector2D(-x, -y); }
 
 float Vector2D::Length() const { return std::sqrt(x * x + y * y); }
 

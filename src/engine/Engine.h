@@ -1,20 +1,45 @@
 #pragma once
-#pragma once
 
 #include <memory>
 #include <string>
 
-#include <ini.h>
-
 #include <AudioManager.h>
+#include <Gui.h>
 #include <MainLoop.h>
 #include <Physics.h>
 #include <Services.h>
 #include <Viewport.h>
 #include <Window.h>
-#include <Gui.h>
+#include <utils/Config.h>
 
 namespace Aeon {
+
+namespace Config {
+
+/**
+ * @brief Properties related to hardware window settings
+ */
+struct Window {
+    int SizeWidth = 800;
+    int SizeHeight = 800;
+    bool Fullscreen = false;
+    DEFINE_CONFIG_MAP_FIELDS(Window, SizeWidth, SizeHeight, Fullscreen)
+};
+
+struct Render {
+    float PixelsPerMeter = 32.0f;
+    DEFINE_CONFIG_MAP_FIELDS(Render, PixelsPerMeter)
+};
+
+/**
+ * @brief Properties related to the engine's runtime
+ */
+struct Runtime {
+    std::string DefaultWorld;
+    DEFINE_CONFIG_MAP_FIELDS(Runtime, DefaultWorld)
+};
+
+} // namespace Config
 
 class Engine {
 public:
@@ -23,21 +48,19 @@ public:
 
     int Run();
 
-    int GetWindowSizeWidth();
-    int GetWindowSizeHeight();
-    bool GetWindowFullscreen();
-
     MainLoop &GetMainLoop() { return *m_mainLoop; }
 
+    Config::Window m_windowConf;
+    Config::Render m_renderConf;
+
 private:
-    int LoadConfiguration();
     int Init();
     int Cleanup();
 
 private:
     std::string m_app_name;
     std::string m_configFileName = "engine.ini";
-    mINI::INIStructure m_config{};
+    ConfigMap m_config;
 
     std::unique_ptr<MainLoop> m_mainLoop;
 

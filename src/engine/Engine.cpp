@@ -5,34 +5,12 @@
 
 namespace Aeon {
 
-Engine::Engine(std::string p_app_name) : m_app_name(p_app_name) {
+Engine::Engine(std::string p_app_name) : m_app_name(p_app_name), m_config(m_configFileName) {
     Logger::Init();
-    LoadConfiguration();
     Init();
 }
 
 Engine::~Engine() {}
-
-int Engine::GetWindowSizeWidth() {
-    const auto &width = m_config["graphics"]["window_size_width"];
-    return std::stoi(width.empty() ? "800" : width);
-}
-
-int Engine::GetWindowSizeHeight() {
-    const auto &height = m_config["graphics"]["window_size_height"];
-    return std::stoi(height.empty() ? "800" : height);
-}
-
-bool Engine::GetWindowFullscreen() {
-    const auto &fullscreen = m_config["graphics"]["window_fullscreen"];
-    return fullscreen == "true" || fullscreen == "1";
-}
-
-int Engine::LoadConfiguration() {
-    mINI::INIFile configFile(m_configFileName);
-    configFile.read(m_config);
-    return ERROR_OK;
-}
 
 int Engine::Init() {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
@@ -42,13 +20,13 @@ int Engine::Init() {
         return ERROR_FATAL;
     }
 
-    int win_width = GetWindowSizeWidth();
-    int win_height = GetWindowSizeHeight();
-    bool win_fullscreen = GetWindowFullscreen();
+    m_windowConf = m_config.Load<Config::Window>();
+    m_renderConf = m_config.Load<Config::Render>();
 
-    m_mainWindow = std::make_shared<Window>(m_app_name.c_str(), win_width, win_height, win_fullscreen);
+    m_mainWindow = std::make_shared<Window>(m_app_name.c_str(), m_windowConf.SizeWidth, m_windowConf.SizeHeight,
+                                            m_windowConf.Fullscreen);
     m_physics2d = std::make_shared<Physics2D>();
-    m_viewport2d = std::make_shared<Viewport2D>(*m_mainWindow);
+    m_viewport2d = std::make_shared<Viewport2D>(*m_mainWindow, m_renderConf.PixelsPerMeter);
     m_audio = std::make_shared<AudioManager>();
     m_gui = std::make_shared<Gui>(*m_mainWindow);
 
@@ -83,8 +61,8 @@ int Engine::Cleanup() {
         m_audio->Clear();
     }
 
-	if (m_gui) {
-		m_gui->Clear();
+    if (m_gui) {
+        m_gui->Clear();
     }
 
     m_mainLoop.reset();

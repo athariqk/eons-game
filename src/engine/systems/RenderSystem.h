@@ -28,6 +28,14 @@ public:
 
     bool OnInit(World &world) override;
     void OnRender(World &world, IGraphicsContext &graphics) override;
+    void OnGuiRender(World &world) override;
+
+    bool GetDebugRender() const { return m_debugRender; }
+
+    /**
+	 * @brief If set true, render things like physics gizmo, collision shapes etc.
+	 */
+    void SetDebugRender(bool debug) { m_debugRender = debug; }
 
 private:
     void RenderSprite(Entity *entityPtr, SDL_Renderer *renderer);
@@ -36,6 +44,8 @@ private:
 
     Viewport2D *m_viewport = nullptr;
     IGraphicsContext *m_graphics = nullptr;
+
+    bool m_debugRender = false;
 };
 
 } // namespace Aeon

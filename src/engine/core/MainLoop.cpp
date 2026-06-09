@@ -11,7 +11,9 @@
 #include <ErrorCodes.h>
 #include <InputEvents.h>
 #include <Logger.h>
+#include <MicrocosmWorld.h>
 #include <World.h>
+#include <imgui.h>
 
 namespace Aeon {
 
@@ -21,11 +23,6 @@ MainLoop::MainLoop(const std::string &p_appName, Services &p_serviceRegistry) :
 MainLoop::~MainLoop() = default;
 
 int MainLoop::Run() {
-    if (m_worldDirty) {
-        UpdateActiveWorld();
-        m_worldDirty = false;
-    }
-
     // Start the game loop
     m_running = true;
 
@@ -37,7 +34,7 @@ int MainLoop::Run() {
     double deltaTime = 0.0;
     double accumulator = 0.0;
 
-	uint64_t lastTime = SDL_GetPerformanceCounter();
+    uint64_t lastTime = SDL_GetPerformanceCounter();
     const double performanceFrequency = static_cast<double>(SDL_GetPerformanceFrequency());
 
     uint32_t lastFPSUpdateTime = SDL_GetTicks();
@@ -48,12 +45,20 @@ int MainLoop::Run() {
         double deltaTime = static_cast<double>(currentTime - lastTime) / performanceFrequency;
         lastTime = currentTime;
 
-		// Clamp to prevent freeze on lag spike
-		if (deltaTime > MAX_ACCUMULATOR) {
+        // Clamp to prevent freeze on lag spike
+        if (deltaTime > MAX_ACCUMULATOR) {
             deltaTime = MAX_ACCUMULATOR;
         }
 
+        if (m_worldDirty) {
+            LOG_TRACE("World change requested");
+            UpdateActiveWorld();
+            m_worldDirty = false;
+            LOG_TRACE("World change complete");
+        }
+
         PollEvents();
+        m_eventBus.ProcessQueue();
 
         // Accumulate time
         accumulator += deltaTime;
@@ -68,6 +73,8 @@ int MainLoop::Run() {
         // Variable update & render
         // Note: Can add interpolation here using (accumulator / FIXED_DT) as alpha
         Update(deltaTime);
+        if (m_activeWorld)
+            m_activeWorld->_OnPostUpdate(deltaTime);
 
         // FPS Counter (still fine to use GetTicks for a 1-second interval check)
         uint32_t currentTicks = SDL_GetTicks();
@@ -93,9 +100,6 @@ int MainLoop::Run() {
 }
 
 void MainLoop::PollEvents() {
-    if (!m_activeWorld)
-        return;
-
     SDL_Event sdlEvent;
     auto &eventBus = GetEventBus();
     auto gui = GetServices().TryGet<Gui>();
@@ -127,19 +131,18 @@ void MainLoop::PollEvents() {
 
             case SDL_EVENT_MOUSE_BUTTON_DOWN:
             case SDL_EVENT_MOUSE_BUTTON_UP: {
-                // New event system
-                eventBus.Queue(
-                    MouseButtonEvent{sdlEvent.type == SDL_EVENT_MOUSE_BUTTON_DOWN ? MouseButtonEvent::Action::Press
-                                                                                  : MouseButtonEvent::Action::Release,
-                                     sdlEvent.button.button, Vector2D(sdlEvent.button.x, sdlEvent.button.y)});
+                auto action = MapSDLEventTypeToAction(sdlEvent.type);
+                auto btn = MapSDLButtonToButtonIndex(sdlEvent.button.button);
+                auto mousePos = Vector2D(sdlEvent.button.x, sdlEvent.button.y);
+                eventBus.Queue(MouseButtonEvent(action, btn, mousePos));
                 break;
             }
 
             case SDL_EVENT_MOUSE_MOTION: {
-                // New event system
-                eventBus.Queue(MouseMotionEvent{Vector2D(sdlEvent.motion.x, sdlEvent.motion.y),
-                                                Vector2D(sdlEvent.motion.xrel, sdlEvent.motion.yrel),
-                                                sdlEvent.motion.state});
+                auto mousePos = Vector2D(sdlEvent.motion.x, sdlEvent.motion.y);
+                auto delta = Vector2D(sdlEvent.motion.xrel, sdlEvent.motion.yrel);
+                auto state = sdlEvent.motion.state;
+                eventBus.Queue(MouseMotionEvent(mousePos, delta, state));
                 break;
             }
 
@@ -152,10 +155,8 @@ void MainLoop::PollEvents() {
             case SDL_EVENT_KEY_UP: {
                 auto key = MapSDLKeyToKey(sdlEvent.key.scancode);
                 if (key != KeyboardEvent::Key::Unknown) {
-                    // New event system
-                    auto action = sdlEvent.type == SDL_EVENT_KEY_DOWN ? KeyboardEvent::Action::Press
-                                                                      : KeyboardEvent::Action::Release;
-                    eventBus.Queue(KeyboardEvent{action, key, static_cast<bool>(sdlEvent.key.repeat)});
+                    auto action = MapSDLEventTypeToAction(sdlEvent.type);
+                    eventBus.Queue(KeyboardEvent(action, key, sdlEvent.key.repeat));
                 }
                 break;
             }
@@ -209,8 +210,33 @@ KeyboardEvent::Key MainLoop::MapSDLKeyToKey(SDL_Scancode scancode) {
     }
 }
 
+ButtonAction MainLoop::MapSDLEventTypeToAction(uint32_t sdlEventType) {
+    switch (sdlEventType) {
+        case SDL_EVENT_KEY_DOWN:
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+            return ButtonAction::Press;
+        case SDL_EVENT_KEY_UP:
+        case SDL_EVENT_MOUSE_BUTTON_UP:
+            return ButtonAction::Release;
+        default:
+            return ButtonAction::Unknown;
+    }
+}
+
+ButtonIndex MainLoop::MapSDLButtonToButtonIndex(uint8_t sdlButton) {
+    switch (sdlButton) {
+        case SDL_BUTTON_LEFT:
+            return ButtonIndex::Left;
+        case SDL_BUTTON_MIDDLE:
+            return ButtonIndex::Middle;
+        case SDL_BUTTON_RIGHT:
+            return ButtonIndex::Right;
+        default:
+            return ButtonIndex::Unknown;
+    }
+}
+
 void MainLoop::FixedUpdate(double p_delta) {
-    m_eventBus.ProcessQueue();
     if (m_activeWorld)
         m_activeWorld->_OnFixedUpdate(p_delta, m_ticks);
 }
@@ -248,8 +274,17 @@ void MainLoop::Update(double p_delta) {
     }
 
     gui->Begin();
+
+    ImGui::Begin("Main Loop", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+    if (ImGui::Button("Reset", ImVec2(100, 20))) {
+        // HACK: SUPER HACKY STUFF GOIN ON HERE
+        ChangeWorld(std::unique_ptr<MicrocosmWorld>(new MicrocosmWorld()));
+    }
+    ImGui::End();
+
     if (m_activeWorld)
-        m_activeWorld->OnGuiRender();
+        m_activeWorld->_OnGuiRender();
+
     gui->End();
 
     graphics->Present();
@@ -262,7 +297,6 @@ void MainLoop::Clean() {
 }
 
 void MainLoop::ChangeWorld(std::unique_ptr<World> p_world) {
-    LOG_TRACE("Requesting world change");
     m_worldDirty = true;
     m_nextWorld = std::move(p_world);
 }
@@ -270,16 +304,16 @@ void MainLoop::ChangeWorld(std::unique_ptr<World> p_world) {
 World &MainLoop::GetCurrentWorld() { return *m_activeWorld; }
 
 void MainLoop::UpdateActiveWorld() {
-    if (!m_nextWorld)
-        return;
-
+    // Teardown old
     if (m_activeWorld)
         m_activeWorld->_OnFinish();
-    m_activeWorld = std::move(m_nextWorld);
-    m_activeWorld->SetMainLoop(*this);
-    LOG_TRACE("World change complete");
 
-    m_activeWorld->_OnInit();
+    // Actual change
+    m_activeWorld = std::move(m_nextWorld);
+    if (m_activeWorld) {
+        m_activeWorld->SetMainLoop(*this);
+        m_activeWorld->_OnInit();
+    }
 }
 
 } // namespace Aeon

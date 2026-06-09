@@ -10,6 +10,7 @@
 #include <InputEvents.h>
 #include <InputSystem.h>
 #include <Logger.h>
+#include <RenderSystem.h>
 #include <Services.h>
 #include <Viewport.h>
 #include <Window.h>
@@ -27,7 +28,7 @@
 #include "systems/OrganismSystem.h"
 #include "systems/SpeciesSystem.h"
 
-MicrocosmWorld::MicrocosmWorld() { emptyInput(); }
+MicrocosmWorld::MicrocosmWorld() : m_config(m_configFileName) { emptyInput(); }
 
 void MicrocosmWorld::RegisterSystems() {
     // Register all game systems
@@ -38,10 +39,14 @@ void MicrocosmWorld::RegisterSystems() {
 }
 
 void MicrocosmWorld::OnInit() {
+    m_cameraConf = m_config.Load<Config::MicrocosmCamera>();
+
     RegisterSystems();
 
-    // Subscribe to events via EventBus
-    SubscribeToEvents();
+    m_inputSystem = GetSystem<Aeon::InputSystem>();
+    m_viewport = GetMainLoop().GetServices().TryGet<Aeon::Viewport2D>();
+    m_mainCamera = m_viewport ? m_viewport->GetMainCamera() : nullptr;
+    m_renderSystem = GetSystem<Aeon::RenderSystem>();
 
     SpawnNutrients(30);
 
@@ -49,298 +54,197 @@ void MicrocosmWorld::OnInit() {
     AddSpeciesToEnvironment("Primum", "Primus", "specium");
 }
 
-void MicrocosmWorld::SubscribeToEvents() {
-    auto &eventBus = GetMainLoop().GetEventBus();
-
-    auto viewport = GetMainLoop().GetServices().TryGet<Aeon::Viewport2D>();
-    if (!viewport)
-        return;
-
-    auto camera = viewport->GetMainCamera();
-
-    auto ppm = viewport->GetPixelsPerMeter();
-
-    // Subscribe to mouse motion for camera panning
-    m_mouseMotionSub =
-        eventBus.Subscribe<Aeon::MouseMotionEvent>([this, camera, ppm](const Aeon::MouseMotionEvent &event) {
-            if (!camera)
-                return;
-
-            if (event.buttonState & SDL_BUTTON_LMASK) {
-                float zoom = camera->GetZoom();
-
-                // Direct world-space delta from this frame's drag
-                float worldDeltaX = -(event.delta.x) / (ppm * zoom);
-                float worldDeltaY = -(event.delta.y) / (ppm * zoom);
-
-                auto pos = camera->GetPosition();
-                pos.x += worldDeltaX;
-                pos.y += worldDeltaY;
-                camera->SetPosition(pos);
-
-                // Feed swipe velocity for post-release momentum
-                // Blend toward current frame delta so fast swipes win
-                m_swipeVelocity.x = m_swipeVelocity.x * 0.4f + (worldDeltaX / 0.016f) * 0.6f * swipeSensitivity;
-                m_swipeVelocity.y = m_swipeVelocity.y * 0.4f + (worldDeltaY / 0.016f) * 0.6f * swipeSensitivity;
-
-                m_isDragging = true;
-            } else {
-                m_isDragging = false;
-            }
-        });
-
-    // Subscribe to mouse wheel for zooming
-    m_mouseWheelSub = eventBus.Subscribe<Aeon::MouseWheelEvent>([this, camera](const Aeon::MouseWheelEvent &event) {
-        if (!camera)
-            return;
-
-        float currentZoom = camera->GetZoom();
-
-        constexpr float zoomSensitivity = 0.1f;
-        currentZoom += event.scrollY * zoomSensitivity;
-
-        constexpr float minZoom = 0.1f;
-        constexpr float maxZoom = 4.0f;
-        currentZoom = std::clamp(currentZoom, minZoom, maxZoom);
-
-        camera->SetZoom(currentZoom);
-    });
+void MicrocosmWorld::OnUpdate(const double p_delta) {
+    if (m_inputSystem && m_viewport && m_mainCamera) {
+        UpdateCameraControl(p_delta);
+        UpdateCameraMovement(p_delta);
+    }
 }
-
-void MicrocosmWorld::OnUpdate(const double p_delta) { UpdateCameraMovement(p_delta); }
 
 void MicrocosmWorld::OnGuiRender() {
-    /* ----- Environment Window|begin| ------- */
-    {
-        ImGui::Begin("Environment", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+    ImGui::Begin("Microcosmos", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
-        if (ImGui::TreeNode("SpeciesList", "Species alive: %i", m_speciesEntities.size())) {
-            for (int n = 0; n < m_speciesEntities.size(); n++) {
-                ImGui::PushID(n);
+    if (ImGui::TreeNode("SpeciesList", "Species alive: %i", m_speciesEntities.size())) {
+        for (int n = 0; n < m_speciesEntities.size(); n++) {
+            ImGui::PushID(n);
 
-                auto species = m_speciesEntities[n];
+            auto species = m_speciesEntities[n];
 
-                if (ImGui::TreeNode("SpeciesNode", "%s", species->GetFormattedName(true).c_str())) {
-                    ImGui::BulletText("ID: %i", species->entity->GetID());
-                    ImGui::BulletText("Population: %i", species->populationCount);
+            if (ImGui::TreeNode("SpeciesNode", "%s", species->GetFormattedName(true).c_str())) {
+                ImGui::BulletText("ID: %i", species->entity->GetID());
+                ImGui::BulletText("Population: %i", species->populationCount);
 
-                    ImGui::TreePop();
-                }
+                ImGui::TreePop();
+            }
 
-                if (ImGui::TreeNode("OrganismList", "Individuals")) {
-                    for (int i = 0; i < m_organismEntities.size(); i++) {
-                        ImGui::PushID(i);
-                        if (const auto organism = m_organismEntities[i];
-                            ImGui::TreeNode("individuals", "Organism %i", organism->entity->GetID())) {
+            if (ImGui::TreeNode("OrganismList", "Individuals")) {
+                for (int i = 0; i < m_organismEntities.size(); i++) {
+                    ImGui::PushID(i);
+                    if (const auto organism = m_organismEntities[i];
+                        ImGui::TreeNode("individuals", "Organism %i", organism->entity->GetID())) {
 
-                            // Get AI component if it exists
-                            std::string behaviour = "No AI";
-                            if (organism->entity->HasComponent<OrganismAIComponent>()) {
-                                auto &ai = organism->entity->GetComponent<OrganismAIComponent>();
-                                behaviour = ai.getCurrentBehaviour();
-                            }
-
-                            auto &body = organism->entity->GetComponent<Aeon::RigidBodyComponent>();
-
-                            ImGui::Text("Behaviour: %s\nEnergy: %.0f/%.0f\nSpeed: %f\nSize: %f\nAggressiveness: "
-                                        "%f\nMembraneColour.r: %i\nMembraneColour.g: %i\nMembraneColour.b: "
-                                        "%i\nFitness: %.0f\nMagnitude: %.0f",
-                                        behaviour.c_str(), organism->curEnergy, organism->genome.energyCapacity,
-                                        organism->genome.speed, organism->genome.size, organism->genome.aggresiveness,
-                                        organism->genome.membraneColour.r, organism->genome.membraneColour.g,
-                                        organism->genome.membraneColour.b, organism->fitness, body.velocity.Length());
-                            ImGui::TreePop();
+                        // Get AI component if it exists
+                        std::string behaviour = "No AI";
+                        if (organism->entity->HasComponent<OrganismAIComponent>()) {
+                            auto &ai = organism->entity->GetComponent<OrganismAIComponent>();
+                            behaviour = ai.getCurrentBehaviour();
                         }
-                        ImGui::PopID();
+
+                        auto &body = organism->entity->GetComponent<Aeon::RigidBodyComponent>();
+
+                        ImGui::Text("Behaviour: %s\nEnergy: %.0f/%.0f\nSpeed: %f\nSize: %f\nAggressiveness: "
+                                    "%f\nMembraneColour.r: %i\nMembraneColour.g: %i\nMembraneColour.b: "
+                                    "%i\nFitness: %.0f\nMagnitude: %.0f",
+                                    behaviour.c_str(), organism->curEnergy, organism->genome.energyCapacity,
+                                    organism->genome.speed, organism->genome.size, organism->genome.aggresiveness,
+                                    organism->genome.membraneColour.r, organism->genome.membraneColour.g,
+                                    organism->genome.membraneColour.b, organism->fitness, body.velocity.Length());
+                        ImGui::TreePop();
                     }
-                    ImGui::TreePop();
+                    ImGui::PopID();
                 }
-
-                if (ImGui::Button("Add Organism", ImVec2(100, 25))) {
-                    AddOrganism(species);
-                }
-
-                ImGui::SameLine();
-
-                if (ImGui::Button("Make Extinct", ImVec2(100, 25))) {
-                    MakeExtinct(species);
-                }
-
-                ImGui::PopID();
+                ImGui::TreePop();
             }
-            ImGui::TreePop();
-        }
 
-        if (const auto &nutrients(GetGroup(MicrocosmWorld::NutrientsGroup));
-            ImGui::TreeNode("NutrientList", "Nutrients available: %i", nutrients.size())) {
-            for (int n = 0; n < nutrients.size(); n++) {
-                ImGui::Text("Nutrient instance %.0f", nutrients[n]->GetComponent<NutrientComponent>().curEnergy);
+            if (ImGui::Button("Add Organism", ImVec2(100, 25))) {
+                AddOrganism(species);
             }
-            ImGui::TreePop();
+
+            ImGui::SameLine();
+
+            if (ImGui::Button("Make Extinct", ImVec2(100, 25))) {
+                MakeExtinct(species);
+            }
+
+            ImGui::PopID();
         }
+        ImGui::TreePop();
+    }
 
-        static auto color = ImVec4(114.0f / 255.0f, 144.0f / 255.0f, 154.0f / 255.0f, 200.0f / 255.0f);
-
-        if (ImGui::TreeNode("Background Color")) {
-            ImGui::ColorEdit4("BGColor", reinterpret_cast<float *>(&color));
-            ImGui::TreePop();
+    if (const auto &nutrients(GetGroup(MicrocosmWorld::NutrientsGroup));
+        ImGui::TreeNode("NutrientList", "Nutrients available: %i", nutrients.size())) {
+        for (int n = 0; n < nutrients.size(); n++) {
+            ImGui::Text("Nutrient instance %.0f", nutrients[n]->GetComponent<NutrientComponent>().curEnergy);
         }
+        ImGui::TreePop();
+    }
 
-        ImGui::Separator();
+    static auto color = ImVec4(114.0f / 255.0f, 144.0f / 255.0f, 154.0f / 255.0f, 200.0f / 255.0f);
 
-        if (ImGui::Button("Add species", ImVec2(120, 25)))
-            ImGui::OpenPopup("Create a new species");
+    if (ImGui::TreeNode("Background Color")) {
+        ImGui::ColorEdit4("BGColor", reinterpret_cast<float *>(&color));
+        ImGui::TreePop();
+    }
 
-        /* ----- Create new species modal|begin| ------- */
-        {
-            if (ImGui::BeginPopupModal("Create a new species", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                ImGui::Text("Enter the species' name");
-                ImGui::InputText("Genus", inputGenus, 255);
-                ImGui::InputText("Epithet", inputEpithet, 255);
-                ImGui::Separator();
-                if (ImGui::Button("Create", ImVec2(80, 25))) {
-                    if (isInputEmpty(inputGenus) || isInputEmpty(inputEpithet)) {
-                        LOG_ERROR("Genus or epithet is not valid!");
-                    } else {
-                        AddSpeciesToEnvironment(inputGenus, inputGenus, inputEpithet);
-                        emptyInput();
-                        ImGui::CloseCurrentPopup();
-                    }
-                }
-                ImGui::SameLine();
-                if (ImGui::Button("Random", ImVec2(80, 25))) {
-                }
-                ImGui::SameLine();
-                if (ImGui::Button("Cancel", ImVec2(80, 25))) {
-                    ImGui::CloseCurrentPopup();
+    ImGui::Separator();
+
+    if (ImGui::Button("Add species", ImVec2(120, 25)))
+        ImGui::OpenPopup("Create a new species");
+
+    /* ----- Create new species modal|begin| ------- */
+    {
+        if (ImGui::BeginPopupModal("Create a new species", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("Enter the species' name");
+            ImGui::InputText("Genus", inputGenus, 255);
+            ImGui::InputText("Epithet", inputEpithet, 255);
+            ImGui::Separator();
+            if (ImGui::Button("Create", ImVec2(80, 25))) {
+                if (isInputEmpty(inputGenus) || isInputEmpty(inputEpithet)) {
+                    LOG_ERROR("Genus or epithet is not valid!");
+                } else {
+                    AddSpeciesToEnvironment(inputGenus, inputGenus, inputEpithet);
                     emptyInput();
+                    ImGui::CloseCurrentPopup();
                 }
-
-                ImGui::EndPopup();
             }
-        } /* ----- Create new species popup|end| ------- */
-
-        ImGui::SameLine();
-
-        if (ImGui::Button("Add nutrients", ImVec2(120, 25))) {
-            SpawnNutrients(10);
-        }
-
-        ImGui::End();
-
-    } /* ----- Environment Window|end| ------- */
-
-    /* ----- Simulation Window|begin| ------ */
-    {
-
-        ImGui::Begin("Simulation", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-
-        ImGui::Button("Reset", ImVec2(100, 20));
-
-        ImGui::End();
-
-    } /* ----- Simulation Window|end| -------- */
-
-    /* ----- Debug Window|begin| --------- */
-    {
-        ImGui::Begin("Debug");
-
-        // Note: Direct entity access would need to be exposed through scene
-        // For now, showing limited debug info
-
-        ImGui::Checkbox("Debug mode", &debugMode);
-
-        // Get camera from viewport service
-        auto *viewport = GetMainLoop().GetServices().TryGet<Aeon::Viewport2D>();
-        if (viewport) {
-            auto *cam = viewport->GetMainCamera();
-            if (cam) {
-                const auto &camPos = cam->GetPosition();
-                ImGui::Text("Camera position: (x: %f, y: %f)", camPos.x, camPos.y);
-
-                float zoom = cam->GetZoom();
-                ImGui::Text("Camera zoom: %f", zoom);
+            ImGui::SameLine();
+            if (ImGui::Button("Random", ImVec2(80, 25))) {
             }
-        }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(80, 25))) {
+                ImGui::CloseCurrentPopup();
+                emptyInput();
+            }
 
-        ImGui::End();
-    } /* ----- Debug Window|end| --------- */
+            ImGui::EndPopup();
+        }
+    } /* ----- Create new species popup|end| ------- */
+
+    ImGui::SameLine();
+
+    if (ImGui::Button("Add nutrients", ImVec2(120, 25))) {
+        SpawnNutrients(10);
+    }
+
+    ImGui::End();
 }
 
-void MicrocosmWorld::OnFinish() {
-    // Unsubscribe from events
-    auto &eventBus = GetMainLoop().GetEventBus();
-    eventBus.Unsubscribe(m_mouseMotionSub);
-    eventBus.Unsubscribe(m_keyboardSub);
-    eventBus.Unsubscribe(m_mouseButtonSub);
-    eventBus.Unsubscribe(m_mouseWheelSub);
+void MicrocosmWorld::OnFinish() {}
+
+void MicrocosmWorld::UpdateCameraControl(double p_delta) {
+    const float delta = static_cast<float>(p_delta);
+
+    m_camInputDir.Zero();
+
+    if (m_inputSystem->IsKeyPressed(Aeon::KeyboardEvent::Key::W))
+        m_camInputDir.y -= 1.0f;
+    if (m_inputSystem->IsKeyPressed(Aeon::KeyboardEvent::Key::S))
+        m_camInputDir.y += 1.0f;
+    if (m_inputSystem->IsKeyPressed(Aeon::KeyboardEvent::Key::A))
+        m_camInputDir.x -= 1.0f;
+    if (m_inputSystem->IsKeyPressed(Aeon::KeyboardEvent::Key::D))
+        m_camInputDir.x += 1.0f;
+
+    const float lenSq = m_camInputDir.LengthSqr();
+    if (lenSq > 0.001f)
+        m_camInputDir *= 1.0f / std::sqrt(lenSq);
+
+    m_isDragging = m_inputSystem->IsMouseButtonPressed(Aeon::ButtonIndex::Middle);
+
+    if (m_isDragging) {
+        const float zoom = m_mainCamera->GetZoom();
+        const float ppm = m_viewport->GetPixelsPerMeter();
+        const auto md = m_inputSystem->GetLastMouseDelta();
+
+        auto targetVelocity = (-md / (ppm * zoom)) / delta;
+        const float t = 1.0f - std::exp(-m_cameraConf.DragSensitivity * delta);
+        m_camVelocity += (targetVelocity - m_camVelocity) * t;
+
+        // Zero out WASD input so keyboard doesn't interfere
+        m_camInputDir.Zero();
+    }
+
+    m_zoomInput = m_inputSystem->GetLastMouseWheelDelta().y;
 }
 
 void MicrocosmWorld::UpdateCameraMovement(const double p_delta) {
-    auto *viewport = GetMainLoop().GetServices().TryGet<Aeon::Viewport2D>();
-    if (!viewport)
-        return;
+    const float delta = static_cast<float>(p_delta);
 
-    auto *camera = viewport->GetMainCamera();
-    if (!camera)
-        return;
-
-    auto *inputSystem = GetSystem<Aeon::InputSystem>();
-    if (!inputSystem)
-        return;
-
-    float delta = static_cast<float>(p_delta);
-
-    Aeon::Vector2D inputDir(0.0f, 0.0f);
-
-    if (inputSystem->IsKeyPressed(Aeon::KeyboardEvent::Key::W))
-        inputDir.y -= 1.0f;
-    if (inputSystem->IsKeyPressed(Aeon::KeyboardEvent::Key::S))
-        inputDir.y += 1.0f;
-    if (inputSystem->IsKeyPressed(Aeon::KeyboardEvent::Key::A))
-        inputDir.x -= 1.0f;
-    if (inputSystem->IsKeyPressed(Aeon::KeyboardEvent::Key::D))
-        inputDir.x += 1.0f;
-
-    if (inputDir.LengthSqr() > 0.001f) {
-        float len = inputDir.Length();
-        inputDir.x /= len;
-        inputDir.y /= len;
-    }
-
-    m_cameraVelocity.x += inputDir.x * acceleration * delta;
-    m_cameraVelocity.y += inputDir.y * acceleration * delta;
-
-    float frictionFactor = 1.0f - std::exp(-friction * delta);
-    m_cameraVelocity.x -= m_cameraVelocity.x * frictionFactor;
-    m_cameraVelocity.y -= m_cameraVelocity.y * frictionFactor;
-
-    // Speed cap
-    float speedSq = m_cameraVelocity.LengthSqr();
-    if (speedSq > maxSpeed * maxSpeed) {
-        float inv = maxSpeed / std::sqrt(speedSq);
-        m_cameraVelocity.x *= inv;
-        m_cameraVelocity.y *= inv;
-    }
-
+	// Movement
     if (!m_isDragging) {
-        float swipeFrictionFactor = 1.0f - std::exp(-swipeFriction * delta);
-        m_swipeVelocity.x -= m_swipeVelocity.x * swipeFrictionFactor;
-        m_swipeVelocity.y -= m_swipeVelocity.y * swipeFrictionFactor;
+        m_camVelocity += m_camInputDir * m_cameraConf.Acceleration * delta;
 
-        if (m_swipeVelocity.LengthSqr() < 0.0001f) {
-            m_swipeVelocity.x = 0.0f;
-            m_swipeVelocity.y = 0.0f;
-        }
-    } else {
-        m_cameraVelocity.x *= 0.85f;
-        m_cameraVelocity.y *= 0.85f;
+        const float friction = 1.0f - std::exp(-m_cameraConf.Friction * delta);
+        m_camVelocity -= m_camVelocity * friction;
+
+        const float speedSq = m_camVelocity.LengthSqr();
+        if (speedSq > m_cameraConf.MaxSpeed * m_cameraConf.MaxSpeed)
+            m_camVelocity *= m_cameraConf.MaxSpeed / std::sqrt(speedSq);
     }
 
-    auto pos = camera->GetPosition();
-    pos.x += (m_cameraVelocity.x + m_swipeVelocity.x) * delta;
-    pos.y += (m_cameraVelocity.y + m_swipeVelocity.y) * delta;
-    camera->SetPosition(pos);
+    auto pos = m_mainCamera->GetPosition();
+    pos += m_camVelocity * delta;
+    m_mainCamera->SetPosition(pos);
+
+    // Zoom
+    m_zoomVelocity += m_zoomInput * m_cameraConf.ZoomSensitivity;
+    const float zoomFriction = 1.0f - std::exp(-m_cameraConf.ZoomFriction * delta);
+    m_zoomVelocity -= m_zoomVelocity * zoomFriction;
+
+    const float newZoom =
+        std::clamp(m_mainCamera->GetZoom() + m_zoomVelocity * delta, m_cameraConf.MinZoom, m_cameraConf.MaxZoom);
+
+    m_mainCamera->SetZoom(newZoom);
 }
 
 void MicrocosmWorld::AddSpeciesToEnvironment(const std::string &name, const std::string &genus,

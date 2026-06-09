@@ -6,13 +6,45 @@
 #include <string>
 #include <vector>
 
+#include <utils/Config.h>
+
 namespace Aeon {
 class Gui;
-}
+class InputSystem;
+class ICamera;
+class Viewport2D;
+class RenderSystem;
+} // namespace Aeon
 
 class SpeciesComponent;
 class OrganismComponent;
 class Genes;
+
+namespace Config {
+
+struct MicrocosmCamera {
+    float Acceleration = 80.0f;
+    float Friction = 8.0f;
+    float MaxSpeed = 30.0f;
+
+    /**
+     * @brief Defines how "tight" the camera follows the mouse.
+     *
+	 * Higher number (e.g., 50) = tighter, more robotic.
+     * Lower number (e.g., 10) = looser, more floaty/springy.
+     */
+    float DragSensitivity = 25.0f;
+
+    float ZoomSensitivity = 2.0f;
+    float ZoomFriction = 10.0f;
+    float MinZoom = 0.1f;
+    float MaxZoom = 4.0f;
+
+    DEFINE_CONFIG_MAP_FIELDS(MicrocosmCamera, Acceleration, Friction, MaxSpeed, DragSensitivity, ZoomSensitivity,
+                             ZoomFriction, MinZoom, MaxZoom)
+};
+
+} // namespace Config
 
 class MicrocosmWorld : public Aeon::World {
 public:
@@ -56,30 +88,27 @@ public:
     enum GroupLabels : std::size_t { NutrientsGroup, SpeciesGroup, OrganismsGroup, Other };
 
 private:
+    std::string m_configFileName = "game.ini";
+    Aeon::ConfigMap m_config;
+
     std::vector<SpeciesComponent *> m_speciesEntities;
     std::vector<OrganismComponent *> m_organismEntities;
 
-    // Event subscription IDs
-    size_t m_mouseMotionSub = 0;
-    size_t m_keyboardSub = 0;
-    size_t m_mouseButtonSub = 0;
-    size_t m_mouseWheelSub = 0;
-
+    void UpdateCameraControl(double p_delta);
     void UpdateCameraMovement(double p_delta);
     void RegisterSystems();
-    void SubscribeToEvents();
 
-    // Keyboard movement
-    float acceleration = 40.0f;
-    float friction = 10.0f; // exponential decay coefficient
-    float maxSpeed = 20.0f;
-    Aeon::Vector2D m_cameraVelocity{0.0f, 0.0f};
+    Aeon::InputSystem *m_inputSystem;
+    Aeon::ICamera *m_mainCamera;
+    Aeon::Viewport2D *m_viewport;
+    Aeon::RenderSystem *m_renderSystem;
 
-    // Mouse drag / swipe
-    float swipeSensitivity = 0.8f; // multiplier on raw pixel delta
-    float swipeFriction = 12.0f; // faster decay for mouse-flick coast
+    Config::MicrocosmCamera m_cameraConf;
     bool m_isDragging = false;
-    Aeon::Vector2D m_swipeVelocity{0.0f, 0.0f};
+    Aeon::Vector2D m_camInputDir;
+    Aeon::Vector2D m_camVelocity;
+    float m_zoomInput;
+    float m_zoomVelocity;
 
     bool debugMode = false;
     char inputGenus[255];

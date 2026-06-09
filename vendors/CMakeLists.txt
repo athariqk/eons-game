@@ -27,5 +27,5 @@ endif()
 # spdlog
 add_subdirectory(spdlog)
 
-add_library(mINI INTERFACE mINI/ini.h)
-target_include_directories(mINI INTERFACE mINI)
+add_library(inifile-cpp INTERFACE inifile-cpp/inicpp.h)
+target_include_directories(inifile-cpp INTERFACE inifile-cpp)

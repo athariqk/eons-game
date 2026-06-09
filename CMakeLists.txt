@@ -15,7 +15,7 @@ set(CMAKE_STATIC_LINKER_FLAGS_DIST "${CMAKE_STATIC_LINKER_FLAGS_RELEASE}" CACHE 
 set(CMAKE_MODULE_LINKER_FLAGS_DIST "${CMAKE_MODULE_LINKER_FLAGS_RELEASE}" CACHE STRING "Module linker flags for Dist builds" FORCE)
 
 if(MSVC)
-    add_compile_options(/FS /wd5105)
+    add_compile_options(/FS /wd5105 /Zc:preprocessor)
 endif()
 
 # Output directories
@@ -65,6 +65,7 @@ add_executable(eons "src/main.cpp"
     "src/engine/gui/backends/ImGuiSDLRenderer.h" "src/engine/gui/backends/ImGuiSDLRenderer.cpp"
     "src/engine/gui/Gui.h" "src/engine/gui/Gui.cpp"
     "src/engine/physics/Physics.h" "src/engine/physics/Physics.cpp"
+	"src/engine/utils/Config.h"
     "src/game/experimental/NeuralNetwork/neural_network.h" "src/game/experimental/NeuralNetwork/neural_network.cpp"
     "src/game/microcosm/Evolution.cpp"
     "src/game/microcosm/evolution.h"
@@ -94,7 +95,7 @@ target_link_libraries(eons PRIVATE
         box2d::box2d
         spdlog::spdlog
         SDL3::SDL3
-		mINI
+		inifile-cpp
         $<IF:$<TARGET_EXISTS:SDL3_image::SDL3_image-shared>,SDL3_image::SDL3_image-shared,SDL3_image::SDL3_image-static>
 )
 
@@ -143,14 +144,19 @@ target_include_directories(eons PUBLIC
         ${CMAKE_SOURCE_DIR}/src/engine/gui
         ${CMAKE_SOURCE_DIR}/src/engine/gui/backends
         ${CMAKE_SOURCE_DIR}/src/engine/physics
+        ${CMAKE_SOURCE_DIR}/src/engine/utils
         ${CMAKE_SOURCE_DIR}/src/game
         ${CMAKE_SOURCE_DIR}/src/game/experimental
         ${CMAKE_SOURCE_DIR}/src/game/microcosm
         ${CMAKE_SOURCE_DIR}/vendors/imgui
 )
 
-add_custom_command(TARGET eons POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/assets
-        $<TARGET_FILE_DIR:eons>/assets
+add_custom_command(
+    TARGET eons POST_BUILD
+    COMMAND ${CMAKE_COMMAND} 
+        -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+		-DTARGET_DIR=$<TARGET_FILE_DIR:eons>
+        -P "${CMAKE_SOURCE_DIR}/cmake/copy_files.cmake"
+    COMMENT "Running deployment scripts for assets and config"
+    VERBATIM
 )
