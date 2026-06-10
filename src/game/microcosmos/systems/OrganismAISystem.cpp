@@ -23,7 +23,7 @@ bool OrganismAISystem::OnInit(Aeon::World &world) {
         if (entityPtr->HasComponent<Aeon::TransformComponent>()) {
             ChangeState(ai, BehaviourState::Idling);
         } else {
-            LOG_ERROR("Organism AI entity missing transform component!");
+            LOG_ERROR(Aeon::Log::Game, "Organism AI entity missing transform component!");
         }
     }
     return true;
@@ -192,6 +192,7 @@ void OrganismAISystem::UpdateEvaluate(Aeon::Entity &entity, OrganismAIComponent 
 
     if (organism.curEnergy > organism.genome.energyCapacity * 0.7f && ai.reproduceInterval > 100.0f) {
         ai.reproduced = false;
+        LOG_INFO(Aeon::Log::Game, "Organism {} reproduced", organism.entity->GetID());
         Reproduce(world, entity, ai, organism);
         ChangeState(ai, BehaviourState::RunAndTumble);
     } else if (ai.actTimer > ai.actInterval * 2.0f) {
@@ -206,7 +207,7 @@ Aeon::Vector2D OrganismAISystem::GetRandomDirection() {
 
 void OrganismAISystem::AbsorbNutrient(Aeon::Entity &entity, OrganismAIComponent &ai, OrganismComponent &organism) {
     if (ai.caughtNutrient == nullptr) {
-        LOG_ERROR("Nutrient is not found while trying to absorb it!");
+        LOG_ERROR(Aeon::Log::Game, "Nutrient is not found while trying to absorb it!");
         ai.isNutrientFound = false;
         return;
     }
@@ -236,6 +237,7 @@ void OrganismAISystem::Reproduce(Aeon::World &world, Aeon::Entity &entity, Organ
 
     MicrocosmWorld &microWorld = static_cast<MicrocosmWorld &>(world);
     auto &offspring = microWorld.AddOrganism(microWorld.GetSpeciesById(organism.speciesId));
+    LOG_INFO(Aeon::Log::Game, "Organism {} has been birthed into the world", offspring.entity->GetID());
 
     if (offspring.entity && offspring.entity->HasComponent<Aeon::TransformComponent>()) {
         auto &transform = entity.GetComponent<Aeon::TransformComponent>();
@@ -244,10 +246,10 @@ void OrganismAISystem::Reproduce(Aeon::World &world, Aeon::Entity &entity, Organ
     }
 
     // Do random mutations
-    if (offspring.genome.mutate(5, 1)) {
-        LOG_INFO("Mutation occurred on organism {}", offspring.entity->GetID());
+    if (offspring.entity && offspring.genome.mutate(5, 1)) {
+        LOG_INFO(Aeon::Log::Game, "Mutation has occurred on organism {}", offspring.entity->GetID());
     }
 
     organism.curEnergy -= 15.0f; // Childbirth tax
-    LOG_INFO("Organism {} reproduced", organism.entity->GetID());
 }
+

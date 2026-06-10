@@ -48,8 +48,6 @@ void MicrocosmWorld::OnInit() {
     m_mainCamera = m_viewport ? m_viewport->GetMainCamera() : nullptr;
     m_renderSystem = GetSystem<Aeon::RenderSystem>();
 
-    SpawnNutrients(30);
-
     /* Initial species */
     AddSpeciesToEnvironment("Primum", "Primus", "specium");
 }
@@ -150,7 +148,7 @@ void MicrocosmWorld::OnGuiRender() {
             ImGui::Separator();
             if (ImGui::Button("Create", ImVec2(80, 25))) {
                 if (isInputEmpty(inputGenus) || isInputEmpty(inputEpithet)) {
-                    LOG_ERROR("Genus or epithet is not valid!");
+                    LOG_ERROR(Aeon::Log::Game, "Genus or epithet is not valid!");
                 } else {
                     AddSpeciesToEnvironment(inputGenus, inputGenus, inputEpithet);
                     emptyInput();
@@ -169,12 +167,6 @@ void MicrocosmWorld::OnGuiRender() {
             ImGui::EndPopup();
         }
     } /* ----- Create new species popup|end| ------- */
-
-    ImGui::SameLine();
-
-    if (ImGui::Button("Add nutrients", ImVec2(120, 25))) {
-        SpawnNutrients(10);
-    }
 
     ImGui::End();
 }
@@ -255,7 +247,7 @@ void MicrocosmWorld::AddSpeciesToEnvironment(const std::string &name, const std:
 
     auto &species = instance.GetComponent<SpeciesComponent>();
 
-    LOG_INFO("Added species {} to the environment, with following traits:\n speed {}, energy capacity {}, size {}",
+    LOG_INFO(Aeon::Log::Game, "Added species {} to the environment, with following traits:\n speed {}, energy capacity {}, size {}",
              species.GetFormattedName(true), species.genes.speed, species.genes.energyCapacity, species.genes.size);
 
     AddOrganism(&species);
@@ -264,11 +256,11 @@ void MicrocosmWorld::AddSpeciesToEnvironment(const std::string &name, const std:
 SpeciesComponent *MicrocosmWorld::GetSpeciesById(size_t entityId) {
     auto entity = GetEntityById(entityId);
     if (entity == nullptr) {
-        LOG_ERROR("Tried to get species with invalid entity ID {}!", entityId);
+        LOG_ERROR(Aeon::Log::Game, "Tried to get species with invalid entity ID {}!", entityId);
         return nullptr;
     }
     if (!entity->HasComponent<SpeciesComponent>()) {
-        LOG_ERROR("Entity {} has no species component!", entityId);
+        LOG_ERROR(Aeon::Log::Game, "Entity {} has no species component!", entityId);
         return nullptr;
     }
     return &entity->GetComponent<SpeciesComponent>();
@@ -280,13 +272,13 @@ SpeciesComponent *MicrocosmWorld::GetSpecies(const SpeciesComponent *species) {
 
 void MicrocosmWorld::MakeExtinct(SpeciesComponent *species) {
     if (species == nullptr) {
-        LOG_ERROR("Tried to make a null species extinct!");
+        LOG_ERROR(Aeon::Log::Game, "Tried to make a null species extinct!");
         return;
     }
 
     const auto it = std::ranges::find(m_speciesEntities, species);
     if (it == m_speciesEntities.end()) {
-        LOG_ERROR("Species {} is not found!", species->entity->GetID());
+        LOG_ERROR(Aeon::Log::Game, "Species {} is not found!", species->entity->GetID());
         return;
     }
 
@@ -296,7 +288,7 @@ void MicrocosmWorld::MakeExtinct(SpeciesComponent *species) {
     ClearOrganisms(species);
     m_speciesEntities.erase(it);
 
-    LOG_INFO("Species {} has gone extinct!", formattedName);
+    LOG_INFO(Aeon::Log::Game, "Species {} has gone extinct!", formattedName);
 }
 
 int MicrocosmWorld::GetSpeciesIndex(const SpeciesComponent *species) const {
@@ -304,7 +296,7 @@ int MicrocosmWorld::GetSpeciesIndex(const SpeciesComponent *species) const {
         return static_cast<int>(std::distance(m_speciesEntities.begin(), it));
     }
 
-    LOG_ERROR("Index of species {} is not found!", species != nullptr ? species->entity->GetID() : 0);
+    LOG_ERROR(Aeon::Log::Game, "Index of species {} is not found!", species != nullptr ? species->entity->GetID() : 0);
     return -1;
 }
 
@@ -350,7 +342,7 @@ OrganismComponent &MicrocosmWorld::AddOrganism(SpeciesComponent *species) {
     tempCirc.filled = true;
     tempCirc.edge = false;
 
-    LOG_INFO("Added organism of species {}, ID: {} with following "
+    LOG_INFO(Aeon::Log::Game, "Added organism of species {}, ID: {} with following "
              "traits:\n energy cap {}, speed {}, size {}, aggressiveness {}",
              species->GetFormattedName(false), organism.entity->GetID(), organism.genome.energyCapacity,
              organism.genome.speed, organism.genome.size, organism.genome.aggresiveness);
@@ -365,13 +357,13 @@ OrganismComponent &MicrocosmWorld::AddOrganism(SpeciesComponent *species) {
 
 void MicrocosmWorld::DeleteOrganism(OrganismComponent *organism) {
     if (organism == nullptr) {
-        LOG_ERROR("Tried to delete a null organism!");
+        LOG_ERROR(Aeon::Log::Game, "Tried to delete a null organism!");
         return;
     }
 
     const auto it = std::ranges::find(m_organismEntities, organism);
     if (it == m_organismEntities.end()) {
-        LOG_ERROR("Organism {} is not found!", organism->entity->GetID());
+        LOG_ERROR(Aeon::Log::Game, "Organism {} is not found!", organism->entity->GetID());
         return;
     }
 
@@ -389,33 +381,3 @@ void MicrocosmWorld::ClearOrganisms(SpeciesComponent *species) {
     }
 }
 
-void MicrocosmWorld::SpawnNutrients(int amount) {
-    auto *viewport = GetMainLoop().GetServices().TryGet<Aeon::Viewport2D>();
-
-    for (int i = 0; i < amount; i++) {
-        auto &nutrient(CreateEntity());
-
-        float size = Aeon::Random::RandomFloat(0.2f, 0.6f);
-
-        float spawnX = 0;
-        float spawnY = 0;
-
-        if (viewport) {
-            auto *camera = viewport->GetMainCamera();
-            if (camera) {
-                const auto cameraPos = camera->GetPosition();
-                spawnX = cameraPos.x + Aeon::Random::RandomFloat(-12.5f, 12.5f);
-                spawnY = cameraPos.y + Aeon::Random::RandomFloat(-12.5f, 12.5f);
-            }
-        }
-
-        nutrient.AddComponent<Aeon::TransformComponent>(Aeon::Vector2D(spawnX, spawnY), 0.0f,
-                                                        Aeon::Vector2D(size, size));
-        nutrient.AddComponent<Aeon::RigidBodyComponent>();
-        nutrient.AddComponent<NutrientComponent>(5.0f);
-        nutrient.AddComponent<Aeon::SpriteComponent>("assets/nutrient.webp");
-        nutrient.AddGroup(GroupLabels::NutrientsGroup);
-    }
-
-    LOG_INFO("Spawned {} nutrients to the environment", amount);
-}

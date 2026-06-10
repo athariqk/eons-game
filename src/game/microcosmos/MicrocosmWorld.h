@@ -25,7 +25,7 @@ namespace Config {
 struct MicrocosmCamera {
     float Acceleration = 80.0f;
     float Friction = 8.0f;
-    float MaxSpeed = 30.0f;
+    float MaxSpeed = 50.0f;
 
     /**
      * @brief Defines how "tight" the camera follows the mouse.
@@ -55,12 +55,13 @@ public:
     void OnUpdate(double p_delta) override;
     void OnRender(Aeon::IGraphicsContext &graphics) override {}
     void OnGuiRender() override;
+
+	/**
+	 * @brief Cleanup phase. Called before systems cleanup
+	 */
     void OnFinish() override;
 
     void AddSpeciesToEnvironment(const std::string &name, const std::string &genus, const std::string &epithet);
-
-    //! \brief Spawn given amount of food to be randomly scattered around the environment
-    void SpawnNutrients(int amount);
 
     //! \brief Make this species cease to exist
     void MakeExtinct(SpeciesComponent *species);
