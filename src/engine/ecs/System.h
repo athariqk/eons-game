@@ -5,7 +5,7 @@
 
 #include <IGraphicsContext.h>
 
-namespace Aeon {
+namespace ncore {
 
 class World;
 
@@ -30,7 +30,7 @@ public:
      * @brief Called once when the system is added to a world
      * @param world Reference to the world that owns this system
      */
-    virtual bool OnInit(World &world) { return true; }
+    virtual bool on_init(World &world) { return true; }
 
     /**
      * @brief Called at a fixed timestep for deterministic updates
@@ -39,7 +39,7 @@ public:
      *
      * Use this for physics, gameplay logic, and anything that needs to be deterministic.
      */
-    virtual void OnFixedUpdate(World &world, double fixedDelta) {}
+    virtual void on_fixed_update(World &world, double fixedDelta) {}
 
     /**
      * @brief Called at variable timestep for non-deterministic updates
@@ -48,12 +48,12 @@ public:
      *
      * Use this for animation, particles, camera smoothing, and other presentation logic.
      */
-    virtual void OnVariableUpdate(World &world, double delta) {}
+    virtual void on_variable_update(World &world, double delta) {}
 
     /**
      * @brief Called after update
      */
-    virtual void OnPostUpdate(World &world, double delta) {}
+    virtual void on_post_update(World &world, double delta) {}
 
     /**
      * @brief Called during the render phase
@@ -61,31 +61,30 @@ public:
      *
      * Use this for rendering entities, debug visualization, etc.
      */
-    virtual void OnRender(World &world, IGraphicsContext &graphics) {}
+    virtual void on_render(World &world, IGraphicsContext &graphics) {}
 
     /**
      * @brief Called during the GUI render phase.
 	 * Immediate-mode GUI calls can be placed here.
      */
-    virtual void OnGuiRender(World &world) {}
+    virtual void on_gui_render(World &world) {}
 
     /**
      * @brief Called when the world is being destroyed
      * @param world Reference to the world
      */
-    virtual void OnShutdown(World &world) {}
+    virtual void on_shutdown(World &world) {}
 
-    // System can be enabled/disabled
-    bool IsEnabled() const { return m_enabled; }
-    void SetEnabled(bool enabled) { m_enabled = enabled; }
+    bool get_is_enabled() const { return is_enabled; }
+    void set_is_enabled(bool p_is_enabled) { is_enabled = p_is_enabled; }
 
     // Priority determines update order (lower = earlier)
-    int GetPriority() const { return m_priority; }
-    void SetPriority(int priority) { m_priority = priority; }
+    int get_priority() const { return priority; }
+    void set_priority(int p_priority) { p_priority = p_priority; }
 
 protected:
-    bool m_enabled = true;
-    int m_priority = 0;
+    bool is_enabled = true;
+    int priority = 0;
 };
 
-} // namespace Aeon
+} // namespace ncore

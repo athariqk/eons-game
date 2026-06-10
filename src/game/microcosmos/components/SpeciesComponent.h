@@ -14,20 +14,20 @@ class OrganismComponent;
  * This is pure data - all logic is handled by SpeciesSystem
  * Equivalent to a GA Population operator
  */
-class SpeciesComponent : public Aeon::Component {
+class SpeciesComponent : public ncore::Component {
 public:
     SpeciesComponent() = default;
     SpeciesComponent(std::string name, std::string genus, std::string epithet);
     ~SpeciesComponent() override {}
 
-    [[nodiscard]] std::string GetFormattedName(bool identifier) const;
-
     // Data members
-    int populationCount = 0;
+    int population_count = 0;
     int age = 0;
     std::string name;
     std::string genus;
     std::string epithet;
     Genes genes{};
     int32_t generation = 0;
+
+    [[nodiscard]] std::string get_name_formatted(bool identifier) const;
 };

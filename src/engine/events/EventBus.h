@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace Aeon {
+namespace ncore {
 
 /**
  * @brief Base class for all events
@@ -24,8 +24,8 @@ public:
 
 class UnknownEvent : public Event {
 public:
-    UnknownEvent(void *nativeHandle) : nativeHandle(nativeHandle) {}
-    void *nativeHandle;
+    UnknownEvent(void *p_native_ptr) : native_ptr(p_native_ptr) {}
+    void *native_ptr;
 };
 
 /**
@@ -36,17 +36,17 @@ public:
  *
  * Usage:
  *   // Subscribe
- *   eventBus.Subscribe<CollisionEvent>([](const CollisionEvent &e) {
+ *   event_bus.subscribe<CollisionEvent>([](const CollisionEvent &e) {
  *       // Handle collision
  *   });
  *
  *   // Publish
- *   eventBus.Publish(CollisionEvent{entityA, entityB});
+ *   event_bus.publish(CollisionEvent(entityA, entityB));
  */
 class EventBus {
 public:
     /**
-     * @brief Subscribe to an event type
+     * @brief subscribe to an event type
      *
      * The order of subscribed consumers defines the event pipeline
      *
@@ -55,28 +55,29 @@ public:
      * @return Subscription ID (can be used to unsubscribe)
      */
     template<typename T>
-    size_t Subscribe(std::function<void(const T &)> callback) {
+    size_t subscribe(std::function<void(const T &)> callback) {
         static_assert(std::is_base_of_v<Event, T>, "T must inherit from Event");
 
-        auto typeIndex = std::type_index(typeid(T));
-        size_t id = m_nextSubscriptionId++;
+        auto type_idx = std::type_index(typeid(T));
+        size_t id = next_subscription_id++;
 
         // Wrap the typed callback in a type-erased wrapper
         auto wrapper = [callback](const Event &event) { callback(static_cast<const T &>(event)); };
 
-        m_subscribers[typeIndex].emplace_back(id, wrapper);
+        subscribers[type_idx].emplace_back(id, wrapper);
         return id;
     }
 
     /**
      * @brief Unsubscribe from an event
-     * @param subscriptionId ID returned from Subscribe()
+     * @param subscriptionId ID returned from subscribe()
      */
-    void Unsubscribe(size_t subscriptionId) {
-        for (auto &[typeIndex, subscribers]: m_subscribers) {
-            subscribers.erase(std::remove_if(subscribers.begin(), subscribers.end(),
-                                             [subscriptionId](const auto &sub) { return sub.first == subscriptionId; }),
-                              subscribers.end());
+    void unsubscribe(size_t p_subscription_id) {
+        for (auto &[type_idx, subscribers]: subscribers) {
+            subscribers.erase(
+                std::remove_if(subscribers.begin(), subscribers.end(),
+                               [p_subscription_id](const auto &sub) { return sub.first == p_subscription_id; }),
+                subscribers.end());
         }
     }
 
@@ -86,12 +87,12 @@ public:
      * @param event Event instance to publish
      */
     template<typename T>
-    void Publish(const T &event) {
+    void publish(const T &event) {
         static_assert(std::is_base_of_v<Event, T>, "T must inherit from Event");
 
-        auto typeIndex = std::type_index(typeid(T));
-        auto it = m_subscribers.find(typeIndex);
-        if (it == m_subscribers.end())
+        auto type_idx = std::type_index(typeid(T));
+        auto it = subscribers.find(type_idx);
+        if (it == subscribers.end())
             return;
 
         for (auto &[id, callback]: it->second) {
@@ -110,9 +111,9 @@ public:
      * Useful for events that should not be processed immediately.
      */
     template<typename T>
-    void Queue(const T &event) {
+    void queue(const T &event) {
         static_assert(std::is_base_of_v<Event, T>, "T must inherit from Event");
-        m_eventQueue.emplace_back(std::make_shared<T>(event));
+        event_queue.emplace_back(std::make_shared<T>(event));
     }
 
     /**
@@ -121,12 +122,12 @@ public:
      * Called once per frame to process events that were queued
      * using Queue(). Events are processed in FIFO order.
      */
-    void ProcessQueue() {
+    void process_queue() {
         // Process queued events
-        for (auto &event: m_eventQueue) {
-            auto typeIndex = std::type_index(typeid(*event));
-            auto it = m_subscribers.find(typeIndex);
-            if (it == m_subscribers.end())
+        for (auto &event: event_queue) {
+            auto type_idx = std::type_index(typeid(*event));
+            auto it = subscribers.find(type_idx);
+            if (it == subscribers.end())
                 continue;
 
             for (auto &[id, callback]: it->second) {
@@ -136,23 +137,23 @@ public:
             }
         }
 
-        m_eventQueue.clear();
+        event_queue.clear();
     }
 
-    void Clear() {
-        m_subscribers.clear();
-        m_eventQueue.clear();
-        m_nextSubscriptionId = 0;
+    void clear() {
+        subscribers.clear();
+        event_queue.clear();
+        next_subscription_id = 0;
     }
 
     // ---- Read-only debug accessors ----
 
-    size_t GetQueueSize() const { return m_eventQueue.size(); }
+    size_t get_queue_size() const { return event_queue.size(); }
 
     using SubscriberDebugInfo = std::vector<std::pair<const char *, size_t>>;
-    SubscriberDebugInfo GetSubscriberDebugInfo() const {
+    SubscriberDebugInfo get_subscriber_debug_info() const {
         SubscriberDebugInfo info;
-        for (const auto &[typeIndex, subs]: m_subscribers)
+        for (const auto &[typeIndex, subs]: subscribers)
             info.emplace_back(typeIndex.name(), subs.size());
         return info;
     }
@@ -160,12 +161,12 @@ public:
 private:
     // Type index -> list of (subscription ID, callback)
     using CallbackType = std::function<void(const Event &)>;
-    std::unordered_map<std::type_index, std::vector<std::pair<size_t, CallbackType>>> m_subscribers;
+    std::unordered_map<std::type_index, std::vector<std::pair<size_t, CallbackType>>> subscribers;
 
     // Queue for deferred event processing
-    std::vector<std::shared_ptr<Event>> m_eventQueue;
+    std::vector<std::shared_ptr<Event>> event_queue;
 
-    size_t m_nextSubscriptionId = 0;
+    size_t next_subscription_id = 0;
 };
 
-} // namespace Aeon
+} // namespace ncore

@@ -11,11 +11,11 @@
 #include <TextureManager.h>
 #include <Viewport.h>
 #include <Window.h>
-#include <utils/Config.h>
+#include <Config.h>
 
-namespace Aeon {
+namespace ncore {
 
-namespace Config {
+namespace cfg {
 
 /**
  * @brief Properties related to hardware window settings
@@ -47,42 +47,42 @@ struct Log {
     DEFINE_CONFIG_MAP_FIELDS(Log, Level, FilePath, Overrides)
 };
 
-} // namespace Config
+} // namespace cfg
 
 class Engine {
 public:
     Engine(std::string appName);
     ~Engine();
 
-    int Run();
+    int run();
 
-    MainLoop &GetMainLoop() { return *m_mainLoop; }
+    MainLoop &get_main_loop() { return *main_loop; }
 
-    Config::Window m_windowConf;
-    Config::Render m_renderConf;
-
-private:
-    int Init();
-    int Cleanup();
+    cfg::Window window_cfg;
+    cfg::Render render_cfg;
 
 private:
-    std::string m_app_name;
-    std::string m_configFileName = "engine.ini";
-    ConfigMap m_config;
+    int init();
+    int cleanup();
 
-    std::unique_ptr<MainLoop> m_mainLoop;
+private:
+    std::string app_name;
+    std::string cfg_filename = "engine.ini";
+    ConfigMap cfg_map;
+
+    std::unique_ptr<MainLoop> main_loop;
 
 private:
     // Engine subsystems
-    std::shared_ptr<Window> m_mainWindow;
-    std::shared_ptr<Physics2D> m_physics2d;
-    std::shared_ptr<Viewport2D> m_viewport2d;
-    std::shared_ptr<AudioManager> m_audio;
-    std::shared_ptr<Gui> m_gui;
-    std::shared_ptr<TextureManager> m_textureManager;
+    std::shared_ptr<Window> main_window;
+    std::shared_ptr<Physics2D> phys2d;
+    std::shared_ptr<Viewport2D> viewport2d;
+    std::shared_ptr<AudioManager> audio;
+    std::shared_ptr<Gui> gui;
+    std::shared_ptr<TextureManager> texture;
 
     // Service registry
-    Services m_services;
+    Services service_reg;
 };
 
-} // namespace Aeon
+} // namespace ncore

@@ -5,64 +5,54 @@
 #include <Window.h>
 #include <memory>
 #include "ICamera.h"
-#include "Vector2D.h"
+#include "Vec2D.h"
 
-namespace Aeon {
+namespace ncore {
 
 //! \brief Defines the screen rectangle where rendering occurs
 //! Also manages the main camera for view transformation
 class Viewport2D {
 public:
     Viewport2D(Window &p_window, float ppm);
-    Viewport2D(Window &p_window, float x, float y, float width, float height);
+    Viewport2D(Window &p_window, Rect rect);
     ~Viewport2D();
 
     // Set/Get viewport rectangle
-    void SetRect(float x, float y, float width, float height);
-    void SetPosition(float x, float y);
-    void SetSize(float width, float height);
+    void set_rect(Rect rect);
+    void set_position(float x, float y);
+    void set_size(float width, float height);
 
-    float GetX() const { return m_x; }
-    float GetY() const { return m_y; }
-    float GetWidth() const { return m_width; }
-    float GetHeight() const { return m_height; }
+    Rect get_rect() const { return view_rect; }
+    Vec2D get_position() const { return Vec2D(view_rect.x, view_rect.y); }
+    Vec2D get_size() const { return Vec2D(view_rect.w, view_rect.h); }
+    Vec2D get_center() const { return Vec2D(view_rect.x + view_rect.w * 0.5f, view_rect.y + view_rect.h * 0.5f); }
 
-    Vector2D GetPosition() const { return Vector2D(m_x, m_y); }
-    Vector2D GetSize() const { return Vector2D(m_width, m_height); }
-    Vector2D GetCenter() const { return Vector2D(m_x + m_width / 2.0f, m_y + m_height / 2.0f); }
+    ICamera *get_main_camera() { return main_cam.get(); }
+    const ICamera *get_main_camera() const { return main_cam.get(); }
+    void set_main_camera(std::unique_ptr<ICamera> camera) { main_cam = std::move(camera); }
 
-    ICamera *GetMainCamera() { return m_mainCamera.get(); }
-    const ICamera *GetMainCamera() const { return m_mainCamera.get(); }
-    void SetMainCamera(std::unique_ptr<ICamera> camera) { m_mainCamera = std::move(camera); }
+    Vec2D world_to_screen(const Vec2D &worldPos) const;
+    Vec2D screen_to_world(const Vec2D &screenPos) const;
 
-    Vector2D WorldToScreen(const Vector2D &worldPos) const;
-    Vector2D ScreenToWorld(const Vector2D &screenPos) const;
+    float get_pixels_per_meter() const { return pixels_per_meter; }
+    void set_pixels_per_meter(float ppm) { pixels_per_meter = ppm; }
 
-    float GetPixelsPerMeter() const { return m_pixelsPerMeter; }
-    void SetPixelsPerMeter(float ppm) { m_pixelsPerMeter = ppm; }
-
-    bool IsPointVisible(const Vector2D &worldPos) const;
-    bool IsRectVisible(const Vector2D &worldPos, const Vector2D &size) const;
+    bool get_is_point_visible(const Vec2D &worldPos) const;
+    bool get_is_rect_visible(const Vec2D &worldPos, const Vec2D &size) const;
 
     // System access through interfaces
-    IGraphicsContext *GetGraphicsContext() const { return m_graphicsContext.get(); }
-    SDL_Window *GetSDLWindow() const { return m_window; } // HACK: For ImGui which needs SDL_Window
+    IGraphicsContext *get_graphics_context() const { return graphics_ctx.get(); }
+    SDL_Window *get_native_window() const { return m_window; } // HACK: For ImGui which needs SDL_Window
 
 private:
-    void Init(Window &p_window);
+    void init(Window &p_window);
 
 private:
-    float m_x = 0.0f;
-    float m_y = 0.0f;
-    float m_width = 0.0f;
-    float m_height = 0.0f;
-    float m_pixelsPerMeter = 32.0f; // default scale factor for world-to-screen conversion
-
-    std::unique_ptr<IGraphicsContext> m_graphicsContext;
-
-    std::unique_ptr<ICamera> m_mainCamera;
-
+    Rect view_rect;
+    float pixels_per_meter = 32.0f; // default scale factor for world-to-screen conversion
+    std::unique_ptr<IGraphicsContext> graphics_ctx;
+    std::unique_ptr<ICamera> main_cam;
     SDL_Window *m_window = nullptr; // HACK: Needed for ImGui initialization
 };
 
-} // namespace Aeon
+} // namespace ncore

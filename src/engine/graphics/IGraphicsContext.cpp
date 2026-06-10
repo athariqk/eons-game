@@ -1,27 +1,27 @@
 #include "IGraphicsContext.h"
 
-namespace Aeon {
+namespace ncore {
 
-void IGraphicsContext::DrawCircle(float x, float y, float radius, Color color, bool filled, bool edge) {
-    SetDrawColor(color);
+void IGraphicsContext::draw_circle(float x, float y, float radius, Color color, bool filled, bool edge) {
+    set_draw_color(color);
 
     if (filled) {
         // Approximate filled circle using many points
         for (int w = -radius; w <= radius; w++) {
             for (int h = -radius; h <= radius; h++) {
                 if (w * w + h * h <= radius * radius) {
-                    DrawPoint(x + w, y + h);
+                    draw_point(x + w, y + h);
                 }
             }
         }
 
         if (edge) {
-            SetDrawColor(Color(255, 255, 255, 150));
+            set_draw_color(Color(255, 255, 255, 150));
             for (int i = 0; i < 360; i++) {
                 float angle = i * M_PI / 180.0f;
                 int xc = x + (radius + 2) * cos(angle);
                 int ys = x + (radius + 2) * sin(angle);
-                DrawPoint(xc, ys);
+                draw_point(xc, ys);
             }
         }
     } else {
@@ -30,13 +30,13 @@ void IGraphicsContext::DrawCircle(float x, float y, float radius, Color color, b
             float angle = i * M_PI / 180.0f;
             int xc = x + radius * cos(angle);
             int ys = y + radius * sin(angle);
-            DrawPoint(xc, ys);
+            draw_point(xc, ys);
         }
     }
 }
 
-void IGraphicsContext::FillConvexPolygon(const Vector2D *vertices, int count, const Color &color) {
-    SetDrawColor(color);
+void IGraphicsContext::draw_convex_polygon_filled(const Vec2D *vertices, int count, const Color &color) {
+    set_draw_color(color);
 
     float minY = vertices[0].y, maxY = vertices[0].y;
     for (int i = 1; i < count; i++) {
@@ -66,9 +66,9 @@ void IGraphicsContext::FillConvexPolygon(const Vector2D *vertices, int count, co
         }
 
         if (rowEnd > rowStart) {
-            DrawLine(Rect{rowStart, yf, rowEnd, yf});
+            draw_line(Rect{rowStart, yf, rowEnd, yf});
         }
     }
 }
 
-} // namespace Aeon
+} // namespace ncore

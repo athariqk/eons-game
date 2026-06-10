@@ -1,13 +1,13 @@
 #include "OrganismAIComponent.h"
 
-std::string OrganismAIComponent::getCurrentBehaviour() const {
-    switch (behaviourState) {
-        case BehaviourState::Idling:
-        case BehaviourState::RunAndTumble:
+std::string OrganismAIComponent::get_current_behavior() const {
+    switch (state) {
+        case BehaviourState::IDLING:
+        case BehaviourState::RUN_TUMBLE:
             return "Run & Tumble";
-        case BehaviourState::Absorbing:
+        case BehaviourState::ABSORBING:
             return "Absorbing nutrient";
-        case BehaviourState::Evaluate:
+        case BehaviourState::EVALUATE:
             return "Evaluating";
         default:
             return "Unknown";

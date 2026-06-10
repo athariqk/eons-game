@@ -10,26 +10,26 @@
 #include "Logger.h"
 #include "Window.h"
 
-namespace Aeon {
+namespace ncore {
 
 Gui::Gui(Window &window) : m_window(window) {
-    auto *renderer = window.GetRenderer();
+    auto *renderer = window.get_renderer();
     if (!renderer) {
-        LOG_ERROR(Log::Gui, "Failed to initialize ImGui, SDL renderer is missing!");
+        LOG_ERROR(log::GUI, "Failed to initialize ImGui, SDL renderer is missing!");
         return;
     }
 
     IMGUI_CHECKVERSION();
-    m_imguiContext = ImGui::CreateContext();
+    imgui_ctx = ImGui::CreateContext();
 
-    if (!ImGui_ImplSDL3_InitForSDLRenderer(window.GetSDLWindow(), renderer)) {
-        LOG_ERROR(Log::Gui, "Failed to initialize ImGui SDL3 backend");
+    if (!ImGui_ImplSDL3_InitForSDLRenderer(window.get_native_handle(), renderer)) {
+        LOG_ERROR(log::GUI, "Failed to initialize ImGui SDL3 backend");
         ImGui::DestroyContext();
         return;
     }
 
     if (!ImGui_ImplSDLRenderer3_Init(renderer)) {
-        LOG_ERROR(Log::Gui, "Failed to initialize ImGui SDL renderer backend");
+        LOG_ERROR(log::GUI, "Failed to initialize ImGui SDL renderer backend");
         ImGui_ImplSDL3_Shutdown();
         ImGui::DestroyContext();
         return;
@@ -38,7 +38,7 @@ Gui::Gui(Window &window) : m_window(window) {
     ImGui::StyleColorsLight();
 
     m_initialized = true;
-    LOG_INFO(Log::Gui, "ImGui Initialized");
+    LOG_INFO(log::GUI, "ImGui Initialized");
 }
 
 SDL_Scancode KeyToScancode(KeyboardEvent::Key key) {
@@ -93,35 +93,35 @@ uint8_t BtnToSDL(ButtonIndex btn) {
     }
 }
 
-void Gui::InitSubscriptions(EventBus &eventBus) {
-    m_windowID = m_window.GetWindowID();
+void Gui::init_event_subs(EventBus &event_bus) {
+    window_id = m_window.get_window_id();
     auto &io = ImGui::GetIO();
 
-    eventBus.Subscribe<KeyboardEvent>([this, &io](const KeyboardEvent &e) {
+    event_bus.subscribe<KeyboardEvent>([this, &io](const KeyboardEvent &e) {
         SDL_Event sdl{};
         sdl.type = e.action == ButtonAction::Press ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
         sdl.key.scancode = KeyToScancode(e.key);
         sdl.key.key = 0;
         sdl.key.repeat = e.repeat;
-        sdl.key.windowID = m_windowID;
+        sdl.key.windowID = window_id;
         ImGui_ImplSDL3_ProcessEvent(&sdl);
         if (io.WantCaptureKeyboard)
             e.handled = true;
     });
 
-    eventBus.Subscribe<MouseButtonEvent>([this, &io](const MouseButtonEvent &e) {
+    event_bus.subscribe<MouseButtonEvent>([this, &io](const MouseButtonEvent &e) {
         SDL_Event sdl{};
         sdl.type = e.action == ButtonAction::Press ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
         sdl.button.button = BtnToSDL(e.button);
         sdl.button.x = e.position.x;
         sdl.button.y = e.position.y;
-        sdl.button.windowID = m_windowID;
+        sdl.button.windowID = window_id;
         ImGui_ImplSDL3_ProcessEvent(&sdl);
         if (io.WantCaptureMouse)
             e.handled = true;
     });
 
-    eventBus.Subscribe<MouseMotionEvent>([this, &io](const MouseMotionEvent &e) {
+    event_bus.subscribe<MouseMotionEvent>([this, &io](const MouseMotionEvent &e) {
         SDL_Event sdl{};
         sdl.type = SDL_EVENT_MOUSE_MOTION;
         sdl.motion.x = e.position.x;
@@ -129,71 +129,71 @@ void Gui::InitSubscriptions(EventBus &eventBus) {
         sdl.motion.xrel = e.delta.x;
         sdl.motion.yrel = e.delta.y;
         sdl.motion.state = e.buttonState;
-        sdl.motion.windowID = m_windowID;
+        sdl.motion.windowID = window_id;
         ImGui_ImplSDL3_ProcessEvent(&sdl);
         if (io.WantCaptureMouse)
             e.handled = true;
     });
 
-    eventBus.Subscribe<MouseWheelEvent>([this, &io](const MouseWheelEvent &e) {
+    event_bus.subscribe<MouseWheelEvent>([this, &io](const MouseWheelEvent &e) {
         SDL_Event sdl{};
         sdl.type = SDL_EVENT_MOUSE_WHEEL;
-        sdl.wheel.x = e.scrollX;
-        sdl.wheel.y = e.scrollY;
-        sdl.wheel.windowID = m_windowID;
+        sdl.wheel.x = e.scroll_x;
+        sdl.wheel.y = e.scroll_y;
+        sdl.wheel.windowID = window_id;
         ImGui_ImplSDL3_ProcessEvent(&sdl);
         if (io.WantCaptureMouse)
             e.handled = true;
     });
 
-    eventBus.Subscribe<TextInputEvent>([this](const TextInputEvent &e) {
+    event_bus.subscribe<TextInputEvent>([this](const TextInputEvent &e) {
         SDL_Event sdl{};
         sdl.type = SDL_EVENT_TEXT_INPUT;
         sdl.text.text = e.text.c_str();
-        sdl.text.windowID = m_windowID;
+        sdl.text.windowID = window_id;
         ImGui_ImplSDL3_ProcessEvent(&sdl);
         e.handled = true;
     });
 
-    eventBus.Subscribe<WindowResizeEvent>([this](const WindowResizeEvent &e) {
+    event_bus.subscribe<WindowResizeEvent>([this](const WindowResizeEvent &e) {
         SDL_Event sdl{};
         sdl.type = SDL_EVENT_WINDOW_RESIZED;
         sdl.window.data1 = e.width;
         sdl.window.data2 = e.height;
-        sdl.window.windowID = m_windowID;
+        sdl.window.windowID = window_id;
         ImGui_ImplSDL3_ProcessEvent(&sdl);
     });
 
-    eventBus.Subscribe<WindowCloseEvent>([this](const WindowCloseEvent &e) {
+    event_bus.subscribe<WindowCloseEvent>([this](const WindowCloseEvent &e) {
         SDL_Event sdl{};
         sdl.type = SDL_EVENT_WINDOW_CLOSE_REQUESTED;
-        sdl.window.windowID = m_windowID;
+        sdl.window.windowID = window_id;
         ImGui_ImplSDL3_ProcessEvent(&sdl);
     });
 
-    eventBus.Subscribe<WindowFocusEvent>([this](const WindowFocusEvent &e) {
+    event_bus.subscribe<WindowFocusEvent>([this](const WindowFocusEvent &e) {
         SDL_Event sdl{};
         sdl.type = e.focused ? SDL_EVENT_WINDOW_FOCUS_GAINED : SDL_EVENT_WINDOW_FOCUS_LOST;
-        sdl.window.windowID = m_windowID;
+        sdl.window.windowID = window_id;
         ImGui_ImplSDL3_ProcessEvent(&sdl);
     });
 
-    eventBus.Subscribe<WindowMouseEnterEvent>([this](const WindowMouseEnterEvent &e) {
+    event_bus.subscribe<WindowMouseEnterEvent>([this](const WindowMouseEnterEvent &e) {
         SDL_Event sdl{};
         sdl.type = SDL_EVENT_WINDOW_MOUSE_ENTER;
-        sdl.window.windowID = m_windowID;
+        sdl.window.windowID = window_id;
         ImGui_ImplSDL3_ProcessEvent(&sdl);
     });
 
-    eventBus.Subscribe<WindowMouseLeaveEvent>([this](const WindowMouseLeaveEvent &e) {
+    event_bus.subscribe<WindowMouseLeaveEvent>([this](const WindowMouseLeaveEvent &e) {
         SDL_Event sdl{};
         sdl.type = SDL_EVENT_WINDOW_MOUSE_LEAVE;
-        sdl.window.windowID = m_windowID;
+        sdl.window.windowID = window_id;
         ImGui_ImplSDL3_ProcessEvent(&sdl);
     });
 }
 
-void Gui::Begin() {
+void Gui::begin() {
     if (!m_initialized) {
         return;
     }
@@ -203,16 +203,16 @@ void Gui::Begin() {
     ImGui::NewFrame();
 }
 
-void Gui::End() {
+void Gui::end() {
     if (!m_initialized) {
         return;
     }
 
     ImGui::Render();
-    ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), m_window.GetRenderer());
+    ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), m_window.get_renderer());
 }
 
-void Gui::Clear() {
+void Gui::clear() {
     if (!m_initialized) {
         return;
     }
@@ -223,5 +223,5 @@ void Gui::Clear() {
     m_initialized = false;
 }
 
-} // namespace Aeon
+} // namespace ncore
 

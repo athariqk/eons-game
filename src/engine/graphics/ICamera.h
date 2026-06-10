@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Vector2D.h"
+#include "Vec2D.h"
 
-namespace Aeon {
+namespace ncore {
 
 //! \brief Camera interface for 2D rendering
 //! Defines the view transformation (what to see in the world)
@@ -11,16 +11,16 @@ public:
     virtual ~ICamera() = default;
 
     //! \brief Get camera position in world coordinates
-    virtual Vector2D GetPosition() const = 0;
+    virtual Vec2D get_position() const = 0;
 
     //! \brief Get camera zoom level (1.0 = normal, >1.0 = zoomed in, <1.0 = zoomed out)
-    virtual float GetZoom() const = 0;
+    virtual float get_zoom() const = 0;
 
     //! \brief Set camera position
-    virtual void SetPosition(const Vector2D &position) = 0;
+    virtual void set_position(const Vec2D &position) = 0;
 
     //! \brief Set camera zoom
-    virtual void SetZoom(float zoom) = 0;
+    virtual void set_zoom(float zoom) = 0;
 };
 
-} // namespace Aeon
+} // namespace ncore

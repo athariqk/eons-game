@@ -13,44 +13,44 @@
 #include "components/OrganismComponent.h"
 #include "components/SpeciesComponent.h"
 
-void OrganismSystem::OnFixedUpdate(Aeon::World &world, double fixedDelta) {
+void OrganismSystem::on_fixed_update(ncore::World &world, double fixedDelta) {
     float delta = static_cast<float>(fixedDelta);
 
     // Get viewport for spawn positioning
-    auto *viewport = world.GetMainLoop().GetServices().TryGet<Aeon::Viewport2D>();
+    auto *viewport = world.get_main_loop().get_services().try_get<ncore::Viewport2D>();
 
-    auto &microWorld = static_cast<MicrocosmWorld &>(world);
+    auto &micro_world = static_cast<MicrocosmWorld &>(world);
 
     // Iterate through all entities
-    for (const auto &entityPtr: world.GetEntities()) {
-        if (!entityPtr->IsEnabled())
+    for (const auto &entity_ptr: world.get_entities()) {
+        if (!entity_ptr->is_enabled())
             continue;
 
-        if (!entityPtr->HasComponent<OrganismComponent>())
+        if (!entity_ptr->has_component<OrganismComponent>())
             continue;
 
-        auto &organism = entityPtr->GetComponent<OrganismComponent>();
+        auto &organism = entity_ptr->get_component<OrganismComponent>();
 
         // Update organism state
-        organism.curEnergy -= 0.02f * delta;
+        organism.cur_energy -= 0.02f * delta;
         organism.fitness -= 0.005f * delta;
 
         // Check for death condition
-        if (organism.curEnergy <= 0) {
-            microWorld.DeleteOrganism(&organism);
-            microWorld.GetSpeciesById(organism.speciesId)->populationCount--;
+        if (organism.cur_energy <= 0) {
+            micro_world.remove_organism(&organism);
+            micro_world.get_species_by_id(organism.species_id)->population_count--;
             continue;
         }
 
         // Clamp values
-        if (organism.curEnergy < 0)
-            organism.curEnergy = 0;
+        if (organism.cur_energy < 0)
+            organism.cur_energy = 0;
 
         if (organism.fitness < 0)
             organism.fitness = 0;
 
-        if (organism.curEnergy > organism.genome.energyCapacity) {
-            organism.curEnergy = organism.genome.energyCapacity;
+        if (organism.cur_energy > organism.genome.energy_capacity) {
+            organism.cur_energy = organism.genome.energy_capacity;
         }
 
         if (organism.fitness > 100) {

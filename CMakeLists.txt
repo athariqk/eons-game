@@ -33,49 +33,54 @@ add_subdirectory(vendors)
 # Create executable with source files
 add_executable(eons "src/main.cpp"
 	"src/engine/Engine.h" "src/engine/Engine.cpp"
-    "src/engine/audio/AudioManager.h" "src/engine/audio/AudioManager.cpp"
-    "src/engine/core/World.h" "src/engine/core/World.cpp"
-    "src/engine/core/Logger.h" "src/engine/core/Logger.cpp"
-    "src/engine/core/MainLoop.h" "src/engine/core/MainLoop.cpp"
-    "src/engine/core/Random.h"
-    "src/engine/core/Services.h"
-    "src/engine/core/Vector2D.h" "src/engine/core/Vector2D.cpp"
-    "src/engine/core/Window.h" "src/engine/core/Window.cpp"
+	"src/engine/Config.h"
+    "src/engine/World.h" "src/engine/World.cpp"
+    "src/engine/MainLoop.h" "src/engine/MainLoop.cpp"
+    "src/engine/Services.h"
+    "src/engine/ResourceManager.h"
+	"src/engine/IResourceLoader.h"
+	"src/engine/ResourceCache.h"
+	"src/engine/audio/AudioManager.h" "src/engine/audio/AudioManager.cpp"
+    "src/engine/core/Vec2D.h" "src/engine/core/Vec2D.cpp"
 	"src/engine/core/ErrorCodes.h"
+	"src/engine/core/Color.h"
 	"src/engine/events/InputEvents.h" "src/engine/events/InputEvents.cpp"
     "src/engine/events/EventBus.h"
 	"src/engine/ecs/Entity.h" "src/engine/ecs/Entity.cpp"
 	"src/engine/ecs/Component.h"
 	"src/engine/ecs/System.h"
-	"src/engine/components/RigidBodyComponent.h"
-	"src/engine/components/TransformComponent.h"
-	"src/engine/components/SpriteComponent.h"
-	"src/engine/systems/PhysicsSystem.h" "src/engine/systems/PhysicsSystem.cpp"
-	"src/engine/systems/RenderSystem.h" "src/engine/systems/RenderSystem.cpp"
-	"src/engine/systems/AudioSystem.h" "src/engine/systems/AudioSystem.cpp"
-	"src/engine/systems/InputSystem.h" "src/engine/systems/InputSystem.cpp"
+	"src/engine/ecs/components/RigidBodyComponent.h"
+	"src/engine/ecs/components/TransformComponent.h"
+	"src/engine/ecs/components/SpriteComponent.h"
+	"src/engine/ecs/systems/PhysicsSystem.h" "src/engine/ecs/systems/PhysicsSystem.cpp"
+	"src/engine/ecs/systems/RenderSystem.h" "src/engine/ecs/systems/RenderSystem.cpp"
+	"src/engine/ecs/systems/AudioSystem.h" "src/engine/ecs/systems/AudioSystem.cpp"
+	"src/engine/ecs/systems/InputSystem.h" "src/engine/ecs/systems/InputSystem.cpp"
     "src/engine/graphics/TextureManager.h" "src/engine/graphics/TextureManager.cpp"
     "src/engine/graphics/Viewport.h" "src/engine/graphics/Viewport.cpp"
     "src/engine/graphics/ICamera.h"
     "src/engine/graphics/Camera.h" "src/engine/graphics/Camera.cpp"
     "src/engine/graphics/IGraphicsContext.h" "src/engine/graphics/IGraphicsContext.cpp"
     "src/engine/graphics/backends/SDLGraphicsContext.h" "src/engine/graphics/backends/SDLGraphicsContext.cpp"
-	"src/engine/graphics/Color.h"
+	"src/engine/graphics/TextureResource.h"
+	"src/engine/graphics/TextureLoader.h"
+    "src/engine/graphics/Window.h" "src/engine/graphics/Window.cpp"
     "src/engine/gui/backends/ImGuiSDL.h" "src/engine/gui/backends/ImGuiSDL.cpp"
     "src/engine/gui/backends/ImGuiSDLRenderer.h" "src/engine/gui/backends/ImGuiSDLRenderer.cpp"
     "src/engine/gui/Gui.h" "src/engine/gui/Gui.cpp"
     "src/engine/physics/Physics.h" "src/engine/physics/Physics.cpp"
-	"src/engine/utils/Config.h"
+    "src/engine/utils/Logger.h" "src/engine/utils/Logger.cpp"
+    "src/engine/utils/Random.h"
     "src/game/experimental/NeuralNetwork/neural_network.h" "src/game/experimental/NeuralNetwork/neural_network.cpp"
     "src/game/microcosmos/Evolution.cpp"
     "src/game/microcosmos/evolution.h"
     "src/game/microcosmos/Genes.h"
     "src/game/microcosmos/MicrocosmWorld.h" "src/game/microcosmos/MicrocosmWorld.cpp"
-    "src/game/microcosmos/components/NutrientComponent.h"
+    "src/game/microcosmos/components/FoodComponent.h"
     "src/game/microcosmos/components/OrganismComponent.h" "src/game/microcosmos/components/OrganismComponent.cpp"
     "src/game/microcosmos/components/OrganismAIComponent.h" "src/game/microcosmos/components/OrganismAIComponent.cpp"
     "src/game/microcosmos/components/SpeciesComponent.h" "src/game/microcosmos/components/SpeciesComponent.cpp"
-	"src/game/microcosmos/systems/NutrientSystem.h" "src/game/microcosmos/systems/NutrientSystem.cpp"
+	"src/game/microcosmos/systems/FoodSystem.h" "src/game/microcosmos/systems/FoodSystem.cpp"
     "src/game/microcosmos/systems/OrganismSystem.h" "src/game/microcosmos/systems/OrganismSystem.cpp"
     "src/game/microcosmos/systems/OrganismAISystem.h" "src/game/microcosmos/systems/OrganismAISystem.cpp"
     "src/game/microcosmos/systems/SpeciesSystem.h" "src/game/microcosmos/systems/SpeciesSystem.cpp"
@@ -84,7 +89,7 @@ add_executable(eons "src/main.cpp"
 # Define preprocessor macros
 target_compile_definitions(eons PRIVATE _CRT_SECURE_NO_WARNINGS)
 
-target_precompile_headers(eons PRIVATE "src/pch.h")
+target_precompile_headers(eons PRIVATE "src/pch.h" "src/engine/Definitions.h")
 
 find_package(SDL3 CONFIG REQUIRED COMPONENTS SDL3-shared)
 find_package(SDL3_image CONFIG REQUIRED)
@@ -136,8 +141,8 @@ target_include_directories(eons PUBLIC
         ${CMAKE_SOURCE_DIR}/src/engine/audio
         ${CMAKE_SOURCE_DIR}/src/engine/core
         ${CMAKE_SOURCE_DIR}/src/engine/ecs
-        ${CMAKE_SOURCE_DIR}/src/engine/components
-        ${CMAKE_SOURCE_DIR}/src/engine/systems
+        ${CMAKE_SOURCE_DIR}/src/engine/ecs/components
+        ${CMAKE_SOURCE_DIR}/src/engine/ecs/systems
         ${CMAKE_SOURCE_DIR}/src/engine/events
         ${CMAKE_SOURCE_DIR}/src/engine/graphics
         ${CMAKE_SOURCE_DIR}/src/engine/graphics/backends

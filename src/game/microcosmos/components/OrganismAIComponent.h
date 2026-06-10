@@ -1,49 +1,34 @@
 #pragma once
 
 #include "Entity.h"
-#include "Vector2D.h"
+#include "Vec2D.h"
 
-class NutrientComponent;
+class FoodComponent;
+
+enum class BehaviourState { IDLING = 0, RUN_TUMBLE = 1, ABSORBING = 2, EVALUATE = 3 };
 
 /**
  * @brief Simple predefined "dumb" AI component for organisms
- * 
+ *
  * Neural network could be used later instead
  */
-enum class BehaviourState { 
-    Idling = 0, 
-    RunAndTumble = 1, 
-    Absorbing = 2, 
-    Evaluate = 3 
-};
-
-class OrganismAIComponent : public Aeon::Component {
+class OrganismAIComponent : public ncore::Component {
 public:
-    OrganismAIComponent(float organismSpeed, float aiInterval) 
-        : moveSpeed(organismSpeed), actInterval(aiInterval) {}
+    OrganismAIComponent(float p_speed, float p_think_interval) : move_speed(p_speed), act_interval(p_think_interval) {}
     ~OrganismAIComponent() override = default;
 
-    std::string getCurrentBehaviour() const;
-
-    // Movement parameters
-    float moveSpeed;
-    float absorbSpeed = 0.2f;
-
-    // AI state
-    BehaviourState behaviourState = BehaviourState::Idling;
-
-    // Flags
-    bool isNutrientFound = false;
-    bool hasMoved = false;
-    bool isAbsorbing = false;
+    BehaviourState state = BehaviourState::IDLING;
+    float move_speed;
+    float absorb_speed = 0.2f;
+    bool is_food_found = false;
+    bool has_moved = false;
+    bool is_absorbing = false;
     bool reproduced = false;
+    float act_interval = 10.0f;
+    float moving_interval = 10.0f;
+    float act_timer = 0.0f;
+    float reproduce_interval = 0.0f;
+    FoodComponent *captured_food = nullptr;
 
-    // Timers
-    float actInterval = 10.0f;
-    float movingInterval = 10.0f;
-    float actTimer = 0.0f;
-    float reproduceInterval = 0.0f;
-
-    // References
-    NutrientComponent *caughtNutrient = nullptr;
+    std::string get_current_behavior() const;
 };

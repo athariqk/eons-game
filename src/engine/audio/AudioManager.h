@@ -4,21 +4,21 @@
 
 #include <SDL3/SDL.h>
 
-namespace Aeon {
+namespace ncore {
 
 class AudioManager {
 public:
     AudioManager();
 
-    void Clear();
+    void clean();
 
-    void PlayWAV(const char *path);
+    void play_wav(const char *path);
 
 private:
     SDL_AudioStream *stream{};
-    SDL_AudioSpec srcSpec;
-    Uint32 wavLength{};
-    Uint8 *wavBuffer{};
+    SDL_AudioSpec src_spec;
+    Uint32 wav_len{};
+    Uint8 *wav_buffer{};
 };
 
-} // namespace Aeon
+} // namespace ncore

@@ -20,83 +20,83 @@
 #include <SpriteComponent.h>
 #include <TransformComponent.h>
 #include <components/OrganismAIComponent.h>
-#include "components/NutrientComponent.h"
+#include "components/FoodComponent.h"
 #include "components/OrganismComponent.h"
 #include "components/SpeciesComponent.h"
-#include "systems/NutrientSystem.h"
+#include "systems/FoodSystem.h"
 #include "systems/OrganismAISystem.h"
 #include "systems/OrganismSystem.h"
 #include "systems/SpeciesSystem.h"
 
-MicrocosmWorld::MicrocosmWorld() : m_config(m_configFileName) { emptyInput(); }
+MicrocosmWorld::MicrocosmWorld() : cfg_map(cfg_filename) { set_input_empty(); }
 
-void MicrocosmWorld::RegisterSystems() {
+void MicrocosmWorld::register_systems() {
     // Register all game systems
-    AddSystem<SpeciesSystem>();
-    AddSystem<OrganismSystem>();
-    AddSystem<NutrientSystem>();
-    AddSystem<OrganismAISystem>();
+    add_system<SpeciesSystem>();
+    add_system<OrganismSystem>();
+    add_system<FoodSystem>();
+    add_system<OrganismAISystem>();
 }
 
-void MicrocosmWorld::OnInit() {
-    m_cameraConf = m_config.Load<Config::MicrocosmCamera>();
+void MicrocosmWorld::on_init() {
+    cfg_cam = cfg_map.load<cfg::MicrocosmCamera>();
 
-    RegisterSystems();
+    register_systems();
 
-    m_inputSystem = GetSystem<Aeon::InputSystem>();
-    m_viewport = GetMainLoop().GetServices().TryGet<Aeon::Viewport2D>();
-    m_mainCamera = m_viewport ? m_viewport->GetMainCamera() : nullptr;
-    m_renderSystem = GetSystem<Aeon::RenderSystem>();
+    inputs = get_system<ncore::InputSystem>();
+    viewport = get_main_loop().get_services().try_get<ncore::Viewport2D>();
+    main_cam = viewport ? viewport->get_main_camera() : nullptr;
+    rendering = get_system<ncore::RenderSystem>();
 
     /* Initial species */
-    AddSpeciesToEnvironment("Primum", "Primus", "specium");
+    add_species("Primum", "Primus", "specium");
 }
 
-void MicrocosmWorld::OnUpdate(const double p_delta) {
-    if (m_inputSystem && m_viewport && m_mainCamera) {
-        UpdateCameraControl(p_delta);
-        UpdateCameraMovement(p_delta);
+void MicrocosmWorld::on_update(const double p_delta) {
+    if (inputs && viewport && main_cam) {
+        update_cam_ctrl(p_delta);
+        update_cam_movement(p_delta);
     }
 }
 
-void MicrocosmWorld::OnGuiRender() {
+void MicrocosmWorld::on_gui_render() {
     ImGui::Begin("Microcosmos", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
-    if (ImGui::TreeNode("SpeciesList", "Species alive: %i", m_speciesEntities.size())) {
-        for (int n = 0; n < m_speciesEntities.size(); n++) {
+    if (ImGui::TreeNode("SpeciesList", "Species alive: %i", species_reg.size())) {
+        for (int n = 0; n < species_reg.size(); n++) {
             ImGui::PushID(n);
 
-            auto species = m_speciesEntities[n];
+            auto species = species_reg[n];
 
-            if (ImGui::TreeNode("SpeciesNode", "%s", species->GetFormattedName(true).c_str())) {
-                ImGui::BulletText("ID: %i", species->entity->GetID());
-                ImGui::BulletText("Population: %i", species->populationCount);
+            if (ImGui::TreeNode("SpeciesNode", "%s", species->get_name_formatted(true).c_str())) {
+                ImGui::BulletText("ID: %i", species->entity->get_id());
+                ImGui::BulletText("Population: %i", species->population_count);
 
                 ImGui::TreePop();
             }
 
             if (ImGui::TreeNode("OrganismList", "Individuals")) {
-                for (int i = 0; i < m_organismEntities.size(); i++) {
+                for (int i = 0; i < organism_reg.size(); i++) {
                     ImGui::PushID(i);
-                    if (const auto organism = m_organismEntities[i];
-                        ImGui::TreeNode("individuals", "Organism %i", organism->entity->GetID())) {
+                    if (const auto organism = organism_reg[i];
+                        ImGui::TreeNode("individuals", "Organism %i", organism->entity->get_id())) {
 
                         // Get AI component if it exists
                         std::string behaviour = "No AI";
-                        if (organism->entity->HasComponent<OrganismAIComponent>()) {
-                            auto &ai = organism->entity->GetComponent<OrganismAIComponent>();
-                            behaviour = ai.getCurrentBehaviour();
+                        if (organism->entity->has_component<OrganismAIComponent>()) {
+                            auto &ai = organism->entity->get_component<OrganismAIComponent>();
+                            behaviour = ai.get_current_behavior();
                         }
 
-                        auto &body = organism->entity->GetComponent<Aeon::RigidBodyComponent>();
+                        auto &body = organism->entity->get_component<ncore::RigidBodyComponent>();
 
                         ImGui::Text("Behaviour: %s\nEnergy: %.0f/%.0f\nSpeed: %f\nSize: %f\nAggressiveness: "
                                     "%f\nMembraneColour.r: %i\nMembraneColour.g: %i\nMembraneColour.b: "
                                     "%i\nFitness: %.0f\nMagnitude: %.0f",
-                                    behaviour.c_str(), organism->curEnergy, organism->genome.energyCapacity,
+                                    behaviour.c_str(), organism->cur_energy, organism->genome.energy_capacity,
                                     organism->genome.speed, organism->genome.size, organism->genome.aggresiveness,
-                                    organism->genome.membraneColour.r, organism->genome.membraneColour.g,
-                                    organism->genome.membraneColour.b, organism->fitness, body.velocity.Length());
+                                    organism->genome.membrane_color.r, organism->genome.membrane_color.g,
+                                    organism->genome.membrane_color.b, organism->fitness, body.velocity.length());
                         ImGui::TreePop();
                     }
                     ImGui::PopID();
@@ -105,13 +105,13 @@ void MicrocosmWorld::OnGuiRender() {
             }
 
             if (ImGui::Button("Add Organism", ImVec2(100, 25))) {
-                AddOrganism(species);
+                add_organism(species);
             }
 
             ImGui::SameLine();
 
             if (ImGui::Button("Make Extinct", ImVec2(100, 25))) {
-                MakeExtinct(species);
+                remove_species(species);
             }
 
             ImGui::PopID();
@@ -119,10 +119,10 @@ void MicrocosmWorld::OnGuiRender() {
         ImGui::TreePop();
     }
 
-    if (const auto &nutrients(GetGroup(MicrocosmWorld::NutrientsGroup));
+    if (const auto &nutrients(get_group(MicrocosmWorld::NUTRIENTS_GROUP));
         ImGui::TreeNode("NutrientList", "Nutrients available: %i", nutrients.size())) {
         for (int n = 0; n < nutrients.size(); n++) {
-            ImGui::Text("Nutrient instance %.0f", nutrients[n]->GetComponent<NutrientComponent>().curEnergy);
+            ImGui::Text("Nutrient instance %.0f", nutrients[n]->get_component<FoodComponent>().cur_energy);
         }
         ImGui::TreePop();
     }
@@ -147,11 +147,11 @@ void MicrocosmWorld::OnGuiRender() {
             ImGui::InputText("Epithet", inputEpithet, 255);
             ImGui::Separator();
             if (ImGui::Button("Create", ImVec2(80, 25))) {
-                if (isInputEmpty(inputGenus) || isInputEmpty(inputEpithet)) {
-                    LOG_ERROR(Aeon::Log::Game, "Genus or epithet is not valid!");
+                if (get_is_inputy_empty(inputGenus) || get_is_inputy_empty(inputEpithet)) {
+                    LOG_ERROR(ncore::log::GAME, "Genus or epithet is not valid!");
                 } else {
-                    AddSpeciesToEnvironment(inputGenus, inputGenus, inputEpithet);
-                    emptyInput();
+                    add_species(inputGenus, inputGenus, inputEpithet);
+                    set_input_empty();
                     ImGui::CloseCurrentPopup();
                 }
             }
@@ -161,7 +161,7 @@ void MicrocosmWorld::OnGuiRender() {
             ImGui::SameLine();
             if (ImGui::Button("Cancel", ImVec2(80, 25))) {
                 ImGui::CloseCurrentPopup();
-                emptyInput();
+                set_input_empty();
             }
 
             ImGui::EndPopup();
@@ -171,213 +171,214 @@ void MicrocosmWorld::OnGuiRender() {
     ImGui::End();
 }
 
-void MicrocosmWorld::OnFinish() {}
+void MicrocosmWorld::on_finish() {}
 
-void MicrocosmWorld::UpdateCameraControl(double p_delta) {
+void MicrocosmWorld::update_cam_ctrl(double p_delta) {
     const float delta = static_cast<float>(p_delta);
 
-    m_camInputDir.Zero();
+    cam_input_dir.zero();
 
-    if (m_inputSystem->IsKeyPressed(Aeon::KeyboardEvent::Key::W))
-        m_camInputDir.y -= 1.0f;
-    if (m_inputSystem->IsKeyPressed(Aeon::KeyboardEvent::Key::S))
-        m_camInputDir.y += 1.0f;
-    if (m_inputSystem->IsKeyPressed(Aeon::KeyboardEvent::Key::A))
-        m_camInputDir.x -= 1.0f;
-    if (m_inputSystem->IsKeyPressed(Aeon::KeyboardEvent::Key::D))
-        m_camInputDir.x += 1.0f;
+    if (inputs->get_is_key_pressed(ncore::KeyboardEvent::Key::W))
+        cam_input_dir.y -= 1.0f;
+    if (inputs->get_is_key_pressed(ncore::KeyboardEvent::Key::S))
+        cam_input_dir.y += 1.0f;
+    if (inputs->get_is_key_pressed(ncore::KeyboardEvent::Key::A))
+        cam_input_dir.x -= 1.0f;
+    if (inputs->get_is_key_pressed(ncore::KeyboardEvent::Key::D))
+        cam_input_dir.x += 1.0f;
 
-    const float lenSq = m_camInputDir.LengthSqr();
+    const float lenSq = cam_input_dir.length_sqr();
     if (lenSq > 0.001f)
-        m_camInputDir *= 1.0f / std::sqrt(lenSq);
+        cam_input_dir *= 1.0f / std::sqrt(lenSq);
 
-    m_isDragging = m_inputSystem->IsMouseButtonPressed(Aeon::ButtonIndex::Middle);
+    is_dragging = inputs->get_is_mouse_button_pressed(ncore::ButtonIndex::Middle);
 
-    if (m_isDragging) {
-        const float zoom = m_mainCamera->GetZoom();
-        const float ppm = m_viewport->GetPixelsPerMeter();
-        const auto md = m_inputSystem->GetLastMouseDelta();
+    if (is_dragging) {
+        const float zoom = main_cam->get_zoom();
+        const float ppm = viewport->get_pixels_per_meter();
+        const auto md = inputs->get_last_mouse_delta();
 
-        auto targetVelocity = (-md / (ppm * zoom)) / delta;
-        const float t = 1.0f - std::exp(-m_cameraConf.DragSensitivity * delta);
-        m_camVelocity += (targetVelocity - m_camVelocity) * t;
+        auto target_vel = (-md / (ppm * zoom)) / delta;
+        const float t = 1.0f - std::exp(-cfg_cam.DragSensitivity * delta);
+        cam_velocity += (target_vel - cam_velocity) * t;
 
         // Zero out WASD input so keyboard doesn't interfere
-        m_camInputDir.Zero();
+        cam_input_dir.zero();
     }
 
-    m_zoomInput = m_inputSystem->GetLastMouseWheelDelta().y;
+    cam_input_zoom = inputs->get_last_mouse_wheel_delta().y;
 }
 
-void MicrocosmWorld::UpdateCameraMovement(const double p_delta) {
+void MicrocosmWorld::update_cam_movement(const double p_delta) {
     const float delta = static_cast<float>(p_delta);
 
-	// Movement
-    if (!m_isDragging) {
-        m_camVelocity += m_camInputDir * m_cameraConf.Acceleration * delta;
+    // Movement
+    if (!is_dragging) {
+        cam_velocity += cam_input_dir * cfg_cam.Acceleration * delta;
 
-        const float friction = 1.0f - std::exp(-m_cameraConf.Friction * delta);
-        m_camVelocity -= m_camVelocity * friction;
+        const float friction = 1.0f - std::exp(-cfg_cam.Friction * delta);
+        cam_velocity -= cam_velocity * friction;
 
-        const float speedSq = m_camVelocity.LengthSqr();
-        if (speedSq > m_cameraConf.MaxSpeed * m_cameraConf.MaxSpeed)
-            m_camVelocity *= m_cameraConf.MaxSpeed / std::sqrt(speedSq);
+        const float speedSq = cam_velocity.length_sqr();
+        if (speedSq > cfg_cam.MaxSpeed * cfg_cam.MaxSpeed)
+            cam_velocity *= cfg_cam.MaxSpeed / std::sqrt(speedSq);
     }
 
-    auto pos = m_mainCamera->GetPosition();
-    pos += m_camVelocity * delta;
-    m_mainCamera->SetPosition(pos);
+    auto pos = main_cam->get_position();
+    pos += cam_velocity * delta;
+    main_cam->set_position(pos);
 
     // Zoom
-    m_zoomVelocity += m_zoomInput * m_cameraConf.ZoomSensitivity;
-    const float zoomFriction = 1.0f - std::exp(-m_cameraConf.ZoomFriction * delta);
-    m_zoomVelocity -= m_zoomVelocity * zoomFriction;
+    cam_velocity_zoom += cam_input_zoom * cfg_cam.ZoomSensitivity;
+    const float zoomFriction = 1.0f - std::exp(-cfg_cam.ZoomFriction * delta);
+    cam_velocity_zoom -= cam_velocity_zoom * zoomFriction;
 
     const float newZoom =
-        std::clamp(m_mainCamera->GetZoom() + m_zoomVelocity * delta, m_cameraConf.MinZoom, m_cameraConf.MaxZoom);
+        std::clamp(main_cam->get_zoom() + cam_velocity_zoom * delta, cfg_cam.MinZoom, cfg_cam.MaxZoom);
 
-    m_mainCamera->SetZoom(newZoom);
+    main_cam->set_zoom(newZoom);
 }
 
-void MicrocosmWorld::AddSpeciesToEnvironment(const std::string &name, const std::string &genus,
-                                             const std::string &epithet) {
-    auto &instance(CreateEntity());
-    instance.AddComponent<SpeciesComponent>(name, genus, epithet);
-    m_speciesEntities.push_back(&instance.GetComponent<SpeciesComponent>());
+void MicrocosmWorld::add_species(const std::string &name, const std::string &genus, const std::string &epithet) {
+    auto &instance(create_entity());
+    instance.add_component<SpeciesComponent>(name, genus, epithet);
+    species_reg.push_back(&instance.get_component<SpeciesComponent>());
 
-    auto &species = instance.GetComponent<SpeciesComponent>();
+    auto &species = instance.get_component<SpeciesComponent>();
 
-    LOG_INFO(Aeon::Log::Game, "Added species {} to the environment, with following traits:\n speed {}, energy capacity {}, size {}",
-             species.GetFormattedName(true), species.genes.speed, species.genes.energyCapacity, species.genes.size);
+    LOG_INFO(ncore::log::GAME,
+             "Added species {} to the environment, with following traits:\n speed {}, energy capacity {}, size {}",
+             species.get_name_formatted(true), species.genes.speed, species.genes.energy_capacity, species.genes.size);
 
-    AddOrganism(&species);
+    add_organism(&species);
 }
 
-SpeciesComponent *MicrocosmWorld::GetSpeciesById(size_t entityId) {
-    auto entity = GetEntityById(entityId);
+SpeciesComponent *MicrocosmWorld::get_species_by_id(size_t entityId) {
+    auto entity = get_entity_by_id(entityId);
     if (entity == nullptr) {
-        LOG_ERROR(Aeon::Log::Game, "Tried to get species with invalid entity ID {}!", entityId);
+        LOG_ERROR(ncore::log::GAME, "Tried to get species with invalid entity ID {}!", entityId);
         return nullptr;
     }
-    if (!entity->HasComponent<SpeciesComponent>()) {
-        LOG_ERROR(Aeon::Log::Game, "Entity {} has no species component!", entityId);
+    if (!entity->has_component<SpeciesComponent>()) {
+        LOG_ERROR(ncore::log::GAME, "Entity {} has no species component!", entityId);
         return nullptr;
     }
-    return &entity->GetComponent<SpeciesComponent>();
+    return &entity->get_component<SpeciesComponent>();
 }
 
-SpeciesComponent *MicrocosmWorld::GetSpecies(const SpeciesComponent *species) {
-    return GetSpeciesById(species->entity->GetID());
+SpeciesComponent *MicrocosmWorld::get_species(const SpeciesComponent *species) {
+    return get_species_by_id(species->entity->get_id());
 }
 
-void MicrocosmWorld::MakeExtinct(SpeciesComponent *species) {
+void MicrocosmWorld::remove_species(SpeciesComponent *species) {
     if (species == nullptr) {
-        LOG_ERROR(Aeon::Log::Game, "Tried to make a null species extinct!");
+        LOG_ERROR(ncore::log::GAME, "Tried to make a null species extinct!");
         return;
     }
 
-    const auto it = std::ranges::find(m_speciesEntities, species);
-    if (it == m_speciesEntities.end()) {
-        LOG_ERROR(Aeon::Log::Game, "Species {} is not found!", species->entity->GetID());
+    const auto it = std::ranges::find(species_reg, species);
+    if (it == species_reg.end()) {
+        LOG_ERROR(ncore::log::GAME, "Species {} is not found!", species->entity->get_id());
         return;
     }
 
-    const auto formattedName = species->GetFormattedName(false);
+    const auto formattedName = species->get_name_formatted(false);
 
-    species->entity->Destroy();
-    ClearOrganisms(species);
-    m_speciesEntities.erase(it);
+    species->entity->destroy();
+    clear_organism_reg(species);
+    species_reg.erase(it);
 
-    LOG_INFO(Aeon::Log::Game, "Species {} has gone extinct!", formattedName);
+    LOG_INFO(ncore::log::GAME, "Species {} has gone extinct!", formattedName);
 }
 
-int MicrocosmWorld::GetSpeciesIndex(const SpeciesComponent *species) const {
-    if (const auto it = std::ranges::find(m_speciesEntities, species); it != m_speciesEntities.end()) {
-        return static_cast<int>(std::distance(m_speciesEntities.begin(), it));
+int MicrocosmWorld::get_species_idx(const SpeciesComponent *species) const {
+    if (const auto it = std::ranges::find(species_reg, species); it != species_reg.end()) {
+        return static_cast<int>(std::distance(species_reg.begin(), it));
     }
 
-    LOG_ERROR(Aeon::Log::Game, "Index of species {} is not found!", species != nullptr ? species->entity->GetID() : 0);
+    LOG_ERROR(ncore::log::GAME, "Index of species {} is not found!",
+              species != nullptr ? species->entity->get_id() : 0);
     return -1;
 }
 
-std::string MicrocosmWorld::GetSpeciesName(OrganismComponent *organism) {
-    auto species = GetSpeciesById(organism->speciesId);
+std::string MicrocosmWorld::get_species_name(OrganismComponent *organism) {
+    auto species = get_species_by_id(organism->species_id);
     return species ? (species->genus + " " + species->epithet) : "Unknown";
 }
 
-OrganismComponent &MicrocosmWorld::AddOrganism(SpeciesComponent *species) {
-    auto *viewport = GetMainLoop().GetServices().TryGet<Aeon::Viewport2D>();
+OrganismComponent &MicrocosmWorld::add_organism(SpeciesComponent *species) {
+    auto *viewport = get_main_loop().get_services().try_get<ncore::Viewport2D>();
 
-    auto &instance(CreateEntity());
+    auto &instance(create_entity());
 
-    float spawnX = 0;
-    float spawnY = 0;
+    float spawn_x = 0;
+    float spawn_y = 0;
 
     // Get camera position from viewport
     if (viewport) {
-        auto *camera = viewport->GetMainCamera();
+        auto *camera = viewport->get_main_camera();
         if (camera) {
-            const auto cameraPos = camera->GetPosition();
-            spawnX = cameraPos.x + Aeon::Random::RandomFloat(-3.0f, 3.0f);
-            spawnY = cameraPos.y + Aeon::Random::RandomFloat(-3.0f, 3.0f);
+            const auto cameraPos = camera->get_position();
+            spawn_x = cameraPos.x + ncore::Random::rand_float(-3.0f, 3.0f);
+            spawn_y = cameraPos.y + ncore::Random::rand_float(-3.0f, 3.0f);
         }
     }
 
-    auto &transform = instance.AddComponent<Aeon::TransformComponent>(
-        Aeon::Vector2D(spawnX, spawnY), 0.0f, Aeon::Vector2D(species->genes.size, species->genes.size));
-    instance.AddComponent<Aeon::RigidBodyComponent>();
+    auto &transform = instance.add_component<ncore::TransformComponent>(
+        ncore::Vec2D(spawn_x, spawn_y), 0.0f, ncore::Vec2D(species->genes.size, species->genes.size));
+    instance.add_component<ncore::RigidBodyComponent>();
 
-    auto &organism = instance.AddComponent<OrganismComponent>(species);
-    organism.speciesId = species->entity->GetID();
-    organism.curEnergy = organism.genome.energyCapacity;
+    auto &organism = instance.add_component<OrganismComponent>(species);
+    organism.species_id = species->entity->get_id();
+    organism.cur_energy = organism.genome.energy_capacity;
     organism.fitness = 0;
-    m_organismEntities.push_back(&organism);
-    species->populationCount++;
+    organism_reg.push_back(&organism);
+    species->population_count++;
 
-    instance.AddComponent<OrganismAIComponent>(organism.genome.speed, 1.5f);
+    instance.add_component<OrganismAIComponent>(organism.genome.speed, 1.5f);
 
-    auto &tempCirc = instance.AddComponent<Aeon::TempCircleComponent>();
-    tempCirc.radius = organism.genome.size / 2.0f;
-    tempCirc.color = organism.genome.membraneColour;
-    tempCirc.filled = true;
-    tempCirc.edge = false;
+    auto &circle = instance.add_component<ncore::TempCircleComponent>();
+    circle.radius = organism.genome.size / 2.0f;
+    circle.color = organism.genome.membrane_color;
+    circle.filled = true;
+    circle.edge = false;
 
-    LOG_INFO(Aeon::Log::Game, "Added organism of species {}, ID: {} with following "
+    LOG_INFO(ncore::log::GAME,
+             "Added organism of species {}, ID: {} with following "
              "traits:\n energy cap {}, speed {}, size {}, aggressiveness {}",
-             species->GetFormattedName(false), organism.entity->GetID(), organism.genome.energyCapacity,
+             species->get_name_formatted(false), organism.entity->get_id(), organism.genome.energy_capacity,
              organism.genome.speed, organism.genome.size, organism.genome.aggresiveness);
 
     // Play sound effect
-    if (auto audioSystem = GetSystem<Aeon::AudioSystem>()) {
-        audioSystem->PlaySound("assets/pop.wav");
+    if (auto audio = get_system<ncore::AudioSystem>()) {
+        audio->play_sound("assets/pop.wav");
     }
 
     return organism;
 }
 
-void MicrocosmWorld::DeleteOrganism(OrganismComponent *organism) {
+void MicrocosmWorld::remove_organism(OrganismComponent *organism) {
     if (organism == nullptr) {
-        LOG_ERROR(Aeon::Log::Game, "Tried to delete a null organism!");
+        LOG_ERROR(ncore::log::GAME, "Tried to delete a null organism!");
         return;
     }
 
-    const auto it = std::ranges::find(m_organismEntities, organism);
-    if (it == m_organismEntities.end()) {
-        LOG_ERROR(Aeon::Log::Game, "Organism {} is not found!", organism->entity->GetID());
+    const auto it = std::ranges::find(organism_reg, organism);
+    if (it == organism_reg.end()) {
+        LOG_ERROR(ncore::log::GAME, "Organism {} is not found!", organism->entity->get_id());
         return;
     }
 
-    organism->entity->Destroy();
-    m_organismEntities.erase(it);
+    organism->entity->destroy();
+    organism_reg.erase(it);
 }
 
-void MicrocosmWorld::ClearOrganisms(SpeciesComponent *species) {
+void MicrocosmWorld::clear_organism_reg(SpeciesComponent *species) {
     /* Proceed if not empty */
-    if (!m_organismEntities.empty()) {
-        for (auto &it: m_organismEntities)
-            it->entity->Destroy();
+    if (!organism_reg.empty()) {
+        for (auto &it: organism_reg)
+            it->entity->destroy();
 
-        m_organismEntities.clear();
+        organism_reg.clear();
     }
 }
-

@@ -6,95 +6,85 @@
 #include <SDLGraphicsContext.h>
 #include "Camera.h"
 
-namespace Aeon {
+namespace ncore {
 
-Viewport2D::Viewport2D(Window &p_window, float ppm) :
-    m_x(0.0f), m_y(0.0f), m_width(0.0f), m_height(0.0f), m_pixelsPerMeter(ppm) {
-    Init(p_window);
-}
+Viewport2D::Viewport2D(Window &p_window, float ppm) : pixels_per_meter(ppm) { init(p_window); }
 
-Viewport2D::Viewport2D(Window &p_window, float x, float y, float width, float height) :
-    m_x(x), m_y(y), m_width(width), m_height(height) {
-    Init(p_window);
-}
+Viewport2D::Viewport2D(Window &p_window, Rect rect) : view_rect(rect) { init(p_window); }
 
-void Viewport2D::Init(Window &p_window) {
+void Viewport2D::init(Window &p_window) {
     // Create default main camera at origin with zoom 1.0
-    m_mainCamera = std::make_unique<Camera2D>();
+    main_cam = std::make_unique<Camera2D>();
 
     // TODO: hardcode SDL as our only graphics context for now
-    m_graphicsContext = std::make_unique<SDLGraphicsContext>(p_window.GetRenderer());
-    m_window = p_window.GetSDLWindow();
+    graphics_ctx = std::make_unique<SDLGraphicsContext>(p_window.get_renderer());
+    m_window = p_window.get_native_handle();
 }
 
 Viewport2D::~Viewport2D() = default;
 
-void Viewport2D::SetRect(float x, float y, float width, float height) {
-    m_x = x;
-    m_y = y;
-    m_width = width;
-    m_height = height;
+void Viewport2D::set_rect(Rect rect) { view_rect = rect; }
+
+void Viewport2D::set_position(float x, float y) {
+    view_rect.x = x;
+    view_rect.y = y;
 }
 
-void Viewport2D::SetPosition(float x, float y) {
-    m_x = x;
-    m_y = y;
+void Viewport2D::set_size(float width, float height) {
+    view_rect.w = width;
+    view_rect.h = height;
 }
 
-void Viewport2D::SetSize(float width, float height) {
-    m_width = width;
-    m_height = height;
-}
-
-Vector2D Viewport2D::WorldToScreen(const Vector2D &worldPos) const {
-    if (!m_mainCamera) {
+Vec2D Viewport2D::world_to_screen(const Vec2D &worldPos) const {
+    if (!main_cam) {
         return worldPos;
     }
 
     // Calculate relative position to camera
-    Vector2D screenPos;
-    screenPos.x = (worldPos.x - m_mainCamera->GetPosition().x) * m_pixelsPerMeter * m_mainCamera->GetZoom();
-    screenPos.y = (worldPos.y - m_mainCamera->GetPosition().y) * m_pixelsPerMeter * m_mainCamera->GetZoom();
+    Vec2D screenPos;
+    screenPos.x = (worldPos.x - main_cam->get_position().x) * pixels_per_meter * main_cam->get_zoom();
+    screenPos.y = (worldPos.y - main_cam->get_position().y) * pixels_per_meter * main_cam->get_zoom();
 
     // Add pixel offsets to center everything perfectly on screen
-    screenPos.x += m_width / 2.0f + m_x;
-    screenPos.y += m_height / 2.0f + m_y;
+    screenPos.x += view_rect.w / 2.0f + view_rect.x;
+    screenPos.y += view_rect.h / 2.0f + view_rect.y;
 
     return screenPos;
 }
 
-Vector2D Viewport2D::ScreenToWorld(const Vector2D &screenPos) const {
-    if (!m_mainCamera) {
+Vec2D Viewport2D::screen_to_world(const Vec2D &screenPos) const {
+    if (!main_cam) {
         return screenPos;
     }
 
-    Vector2D worldPos;
-    worldPos.x = ((screenPos.x - m_x - m_width / 2.0f) / m_mainCamera->GetZoom()) / m_pixelsPerMeter +
-                 m_mainCamera->GetPosition().x;
-    worldPos.y = ((screenPos.y - m_y - m_height / 2.0f) / m_mainCamera->GetZoom()) / m_pixelsPerMeter +
-                 m_mainCamera->GetPosition().y;
+    Vec2D worldPos;
+    worldPos.x = ((screenPos.x - view_rect.x - view_rect.w / 2.0f) / main_cam->get_zoom()) / pixels_per_meter +
+                 main_cam->get_position().x;
+    worldPos.y = ((screenPos.y - view_rect.y - view_rect.h / 2.0f) / main_cam->get_zoom()) / pixels_per_meter +
+                 main_cam->get_position().y;
 
     return worldPos;
 }
 
-bool Viewport2D::IsPointVisible(const Vector2D &worldPos) const {
-    const auto screenPos = WorldToScreen(worldPos);
+bool Viewport2D::get_is_point_visible(const Vec2D &worldPos) const {
+    const auto screenPos = world_to_screen(worldPos);
 
-    return screenPos.x >= m_x && screenPos.x <= m_x + m_width && screenPos.y >= m_y && screenPos.y <= m_y + m_height;
+    return screenPos.x >= view_rect.x && screenPos.x <= view_rect.x + view_rect.w && screenPos.y >= view_rect.y &&
+           screenPos.y <= view_rect.y + view_rect.h;
 }
 
-bool Viewport2D::IsRectVisible(const Vector2D &worldPos, const Vector2D &size) const {
-    if (!m_mainCamera) {
+bool Viewport2D::get_is_rect_visible(const Vec2D &worldPos, const Vec2D &size) const {
+    if (!main_cam) {
         return true;
     }
 
     // Get world bounds visible by this camera
-    Vector2D worldMin = ScreenToWorld(GetPosition());
-    Vector2D worldMax = ScreenToWorld(Vector2D(m_x + m_width, m_y + m_height));
+    Vec2D worldMin = screen_to_world(get_position());
+    Vec2D worldMax = screen_to_world(Vec2D(view_rect.x + view_rect.w, view_rect.y + view_rect.h));
 
     // Check if rectangles overlap
     return worldPos.x + size.x >= worldMin.x && worldPos.x <= worldMax.x && worldPos.y + size.y >= worldMin.y &&
            worldPos.y <= worldMax.y;
 }
 
-} // namespace Aeon
+} // namespace ncore

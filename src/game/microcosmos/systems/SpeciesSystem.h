@@ -2,7 +2,7 @@
 
 #include <System.h>
 
-namespace Aeon {
+namespace ncore {
 class World;
 }
 
@@ -11,11 +11,11 @@ class World;
  * 
  * Handles species extinction when all organisms die
  */
-class SpeciesSystem : public Aeon::System {
+class SpeciesSystem : public ncore::System {
 public:
     SpeciesSystem() {
-        SetPriority(50);  // Run early
+        set_priority(50);  // Run early
     }
 
-    void OnFixedUpdate(Aeon::World &world, double fixedDelta) override;
+    void on_fixed_update(ncore::World &world, double fixedDelta) override;
 };

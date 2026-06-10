@@ -1,27 +1,27 @@
 #include "SDLGraphicsContext.h"
 
-namespace Aeon {
+namespace ncore {
 
-void SDLGraphicsContext::Clear() { SDL_RenderClear(m_renderer); }
+void SDLGraphicsContext::clear() { SDL_RenderClear(renderer); }
 
-void SDLGraphicsContext::Present() { SDL_RenderPresent(m_renderer); }
+void SDLGraphicsContext::present() { SDL_RenderPresent(renderer); }
 
-void SDLGraphicsContext::SetDrawColor(const Color &color) {
-    SDL_SetRenderDrawColor(m_renderer, color.r, color.g, color.b, color.a);
+void SDLGraphicsContext::set_draw_color(const Color &color) {
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
 }
 
-void SDLGraphicsContext::DrawLine(const Rect &rect) { SDL_RenderLine(m_renderer, rect.x, rect.y, rect.w, rect.h); }
+void SDLGraphicsContext::draw_line(const Rect &rect) { SDL_RenderLine(renderer, rect.x, rect.y, rect.w, rect.h); }
 
-void SDLGraphicsContext::DrawRect(const Rect &rect) {
+void SDLGraphicsContext::draw_rect(const Rect &rect) {
     SDL_FRect sdlRect = {rect.x, rect.y, rect.w, rect.h};
-    SDL_RenderRect(m_renderer, &sdlRect);
+    SDL_RenderRect(renderer, &sdlRect);
 }
 
-void SDLGraphicsContext::FillRect(const Rect &rect) {
+void SDLGraphicsContext::fill_rect(const Rect &rect) {
     SDL_FRect sdlRect = {rect.x, rect.y, rect.w, rect.h};
-    SDL_RenderFillRect(m_renderer, &sdlRect);
+    SDL_RenderFillRect(renderer, &sdlRect);
 }
 
-void SDLGraphicsContext::DrawPoint(float x, float y) { SDL_RenderPoint(m_renderer, x, y); }
+void SDLGraphicsContext::draw_point(float x, float y) { SDL_RenderPoint(renderer, x, y); }
 
-} // namespace Aeon
+} // namespace ncore

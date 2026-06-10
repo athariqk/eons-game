@@ -5,7 +5,7 @@
 #include <SDL3/SDL_render.h>
 #include <SDL3_image/SDL_image.h>
 
-namespace Aeon {
+namespace ncore {
 
 SDL_Texture *TextureManager::GetTexture(std::string filePath) {
     auto it = textureCache.find(filePath);
@@ -15,7 +15,7 @@ SDL_Texture *TextureManager::GetTexture(std::string filePath) {
 
     SDL_Texture *texture = IMG_LoadTexture(m_renderer, filePath.c_str());
     if (texture == nullptr) {
-        LOG_ERROR(Log::Graphics, "Loading `{}` error: {}", filePath, SDL_GetError());
+        LOG_ERROR(log::GRAPHICS, "Loading `{}` error: {}", filePath, SDL_GetError());
         return nullptr;
     }
 
@@ -25,7 +25,7 @@ SDL_Texture *TextureManager::GetTexture(std::string filePath) {
 
 void TextureManager::DestroyTexture(SDL_Texture *texturePtr) {
     if (texturePtr == nullptr) {
-        LOG_ERROR(Log::Graphics, "Texture is invalid: {}", SDL_GetError());
+        LOG_ERROR(log::GRAPHICS, "Texture is invalid: {}", SDL_GetError());
         return;
     }
 
@@ -45,4 +45,4 @@ void TextureManager::Draw(SDL_Renderer *renderer, SDL_Texture *tex, SDL_FRect *s
     SDL_RenderTextureRotated(renderer, tex, src, dest, angle * RADIAN_TO_DEGREE, NULL, SDL_FlipMode::SDL_FLIP_NONE);
 }
 
-} // namespace Aeon
+} // namespace ncore

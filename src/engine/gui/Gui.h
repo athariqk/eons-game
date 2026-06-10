@@ -6,7 +6,7 @@ union SDL_Event;
 
 struct ImGuiContext;
 
-namespace Aeon {
+namespace ncore {
 
 class Window;
 class EventBus;
@@ -19,17 +19,17 @@ public:
     Gui(Window &window);
     ~Gui() {}
 
-    void InitSubscriptions(EventBus &eventBus);
-    void Begin();
-    void End();
-    void Clear();
+    void init_event_subs(EventBus &eventBus);
+    void begin();
+    void end();
+    void clear();
 
 private:
     bool m_initialized = false;
     Window &m_window;
-    uint32_t m_windowID = 0;
+    uint32_t window_id = 0;
 
-    ImGuiContext *m_imguiContext = nullptr;
+    ImGuiContext *imgui_ctx = nullptr;
 };
 
-} // namespace Aeon
+} // namespace ncore

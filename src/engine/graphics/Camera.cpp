@@ -1,19 +1,19 @@
 #include "Camera.h"
 
-namespace Aeon {
+namespace ncore {
 
-Camera2D::Camera2D() : m_position(0.0f, 0.0f), m_zoom(1.0f) {}
+Camera2D::Camera2D() : position(0.0f, 0.0f), zoom(1.0f) {}
 
-Camera2D::Camera2D(const Vector2D &position, float zoom) : m_position(position), m_zoom(zoom) {}
+Camera2D::Camera2D(const Vec2D &position, float zoom) : position(position), zoom(zoom) {}
 
-void Camera2D::Move(const Vector2D &delta) {
-    m_position.x += delta.x;
-    m_position.y += delta.y;
+void Camera2D::move(const Vec2D &delta) {
+    position.x += delta.x;
+    position.y += delta.y;
 }
 
-void Camera2D::Move(float dx, float dy) {
-    m_position.x += dx;
-    m_position.y += dy;
+void Camera2D::move(float dx, float dy) {
+    position.x += dx;
+    position.y += dy;
 }
 
-} // namespace Aeon
+} // namespace ncore

@@ -2,7 +2,7 @@
 
 #pragma once
 
-namespace Aeon {
+namespace ncore {
 
 class Entity;
 
@@ -22,4 +22,4 @@ protected:
     Component() = default;
 };
 
-} // namespace Aeon
+} // namespace ncore

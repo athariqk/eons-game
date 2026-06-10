@@ -2,11 +2,11 @@
 
 #include "World.h"
 
-namespace Aeon {
+namespace ncore {
 
-void Entity::AddGroup(Group mGroup) {
-    m_groupBitset[mGroup] = true;
-    m_world.AddToGroup(this, mGroup);
+void Entity::add_group(Group p_group) {
+    group_bitset[p_group] = true;
+    world.add_to_group(this, p_group);
 }
 
-} // namespace Aeon
+} // namespace ncore

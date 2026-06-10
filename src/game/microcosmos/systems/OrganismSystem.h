@@ -4,7 +4,7 @@
 
 class MicrocosmWorld;
 
-namespace Aeon {
+namespace ncore {
 class World;
 }
 
@@ -13,9 +13,9 @@ class World;
  *
  * Handles energy depletion, fitness updates, and death conditions
  */
-class OrganismSystem : public Aeon::System {
+class OrganismSystem : public ncore::System {
 public:
-    OrganismSystem() { SetPriority(55); }
+    OrganismSystem() { set_priority(55); }
 
-    void OnFixedUpdate(Aeon::World &world, double fixedDelta) override;
+    void on_fixed_update(ncore::World &world, double fixedDelta) override;
 };

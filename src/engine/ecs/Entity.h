@@ -2,21 +2,15 @@
 
 #pragma once
 
-#include <array>
-#include <bitset>
 #include <cassert>
 #include <memory>
 #include <vector>
 
-#include "Component.h"
+#include "Definitions.h"
 
-namespace Aeon {
+namespace ncore {
 
 class World;
-
-using EntityID = std::size_t;
-using ComponentID = std::size_t;
-using Group = std::size_t;
 
 inline ComponentID getNewComponentTypeID() {
     static ComponentID lastID = 0u;
@@ -30,80 +24,71 @@ inline ComponentID getComponentTypeID() noexcept {
     return typeID;
 }
 
-constexpr std::size_t maxComponents = 32;
-constexpr std::size_t maxGroups = 32;
-
-using ComponentBitSet = std::bitset<maxComponents>;
-using GroupBitset = std::bitset<maxGroups>;
-using ComponentArray = std::array<Component *, maxComponents>;
-
 class Entity {
 public:
-    Entity(World &p_world, EntityID p_id) : m_world(p_world), m_id(p_id) {}
+    Entity(World &p_world, EntityID p_id) : world(p_world), id(p_id) {}
 
-    bool IsEnabled() const { return m_enabled; }
-    void SetEnabled(bool enabled) { m_enabled = enabled; }
-    void Destroy() { m_enabled = false; }
+    bool is_enabled() const { return enabled; }
+    void set_enabled(bool p_enabled) { enabled = p_enabled; }
+    void destroy() { enabled = false; }
 
-    bool HasGroup(Group mGroup) const { return m_groupBitset[mGroup]; }
-    void AddGroup(Group mGroup);
-    void RemoveGroup(Group mGroup) { m_groupBitset[mGroup] = false; }
+    bool has_group(Group p_group) const { return group_bitset[p_group]; }
+    void add_group(Group p_group);
+    void remove_group(Group p_group) { group_bitset[p_group] = false; }
 
     template<typename T>
-    bool HasComponent() const {
-        return m_componentBitSet[getComponentTypeID<T>()];
+    bool has_component() const {
+        return component_bit_set[getComponentTypeID<T>()];
     }
 
     template<typename T, typename... TArgs>
-    T &AddComponent(TArgs &&...mArgs) {
-        T *c(new T(std::forward<TArgs>(mArgs)...));
+    T &add_component(TArgs &&...p_args) {
+        T *c(new T(std::forward<TArgs>(p_args)...));
         c->entity = this;
-        std::unique_ptr<Component> uPtr{c};
-        m_components.emplace_back(std::move(uPtr));
+        std::unique_ptr<Component> u_ptr{c};
+        components.emplace_back(std::move(u_ptr));
 
-        m_componentArray[getComponentTypeID<T>()] = c;
-        m_componentBitSet[getComponentTypeID<T>()] = true;
+        component_array[getComponentTypeID<T>()] = c;
+        component_bit_set[getComponentTypeID<T>()] = true;
 
         return *c;
     }
 
     template<typename T>
-    T &GetComponent() const {
-        auto ptr = m_componentArray[getComponentTypeID<T>()];
+    T &get_component() const {
+        auto ptr = component_array[getComponentTypeID<T>()];
         assert(ptr != nullptr && "Entity does not have requested component");
         return *static_cast<T *>(ptr);
     }
 
     template<typename T>
-    void RemoveComponent() {
-        auto id = getComponentTypeID<T>();
-        if (!m_componentBitSet[id])
+    void remove_component() {
+        auto cid = getComponentTypeID<T>();
+        if (!component_bit_set[cid])
             return;
 
-        m_componentArray[id] = nullptr;
-        m_componentBitSet[id] = false;
+        component_array[cid] = nullptr;
+        component_bit_set[cid] = false;
 
-        // Remove from vector
-        m_components.erase(std::remove_if(m_components.begin(), m_components.end(),
-                                          [id](const std::unique_ptr<Component> &comp) {
-                                              return dynamic_cast<T *>(comp.get()) != nullptr;
-                                          }),
-                           m_components.end());
+        components.erase(std::remove_if(components.begin(), components.end(),
+                                        [cid](const std::unique_ptr<Component> &comp) {
+                                            return dynamic_cast<T *>(comp.get()) != nullptr;
+                                        }),
+                         components.end());
     }
 
-    World &GetWorld() { return m_world; }
+    World &get_world() { return world; }
 
-    EntityID GetID() const { return m_id; }
+    EntityID get_id() const { return id; }
 
 private:
-    World &m_world;
-    bool m_enabled = true;
-    EntityID m_id;
-
-    std::vector<std::unique_ptr<Component>> m_components;
-    ComponentArray m_componentArray{};
-    ComponentBitSet m_componentBitSet{};
-    GroupBitset m_groupBitset{};
+    EntityID id;
+    bool enabled = true;
+    World &world;
+    std::vector<std::unique_ptr<Component>> components;
+    ComponentArray component_array{};
+    ComponentBitSet component_bit_set{};
+    GroupBitset group_bitset{};
 };
 
-} // namespace Aeon
+} // namespace ncore

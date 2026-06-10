@@ -7,7 +7,7 @@ struct SDL_Texture;
 struct SDL_FRect;
 struct SDL_Renderer;
 
-namespace Aeon {
+namespace ncore {
 
 class TextureManager {
 public:
@@ -35,4 +35,4 @@ private:
     std::unordered_map<std::string, SDL_Texture *> textureCache;
 };
 
-} // namespace Aeon
+} // namespace ncore

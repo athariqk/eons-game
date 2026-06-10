@@ -7,19 +7,19 @@
 #include "components/OrganismComponent.h"
 #include "components/SpeciesComponent.h"
 
-void SpeciesSystem::OnFixedUpdate(Aeon::World &world, double fixedDelta) {
-    MicrocosmWorld &microWorld = static_cast<MicrocosmWorld &>(world);
+void SpeciesSystem::on_fixed_update(ncore::World &world, double fixedDelta) {
+    MicrocosmWorld &micro_world = static_cast<MicrocosmWorld &>(world);
 
-    for (const auto &entityPtr: world.GetEntities()) {
-        if (!entityPtr->IsEnabled())
+    for (const auto &entity_ptr: world.get_entities()) {
+        if (!entity_ptr->is_enabled())
             continue;
 
-        if (entityPtr->HasComponent<SpeciesComponent>()) {
-            auto &species = entityPtr->GetComponent<SpeciesComponent>();
+        if (entity_ptr->has_component<SpeciesComponent>()) {
+            auto &species = entity_ptr->get_component<SpeciesComponent>();
 
             // Check if species has gone extinct
-            if (species.populationCount <= 0) {
-                microWorld.MakeExtinct(&species);
+            if (species.population_count <= 0) {
+                micro_world.remove_species(&species);
             }
         }
     }
