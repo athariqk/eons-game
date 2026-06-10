@@ -15,7 +15,7 @@ namespace Aeon {
 Gui::Gui(Window &window) : m_window(window) {
     auto *renderer = window.GetRenderer();
     if (!renderer) {
-        LOG_ERROR("Failed to initialize ImGui, SDL renderer is missing!");
+        LOG_ERROR(Log::Gui, "Failed to initialize ImGui, SDL renderer is missing!");
         return;
     }
 
@@ -23,13 +23,13 @@ Gui::Gui(Window &window) : m_window(window) {
     m_imguiContext = ImGui::CreateContext();
 
     if (!ImGui_ImplSDL3_InitForSDLRenderer(window.GetSDLWindow(), renderer)) {
-        LOG_ERROR("Failed to initialize ImGui SDL3 backend");
+        LOG_ERROR(Log::Gui, "Failed to initialize ImGui SDL3 backend");
         ImGui::DestroyContext();
         return;
     }
 
     if (!ImGui_ImplSDLRenderer3_Init(renderer)) {
-        LOG_ERROR("Failed to initialize ImGui SDL renderer backend");
+        LOG_ERROR(Log::Gui, "Failed to initialize ImGui SDL renderer backend");
         ImGui_ImplSDL3_Shutdown();
         ImGui::DestroyContext();
         return;
@@ -38,7 +38,7 @@ Gui::Gui(Window &window) : m_window(window) {
     ImGui::StyleColorsLight();
 
     m_initialized = true;
-    LOG_INFO("ImGui Initialized");
+    LOG_INFO(Log::Gui, "ImGui Initialized");
 }
 
 SDL_Scancode KeyToScancode(KeyboardEvent::Key key) {
@@ -224,3 +224,4 @@ void Gui::Clear() {
 }
 
 } // namespace Aeon
+

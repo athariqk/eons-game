@@ -1,11 +1,6 @@
 #pragma once
 
 #include <inicpp.h>
-#include <ranges>
-#include <string>
-#include <string_view>
-
-#include <ErrorCodes.h>
 
 namespace Aeon {
 
@@ -20,7 +15,6 @@ public:
     T Load() {
         T val{};
         val.deserialize(m_iniFile);
-        LOG_INFO("Loaded configurations for {}", val.print());
         return val;
     }
 
@@ -48,7 +42,7 @@ private:
     void deserialize(ini::IniFile &ini){AEON_FOR_EACH(_AEON_INIFILE_READ, TYPE_NAME, __VA_ARGS__)} std::string print() \
         const {                                                                                                        \
         std::ostringstream ss;                                                                                         \
-        ss << #TYPE_NAME;                                                                                      \
+        ss << #TYPE_NAME;                                                                                              \
         AEON_FOR_EACH(_AEON_PRINT_FIELD, TYPE_NAME, __VA_ARGS__)                                                       \
         return ss.str();                                                                                               \
     }

@@ -15,7 +15,7 @@ SDL_Texture *TextureManager::GetTexture(std::string filePath) {
 
     SDL_Texture *texture = IMG_LoadTexture(m_renderer, filePath.c_str());
     if (texture == nullptr) {
-        LOG_ERROR("Loading `{}` error: {}", filePath, SDL_GetError());
+        LOG_ERROR(Log::Graphics, "Loading `{}` error: {}", filePath, SDL_GetError());
         return nullptr;
     }
 
@@ -25,7 +25,7 @@ SDL_Texture *TextureManager::GetTexture(std::string filePath) {
 
 void TextureManager::DestroyTexture(SDL_Texture *texturePtr) {
     if (texturePtr == nullptr) {
-        LOG_ERROR("Texture is invalid: ", SDL_GetError());
+        LOG_ERROR(Log::Graphics, "Texture is invalid: {}", SDL_GetError());
         return;
     }
 

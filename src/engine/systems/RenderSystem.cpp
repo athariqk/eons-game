@@ -14,25 +14,25 @@ namespace Aeon {
 bool RenderSystem::OnInit(World &world) {
     m_viewport = world.GetMainLoop().GetServices().TryGet<Viewport2D>();
     if (!m_viewport) {
-        LOG_ERROR("Viewport2D service not found!");
+        LOG_ERROR(Log::Graphics, "Viewport2D service not found!");
         return false;
     }
 
     m_graphics = m_viewport->GetGraphicsContext();
     if (!m_graphics) {
-        LOG_ERROR("Graphics context not found in Viewport2D!");
+        LOG_ERROR(Log::Graphics, "Graphics context not found in Viewport2D!");
         return false;
     }
 
     m_textureManager = world.GetMainLoop().GetServices().TryGet<TextureManager>();
     if (!m_textureManager) {
-        LOG_ERROR("TextureManager not found!");
+        LOG_ERROR(Log::Graphics, "TextureManager not found!");
         return false;
     }
 
     m_physics = world.GetMainLoop().GetServices().TryGet<Physics2D>();
     if (!m_physics) {
-        LOG_ERROR("Physics2D service not found!");
+        LOG_ERROR(Log::Graphics, "Physics2D service not found!");
         return false;
     }
 
@@ -50,7 +50,7 @@ bool RenderSystem::OnInit(World &world) {
     fnc.DrawTransform = OnDebugDrawTransform;
     fnc.DrawPoint = OnDebugDrawPoint;
 
-    LOG_INFO("RenderSystem initialized");
+    LOG_INFO(Log::Graphics, "RenderSystem initialized");
 
     return true;
 }
@@ -76,15 +76,7 @@ void RenderSystem::OnRender(World &world, IGraphicsContext &graphics) {
     }
 }
 
-void RenderSystem::OnPostUpdate(World &world, double delta) {
-    for (const auto &entityPtr: world.GetEntities()) {
-        if (!entityPtr->IsEnabled() && entityPtr->HasComponent<SpriteComponent>()) {
-            auto &sprite = entityPtr->GetComponent<SpriteComponent>();
-            auto sdlTexture = static_cast<SDL_Texture *>(sprite.texturePtr);
-            m_textureManager->DestroyTexture(sdlTexture);
-        }
-    }
-}
+void RenderSystem::OnPostUpdate(World &world, double delta) {}
 
 void RenderSystem::OnGuiRender(World &world) {
     ImGui::Begin("Rendering");
@@ -103,12 +95,12 @@ void RenderSystem::OnGuiRender(World &world) {
 void RenderSystem::RenderSprite(Entity *entityPtr) {
     auto renderer = static_cast<SDL_Renderer *>(m_graphics->GetNativeHandle());
     if (!renderer) {
-        LOG_ERROR("Graphics renderer not initialized!");
+        LOG_ERROR(Log::Graphics, "Graphics renderer not initialized!");
         return;
     }
 
     if (!entityPtr->HasComponent<TransformComponent>()) {
-        LOG_ERROR("Entity {} has no TransformComponent to render with!", entityPtr->GetID());
+        LOG_ERROR(Log::Graphics, "Entity {} has no TransformComponent to render with!", entityPtr->GetID());
         return;
     }
 
@@ -144,7 +136,7 @@ void RenderSystem::RenderSprite(Entity *entityPtr) {
 
 void RenderSystem::RenderTempCircle(Entity *entityPtr) {
     if (!entityPtr->HasComponent<TransformComponent>()) {
-        LOG_ERROR("Entity {} has no TransformComponent to render with!", entityPtr->GetID());
+        LOG_ERROR(Log::Graphics, "Entity {} has no TransformComponent to render with!", entityPtr->GetID());
         return;
     }
 
@@ -163,7 +155,7 @@ void RenderSystem::RenderTempCircle(Entity *entityPtr) {
  */
 void RenderSystem::RenderPhysicsDebug(Entity *entityPtr) {
     if (!entityPtr->HasComponent<TransformComponent>()) {
-        LOG_ERROR("Entity {} has no TransformComponent to render with!", entityPtr->GetID());
+        LOG_ERROR(Log::Graphics, "Entity {} has no TransformComponent to render with!", entityPtr->GetID());
         return;
     }
 
@@ -342,3 +334,4 @@ void RenderSystem::OnDebugDrawPoint(Vector2D p, float size, uint32_t color, void
 }
 
 } // namespace Aeon
+

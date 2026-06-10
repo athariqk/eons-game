@@ -19,6 +19,7 @@ public:
      *
      * This allocates texture to the graphics device on first load
      * and caches it for later use.
+	 * 
      * @todo Abstract away the SDL internals
      */
     SDL_Texture *GetTexture(std::string filePath);

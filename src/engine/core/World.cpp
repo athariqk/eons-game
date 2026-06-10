@@ -21,7 +21,7 @@ void World::_OnInit() {
         if (!system->IsEnabled())
             continue;
         if (!system->OnInit(*this)) {
-            LOG_ERROR("System {} failed to initialize!", typeid(*system).name());
+            LOG_ERROR(Log::ECS, "System {} failed to initialize!", typeid(*system).name());
         }
     }
 
@@ -116,3 +116,4 @@ Entity &World::CreateEntity() {
 }
 
 } // namespace Aeon
+

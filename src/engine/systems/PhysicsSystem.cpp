@@ -11,7 +11,7 @@ namespace Aeon {
 bool PhysicsSystem::OnInit(World &world) {
     m_physics = world.GetMainLoop().GetServices().TryGet<Physics2D>();
     if (!m_physics) {
-        LOG_ERROR("Physics2D service was not found!");
+        LOG_ERROR(Log::Physics, "Physics2D service was not found!");
         return false;
     }
 
@@ -35,7 +35,7 @@ void PhysicsSystem::OnFixedUpdate(World &world, double fixedDelta) {
         // Apply pending impulse
         if (!body.pendingImpulse.IsZero()) {
             m_physics->ApplyLinearImpulse(body.b2Id, body.pendingImpulse);
-            LOG_TRACE("Applied impulse <{},{}> to entity {}", body.pendingImpulse.x, body.pendingImpulse.y,
+            LOG_TRACE(Log::Physics, "Applied impulse <{},{}> to entity {}", body.pendingImpulse.x, body.pendingImpulse.y,
                       entity->GetID());
             body.pendingImpulse = {0.0f, 0.0f};
         }
@@ -109,7 +109,7 @@ void PhysicsSystem::InitializeRigidBody(RigidBodyComponent &body, TransformCompo
     b2CreatePolygonShape(body.b2Id, &shapeDef, &dynamicBox);
     b2Body_ApplyMassFromShapes(body.b2Id);
 
-    LOG_DEBUG("ID: {}, mass={}, type={}, bodyPos=<{},{}>, transform={}", body.entity->GetID(),
+    LOG_DEBUG(Log::Physics, "ID: {}, mass={}, type={}, bodyPos=<{},{}>, transform={}", body.entity->GetID(),
               b2Body_GetMass(body.b2Id),
               b2Body_GetType(body.b2Id) == b2_staticBody
                   ? "static"
@@ -118,3 +118,4 @@ void PhysicsSystem::InitializeRigidBody(RigidBodyComponent &body, TransformCompo
 }
 
 } // namespace Aeon
+

@@ -18,9 +18,9 @@ Window::Window(const char *title, int width, int height, const bool fullscreen) 
 
     sdlWindow = SDL_CreateWindow(title, width, height, flags | SDL_WINDOW_RESIZABLE);
     if (sdlWindow) {
-        LOG_INFO("Created window with resolution: {} x {}, ID: {}", width, height, GetWindowID());
+        LOG_INFO(Log::Engine, "Created window with resolution: {} x {}, ID: {}", width, height, GetWindowID());
     } else {
-        LOG_ERROR("Failed to create window!");
+        LOG_ERROR(Log::Engine, "Failed to create window!");
         return;
     }
 
@@ -29,21 +29,21 @@ Window::Window(const char *title, int width, int height, const bool fullscreen) 
 
     renderer = SDL_CreateRenderer(sdlWindow, nullptr);
     if (renderer) {
-        LOG_INFO("Created SDL Renderer.");
+        LOG_INFO(Log::Engine, "Created SDL Renderer.");
     } else {
-        LOG_ERROR("Failed to create SDL Renderer!");
+        LOG_ERROR(Log::Engine, "Failed to create SDL Renderer!");
         SDL_DestroyWindow(sdlWindow);
         sdlWindow = nullptr;
         return;
     }
 
-    LOG_INFO("SDL Renderer name: {}", SDL_GetRendererName(renderer));
+    LOG_INFO(Log::Engine, "SDL Renderer name: {}", SDL_GetRendererName(renderer));
 }
 
 Window::~Window() {
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(sdlWindow);
-    LOG_INFO("Destroyed window. ID {}", GetWindowID());
+    LOG_INFO(Log::Engine, "Destroyed window. ID {}", GetWindowID());
 }
 
 SDL_Renderer *Window::GetRenderer() const { return renderer; }
@@ -65,3 +65,4 @@ int Window::ShowMessageBox(const uint32_t flags, const char *title, const char *
 }
 
 } // namespace Aeon
+

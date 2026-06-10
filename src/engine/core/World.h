@@ -43,7 +43,7 @@ public:
         auto system = std::make_unique<T>(std::forward<TArgs>(args)...);
         T *ptr = system.get();
         m_systems.emplace_back(std::move(system));
-        LOG_TRACE("Added system {} of priority {} to world", typeid(T).name(), ptr->GetPriority());
+        LOG_TRACE(Log::ECS, "Added system {} of priority {} to world", typeid(T).name(), ptr->GetPriority());
 
         // Sort systems by priority (lower priority = earlier execution)
         std::sort(m_systems.begin(), m_systems.end(),

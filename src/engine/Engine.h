@@ -40,6 +40,13 @@ struct Runtime {
     DEFINE_CONFIG_MAP_FIELDS(Runtime, DefaultWorld)
 };
 
+struct Log {
+    std::string Level = "trace";
+    std::string FilePath = "logs/engine.log";
+    std::string Overrides; // e.g. "Physics:info,ECS:debug"
+    DEFINE_CONFIG_MAP_FIELDS(Log, Level, FilePath, Overrides)
+};
+
 } // namespace Config
 
 class Engine {

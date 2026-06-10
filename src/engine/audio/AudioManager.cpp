@@ -6,9 +6,9 @@ namespace Aeon {
 
 AudioManager::AudioManager() {
     if (!SDL_Init(SDL_INIT_AUDIO)) {
-        LOG_ERROR("Failed to initialize SDL audio submodule");
+        LOG_ERROR(Log::Audio, "Failed to initialize SDL audio submodule");
     } else {
-        LOG_INFO("SDL Audio initialized");
+        LOG_INFO(Log::Audio, "SDL Audio initialized");
     }
 
     SDL_zero(srcSpec);
@@ -18,7 +18,7 @@ AudioManager::AudioManager() {
 
     stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &srcSpec, nullptr, nullptr);
     if (stream == nullptr) {
-        LOG_ERROR("Failed to open audio stream: {}", SDL_GetError());
+        LOG_ERROR(Log::Audio, "Failed to open audio stream: {}", SDL_GetError());
         return;
     }
 
@@ -38,7 +38,7 @@ void AudioManager::Clear() {
 
 void AudioManager::PlayWAV(const char *path) {
     if (stream == nullptr) {
-        LOG_ERROR("Can't play audio without an initialized audio stream");
+        LOG_ERROR(Log::Audio, "Can't play audio without an initialized audio stream");
         return;
     }
 
@@ -47,10 +47,10 @@ void AudioManager::PlayWAV(const char *path) {
     wavLength = 0;
 
     if (!SDL_LoadWAV(path, &srcSpec, &wavBuffer, &wavLength)) {
-        LOG_ERROR("Couldn't open audio: {}", SDL_GetError());
+        LOG_ERROR(Log::Audio, "Couldn't open audio: {}", SDL_GetError());
         return;
     } else {
-        LOG_INFO("Playing audio path: {}", path);
+        LOG_INFO(Log::Audio, "Playing audio path: {}", path);
     }
 
     if (SDL_GetAudioStreamQueued(stream) < static_cast<int>(wavLength)) {

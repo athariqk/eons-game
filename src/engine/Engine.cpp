@@ -1,28 +1,47 @@
 #include "Engine.h"
 
+#include <iostream>
+#include <sstream>
+
 #include <ErrorCodes.h>
 #include <Logger.h>
 #include <SDLGraphicsContext.h>
 
 namespace Aeon {
 
-Engine::Engine(std::string p_app_name) : m_app_name(p_app_name), m_config(m_configFileName) {
-    Logger::Init();
-    Init();
-}
+Engine::Engine(std::string p_app_name) : m_app_name(p_app_name), m_config(m_configFileName) { Init(); }
 
 Engine::~Engine() {}
 
 int Engine::Init() {
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
-        LOG_INFO("SDL initialized");
-    } else {
-        LOG_ERROR("SDL failed to initialize!");
-        return ERROR_FATAL;
-    }
-
     m_windowConf = m_config.Load<Config::Window>();
     m_renderConf = m_config.Load<Config::Render>();
+    auto logConf = m_config.Load<Config::Log>();
+    if (auto err = Logger::Init(logConf.FilePath)) {
+        std::cerr << "Log initialization failed: " << err.value() << std::endl;
+    } else {
+        LOG_INFO(Log::Engine, "Log system initialized");
+    }
+    Logger::SetLevel(Log::Engine, logConf.Level);
+    if (!logConf.Overrides.empty()) {
+        std::istringstream stream(logConf.Overrides);
+        std::string pair;
+        while (std::getline(stream, pair, ',')) {
+            auto sep = pair.find(':');
+            if (sep != std::string::npos) {
+                auto cat = pair.substr(0, sep);
+                auto lvl = pair.substr(sep + 1);
+                Logger::SetLevel(cat, lvl);
+            }
+        }
+    }
+
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
+        LOG_INFO(Log::Engine, "SDL initialized");
+    } else {
+        LOG_ERROR(Log::Engine, "SDL failed to initialize!");
+        return ERROR_FATAL;
+    }
 
     m_mainWindow = std::make_shared<Window>(m_app_name.c_str(), m_windowConf.SizeWidth, m_windowConf.SizeHeight,
                                             m_windowConf.Fullscreen);
@@ -52,7 +71,7 @@ int Engine::Init() {
 
 int Engine::Run() {
     if (!m_mainLoop) {
-        LOG_ERROR("MainLoop is not initialized!");
+        LOG_ERROR(Log::Engine, "MainLoop is not initialized!");
         return ERROR_FATAL;
     }
 

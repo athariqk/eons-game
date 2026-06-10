@@ -33,7 +33,7 @@ public:
      */
     template<typename T>
     void Register(T &service) {
-        LOG_TRACE("Registering service: {}", typeid(T).name());
+        LOG_TRACE(Log::Engine, "Registering service: {}", typeid(T).name());
         m_services[std::type_index(typeid(T))] = &service;
     }
 

@@ -103,17 +103,17 @@ void Physics2D::Init() {
 
 void Physics2D::Clean() const {
     if (!b2World_IsValid(m_worldId)) {
-        LOG_ERROR("Trying to destroy an invalid physics world");
+        LOG_ERROR(Log::Physics, "Trying to destroy an invalid physics world");
         return;
     }
 
     b2DestroyWorld(m_worldId);
-    LOG_TRACE("Destroyed physics world");
+    LOG_TRACE(Log::Physics, "Destroyed physics world");
 }
 
 void Physics2D::Step() const {
     if (!b2World_IsValid(m_worldId)) {
-        LOG_ERROR("Trying to step simulation without physics world!");
+        LOG_ERROR(Log::Physics, "Trying to step simulation without physics world!");
         return;
     }
 
@@ -129,11 +129,11 @@ b2BodyId Physics2D::CreateBody(const b2BodyDef *bodyDef) const {
 
 void Physics2D::DestroyBody(const b2BodyId &bodyId) const {
     if (!b2World_IsValid(m_worldId)) {
-        LOG_ERROR("Trying to destroy body without physics world!");
+        LOG_ERROR(Log::Physics, "Trying to destroy body without physics world!");
         return;
     }
     if (!IsBodyValid(bodyId)) {
-        LOG_ERROR("Trying to destroy an invalid body!");
+        LOG_ERROR(Log::Physics, "Trying to destroy an invalid body!");
         return;
     }
     b2DestroyBody(bodyId);
@@ -143,7 +143,7 @@ bool Physics2D::IsBodyValid(const b2BodyId &bodyId) const { return b2Body_IsVali
 
 void Physics2D::ApplyLinearImpulse(const b2BodyId &bodyId, const Vector2D &impulse) const {
     if (!IsBodyValid(bodyId)) {
-        LOG_ERROR("Can't apply impulse on a uninitialized body");
+        LOG_ERROR(Log::Physics, "Can't apply impulse on a uninitialized body");
         return;
     }
 
@@ -152,7 +152,7 @@ void Physics2D::ApplyLinearImpulse(const b2BodyId &bodyId, const Vector2D &impul
 
 void Physics2D::ApplyLinearForce(const b2BodyId &bodyId, const Vector2D &force) const {
     if (!IsBodyValid(bodyId)) {
-        LOG_ERROR("Can't apply force on a uninitialized body");
+        LOG_ERROR(Log::Physics, "Can't apply force on a uninitialized body");
         return;
     }
 
@@ -177,3 +177,4 @@ void Physics2D::UpdateDebugDraw() {
 DebugDrawFnc &Physics2D::GetDebugDrawFnc() { return m_debugDrawFnc; }
 
 } // namespace Aeon
+

@@ -22,11 +22,11 @@ MainLoop::MainLoop(const std::string &p_appName, Services &p_serviceRegistry) :
     auto &eventBus = GetEventBus();
     eventBus.Subscribe<WindowCloseEvent>([this](const WindowCloseEvent &e) {
         m_running = false;
-        LOG_TRACE("Window close event received, stopping main loop...");
+        LOG_TRACE(Log::Engine, "Window close event received, stopping main loop...");
     });
     eventBus.Subscribe<WindowResizeEvent>([this](const WindowResizeEvent &e) {
         m_services.Get<Viewport2D>().SetSize(static_cast<float>(e.width), static_cast<float>(e.height));
-        LOG_TRACE("Window resolution changed: {} x {}", e.width, e.height);
+        LOG_TRACE(Log::Engine, "Window resolution changed: {} x {}", e.width, e.height);
     });
 }
 
@@ -61,10 +61,10 @@ int MainLoop::Run() {
         }
 
         if (m_worldDirty) {
-            LOG_TRACE("World change requested");
+            LOG_TRACE(Log::Engine, "World change requested");
             UpdateActiveWorld();
             m_worldDirty = false;
-            LOG_TRACE("World change complete");
+            LOG_TRACE(Log::Engine, "World change complete");
         }
 
         m_eventBus.ProcessQueue();
@@ -268,13 +268,13 @@ void MainLoop::Update(double p_delta) {
 
     auto viewport = GetServices().TryGet<Viewport2D>();
     if (!viewport) {
-        LOG_ERROR("No viewport available for rendering!");
+        LOG_ERROR(Log::Engine, "No viewport available for rendering!");
         return;
     }
 
     auto graphics = viewport->GetGraphicsContext();
     if (!graphics) {
-        LOG_ERROR("No graphics context available for rendering!");
+        LOG_ERROR(Log::Engine, "No graphics context available for rendering!");
         return;
     }
 
@@ -287,7 +287,7 @@ void MainLoop::Update(double p_delta) {
 
     auto gui = GetServices().TryGet<Gui>();
     if (!gui) {
-        LOG_ERROR("No ImGuiLayer service found for GUI rendering!");
+        LOG_ERROR(Log::Engine, "No ImGuiLayer service found for GUI rendering!");
         return;
     }
 
@@ -335,3 +335,4 @@ void MainLoop::UpdateActiveWorld() {
 }
 
 } // namespace Aeon
+
