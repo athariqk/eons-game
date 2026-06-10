@@ -11,9 +11,12 @@ namespace Aeon {
 bool PhysicsSystem::OnInit(World &world) {
     m_physics = world.GetMainLoop().GetServices().TryGet<Physics2D>();
     if (!m_physics) {
-        LOG_ERROR("Physics2D service was not initialized!");
+        LOG_ERROR("Physics2D service was not found!");
         return false;
     }
+
+    m_physics->Init();
+
     return true;
 }
 
@@ -69,11 +72,23 @@ void PhysicsSystem::OnFixedUpdate(World &world, double fixedDelta) {
     }
 }
 
+void PhysicsSystem::OnPostUpdate(World &world, double delta) {
+    for (auto &e: world.GetEntities()) {
+        if (!e->IsEnabled() && e->HasComponent<RigidBodyComponent>()) {
+            auto &body = e->GetComponent<RigidBodyComponent>();
+            if (m_physics->IsBodyValid(body.b2Id))
+                m_physics->DestroyBody(body.b2Id);
+        }
+    }
+}
+
 void PhysicsSystem::OnGuiRender(World &world) {
     ImGui::Begin("Physics");
     ImGui::Checkbox("Debug Draw", &m_physics->isDebugDraw);
     ImGui::End();
 }
+
+void PhysicsSystem::OnShutdown(World &world) { m_physics->Clean(); }
 
 void PhysicsSystem::InitializeRigidBody(RigidBodyComponent &body, TransformComponent &transform) {
     b2BodyDef bodyDef = b2DefaultBodyDef();

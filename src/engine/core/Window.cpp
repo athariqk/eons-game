@@ -41,9 +41,9 @@ Window::Window(const char *title, int width, int height, const bool fullscreen) 
 }
 
 Window::~Window() {
-    LOG_INFO("Destroying window {}", GetWindowID());
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(sdlWindow);
+    LOG_INFO("Destroyed window. ID {}", GetWindowID());
 }
 
 SDL_Renderer *Window::GetRenderer() const { return renderer; }

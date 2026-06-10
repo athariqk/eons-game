@@ -55,12 +55,13 @@ Notes:
 
 - Do not edit vendored libraries in [vendors](vendors) unless explicitly asked.
 - Do not edit generated build outputs in [build](build).
+- Do NOT delete or rebuild the `build/` directory. The existing build folder is the canonical build; reconfiguring from scratch is slow and unnecessary.
 - Prefer CMake over legacy Premake files ([premake5.lua](premake5.lua), [GenerateProject_vs17.bat](GenerateProject_vs17.bat), [GenerateProject_vs16.bat](GenerateProject_vs16.bat)).
 
 ## Change Workflow
 
 1. Make minimal, targeted edits.
-2. Rebuild affected configuration (`Debug` by default).
+2. Wait for the user to explicitly request a build. **Do not rebuild automatically after every edit.**
 3. If behavior changed, run the executable and sanity-check startup and asset loading.
 
 There is no dedicated automated test suite configured at repository root; rely on build success and runtime smoke checks.

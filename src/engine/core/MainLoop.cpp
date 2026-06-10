@@ -18,7 +18,17 @@
 namespace Aeon {
 
 MainLoop::MainLoop(const std::string &p_appName, Services &p_serviceRegistry) :
-    m_appName(p_appName), m_services(p_serviceRegistry) {}
+    m_appName(p_appName), m_services(p_serviceRegistry) {
+    auto &eventBus = GetEventBus();
+    eventBus.Subscribe<WindowCloseEvent>([this](const WindowCloseEvent &e) {
+        m_running = false;
+        LOG_TRACE("Window close event received, stopping main loop...");
+    });
+    eventBus.Subscribe<WindowResizeEvent>([this](const WindowResizeEvent &e) {
+        m_services.Get<Viewport2D>().SetSize(static_cast<float>(e.width), static_cast<float>(e.height));
+        LOG_TRACE("Window resolution changed: {} x {}", e.width, e.height);
+    });
+}
 
 MainLoop::~MainLoop() = default;
 
@@ -57,8 +67,8 @@ int MainLoop::Run() {
             LOG_TRACE("World change complete");
         }
 
-        PollEvents();
         m_eventBus.ProcessQueue();
+        PollEvents();
 
         // Accumulate time
         accumulator += deltaTime;
@@ -99,76 +109,7 @@ int MainLoop::Run() {
     return ERROR_OK;
 }
 
-void MainLoop::PollEvents() {
-    SDL_Event sdlEvent;
-    auto &eventBus = GetEventBus();
-    auto gui = GetServices().TryGet<Gui>();
-
-    while (SDL_PollEvent(&sdlEvent)) {
-        if (gui && gui->OnEvent(sdlEvent))
-            continue; // If GUI handled the event, skip further processing
-
-        switch (sdlEvent.type) {
-            case SDL_EVENT_QUIT: {
-                m_running = false;
-                eventBus.Queue(WindowCloseEvent{});
-                break;
-            }
-
-            case SDL_EVENT_WINDOW_RESIZED: {
-                m_services.Get<Viewport2D>().SetSize(static_cast<float>(sdlEvent.window.data1),
-                                                     static_cast<float>(sdlEvent.window.data2));
-                eventBus.Queue(WindowResizeEvent{sdlEvent.window.data1, sdlEvent.window.data2});
-                LOG_INFO("Window resolution changed: {} x {}", sdlEvent.window.data1, sdlEvent.window.data2);
-                break;
-            }
-
-            case SDL_EVENT_WINDOW_FOCUS_GAINED:
-            case SDL_EVENT_WINDOW_FOCUS_LOST: {
-                eventBus.Queue(WindowFocusEvent{sdlEvent.type == SDL_EVENT_WINDOW_FOCUS_GAINED});
-                break;
-            }
-
-            case SDL_EVENT_MOUSE_BUTTON_DOWN:
-            case SDL_EVENT_MOUSE_BUTTON_UP: {
-                auto action = MapSDLEventTypeToAction(sdlEvent.type);
-                auto btn = MapSDLButtonToButtonIndex(sdlEvent.button.button);
-                auto mousePos = Vector2D(sdlEvent.button.x, sdlEvent.button.y);
-                eventBus.Queue(MouseButtonEvent(action, btn, mousePos));
-                break;
-            }
-
-            case SDL_EVENT_MOUSE_MOTION: {
-                auto mousePos = Vector2D(sdlEvent.motion.x, sdlEvent.motion.y);
-                auto delta = Vector2D(sdlEvent.motion.xrel, sdlEvent.motion.yrel);
-                auto state = sdlEvent.motion.state;
-                eventBus.Queue(MouseMotionEvent(mousePos, delta, state));
-                break;
-            }
-
-            case SDL_EVENT_MOUSE_WHEEL: {
-                eventBus.Queue(MouseWheelEvent{sdlEvent.wheel.x, sdlEvent.wheel.y});
-                break;
-            }
-
-            case SDL_EVENT_KEY_DOWN:
-            case SDL_EVENT_KEY_UP: {
-                auto key = MapSDLKeyToKey(sdlEvent.key.scancode);
-                if (key != KeyboardEvent::Key::Unknown) {
-                    auto action = MapSDLEventTypeToAction(sdlEvent.type);
-                    eventBus.Queue(KeyboardEvent(action, key, sdlEvent.key.repeat));
-                }
-                break;
-            }
-
-            default: {
-                break;
-            }
-        }
-    }
-}
-
-KeyboardEvent::Key MainLoop::MapSDLKeyToKey(SDL_Scancode scancode) {
+KeyboardEvent::Key MapSDLKeyToKey(SDL_Scancode scancode) {
     switch (scancode) {
         case SDL_SCANCODE_W:
             return KeyboardEvent::Key::W;
@@ -210,7 +151,7 @@ KeyboardEvent::Key MainLoop::MapSDLKeyToKey(SDL_Scancode scancode) {
     }
 }
 
-ButtonAction MainLoop::MapSDLEventTypeToAction(uint32_t sdlEventType) {
+ButtonAction MapSDLEventTypeToAction(uint32_t sdlEventType) {
     switch (sdlEventType) {
         case SDL_EVENT_KEY_DOWN:
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
@@ -223,7 +164,7 @@ ButtonAction MainLoop::MapSDLEventTypeToAction(uint32_t sdlEventType) {
     }
 }
 
-ButtonIndex MainLoop::MapSDLButtonToButtonIndex(uint8_t sdlButton) {
+ButtonIndex MapSDLButtonToButtonIndex(uint8_t sdlButton) {
     switch (sdlButton) {
         case SDL_BUTTON_LEFT:
             return ButtonIndex::Left;
@@ -233,6 +174,83 @@ ButtonIndex MainLoop::MapSDLButtonToButtonIndex(uint8_t sdlButton) {
             return ButtonIndex::Right;
         default:
             return ButtonIndex::Unknown;
+    }
+}
+
+void MainLoop::PollEvents() {
+    SDL_Event sdlEvent;
+    auto &eventBus = GetEventBus();
+
+    while (SDL_PollEvent(&sdlEvent)) {
+        switch (sdlEvent.type) {
+            case SDL_EVENT_QUIT: {
+                eventBus.Queue(WindowCloseEvent());
+                break;
+            }
+
+            case SDL_EVENT_WINDOW_RESIZED: {
+                eventBus.Queue(WindowResizeEvent(sdlEvent.window.data1, sdlEvent.window.data2));
+                break;
+            }
+
+            case SDL_EVENT_WINDOW_MOUSE_ENTER: {
+                eventBus.Queue(WindowMouseEnterEvent());
+                break;
+            }
+
+            case SDL_EVENT_WINDOW_MOUSE_LEAVE: {
+                eventBus.Queue(WindowMouseLeaveEvent());
+                break;
+            }
+
+            case SDL_EVENT_WINDOW_FOCUS_GAINED:
+            case SDL_EVENT_WINDOW_FOCUS_LOST: {
+                eventBus.Queue(WindowFocusEvent(sdlEvent.type == SDL_EVENT_WINDOW_FOCUS_GAINED));
+                break;
+            }
+
+            case SDL_EVENT_MOUSE_BUTTON_DOWN:
+            case SDL_EVENT_MOUSE_BUTTON_UP: {
+                auto action = MapSDLEventTypeToAction(sdlEvent.type);
+                auto btn = MapSDLButtonToButtonIndex(sdlEvent.button.button);
+                auto mousePos = Vector2D(sdlEvent.button.x, sdlEvent.button.y);
+                eventBus.Queue(MouseButtonEvent(action, btn, mousePos));
+                break;
+            }
+
+            case SDL_EVENT_MOUSE_MOTION: {
+                auto mousePos = Vector2D(sdlEvent.motion.x, sdlEvent.motion.y);
+                auto delta = Vector2D(sdlEvent.motion.xrel, sdlEvent.motion.yrel);
+                auto state = sdlEvent.motion.state;
+                eventBus.Queue(MouseMotionEvent(mousePos, delta, state));
+                break;
+            }
+
+            case SDL_EVENT_MOUSE_WHEEL: {
+                eventBus.Queue(MouseWheelEvent(sdlEvent.wheel.x, sdlEvent.wheel.y));
+                break;
+            }
+
+            case SDL_EVENT_KEY_DOWN:
+            case SDL_EVENT_KEY_UP: {
+                auto key = MapSDLKeyToKey(sdlEvent.key.scancode);
+                if (key != KeyboardEvent::Key::Unknown) {
+                    auto action = MapSDLEventTypeToAction(sdlEvent.type);
+                    eventBus.Queue(KeyboardEvent(action, key, sdlEvent.key.repeat));
+                }
+                break;
+            }
+
+            case SDL_EVENT_TEXT_INPUT: {
+                eventBus.Queue(TextInputEvent(sdlEvent.text.text));
+                break;
+            }
+
+            default: {
+                eventBus.Queue(UnknownEvent(&sdlEvent));
+                break;
+            }
+        }
     }
 }
 

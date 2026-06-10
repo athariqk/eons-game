@@ -6,12 +6,11 @@
 #include <Vector2D.h>
 #include <Viewport.h>
 
-struct SDL_Renderer;
-
 namespace Aeon {
 
 class World;
 class Entity;
+class TextureManager;
 
 /**
  * @brief Context passed to DebugDrawFnc callbacks
@@ -37,6 +36,7 @@ public:
 
     bool OnInit(World &world) override;
     void OnRender(World &world, IGraphicsContext &graphics) override;
+    void OnPostUpdate(World &world, double delta) override;
     void OnGuiRender(World &world) override;
 
 private:
@@ -61,6 +61,7 @@ private:
 
     Viewport2D *m_viewport = nullptr;
     IGraphicsContext *m_graphics = nullptr;
+    TextureManager *m_textureManager = nullptr;
     Physics2D *m_physics = nullptr;
 
     PhysDebugDrawContext m_debugDrawCtx;

@@ -2,6 +2,7 @@
 
 #include <ErrorCodes.h>
 #include <Logger.h>
+#include <SDLGraphicsContext.h>
 
 namespace Aeon {
 
@@ -29,6 +30,8 @@ int Engine::Init() {
     m_physics2d = std::make_shared<Physics2D>();
     m_audio = std::make_shared<AudioManager>();
     m_gui = std::make_shared<Gui>(*m_mainWindow);
+    auto renderer = dynamic_cast<SDLGraphicsContext *>(m_viewport2d->GetGraphicsContext());
+    m_textureManager = std::make_shared<TextureManager>(renderer->GetSDLRenderer());
 
     const auto resolution = m_mainWindow->GetResolution();
     m_viewport2d->SetRect(0.0f, 0.0f, resolution.x, resolution.y);
@@ -39,8 +42,10 @@ int Engine::Init() {
     m_services.Register<Viewport2D>(*m_viewport2d);
     m_services.Register<AudioManager>(*m_audio);
     m_services.Register<Gui>(*m_gui);
+    m_services.Register<TextureManager>(*m_textureManager);
 
     m_mainLoop = std::make_unique<MainLoop>(m_app_name, m_services);
+    m_gui->InitSubscriptions(m_mainLoop->GetEventBus());
 
     return ERROR_OK;
 }

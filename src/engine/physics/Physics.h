@@ -30,8 +30,11 @@ struct DebugDrawFnc {
  */
 class Physics2D {
 public:
-    Physics2D();
+    Physics2D() {}
     ~Physics2D() = default;
+
+	void Init();
+	void Clean() const;
 
     void Step() const;
 
@@ -57,9 +60,9 @@ public:
     bool isDebugDraw = false;
 
 private:
-    b2WorldDef m_worldDef;
     b2WorldId m_worldId{0};
-    b2DebugDraw m_b2DebugDraw;
+    b2DebugDraw m_b2DebugDraw{0};
+
     DebugDrawFnc m_debugDrawFnc;
 
 private:

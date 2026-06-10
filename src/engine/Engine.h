@@ -8,6 +8,7 @@
 #include <MainLoop.h>
 #include <Physics.h>
 #include <Services.h>
+#include <TextureManager.h>
 #include <Viewport.h>
 #include <Window.h>
 #include <utils/Config.h>
@@ -71,6 +72,7 @@ private:
     std::shared_ptr<Viewport2D> m_viewport2d;
     std::shared_ptr<AudioManager> m_audio;
     std::shared_ptr<Gui> m_gui;
+    std::shared_ptr<TextureManager> m_textureManager;
 
     // Service registry
     Services m_services;

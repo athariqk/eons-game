@@ -78,10 +78,16 @@ static void OnB2DrawPoint(b2Vec2 p, float size, b2HexColor color, void *ctx) {
     wrapper->DrawPoint(Vector2D(p.x, p.y), size, static_cast<uint32_t>(color), wrapper->context);
 }
 
-Physics2D::Physics2D() {
-    m_worldDef = b2DefaultWorldDef();
-    m_worldDef.gravity.y = 0;
-    m_worldId = b2CreateWorld(&m_worldDef);
+// ---------- IMPL ------
+
+void Physics2D::Init() {
+    if (b2World_IsValid(m_worldId)) {
+        return; // already initialized
+    }
+
+    b2WorldDef worldDef = b2DefaultWorldDef();
+    worldDef.gravity.y = 0;
+    m_worldId = b2CreateWorld(&worldDef);
 
     m_b2DebugDraw = b2DefaultDebugDraw();
     m_b2DebugDraw.context = &m_debugDrawFnc;
@@ -93,6 +99,16 @@ Physics2D::Physics2D() {
     m_b2DebugDraw.DrawSegment = OnB2DrawSegment;
     m_b2DebugDraw.DrawTransform = OnB2DrawTransform;
     m_b2DebugDraw.DrawPoint = OnB2DrawPoint;
+}
+
+void Physics2D::Clean() const {
+    if (!b2World_IsValid(m_worldId)) {
+        LOG_ERROR("Trying to destroy an invalid physics world");
+        return;
+    }
+
+    b2DestroyWorld(m_worldId);
+    LOG_TRACE("Destroyed physics world");
 }
 
 void Physics2D::Step() const {

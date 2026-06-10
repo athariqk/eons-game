@@ -24,17 +24,14 @@ public:
 
     bool OnInit(World &world) override;
     void OnPostUpdate(World &world, double delta) override;
+    void OnGuiRender(World &world) override;
     void OnShutdown(World &world) override;
 
     // Query methods
     bool IsKeyPressed(KeyboardEvent::Key key) const { return m_pressedKeys.contains(key); }
-
     bool IsMouseButtonPressed(ButtonIndex button) const { return m_pressedButtons.contains(button); }
-
     Vector2D GetMousePosition() const { return m_mousePosition; }
-
     Vector2D GetLastMouseDelta() const { return m_lastMouseDelta; }
-
 	Vector2D GetLastMouseWheelDelta() const { return m_lastMouseWheelDelta; }
 
 private:

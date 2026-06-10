@@ -89,4 +89,17 @@ struct WindowFocusEvent : public Event {
     WindowFocusEvent(bool f) : focused(f) {}
 };
 
+struct TextInputEvent : public Event {
+    std::string text;
+    TextInputEvent(std::string t) : text(std::move(t)) {}
+};
+
+struct WindowMouseEnterEvent : public Event {
+    WindowMouseEnterEvent() = default;
+};
+
+struct WindowMouseLeaveEvent : public Event {
+    WindowMouseLeaveEvent() = default;
+};
+
 } // namespace Aeon

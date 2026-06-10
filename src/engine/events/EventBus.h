@@ -19,7 +19,13 @@ public:
     virtual ~Event() = default;
 
     // Mark event as handled to prevent further processing
-    bool handled = false;
+    mutable bool handled = false;
+};
+
+class UnknownEvent : public Event {
+public:
+    UnknownEvent(void *nativeHandle) : nativeHandle(nativeHandle) {}
+    void *nativeHandle;
 };
 
 /**
@@ -41,6 +47,9 @@ class EventBus {
 public:
     /**
      * @brief Subscribe to an event type
+     *
+     * The order of subscribed consumers defines the event pipeline
+     *
      * @tparam T Event type to subscribe to
      * @param callback Function to call when event is published
      * @return Subscription ID (can be used to unsubscribe)
@@ -109,7 +118,7 @@ public:
     /**
      * @brief Process all queued events
      *
-     * Call this once per frame to process events that were queued
+     * Called once per frame to process events that were queued
      * using Queue(). Events are processed in FIFO order.
      */
     void ProcessQueue() {
@@ -134,6 +143,18 @@ public:
         m_subscribers.clear();
         m_eventQueue.clear();
         m_nextSubscriptionId = 0;
+    }
+
+    // ---- Read-only debug accessors ----
+
+    size_t GetQueueSize() const { return m_eventQueue.size(); }
+
+    using SubscriberDebugInfo = std::vector<std::pair<const char *, size_t>>;
+    SubscriberDebugInfo GetSubscriberDebugInfo() const {
+        SubscriberDebugInfo info;
+        for (const auto &[typeIndex, subs]: m_subscribers)
+            info.emplace_back(typeIndex.name(), subs.size());
+        return info;
     }
 
 private:

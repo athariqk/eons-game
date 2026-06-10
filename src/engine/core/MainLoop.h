@@ -19,7 +19,14 @@ public:
     ~MainLoop();
 
     int Run();
+
+    /**
+     * @brief Forcefully stops the main loop
+	 *
+	 * Typically you would enqueue an event to do this
+     */
     void Stop() { m_running = false; }
+
     bool IsRunning() const { return m_running; }
 
     /**
@@ -38,10 +45,10 @@ public:
 
     uint64_t &GetTick() { return m_ticks; }
 
-	// Access to the engine's main services
+    // Access to the engine's main services
     Services &GetServices() { return m_services; }
 
-	EventBus &GetEventBus() { return m_eventBus; }
+    EventBus &GetEventBus() { return m_eventBus; }
 
 private:
     void UpdateActiveWorld();
@@ -51,7 +58,7 @@ private:
 
     std::string m_appName;
 
-    // Referenced service registry
+    // Referenced service registry from Engine
     Services &m_services;
 
     // Event bus
@@ -62,10 +69,6 @@ private:
     bool m_worldDirty = false;
 
     uint64_t m_ticks = 0;
-
-    KeyboardEvent::Key MapSDLKeyToKey(SDL_Scancode scancode);
-    ButtonAction MapSDLEventTypeToAction(uint32_t sdlEventType);
-    ButtonIndex MapSDLButtonToButtonIndex(uint8_t sdlButton);
 };
 
 } // namespace Aeon

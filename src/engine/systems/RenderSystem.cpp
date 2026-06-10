@@ -24,6 +24,12 @@ bool RenderSystem::OnInit(World &world) {
         return false;
     }
 
+    m_textureManager = world.GetMainLoop().GetServices().TryGet<TextureManager>();
+    if (!m_textureManager) {
+        LOG_ERROR("TextureManager not found!");
+        return false;
+    }
+
     m_physics = world.GetMainLoop().GetServices().TryGet<Physics2D>();
     if (!m_physics) {
         LOG_ERROR("Physics2D service not found!");
@@ -70,6 +76,16 @@ void RenderSystem::OnRender(World &world, IGraphicsContext &graphics) {
     }
 }
 
+void RenderSystem::OnPostUpdate(World &world, double delta) {
+    for (const auto &entityPtr: world.GetEntities()) {
+        if (!entityPtr->IsEnabled() && entityPtr->HasComponent<SpriteComponent>()) {
+            auto &sprite = entityPtr->GetComponent<SpriteComponent>();
+            auto sdlTexture = static_cast<SDL_Texture *>(sprite.texturePtr);
+            m_textureManager->DestroyTexture(sdlTexture);
+        }
+    }
+}
+
 void RenderSystem::OnGuiRender(World &world) {
     ImGui::Begin("Rendering");
 
@@ -100,7 +116,7 @@ void RenderSystem::RenderSprite(Entity *entityPtr) {
     auto &sprite = entityPtr->GetComponent<SpriteComponent>();
 
     if (!sprite.texturePtr) {
-        sprite.texturePtr = TextureManager::LoadTexture(renderer, sprite.texturePath.c_str());
+        sprite.texturePtr = m_textureManager->GetTexture(sprite.texturePath);
         if (!sprite.texturePtr) {
             return;
         }

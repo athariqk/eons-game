@@ -87,14 +87,14 @@ void World::_OnGuiRender() {
 void World::_OnFinish() {
     entities.clear();
 
+    OnFinish();
+
     // Shutdown systems
     for (auto &system: m_systems) {
         if (system->IsEnabled()) {
             system->OnShutdown(*this);
         }
     }
-
-    OnFinish();
 }
 
 void World::AddToGroup(Entity *mEntity, Group mGroup) { groupedEntities[mGroup].emplace_back(mEntity); }
