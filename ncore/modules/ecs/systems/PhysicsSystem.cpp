@@ -6,19 +6,13 @@
 #include <modules/World.h>
 #include <modules/ecs/components/RigidBodyComponent.h>
 #include <modules/ecs/components/TransformComponent.h>
-#include <modules/utils/Logger.h>
 
 namespace ncore {
 
 bool PhysicsSystem::on_init(World &world) {
     physics = world.get_main_loop().get_services().try_get<Physics2D>();
-    if (!physics) {
-        LOG_ERROR(log::PHYSICS, "Physics2D service was not found!");
-        return false;
-    }
-
+    NC_ASSERT_RETVAL(physics != nullptr, false, "Physics2D service not found");
     physics->init();
-
     return true;
 }
 
@@ -37,8 +31,8 @@ void PhysicsSystem::on_fixed_update(World &world, double fixedDelta) {
         // Apply pending impulse
         if (!body.pending_impulse.is_zero()) {
             physics->apply_linear_impulse(body.b2Id, body.pending_impulse);
-            LOG_DEBUG(log::PHYSICS, "Applied impulse <{},{}> to entity {}", body.pending_impulse.x,
-                      body.pending_impulse.y, entity->get_id());
+            NC_LOG_DEBUG_C(log::PHYSICS, "Applied impulse <{},{}> to entity {}", body.pending_impulse.x,
+                           body.pending_impulse.y, entity->get_id());
             body.pending_impulse = {0.0f, 0.0f};
         }
 
@@ -111,12 +105,12 @@ void PhysicsSystem::initialize_rbody(RigidBodyComponent &body, TransformComponen
     b2CreatePolygonShape(body.b2Id, &shapeDef, &dynamicBox);
     b2Body_ApplyMassFromShapes(body.b2Id);
 
-    LOG_DEBUG(log::PHYSICS, "ID: {}, mass={}, type={}, bodyPos=<{},{}>, transform={}", body.entity->get_id(),
-              b2Body_GetMass(body.b2Id),
-              b2Body_GetType(body.b2Id) == b2_staticBody
-                  ? "static"
-                  : (b2Body_GetType(body.b2Id) == b2_kinematicBody ? "kinematic" : "dynamic"),
-              bodyDef.position.x, bodyDef.position.y, transform.to_string());
+    NC_LOG_DEBUG_C(log::PHYSICS, "ID: {}, mass={}, type={}, bodyPos=<{},{}>, transform={}", body.entity->get_id(),
+                   b2Body_GetMass(body.b2Id),
+                   b2Body_GetType(body.b2Id) == b2_staticBody
+                       ? "static"
+                       : (b2Body_GetType(body.b2Id) == b2_kinematicBody ? "kinematic" : "dynamic"),
+                   bodyDef.position.x, bodyDef.position.y, transform.to_string());
 }
 
 } // namespace ncore

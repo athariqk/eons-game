@@ -28,10 +28,11 @@ public:
     int run(std::unique_ptr<World> p_default_world);
     int cleanup();
 
-    MainLoop &get_main_loop();
+    MainLoop *get_main_loop();
 
     cfg::Window window_cfg;
     cfg::Render render_cfg;
+    cfg::Log cfg_log;
 
 private:
     std::string app_name;

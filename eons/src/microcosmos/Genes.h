@@ -2,8 +2,8 @@
 
 #include <stdint.h>
 
-#include <modules/utils/Color.h>
-#include <modules/utils/Random.h>
+#include <utils/Color.h>
+#include <utils/Random.h>
 
 struct Genes {
 public:

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "modules/ecs/Entity.h"
-#include "modules/utils/Structures.h"
+#include "utils/Structures.h"
 
 /**
  * @brief Component representing a food source in the simulation

@@ -4,7 +4,6 @@
 #include <modules/ecs/systems/InputSystem.h>
 #include <modules/ecs/systems/PhysicsSystem.h>
 #include <modules/ecs/systems/RenderSystem.h>
-#include <modules/utils/Logger.h>
 
 namespace ncore {
 
@@ -16,12 +15,14 @@ void World::on_init_() {
     add_system<RenderSystem>();
 
     // Initialize all systems
+    int i = 0;
     for (auto &system: systems_reg) {
         if (!system->get_is_enabled())
             continue;
         if (!system->on_init(*this)) {
-            LOG_ERROR(log::ECS, "System init FAIL: {}", typeid(*system).name());
+            NC_LOG_ERROR("System init FAIL: id {}", i);
         }
+        i++;
     }
 
     on_init();

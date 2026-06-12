@@ -8,8 +8,7 @@
 #include <modules/ecs/components/SpriteComponent.h>
 #include <modules/ecs/components/TransformComponent.h>
 #include <modules/graphics/Viewport.h>
-#include <modules/utils/Logger.h>
-#include <modules/utils/Random.h>
+#include <utils/Random.h>
 
 #include <microcosmos/MicrocosmWorld.h>
 #include <microcosmos/components/FoodComponent.h>
@@ -65,5 +64,5 @@ void FoodSystem::handle_nutrient_spawns(ncore::World &world, int amountToSpawn) 
         nutrient.add_group(MicrocosmWorld::GroupLabels::NUTRIENTS_GROUP);
     }
 
-    LOG_INFO(ncore::log::GAME, "Spawned {} nutrients to the environment", amountToSpawn);
+    NC_LOG_INFO("Spawned {} nutrients to the environment", amountToSpawn);
 }

@@ -62,9 +62,7 @@ public:
     // Access to the main loop
     void set_main_loop(MainLoop &p_main_loop) { main_loop = &p_main_loop; }
     MainLoop &get_main_loop() {
-        if (!main_loop) {
-            throw std::runtime_error("MainLoop not set in World!");
-        }
+        NC_ASSERT(main_loop != nullptr, "MainLoop not set in World!");
         return *main_loop;
     }
 

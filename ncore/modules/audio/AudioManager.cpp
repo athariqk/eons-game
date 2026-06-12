@@ -3,8 +3,6 @@
 #include <SDL3/SDL_audio.h>
 #include <SDL3/SDL_init.h>
 
-#include "modules/utils/Logger.h"
-
 namespace ncore {
 
 AudioManager::AudioManager() {}
@@ -26,7 +24,7 @@ void AudioManager::play_wav(const AudioClip *p_clip) {
         SDL_AudioSpec spec{.format = SDL_AUDIO_F32, .channels = p_clip->channels, .freq = p_clip->frequency};
         SDL_AudioStream *stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, NULL, NULL);
         if (!stream) {
-            LOG_ERROR(log::AUDIO, "Failed to open audio stream: {}", SDL_GetError());
+            NC_LOG_ERROR_C(log::AUDIO, "Failed to open audio stream: {}", SDL_GetError());
             return;
         }
         it = streams.emplace(p_clip, stream).first;

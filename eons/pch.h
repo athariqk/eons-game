@@ -1,5 +1,6 @@
 #pragma once
 
+#define NC_LOG_CHANNEL "EONS"
 #include <Definitions.h>
 
 #define GAME_VERSION_MAJOR 0

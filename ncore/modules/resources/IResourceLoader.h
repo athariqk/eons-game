@@ -1,7 +1,6 @@
 #pragma once
 
 #include <modules/resources/Resource.h>
-#include <modules/utils/Logger.h>
 
 namespace ncore {
 
@@ -10,7 +9,8 @@ template<std::derived_from<Resource> T>
 struct IResourceLoader {
     T operator()(const std::string &path) {
         T res = load_from_disk(path);
-        LOG_TRACE(log::ENGINE, "Loaded resouce of size {} bytes from path: '{}'", res.get_size_in_bytes(), path);
+        NC_LOG_TRACE_C(ncore::log::IO, "Loaded resouce of size {} bytes from path: '{}'", res.get_size_in_bytes(),
+                       path);
         return res;
     }
 

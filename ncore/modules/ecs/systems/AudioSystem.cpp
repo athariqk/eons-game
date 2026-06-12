@@ -8,23 +8,22 @@ namespace ncore {
 
 bool AudioSystem::on_init(World &world) {
     res_mgr = world.get_main_loop().get_services().try_get<ResourceManager>();
-    if (!res_mgr)
-        return false;
+    NC_ASSERT_RETVAL(res_mgr != nullptr, false, "AudioSystem requires ResourceManager service");
+
+    audio_mgr = world.get_main_loop().get_services().try_get<AudioManager>();
+    NC_ASSERT_RETVAL(audio_mgr != nullptr, false, "AudioSystem requires AudioManager service");
+
     return true;
 }
 
 void AudioSystem::on_variable_update(World &world, double delta) {
-    auto audio = world.get_main_loop().get_services().try_get<AudioManager>();
-    if (!audio)
-        return;
-
     // Process queued audio events
     while (!audio_queue.empty()) {
         auto &event = audio_queue.front();
 
         // TODO: Apply volume, looping, spatial audio, etc.
         auto clip = res_mgr->access<AudioClip>(event.res_hnd);
-        audio->play_wav(clip);
+        audio_mgr->play_wav(clip);
 
         audio_queue.pop();
     }

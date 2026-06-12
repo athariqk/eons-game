@@ -3,7 +3,7 @@
 #include <vector>
 
 #include <modules/ecs/System.h>
-#include <modules/utils/Structures.h>
+#include <utils/Structures.h>
 
 namespace ncore {
 class World;

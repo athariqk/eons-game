@@ -1,14 +1,14 @@
 #include "SDLImageLoader.h"
 
 #include <SDL3_image/SDL_image.h>
-#include <modules/utils/Logger.h>
+#include <utils/Structures.h>
 
 namespace ncore {
 
 Image SDLImageLoader::load_from_disk(std::string location) {
     SDL_Surface *surface = IMG_Load(location.c_str());
     if (!surface) {
-        LOG_ERROR(log::ENGINE, "Failed to load image from path: {}. Error: {}", location, SDL_GetError());
+        NC_LOG_ERROR_C(log::IO, "Failed to load image from path: {}. Error: {}", location, SDL_GetError());
         return {};
     }
 

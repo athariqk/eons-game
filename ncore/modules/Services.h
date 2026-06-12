@@ -5,8 +5,6 @@
 #include <typeindex>
 #include <unordered_map>
 
-#include <modules/utils/Logger.h>
-
 namespace ncore {
 
 /**
@@ -45,9 +43,7 @@ public:
     template<typename T>
     T &get() {
         auto it = service_reg.find(std::type_index(typeid(T)));
-        if (it == service_reg.end()) {
-            throw std::runtime_error("Service not registered");
-        }
+        NC_ASSERT(it != service_reg.end(), "Service not registered");
         return *static_cast<T *>(it->second);
     }
 

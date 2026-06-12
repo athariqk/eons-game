@@ -1,7 +1,7 @@
 #include "SpeciesSystem.h"
 
 #include <modules/World.h>
-#include <modules/utils/Logger.h>
+
 
 #include <microcosmos/MicrocosmWorld.h>
 #include <microcosmos/components/OrganismComponent.h>

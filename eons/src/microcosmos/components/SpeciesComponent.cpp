@@ -5,8 +5,7 @@
 
 #include <modules/Services.h>
 #include <modules/audio/AudioManager.h>
-#include <modules/utils/Logger.h>
-#include <modules/utils/Random.h>
+#include <utils/Random.h>
 
 #include <microcosmos/MicrocosmWorld.h>
 #include <microcosmos/components/OrganismComponent.h>

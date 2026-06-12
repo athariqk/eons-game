@@ -5,8 +5,7 @@
 #include <modules/World.h>
 #include <modules/ecs/components/RigidBodyComponent.h>
 #include <modules/ecs/components/TransformComponent.h>
-#include <modules/utils/Logger.h>
-#include <modules/utils/Random.h>
+#include <utils/Random.h>
 
 #include <microcosmos/Genes.h>
 #include <microcosmos/MicrocosmWorld.h>
@@ -25,7 +24,7 @@ bool OrganismAISystem::on_init(ncore::World &world) {
         if (entity_ptr->has_component<ncore::TransformComponent>()) {
             change_state(ai, BehaviourState::IDLING);
         } else {
-            LOG_ERROR(ncore::log::GAME, "Organism AI entity missing transform component!");
+            NC_LOG_ERROR("Organism AI entity missing transform component!");
         }
     }
     return true;
@@ -195,7 +194,7 @@ void OrganismAISystem::update_eval(ncore::Entity &entity, OrganismAIComponent &a
 
     if (organism.cur_energy > organism.genome.energy_capacity * 0.7f && ai.reproduce_interval > 100.0f) {
         ai.reproduced = false;
-        LOG_INFO(ncore::log::GAME, "Organism {} reproduced", organism.entity->get_id());
+        NC_LOG_INFO("Organism {} reproduced", organism.entity->get_id());
         reproduce(world, entity, ai, organism);
         change_state(ai, BehaviourState::RUN_TUMBLE);
     } else if (ai.act_timer > ai.act_interval * 2.0f) {
@@ -210,7 +209,7 @@ ncore::Vec2 OrganismAISystem::get_rand_dir() {
 
 void OrganismAISystem::absorb_food(ncore::Entity &entity, OrganismAIComponent &ai, OrganismComponent &organism) {
     if (ai.captured_food == nullptr) {
-        LOG_ERROR(ncore::log::GAME, "Nutrient is not found while trying to absorb it!");
+        NC_LOG_ERROR("Nutrient is not found while trying to absorb it!");
         ai.is_food_found = false;
         return;
     }
@@ -240,7 +239,7 @@ void OrganismAISystem::reproduce(ncore::World &world, ncore::Entity &entity, Org
 
     MicrocosmWorld &micro_world = static_cast<MicrocosmWorld &>(world);
     auto &offspring = micro_world.add_organism(micro_world.get_species_by_id(organism.species_id));
-    LOG_INFO(ncore::log::GAME, "Organism {} has been birthed into the world", offspring.entity->get_id());
+    NC_LOG_INFO("Organism {} has been birthed into the world", offspring.entity->get_id());
 
     if (offspring.entity && offspring.entity->has_component<ncore::TransformComponent>()) {
         auto &transform = entity.get_component<ncore::TransformComponent>();
@@ -250,7 +249,7 @@ void OrganismAISystem::reproduce(ncore::World &world, ncore::Entity &entity, Org
 
     // Do random mutations
     if (offspring.entity && offspring.genome.mutate(5, 1)) {
-        LOG_INFO(ncore::log::GAME, "Mutation has occurred on organism {}", offspring.entity->get_id());
+        NC_LOG_INFO("Mutation has occurred on organism {}", offspring.entity->get_id());
     }
 
     organism.cur_energy -= 15.0f; // childbirth tax

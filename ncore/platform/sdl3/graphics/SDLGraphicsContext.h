@@ -2,8 +2,11 @@
 
 #include <SDL3/SDL_render.h>
 
-#include <modules/graphics/IGraphicsContext.h>
 #include <unordered_map>
+
+#include <modules/graphics/IGraphicsContext.h>
+#include <utils/Color.h>
+#include <utils/Structures.h>
 
 namespace ncore {
 

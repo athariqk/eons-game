@@ -1,7 +1,7 @@
 #include "SDLAudioLoader.h"
 
 #include <SDL3/SDL_audio.h>
-#include <modules/utils/Logger.h>
+#include <utils/Structures.h>
 
 namespace ncore {
 
@@ -15,7 +15,7 @@ AudioClip SDLAudioLoader::load_from_disk(std::string location) {
     spec.freq = 44100;
 
     if (!SDL_LoadWAV(location.c_str(), &spec, &raw_buf, &wav_len)) {
-        LOG_ERROR(log::AUDIO, "WAV load FAIL: {}", SDL_GetError());
+        NC_LOG_ERROR_C(log::AUDIO, "WAV load FAIL: {}", SDL_GetError());
         return {};
     }
 

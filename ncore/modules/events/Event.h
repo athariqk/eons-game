@@ -1,7 +1,7 @@
 #pragma once
 
 #include <modules/events/EventType.h>
-#include <modules/utils/Structures.h>
+#include <utils//Structures.h>
 
 namespace ncore {
 

@@ -76,7 +76,7 @@ public:
 
 private:
     ResourceHandle load(const std::string &path) {
-        NC_ASSERT_RETVAL(loader_func, ResourceHandle(), "Failed to load the requested resource. It has no loader");
+        NC_ASSERT(loader_func, "Failed to load the requested resource. It has no loader");
 
         uint32_t idx;
         if (!free_ids.empty()) {

@@ -4,7 +4,7 @@
 #include <bitset>
 #include <cstdint>
 
-#include "MacroUtils.h"
+#include "utils/Macro.h"
 #include "modules/ecs/Component.h"
 
 namespace ncore {

@@ -4,8 +4,7 @@
 #include <SDL3/SDL_render.h>
 #include <SDL3/SDL_video.h>
 
-#include "modules/utils/Logger.h"
-#include "modules/utils/Structures.h"
+#include "utils/Structures.h"
 
 namespace ncore {
 
@@ -17,9 +16,9 @@ Window::Window(const char *title, int width, int height, const bool fullscreen) 
 
     sdlWindow = SDL_CreateWindow(title, width, height, flags | SDL_WINDOW_RESIZABLE);
     if (sdlWindow) {
-        LOG_TRACE(log::ENGINE, "New SDL window: ({}x{}), ID: {}", width, height, get_window_id());
+        NC_LOG_TRACE_C(log::GRAPHICS, "New SDL window: ({}x{}), ID: {}", width, height, get_window_id());
     } else {
-        LOG_ERROR(log::ENGINE, "SDL window creation failed!");
+        NC_LOG_ERROR_C(log::GRAPHICS, "SDL window creation failed!");
         return;
     }
 
@@ -28,9 +27,9 @@ Window::Window(const char *title, int width, int height, const bool fullscreen) 
 
     renderer = SDL_CreateRenderer(sdlWindow, nullptr);
     if (renderer) {
-        LOG_TRACE(log::ENGINE, "New SDL renderer: {}", SDL_GetRendererName(renderer));
+        NC_LOG_TRACE_C(log::GRAPHICS, "New SDL renderer: {}", SDL_GetRendererName(renderer));
     } else {
-        LOG_ERROR(log::ENGINE, "SDL renderer creation failed!");
+        NC_LOG_ERROR_C(log::GRAPHICS, "SDL renderer creation failed!");
         SDL_DestroyWindow(sdlWindow);
         sdlWindow = nullptr;
         return;
@@ -38,9 +37,9 @@ Window::Window(const char *title, int width, int height, const bool fullscreen) 
 }
 
 Window::~Window() {
-    LOG_TRACE(log::ENGINE, "Destroying SDL renderer: {}", SDL_GetRendererName(renderer));
+    NC_LOG_TRACE_C(log::GRAPHICS, "Destroying SDL renderer: {}", SDL_GetRendererName(renderer));
     SDL_DestroyRenderer(renderer);
-    LOG_TRACE(log::ENGINE, "Destroying SDL window. ID {}", get_window_id());
+    NC_LOG_TRACE_C(log::GRAPHICS, "Destroying SDL window. ID {}", get_window_id());
     SDL_DestroyWindow(sdlWindow);
 }
 

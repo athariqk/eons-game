@@ -5,8 +5,8 @@
 #include <modules/World.h>
 #include <modules/ecs/components/TransformComponent.h>
 #include <modules/graphics/Viewport.h>
-#include <modules/utils/Logger.h>
-#include <modules/utils/Random.h>
+
+#include <utils/Random.h>
 
 #include <microcosmos/Genes.h>
 #include <microcosmos/MicrocosmWorld.h>

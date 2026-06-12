@@ -10,34 +10,21 @@
 #include <modules/ecs/components/TransformComponent.h>
 #include <modules/resources/Resource.h>
 #include <modules/resources/ResourceManager.h>
-#include <modules/utils/Logger.h>
 
 namespace ncore {
 
 bool RenderSystem::on_init(World &world) {
     viewport = world.get_main_loop().get_services().try_get<Viewport2D>();
-    if (!viewport) {
-        LOG_ERROR(log::GRAPHICS, "Viewport2D service not found!");
-        return false;
-    }
+    NC_ASSERT_RETVAL(viewport != nullptr, false, "Viewport2D service not found!");
 
     graphics_ctx = viewport->get_graphics_context();
-    if (!graphics_ctx) {
-        LOG_ERROR(log::GRAPHICS, "Graphics context not found in Viewport2D!");
-        return false;
-    }
+    NC_ASSERT_RETVAL(graphics_ctx != nullptr, false, "GraphicsContext not found in Viewport!");
 
     res_mgr = world.get_main_loop().get_services().try_get<ResourceManager>();
-    if (!res_mgr) {
-        LOG_ERROR(log::GRAPHICS, "ResourceManager not found!");
-        return false;
-    }
+    NC_ASSERT_RETVAL(res_mgr != nullptr, false, "ResourceManager service not found!");
 
     physics = world.get_main_loop().get_services().try_get<Physics2D>();
-    if (!physics) {
-        LOG_ERROR(log::GRAPHICS, "Physics2D service not found!");
-        return false;
-    }
+    NC_ASSERT_RETVAL(physics != nullptr, false, "Physics2D service not found!");
 
     debug_draw_ctx.renderer = graphics_ctx;
     debug_draw_ctx.viewport = viewport;
@@ -94,16 +81,8 @@ void RenderSystem::on_gui_render(World &world) {
 }
 
 void RenderSystem::render_sprite(Entity *entityPtr) {
-    auto renderer = static_cast<SDL_Renderer *>(graphics_ctx->get_native_handle());
-    if (!renderer) {
-        LOG_ERROR(log::GRAPHICS, "Graphics renderer not initialized!");
-        return;
-    }
-
-    if (!entityPtr->has_component<TransformComponent>()) {
-        LOG_ERROR(log::GRAPHICS, "Entity {} has no TransformComponent to render with!", entityPtr->get_id());
-        return;
-    }
+    NC_ASSERT_RET(entityPtr->has_component<SpriteComponent>(),
+                  std::format("Entity {} has no SpriteComponent to render!", entityPtr->get_id()).c_str());
 
     auto &transform = entityPtr->get_component<TransformComponent>();
     auto &sprite = entityPtr->get_component<SpriteComponent>();
@@ -131,10 +110,8 @@ void RenderSystem::render_sprite(Entity *entityPtr) {
 }
 
 void RenderSystem::render_temp_circle(Entity *entityPtr) {
-    if (!entityPtr->has_component<TransformComponent>()) {
-        LOG_ERROR(log::GRAPHICS, "Entity {} has no TransformComponent to render with!", entityPtr->get_id());
-        return;
-    }
+    NC_ASSERT_RET(entityPtr->has_component<TransformComponent>(),
+                  std::format("Entity {} has no TransformComponent to render!", entityPtr->get_id()).c_str());
 
     auto &transform = entityPtr->get_component<TransformComponent>();
     auto &circle = entityPtr->get_component<TempCircleComponent>();
@@ -150,10 +127,8 @@ void RenderSystem::render_temp_circle(Entity *entityPtr) {
  * TODO: remove this and move ALL physics debug drawing in the Physics class
  */
 void RenderSystem::render_phys_debug(Entity *entityPtr) {
-    if (!entityPtr->has_component<TransformComponent>()) {
-        LOG_ERROR(log::GRAPHICS, "Entity {} has no TransformComponent to render with!", entityPtr->get_id());
-        return;
-    }
+    NC_ASSERT_RET(entityPtr->has_component<TransformComponent>(),
+                  std::format("Entity {} has no TransformComponent to render!", entityPtr->get_id()).c_str());
 
     auto &transform = entityPtr->get_component<TransformComponent>();
     auto &body = entityPtr->get_component<RigidBodyComponent>();

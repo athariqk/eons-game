@@ -1,7 +1,6 @@
 #include "SDLGraphicsContext.h"
 
 #include <modules/resources/Resource.h>
-#include <modules/utils/Logger.h>
 #include <platform/sdl3/resources/SDLImageLoader.h>
 
 namespace ncore {
@@ -53,8 +52,8 @@ SDL_Texture *SDLGraphicsContext::get_or_upload_img(const Image *image) {
     if (texture)
         texture_cache[image] = texture;
 
-    LOG_TRACE(log::GRAPHICS, "Cached texture for image at {} ({} bytes)", static_cast<const void *>(image),
-              image->get_size_in_bytes());
+    NC_LOG_TRACE_C(log::GRAPHICS, "Cached texture for image at {} ({} bytes)", static_cast<const void *>(image),
+                   image->get_size_in_bytes());
 
     return texture;
 }

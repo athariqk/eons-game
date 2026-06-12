@@ -13,9 +13,8 @@
 #include <Engine.h>
 #include <modules/events/Event.h>
 #include <modules/events/EventBus.h>
-#include <modules/utils/ErrorCodes.h>
-#include <modules/utils/Logger.h>
 #include <platform/sdl3/events/EventBackendSDL.h>
+#include <utils/ErrorCodes.h>
 
 namespace ncore {
 
@@ -24,15 +23,15 @@ MainLoop::MainLoop(const std::string &p_app_name, Services &p_service_reg) :
     auto &event_bus = get_event_bus();
     event_bus.subscribe<QuitEvent>([this](QuitEvent &e) {
         is_running = false;
-        LOG_TRACE(log::ENGINE, "Window close event received, stopping main loop...");
+        NC_LOG_TRACE("Window close event received, stopping main loop...");
     });
     event_bus.subscribe<WindowResizeEvent>([this](WindowResizeEvent &e) {
         service_reg.get<Viewport2D>().set_size(static_cast<float>(e.width), static_cast<float>(e.height));
-        LOG_TRACE(log::ENGINE, "Window resolution changed: {}x{}", e.width, e.height);
+        NC_LOG_TRACE("Window resolution changed: {}x{}", e.width, e.height);
     });
     event_bus.subscribe<WorldChangeRequestEvent>([this](WorldChangeRequestEvent &e) {
         update_active_world(std::move(e.new_world));
-        LOG_TRACE(log::ENGINE, "World change complete");
+        NC_LOG_TRACE("World change complete");
     });
 }
 
@@ -163,7 +162,7 @@ void MainLoop::clean() {
 void MainLoop::change_world(std::unique_ptr<World> p_world) {
     NC_ASSERT_RET(p_world != nullptr, "Cannot change to null world!");
     event_bus.enqueue(std::make_unique<WorldChangeRequestEvent>(std::move(p_world)));
-    LOG_TRACE(log::ENGINE, "World change requested");
+    NC_LOG_TRACE("World change requested");
 }
 
 World &MainLoop::get_current_world() { return *active_world; }

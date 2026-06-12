@@ -2,8 +2,8 @@
 
 #include <cstdint>
 
-#include <modules/utils/Color.h>
-#include <modules/utils/Structures.h>
+#include <utils/Color.h>
+#include <utils/Structures.h>
 
 namespace ncore {
 

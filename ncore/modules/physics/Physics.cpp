@@ -2,21 +2,7 @@
 
 #include <cmath>
 
-#include <modules/utils/Logger.h>
-
 namespace ncore {
-
-#define ENSURE_WORLD()                                                                                                 \
-    if (!b2World_IsValid(world_id)) {                                                                                  \
-        LOG_ERROR(log::PHYSICS, "World is invalid");                                                                   \
-        return;                                                                                                        \
-    }
-
-#define ENSURE_BODY_RETURN(bodyId, ret)                                                                                \
-    if (!is_body_valid(bodyId)) {                                                                                      \
-        LOG_ERROR(log::PHYSICS, "Body is invalid");                                                                    \
-        return ret;                                                                                                    \
-    }
 
 // ---- Forwarding callbacks: b2DebugDraw -> DebugDrawFnc ----
 
@@ -113,14 +99,14 @@ void Physics2D::init() {
 }
 
 void Physics2D::step() const {
-    ENSURE_WORLD()
+    NC_ASSERT_RET(b2World_IsValid(world_id), "Physics world is not initialized");
     b2World_Step(world_id, time_step, sub_step_count);
 }
 
 void Physics2D::clean() const {
-    ENSURE_WORLD()
+    NC_ASSERT_RET(b2World_IsValid(world_id), "Physics world is not initialized");
     b2DestroyWorld(world_id);
-    LOG_TRACE(log::PHYSICS, "Destroyed physics world");
+    NC_LOG_TRACE(log::PHYSICS, "Destroyed physics world");
 }
 
 b2BodyId Physics2D::create_body(const b2BodyDef *bodyDef) const {
@@ -130,9 +116,9 @@ b2BodyId Physics2D::create_body(const b2BodyDef *bodyDef) const {
 }
 
 void Physics2D::destroy_body(const b2BodyId &bodyId) const {
-    ENSURE_WORLD()
+    NC_ASSERT_RET(b2World_IsValid(world_id), "Physics world is not initialized");
     if (!is_body_valid(bodyId)) {
-        LOG_ERROR(log::PHYSICS, "Body is invalid");
+        NC_LOG_ERROR(log::PHYSICS, "Body is invalid");
         return;
     }
     b2DestroyBody(bodyId);
@@ -143,35 +129,29 @@ bool Physics2D::is_body_valid(const b2BodyId &bodyId) const { return b2Body_IsVa
 bool Physics2D::is_body_awake(const b2BodyId &bodyId) const { return b2Body_IsAwake(bodyId); }
 
 Vec2 Physics2D::get_body_position(const b2BodyId &bodyId) const {
-    ENSURE_BODY_RETURN(bodyId, Vec2())
+    NC_ASSERT_RETVAL(is_body_valid(bodyId), Vec2(), "Body is invalid");
     auto pos = b2Body_GetPosition(bodyId);
     return Vec2(pos.x, pos.y);
 }
 
 float Physics2D::get_body_angle(const b2BodyId &bodyId) const {
-    ENSURE_BODY_RETURN(bodyId, 0.0f)
+    NC_ASSERT_RETVAL(is_body_valid(bodyId), 0.0f, "Body is invalid");
     return b2Rot_GetAngle(b2Body_GetRotation(bodyId));
 }
 
 Vec2 Physics2D::get_body_velocity(const b2BodyId &bodyId) const {
-    ENSURE_BODY_RETURN(bodyId, Vec2())
+    NC_ASSERT_RETVAL(is_body_valid(bodyId), Vec2(), "Body is invalid");
     auto vel = b2Body_GetLinearVelocity(bodyId);
     return Vec2(vel.x, vel.y);
 }
 
 void Physics2D::apply_linear_impulse(const b2BodyId &bodyId, const Vec2 &impulse) const {
-    if (!is_body_valid(bodyId)) {
-        LOG_ERROR(log::PHYSICS, "Can't apply impulse on a uninitialized body");
-        return;
-    }
+    NC_ASSERT_RET(is_body_valid(bodyId), "Body is invalid");
     b2Body_ApplyLinearImpulseToCenter(bodyId, b2Vec2(impulse.x, impulse.y), true);
 }
 
 void Physics2D::apply_linear_force(const b2BodyId &bodyId, const Vec2 &force) const {
-    if (!is_body_valid(bodyId)) {
-        LOG_ERROR(log::PHYSICS, "Can't apply force on a uninitialized body");
-        return;
-    }
+    NC_ASSERT_RET(is_body_valid(bodyId), "Body is invalid");
     b2Body_ApplyForceToCenter(bodyId, b2Vec2(force.x, force.y), true);
 }
 

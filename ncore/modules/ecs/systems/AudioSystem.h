@@ -61,6 +61,7 @@ public:
     void play_sound(std::string_view path, float volume = 1.0f);
 
 private:
+    AudioManager *audio_mgr = nullptr;
     ResourceManager *res_mgr = nullptr;
     std::queue<AudioEvent> audio_queue;
 };

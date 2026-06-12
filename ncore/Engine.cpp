@@ -5,10 +5,10 @@
 
 #include <SDL3/SDL_init.h>
 
-#include "modules/utils/ErrorCodes.h"
-#include "modules/utils/Logger.h"
 #include "platform/sdl3/resources/SDLAudioLoader.h"
 #include "platform/sdl3/resources/SDLImageLoader.h"
+#include "utils/ErrorCodes.h"
+#include "utils/logger/Sink.h"
 
 namespace ncore {
 
@@ -19,12 +19,11 @@ Engine::~Engine() {}
 int Engine::init() {
     window_cfg = cfg_map.load<cfg::Window>();
     render_cfg = cfg_map.load<cfg::Render>();
-    auto cfg_log = cfg_map.load<cfg::Log>();
-    if (auto err = LogManager::init(cfg_log.FilePath, log::Level(cfg_log.Level))) {
-        std::cerr << "Log init FAIL: " << *err << std::endl;
-    } else {
-        LOG_TRACE(log::ENGINE, "Log init OK. level: {}", LogManager::get_level_name());
-    }
+    cfg_log = cfg_map.load<cfg::Log>();
+
+    // Setup logging
+    log::Logger::get_instance().add_sink(std::make_shared<log::FileSink>(cfg_log.FilePath));
+    log::Logger::get_instance().set_level(log::Level(cfg_log.Level));
     if (!cfg_log.Overrides.empty()) {
         std::istringstream stream(cfg_log.Overrides);
         std::string pair;
@@ -33,16 +32,16 @@ int Engine::init() {
             if (sep != std::string::npos) {
                 auto cat = pair.substr(0, sep);
                 auto lvl = std::stoi(pair.substr(sep + 1));
-                LogManager::set_level(cat, log::Level(lvl));
+                log::Logger::get_instance().set_level(cat, log::Level(lvl));
             }
         }
     }
 
-    // TODO: engine is too coupled with SDL, gotta abstract all this out
+    // TODO: engine is currently too coupled with SDL, gotta abstract all this out
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_AUDIO)) {
-        LOG_TRACE(log::ENGINE, "SDL init OK");
+        NC_LOG_TRACE("SDL init OK");
     } else {
-        LOG_ERROR(log::ENGINE, "SDL init FAIL: {}", SDL_GetError());
+        NC_LOG_ERROR("SDL init FAIL: {}", SDL_GetError());
         return ERROR_FATAL;
     }
 
@@ -102,6 +101,9 @@ int Engine::cleanup() {
     return ERROR_OK;
 }
 
-MainLoop &Engine::get_main_loop() { return *main_loop; }
+MainLoop *Engine::get_main_loop() {
+    NC_ASSERT_RETVAL(main_loop, nullptr, "Main loop not set. Has this been initialized?");
+    return main_loop.get();
+}
 
 } // namespace ncore

@@ -17,9 +17,8 @@ inline ComponentID get_new_component_type_id() {
     return last_id++;
 }
 
-template<typename T>
+template<std::derived_from<Component> T>
 inline ComponentID get_component_type_id() noexcept {
-    static_assert(std::is_base_of_v<Component, T>, "");
     static ComponentID type_id = get_new_component_type_id();
     return type_id;
 }
@@ -57,7 +56,7 @@ public:
     template<typename T>
     T &get_component() const {
         auto ptr = component_array[get_component_type_id<T>()];
-        assert(ptr != nullptr && "Entity does not have requested component");
+        NC_ASSERT(ptr != nullptr, "Entity does not have requested component");
         return *static_cast<T *>(ptr);
     }
 

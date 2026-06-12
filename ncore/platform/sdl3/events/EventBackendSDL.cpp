@@ -1,7 +1,6 @@
 #include "EventBackendSDL.h"
 
 #include <modules/events/InputEvent.h>
-#include <modules/utils/Logger.h>
 
 namespace ncore {
 
@@ -169,7 +168,7 @@ std::unique_ptr<Event> EventBackendSDL::map_from_sdl(SDL_Event &event) {
         default:
             break;
     }
-    LOG_ERROR(log::ENGINE, "Received unhandled SDL event type: {}", event.type);
+    NC_LOG_ERROR_C(log::EVENTS, "Received unhandled SDL event type: {}", event.type);
     return std::make_unique<Event>();
 }
 

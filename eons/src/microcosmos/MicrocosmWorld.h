@@ -6,7 +6,7 @@
 
 #include <modules/Config.h>
 #include <modules/World.h>
-#include <modules/utils/Structures.h>
+#include <utils//Structures.h>
 
 namespace ncore {
 class Gui;

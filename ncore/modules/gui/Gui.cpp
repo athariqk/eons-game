@@ -6,7 +6,7 @@
 #include <modules/events/EventBus.h>
 #include <modules/events/InputEvent.h>
 #include <modules/graphics/Window.h>
-#include <modules/utils/Logger.h>
+
 #include <platform/imgui/ImGuiSDL.h>
 #include <platform/imgui/ImGuiSDLRenderer.h>
 #include <platform/sdl3/events/EventBackendSDL.h>
@@ -16,7 +16,7 @@ namespace ncore {
 Gui::Gui(Window &window) : m_window(window) {
     auto *renderer = window.get_renderer();
     if (!renderer) {
-        LOG_ERROR(log::GUI, "Failed to initialize ImGui, SDL renderer is missing!");
+        NC_LOG_ERROR(log::GUI, "Failed to initialize ImGui, SDL renderer is missing!");
         return;
     }
 
@@ -24,13 +24,13 @@ Gui::Gui(Window &window) : m_window(window) {
     imgui_ctx = ImGui::CreateContext();
 
     if (!ImGui_ImplSDL3_InitForSDLRenderer(window.get_native_handle(), renderer)) {
-        LOG_ERROR(log::GUI, "Failed to initialize ImGui SDL3 backend");
+        NC_LOG_ERROR(log::GUI, "Failed to initialize ImGui SDL3 backend");
         ImGui::DestroyContext();
         return;
     }
 
     if (!ImGui_ImplSDLRenderer3_Init(renderer)) {
-        LOG_ERROR(log::GUI, "Failed to initialize ImGui SDL renderer backend");
+        NC_LOG_ERROR(log::GUI, "Failed to initialize ImGui SDL renderer backend");
         ImGui_ImplSDL3_Shutdown();
         ImGui::DestroyContext();
         return;
@@ -39,7 +39,7 @@ Gui::Gui(Window &window) : m_window(window) {
     ImGui::StyleColorsLight();
 
     m_initialized = true;
-    LOG_TRACE(log::GUI, "GUI OK");
+    NC_LOG_TRACE_C(log::GUI, "GUI OK");
 }
 
 void Gui::init_event_subs(EventBus &event_bus) {

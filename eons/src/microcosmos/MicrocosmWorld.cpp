@@ -17,8 +17,7 @@
 #include <modules/events/InputEvent.h>
 #include <modules/graphics/Viewport.h>
 #include <modules/graphics/Window.h>
-#include <modules/utils/Logger.h>
-#include <modules/utils/Random.h>
+#include <utils/Random.h>
 
 #include "components/FoodComponent.h"
 #include "components/OrganismAIComponent.h"
@@ -153,7 +152,7 @@ void MicrocosmWorld::on_gui_render() {
             ImGui::Separator();
             if (ImGui::Button("Create", ImVec2(80, 25))) {
                 if (get_is_inputy_empty(inputGenus) || get_is_inputy_empty(inputEpithet)) {
-                    LOG_ERROR(ncore::log::GAME, "Genus or epithet is not valid!");
+                    NC_LOG_ERROR("Genus or epithet is not valid!");
                 } else {
                     add_species(inputGenus, inputGenus, inputEpithet);
                     set_input_empty();
@@ -251,9 +250,9 @@ void MicrocosmWorld::add_species(const std::string &name, const std::string &gen
 
     auto &species = instance.get_component<SpeciesComponent>();
 
-    LOG_INFO(ncore::log::GAME,
-             "Added species {} to the environment, with following traits:\n speed {}, energy capacity {}, size {}",
-             species.get_name_formatted(true), species.genes.speed, species.genes.energy_capacity, species.genes.size);
+    NC_LOG_INFO("Added species {} to the environment, with following traits:\n speed {}, energy capacity {}, size {}",
+                species.get_name_formatted(true), species.genes.speed, species.genes.energy_capacity,
+                species.genes.size);
 
     add_organism(&species);
 }
@@ -261,11 +260,11 @@ void MicrocosmWorld::add_species(const std::string &name, const std::string &gen
 SpeciesComponent *MicrocosmWorld::get_species_by_id(size_t entityId) {
     auto entity = get_entity_by_id(entityId);
     if (entity == nullptr) {
-        LOG_ERROR(ncore::log::GAME, "Tried to get species with invalid entity ID {}!", entityId);
+        NC_LOG_ERROR("Tried to get species with invalid entity ID {}!", entityId);
         return nullptr;
     }
     if (!entity->has_component<SpeciesComponent>()) {
-        LOG_ERROR(ncore::log::GAME, "Entity {} has no species component!", entityId);
+        NC_LOG_ERROR("Entity {} has no species component!", entityId);
         return nullptr;
     }
     return &entity->get_component<SpeciesComponent>();
@@ -277,13 +276,13 @@ SpeciesComponent *MicrocosmWorld::get_species(const SpeciesComponent *species) {
 
 void MicrocosmWorld::remove_species(SpeciesComponent *species) {
     if (species == nullptr) {
-        LOG_ERROR(ncore::log::GAME, "Tried to make a null species extinct!");
+        NC_LOG_ERROR("Tried to make a null species extinct!");
         return;
     }
 
     const auto it = std::ranges::find(species_reg, species);
     if (it == species_reg.end()) {
-        LOG_ERROR(ncore::log::GAME, "Species {} is not found!", species->entity->get_id());
+        NC_LOG_ERROR("Species {} is not found!", species->entity->get_id());
         return;
     }
 
@@ -293,7 +292,7 @@ void MicrocosmWorld::remove_species(SpeciesComponent *species) {
     clear_organism_reg(species);
     species_reg.erase(it);
 
-    LOG_INFO(ncore::log::GAME, "Species {} has gone extinct!", formattedName);
+    NC_LOG_INFO("Species {} has gone extinct!", formattedName);
 }
 
 int MicrocosmWorld::get_species_idx(const SpeciesComponent *species) const {
@@ -301,8 +300,7 @@ int MicrocosmWorld::get_species_idx(const SpeciesComponent *species) const {
         return static_cast<int>(std::distance(species_reg.begin(), it));
     }
 
-    LOG_ERROR(ncore::log::GAME, "Index of species {} is not found!",
-              species != nullptr ? species->entity->get_id() : 0);
+    NC_LOG_ERROR("Index of species {} is not found!", species != nullptr ? species->entity->get_id() : 0);
     return -1;
 }
 
@@ -348,11 +346,10 @@ OrganismComponent &MicrocosmWorld::add_organism(SpeciesComponent *species) {
     circle.filled = true;
     circle.edge = false;
 
-    LOG_INFO(ncore::log::GAME,
-             "Added organism of species {}, ID: {} with following "
-             "traits:\n energy cap {}, speed {}, size {}, aggressiveness {}",
-             species->get_name_formatted(false), organism.entity->get_id(), organism.genome.energy_capacity,
-             organism.genome.speed, organism.genome.size, organism.genome.aggresiveness);
+    NC_LOG_INFO("Added organism of species {}, ID: {} with following "
+                "traits:\n energy cap {}, speed {}, size {}, aggressiveness {}",
+                species->get_name_formatted(false), organism.entity->get_id(), organism.genome.energy_capacity,
+                organism.genome.speed, organism.genome.size, organism.genome.aggresiveness);
 
     // Play sound effect
     if (auto audio = get_system<ncore::AudioSystem>()) {
@@ -364,13 +361,13 @@ OrganismComponent &MicrocosmWorld::add_organism(SpeciesComponent *species) {
 
 void MicrocosmWorld::remove_organism(OrganismComponent *organism) {
     if (organism == nullptr) {
-        LOG_ERROR(ncore::log::GAME, "Tried to delete a null organism!");
+        NC_LOG_ERROR("Tried to delete a null organism!");
         return;
     }
 
     const auto it = std::ranges::find(organism_reg, organism);
     if (it == organism_reg.end()) {
-        LOG_ERROR(ncore::log::GAME, "Organism {} is not found!", organism->entity->get_id());
+        NC_LOG_ERROR("Organism {} is not found!", organism->entity->get_id());
         return;
     }
 
