@@ -1,167 +1,37 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.20)
+
 project(eons LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Define build configurations
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;Dist" CACHE STRING "Configs" FORCE)
-set(CMAKE_C_FLAGS_DIST "${CMAKE_C_FLAGS_RELEASE}" CACHE STRING "C flags for Dist builds" FORCE)
-set(CMAKE_CXX_FLAGS_DIST "${CMAKE_CXX_FLAGS_RELEASE}" CACHE STRING "C++ flags for Dist builds" FORCE)
-set(CMAKE_EXE_LINKER_FLAGS_DIST "${CMAKE_EXE_LINKER_FLAGS_RELEASE}" CACHE STRING "Executable linker flags for Dist builds" FORCE)
-set(CMAKE_SHARED_LINKER_FLAGS_DIST "${CMAKE_SHARED_LINKER_FLAGS_RELEASE}" CACHE STRING "Shared linker flags for Dist builds" FORCE)
-set(CMAKE_STATIC_LINKER_FLAGS_DIST "${CMAKE_STATIC_LINKER_FLAGS_RELEASE}" CACHE STRING "Static linker flags for Dist builds" FORCE)
-set(CMAKE_MODULE_LINKER_FLAGS_DIST "${CMAKE_MODULE_LINKER_FLAGS_RELEASE}" CACHE STRING "Module linker flags for Dist builds" FORCE)
+
+foreach(LANG C CXX EXE_LINKER SHARED_LINKER STATIC_LINKER MODULE_LINKER)
+    set(CMAKE_${LANG}_FLAGS_DIST "${CMAKE_${LANG}_FLAGS_RELEASE}"
+        CACHE STRING "${LANG} flags for Dist" FORCE)
+endforeach()
 
 if(MSVC)
     add_compile_options(/FS /wd5105 /Zc:preprocessor)
 endif()
 
-# Output directories
-set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/bin)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR})
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_DIR})
-foreach(CONFIG_TYPE Debug Release Dist)
-    string(TOUPPER ${CONFIG_TYPE} CONFIG_TYPE_UPPER)
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} ${OUTPUT_DIR}/${CONFIG_TYPE})
-    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} ${OUTPUT_DIR}/${CONFIG_TYPE})
+if(MINGW)
+    message(STATUS "MinGW detected — static linking libgcc/libstdc++")
+    add_link_options(-static-libgcc -static-libstdc++)
+endif()
+
+set(OUTPUT_DIR "${CMAKE_BINARY_DIR}/bin")
+
+foreach(CONFIG Debug Release Dist)
+    string(TOUPPER ${CONFIG} CONFIG_UPPER)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${CONFIG_UPPER} "${OUTPUT_DIR}/${CONFIG}")
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${CONFIG_UPPER} "${OUTPUT_DIR}/${CONFIG}")
 endforeach()
 
-add_subdirectory(vendors)
-
-# Create executable with source files
-add_executable(eons "src/main.cpp"
-	"src/engine/Engine.h" "src/engine/Engine.cpp"
-	"src/engine/Config.h"
-    "src/engine/World.h" "src/engine/World.cpp"
-    "src/engine/MainLoop.h" "src/engine/MainLoop.cpp"
-    "src/engine/Services.h"
-    "src/engine/ResourceManager.h"
-	"src/engine/IResourceLoader.h"
-	"src/engine/ResourceCache.h"
-	"src/engine/audio/AudioManager.h" "src/engine/audio/AudioManager.cpp"
-    "src/engine/core/Vec2D.h" "src/engine/core/Vec2D.cpp"
-	"src/engine/core/ErrorCodes.h"
-	"src/engine/core/Color.h"
-	"src/engine/events/InputEvents.h" "src/engine/events/InputEvents.cpp"
-    "src/engine/events/EventBus.h"
-	"src/engine/ecs/Entity.h" "src/engine/ecs/Entity.cpp"
-	"src/engine/ecs/Component.h"
-	"src/engine/ecs/System.h"
-	"src/engine/ecs/components/RigidBodyComponent.h"
-	"src/engine/ecs/components/TransformComponent.h"
-	"src/engine/ecs/components/SpriteComponent.h"
-	"src/engine/ecs/systems/PhysicsSystem.h" "src/engine/ecs/systems/PhysicsSystem.cpp"
-	"src/engine/ecs/systems/RenderSystem.h" "src/engine/ecs/systems/RenderSystem.cpp"
-	"src/engine/ecs/systems/AudioSystem.h" "src/engine/ecs/systems/AudioSystem.cpp"
-	"src/engine/ecs/systems/InputSystem.h" "src/engine/ecs/systems/InputSystem.cpp"
-    "src/engine/graphics/TextureManager.h" "src/engine/graphics/TextureManager.cpp"
-    "src/engine/graphics/Viewport.h" "src/engine/graphics/Viewport.cpp"
-    "src/engine/graphics/ICamera.h"
-    "src/engine/graphics/Camera.h" "src/engine/graphics/Camera.cpp"
-    "src/engine/graphics/IGraphicsContext.h" "src/engine/graphics/IGraphicsContext.cpp"
-    "src/engine/graphics/backends/SDLGraphicsContext.h" "src/engine/graphics/backends/SDLGraphicsContext.cpp"
-	"src/engine/graphics/TextureResource.h"
-	"src/engine/graphics/TextureLoader.h"
-    "src/engine/graphics/Window.h" "src/engine/graphics/Window.cpp"
-    "src/engine/gui/backends/ImGuiSDL.h" "src/engine/gui/backends/ImGuiSDL.cpp"
-    "src/engine/gui/backends/ImGuiSDLRenderer.h" "src/engine/gui/backends/ImGuiSDLRenderer.cpp"
-    "src/engine/gui/Gui.h" "src/engine/gui/Gui.cpp"
-    "src/engine/physics/Physics.h" "src/engine/physics/Physics.cpp"
-    "src/engine/utils/Logger.h" "src/engine/utils/Logger.cpp"
-    "src/engine/utils/Random.h"
-    "src/game/experimental/NeuralNetwork/neural_network.h" "src/game/experimental/NeuralNetwork/neural_network.cpp"
-    "src/game/microcosmos/Evolution.cpp"
-    "src/game/microcosmos/evolution.h"
-    "src/game/microcosmos/Genes.h"
-    "src/game/microcosmos/MicrocosmWorld.h" "src/game/microcosmos/MicrocosmWorld.cpp"
-    "src/game/microcosmos/components/FoodComponent.h"
-    "src/game/microcosmos/components/OrganismComponent.h" "src/game/microcosmos/components/OrganismComponent.cpp"
-    "src/game/microcosmos/components/OrganismAIComponent.h" "src/game/microcosmos/components/OrganismAIComponent.cpp"
-    "src/game/microcosmos/components/SpeciesComponent.h" "src/game/microcosmos/components/SpeciesComponent.cpp"
-	"src/game/microcosmos/systems/FoodSystem.h" "src/game/microcosmos/systems/FoodSystem.cpp"
-    "src/game/microcosmos/systems/OrganismSystem.h" "src/game/microcosmos/systems/OrganismSystem.cpp"
-    "src/game/microcosmos/systems/OrganismAISystem.h" "src/game/microcosmos/systems/OrganismAISystem.cpp"
-    "src/game/microcosmos/systems/SpeciesSystem.h" "src/game/microcosmos/systems/SpeciesSystem.cpp"
-)
-
-# Define preprocessor macros
-target_compile_definitions(eons PRIVATE _CRT_SECURE_NO_WARNINGS)
-
-target_precompile_headers(eons PRIVATE "src/pch.h" "src/engine/Definitions.h")
-
-find_package(SDL3 CONFIG REQUIRED COMPONENTS SDL3-shared)
+find_package(SDL3       CONFIG REQUIRED COMPONENTS SDL3-shared)
 find_package(SDL3_image CONFIG REQUIRED)
 
-# Link external libraries
-target_link_libraries(eons PRIVATE
-        ImGui
-        box2d::box2d
-        spdlog::spdlog
-        SDL3::SDL3
-		inifile-cpp
-        $<IF:$<TARGET_EXISTS:SDL3_image::SDL3_image-shared>,SDL3_image::SDL3_image-shared,SDL3_image::SDL3_image-static>
-)
-
-# Platform-specific settings
-if(WIN32)
-    set(CMAKE_SYSTEM_VERSION latest)
-endif()
-
-if(MINGW)
-    message(STATUS "Detected MinGW, enabling static linking for libgcc and libstdc++")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
-endif()
-
-# Build configurations
-set_property(TARGET eons PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:eons>")
-
-# Add Debug Configuration
-set_target_properties(eons PROPERTIES DEBUG_POSTFIX "_d")
-target_compile_definitions(eons PRIVATE $<$<CONFIG:Debug>:DEBUG>)
-
-# Add Release Configuration
-target_compile_definitions(eons PRIVATE $<$<CONFIG:Release>:RELEASE>)
-target_compile_options(eons PRIVATE
-        $<$<AND:$<CONFIG:Release>,$<CXX_COMPILER_ID:MSVC>>:/O2>
-        $<$<AND:$<CONFIG:Release>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-O3>
-)
-
-# Add Distribution Configuration
-target_compile_definitions(eons PRIVATE $<$<CONFIG:Dist>:DIST>)
-target_compile_options(eons PRIVATE
-        $<$<AND:$<CONFIG:Dist>,$<CXX_COMPILER_ID:MSVC>>:/O2>
-        $<$<AND:$<CONFIG:Dist>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-O3>
-)
-
-target_include_directories(eons PUBLIC
-        ${CMAKE_SOURCE_DIR}/src
-        ${CMAKE_SOURCE_DIR}/src/engine
-        ${CMAKE_SOURCE_DIR}/src/engine/audio
-        ${CMAKE_SOURCE_DIR}/src/engine/core
-        ${CMAKE_SOURCE_DIR}/src/engine/ecs
-        ${CMAKE_SOURCE_DIR}/src/engine/ecs/components
-        ${CMAKE_SOURCE_DIR}/src/engine/ecs/systems
-        ${CMAKE_SOURCE_DIR}/src/engine/events
-        ${CMAKE_SOURCE_DIR}/src/engine/graphics
-        ${CMAKE_SOURCE_DIR}/src/engine/graphics/backends
-        ${CMAKE_SOURCE_DIR}/src/engine/gui
-        ${CMAKE_SOURCE_DIR}/src/engine/gui/backends
-        ${CMAKE_SOURCE_DIR}/src/engine/physics
-        ${CMAKE_SOURCE_DIR}/src/engine/utils
-        ${CMAKE_SOURCE_DIR}/src/game
-        ${CMAKE_SOURCE_DIR}/src/game/experimental
-        ${CMAKE_SOURCE_DIR}/src/game/microcosmos
-        ${CMAKE_SOURCE_DIR}/vendors/imgui
-)
-
-add_custom_command(
-    TARGET eons POST_BUILD
-    COMMAND ${CMAKE_COMMAND} 
-        -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
-		-DTARGET_DIR=$<TARGET_FILE_DIR:eons>
-        -P "${CMAKE_SOURCE_DIR}/cmake/copy_files.cmake"
-    COMMENT "Running deployment scripts for assets and config"
-    VERBATIM
-)
+add_subdirectory(ncore)
+add_subdirectory(eons)

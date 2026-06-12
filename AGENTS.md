@@ -68,9 +68,9 @@ There is no dedicated automated test suite configured at repository root; rely o
 
 ## Quick Orientation By Area
 
-- Main loop and lifecycle: [src/engine/core/MainLoop.h](src/engine/core/MainLoop.h)
-- Event model: [src/engine/core/Event.h](src/engine/core/Event.h)
-- Scene base type: [src/engine/core/World.h](src/engine/core/World.h)
+- Main loop and lifecycle: [src/engine/modules/MainLoop.h](src/engine/modules/MainLoop.h)
+- Event model: [src/engine/modules/Event.h](src/engine/modules/Event.h)
+- Scene base type: [src/engine/modules/World.h](src/engine/modules/World.h)
 - Rendering abstraction: [src/engine/graphics/IGraphicsContext.h](src/engine/graphics/IGraphicsContext.h)
 - View transforms: [src/engine/graphics/Viewport.h](src/engine/graphics/Viewport.h)
 - Current game scene: [src/game/microcosm/MicrocosmWorld.h](src/game/microcosm/MicrocosmWorld.h)
