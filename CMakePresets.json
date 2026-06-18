@@ -6,34 +6,40 @@
 			"hidden": true,
 			"generator": "Ninja",
 			"cacheVariables": {
-				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-				"CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
 			}
 		},
 		{
 			"name": "windows-base",
 			"hidden": true,
 			"inherits": "base",
-			"cacheVariables": {
-				"VCPKG_TARGET_TRIPLET": "x64-windows"
-			},
 			"condition": {
 				"type": "equals",
 				"lhs": "${hostSystemName}",
 				"rhs": "Windows"
+			},
+			"vendor": {
+				"microsoft.com/VisualStudioSettings/CMake/1.0": {
+					"hostOS": [ "Windows" ]
+				}
 			}
 		},
 		{
 			"name": "linux-base",
 			"hidden": true,
 			"inherits": "base",
-			"cacheVariables": {
-				"VCPKG_TARGET_TRIPLET": "x64-linux"
-			},
 			"condition": {
 				"type": "equals",
 				"lhs": "${hostSystemName}",
 				"rhs": "Linux"
+			},
+			"vendor": {
+				"microsoft.com/VisualStudioSettings/CMake/1.0": {
+					"hostOS": [ "Linux" ]
+				},
+				"microsoft.com/VisualStudioRemoteSettings/CMake/1.0": {
+					"sourceDir": "$env{HOME}/.vs/$ms{projectDirName}"
+				}
 			}
 		},
 		{

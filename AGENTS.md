@@ -68,10 +68,10 @@ There is no dedicated automated test suite configured at repository root; rely o
 
 ## Quick Orientation By Area
 
-- Main loop and lifecycle: [src/engine/modules/MainLoop.h](src/engine/modules/MainLoop.h)
-- Event model: [src/engine/modules/Event.h](src/engine/modules/Event.h)
-- Scene base type: [src/engine/modules/World.h](src/engine/modules/World.h)
-- Rendering abstraction: [src/engine/graphics/IGraphicsContext.h](src/engine/graphics/IGraphicsContext.h)
+- Main loop and lifecycle: [src/engine/MainLoop.h](src/engine/MainLoop.h)
+- Event model: [src/engine/Event.h](src/engine/Event.h)
+- Scene base type: [src/engine/World.h](src/engine/World.h)
+- Rendering abstraction: [src/engine/graphics/IRenderContext.h](src/engine/graphics/IRenderContext.h)
 - View transforms: [src/engine/graphics/Viewport.h](src/engine/graphics/Viewport.h)
 - Current game scene: [src/game/microcosm/MicrocosmWorld.h](src/game/microcosm/MicrocosmWorld.h)
 
@@ -80,7 +80,7 @@ There is no dedicated automated test suite configured at repository root; rely o
 `docs/ARCHITECTURE.md` contains stale claims that will cause compile errors if followed literally:
 
 - **`world.GetServices()` does not exist.** The correct access is `world.GetMainLoop().GetServices()`.
-- **`OnRender` signature** is `OnRender(World &world, IGraphicsContext &graphics)`, not just `(World &world)`.
+- **`OnRender` signature** is `OnRender(World &world, IRenderContext &graphics)`, not just `(World &world)`.
 - **Actual system hooks** (in `src/engine/ecs/System.h`): `OnInit`, `OnFixedUpdate`, `OnVariableUpdate`, `OnPostUpdate`, `OnRender`, `OnGuiRender`, `OnShutdown`. The doc lists 5 of 7, missing `OnPostUpdate` and `OnGuiRender`.
 - **Camera class** is `Camera2D`, not `Camera`.
 

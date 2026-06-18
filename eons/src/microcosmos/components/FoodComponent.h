@@ -1,15 +1,12 @@
 #pragma once
 
-#include "modules/ecs/Entity.h"
-#include "utils/Structures.h"
+#include <ncore/kernel/structures.h>
 
-/**
- * @brief Component representing a food source in the simulation
- */
-class FoodComponent : public ncore::Component {
+class FoodComponent {
+
 public:
+    FoodComponent() : cur_energy(0.0f) {}
     explicit FoodComponent(const float energy) : cur_energy(energy) {}
-    ~FoodComponent() override {}
 
     float cur_energy;
     bool caught = false;

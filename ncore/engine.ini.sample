@@ -16,5 +16,5 @@ FilePath = logs/engine.log
 ; You can override individual engine modules by specifying them in the Overrides field,
 ; using the format "channel:level". For instance: "phys:2, render:4" sets the log level
 ; for the "phys" module to 2 (Info) and the "render" category to 4 (Error)
-; available channels include: audio, ecs, events, graphs, gui, phys, io
+; available channels include: audio, ecs, evts, graphs, gui, phys, io
 Overrides = phys:2, render:4

@@ -2,5 +2,4 @@
 
 #include "SpeciesComponent.h"
 
-OrganismComponent::OrganismComponent(SpeciesComponent *species) :
-    species_id(species->entity->get_id()), genome(species->genes) {}
+OrganismComponent::OrganismComponent(SpeciesComponent *species) : species_id(0), genome(species->genes) {}

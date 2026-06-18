@@ -4,3 +4,9 @@
 [submodule "ncore/vendors/imgui"]
 	path = ncore/vendors/imgui
 	url = https://github.com/ocornut/imgui.git
+[submodule "ncore/vendors/sdl"]
+	path = ncore/vendors/sdl
+	url = https://github.com/libsdl-org/SDL
+[submodule "ncore/vendors/flecs"]
+	path = ncore/vendors/flecs
+	url = https://github.com/SanderMertens/flecs

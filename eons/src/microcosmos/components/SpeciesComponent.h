@@ -3,25 +3,17 @@
 #include <string>
 #include <vector>
 
-#include <modules/ecs/Entity.h>
-
 #include <microcosmos/Genes.h>
 
 class OrganismComponent;
 
-/**
- * @brief Component representing a species in the simulation
- *
- * This is pure data - all logic is handled by SpeciesSystem
- * Equivalent to a GA Population operator
- */
-class SpeciesComponent : public ncore::Component {
+class SpeciesComponent {
+
 public:
     SpeciesComponent() = default;
-    SpeciesComponent(std::string name, std::string genus, std::string epithet);
-    ~SpeciesComponent() override {}
+    SpeciesComponent(std::string name, std::string genus, std::string epithet) :
+        name(std::move(name)), genus(std::move(genus)), epithet(std::move(epithet)) {}
 
-    // Data members
     int population_count = 0;
     int age = 0;
     std::string name;

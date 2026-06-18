@@ -1,32 +1,20 @@
 #pragma once
 
-#include <vector>
+#include <ncore/modules/ecs/ecs_system.h>
+#include <ncore/kernel/structures.h>
 
-#include <modules/ecs/System.h>
-#include <utils/Structures.h>
-
-namespace ncore {
-class World;
-}
-
-/**
- * @brief System that updates food state
- *
- * Handles food destruction when depleted
- */
-class FoodSystem : public ncore::System {
+class FoodSystem : public ncore::EcsSystem {
 public:
     FoodSystem() { set_priority(55); }
 
-    bool on_init(ncore::World &world) override;
-    void on_fixed_update(ncore::World &world, double fixedDelta) override;
+    void on_init(ncore::EcsWorld &world) override;
+    void on_fixed_update(ncore::EcsWorld &world, double fixed_delta) override;
 
-    //! \brief Distributes food spawning across the environment (spawn area)
-    void handle_nutrient_spawns(ncore::World &world, int amountToSpawn);
+    void handle_nutrient_spawns(ncore::EcsWorld &world, int amountToSpawn);
 
 private:
     int max_n_foods = 2000;
-    float spawn_interval = 10; // in seconds
+    float spawn_interval = 10;
     ncore::Vec2 spawn_area{200.0f, 200.0f};
     float spawn_timer = 0.0f;
 };

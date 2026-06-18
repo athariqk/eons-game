@@ -22,3 +22,7 @@ cmake-build-dist/
 imgui.ini
 
 CMakeUserPresets.json
+vcpkg_installed/
+
+.opencode/
+graphify-out/

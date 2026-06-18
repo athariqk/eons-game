@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.27)
 
 project(eons LANGUAGES C CXX)
 
@@ -13,8 +13,16 @@ foreach(LANG C CXX EXE_LINKER SHARED_LINKER STATIC_LINKER MODULE_LINKER)
         CACHE STRING "${LANG} flags for Dist" FORCE)
 endforeach()
 
+# Compiler cache
+find_program(SCCACHE sccache)
+if(SCCACHE)
+    set(CMAKE_C_COMPILER_LAUNCHER "${SCCACHE}")
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${SCCACHE}")
+    message(STATUS "sccache found — compiler caching enabled")
+endif()
+
 if(MSVC)
-    add_compile_options(/FS /wd5105 /Zc:preprocessor)
+    add_compile_options(/wd5105 /Zc:preprocessor)
 endif()
 
 if(MINGW)
@@ -29,9 +37,6 @@ foreach(CONFIG Debug Release Dist)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${CONFIG_UPPER} "${OUTPUT_DIR}/${CONFIG}")
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${CONFIG_UPPER} "${OUTPUT_DIR}/${CONFIG}")
 endforeach()
-
-find_package(SDL3       CONFIG REQUIRED COMPONENTS SDL3-shared)
-find_package(SDL3_image CONFIG REQUIRED)
 
 add_subdirectory(ncore)
 add_subdirectory(eons)

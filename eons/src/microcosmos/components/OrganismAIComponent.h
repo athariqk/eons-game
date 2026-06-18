@@ -1,21 +1,14 @@
 #pragma once
 
-#include "modules/ecs/Entity.h"
-#include "utils/Structures.h"
-
-class FoodComponent;
+#include <string>
 
 enum class BehaviourState { IDLING = 0, RUN_TUMBLE = 1, ABSORBING = 2, EVALUATE = 3 };
 
-/**
- * @brief Simple predefined "dumb" AI component for organisms
- *
- * Neural network could be used later instead
- */
-class OrganismAIComponent : public ncore::Component {
+class OrganismAIComponent {
+
 public:
+    OrganismAIComponent() : move_speed(0.0f), act_interval(10.0f) {}
     OrganismAIComponent(float p_speed, float p_think_interval) : move_speed(p_speed), act_interval(p_think_interval) {}
-    ~OrganismAIComponent() override = default;
 
     BehaviourState state = BehaviourState::IDLING;
     float move_speed;
@@ -28,7 +21,6 @@ public:
     float moving_interval = 10.0f;
     float act_timer = 0.0f;
     float reproduce_interval = 0.0f;
-    FoodComponent *captured_food = nullptr;
 
     std::string get_current_behavior() const;
 };

@@ -3,3 +3,5 @@
 // For more information see https://go.microsoft.com/fwlink/?linkid=865984
 #define LOG_INFO(__VA_ARGS__) Logger::GetLogger()->info(__VA_ARGS__)
 #define ERROR_OK 0
+#define NC_REG_EVENT_TYPE(type) static constexpr EventType static_type = type; EventType get_type() const override { return static_type; }
+#define NC_DEF_CFG_MAP(TYPE_NAME, __VA_ARGS__) void serialize(ini::IniFile &ini) const { NC_FOR_EACH(NC_INIFILE_WRITE, TYPE_NAME, __VA_ARGS__) } void deserialize(ini::IniFile &ini){NC_FOR_EACH(NC_INIFILE_READ, TYPE_NAME, __VA_ARGS__)} std::string print() const { std::ostringstream ss; ss << #TYPE_NAME; NC_FOR_EACH(NC_PRINT_FIELD, TYPE_NAME, __VA_ARGS__) return ss.str(); }

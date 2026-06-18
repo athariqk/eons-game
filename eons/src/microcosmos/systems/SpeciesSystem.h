@@ -1,21 +1,10 @@
 #pragma once
 
-#include <modules/ecs/System.h>
+#include <ncore/modules/ecs/ecs_system.h>
 
-namespace ncore {
-class World;
-}
-
-/**
- * @brief System that manages species lifecycle
- * 
- * Handles species extinction when all organisms die
- */
-class SpeciesSystem : public ncore::System {
+class SpeciesSystem : public ncore::EcsSystem {
 public:
-    SpeciesSystem() {
-        set_priority(50);  // Run early
-    }
+    SpeciesSystem() { set_priority(50); }
 
-    void on_fixed_update(ncore::World &world, double fixedDelta) override;
+    void on_fixed_update(ncore::EcsWorld &world, double fixed_delta) override;
 };

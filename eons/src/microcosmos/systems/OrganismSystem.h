@@ -1,21 +1,10 @@
 #pragma once
 
-#include <modules/ecs/System.h>
+#include <ncore/modules/ecs/ecs_system.h>
 
-class MicrocosmWorld;
-
-namespace ncore {
-class World;
-}
-
-/**
- * @brief System that updates organism state
- *
- * Handles energy depletion, fitness updates, and death conditions
- */
-class OrganismSystem : public ncore::System {
+class OrganismSystem : public ncore::EcsSystem {
 public:
     OrganismSystem() { set_priority(55); }
 
-    void on_fixed_update(ncore::World &world, double fixedDelta) override;
+    void on_fixed_update(ncore::EcsWorld &world, double fixedDelta) override;
 };
