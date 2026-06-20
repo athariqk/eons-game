@@ -1,6 +1,6 @@
 #include <utils/logger/logger.h>
 
-#include <utils/macro.h>
+#include <ncore/utils/log.h>
 
 namespace ncore::log {
 

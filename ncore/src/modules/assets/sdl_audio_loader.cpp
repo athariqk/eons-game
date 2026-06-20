@@ -2,7 +2,7 @@
 
 #include <SDL3/SDL_audio.h>
 
-#include <utils/macro.h>
+#include <ncore/utils/log.h>
 
 namespace ncore {
 

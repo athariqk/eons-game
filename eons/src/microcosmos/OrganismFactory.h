@@ -5,6 +5,7 @@
 #include <ncore/runtime/ecs/ecs_rigidbody.h>
 #include <ncore/runtime/ecs/ecs_sprite.h>
 #include <ncore/runtime/ecs/ecs_transform.h>
+#include <ncore/runtime/ecs_world.h>
 #include <ncore/runtime/service_locator.h>
 
 #include <microcosmos/SpeciesRegistry.h>
@@ -20,7 +21,7 @@ inline OrganismComponent &create(ncore::EcsWorld &world, SpeciesRegistry &reg, S
     float spawn_x = 0.0f;
     float spawn_y = 0.0f;
 
-    auto renderer = world.get_services()->resolve<ncore::IRenderService>();
+    auto renderer = world.get_services().resolve<ncore::IRenderService>();
     // if (renderer) {
     //     auto camera = renderer->get_main_camera().lock();
     //     if (camera) {

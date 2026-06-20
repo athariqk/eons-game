@@ -2,8 +2,8 @@
 
 #include <format>
 
+#include <ncore/kernel/structures.h>
 #include <ncore/kernel/types.h>
-#include <ncore/kernel/Structures.h>
 
 namespace ncore {
 
@@ -18,17 +18,14 @@ struct EcsTransform {
     Vec2 dimension{0.0f, 0.0f};
     float scale = 1.0f;
 
+    // TODO: remove this to use reflection instead
     std::string to_string() const {
-        return std::format("EcsTransform<position={}, angle={}, dimension={}, scale={}>", position.to_string(),
-                           angle, dimension.to_string(), scale);
+        return std::format("EcsTransform<position={}, angle={}, dimension={}, scale={}>", position.to_string(), angle,
+                           dimension.to_string(), scale);
     }
 
-    NC_BIND(EcsTransform,
-        NC_F(EcsTransform, position)
-        NC_F(EcsTransform, angle)
-        NC_F(EcsTransform, dimension)
-        NC_F(EcsTransform, scale)
-    );
+    NSTRUCT(EcsTransform, NC_F(EcsTransform, position) NC_F(EcsTransform, angle) NC_F(EcsTransform, dimension)
+                              NC_F(EcsTransform, scale))
 };
 
 } // namespace ncore

@@ -4,21 +4,21 @@
 
 #include <modules/assets/asset.h>
 #include <modules/assets/asset_manager.h>
-#include <modules/ecs/ecs_world.h>
 #include <modules/video/image.h>
-#include <modules/video/render_service.h>
 #include <modules/video/viewport.h>
-#include <runtime/ecs/ecs_rigidbody.h>
-#include <runtime/ecs/ecs_sprite.h>
-#include <runtime/ecs/ecs_transform.h>
-#include <runtime/service_locator.h>
+#include <ncore/modules/video/render_service.h>
+#include <ncore/runtime/ecs/ecs_rigidbody.h>
+#include <ncore/runtime/ecs/ecs_sprite.h>
+#include <ncore/runtime/ecs/ecs_transform.h>
+#include <ncore/runtime/ecs_world.h>
+#include <ncore/runtime/service_locator.h>
 
 namespace ncore {
 
 void EcsRenderSystem::on_init(EcsWorld &world) {
-    renderer = world.get_services()->resolve<IRenderService>();
-    resources = world.get_services()->resolve<AssetManager>();
-    physics = world.get_services()->resolve<IPhysicsService>();
+    renderer = world.get_services().resolve<IRenderService>();
+    resources = world.get_services().resolve<AssetManager>();
+    physics = world.get_services().resolve<IPhysicsService>();
     viewport = world.get_viewport();
 
     debug_draw_ctx.renderer = renderer;

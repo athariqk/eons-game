@@ -1,6 +1,6 @@
-#include <kernel/types.h>
+#include <ncore/kernel/types.h>
 
-#include <utils/assert.h>
+#include <ncore/utils/assert.h>
 
 namespace ncore::rfl {
 
@@ -8,31 +8,47 @@ namespace ncore::rfl {
 // ClassRegistry
 // ======================================================================
 
-const ClassInfo &Registry::get(TypeId id) noexcept {
+const TypeInfo &Registry::get(TypeId id) noexcept {
     auto *p = find(id);
-    NC_ASSERT(p, "Type not registered");
+    NC_ASSERT(p != nullptr, "Type not registered");
     return *p;
 }
 
-const ClassInfo &Registry::get(std::string_view name) noexcept {
+const TypeInfo &Registry::get(std::string_view name) noexcept {
     auto *p = find(name);
-    NC_ASSERT(p, "Type not registered");
+    NC_ASSERT(p != nullptr, "Type not registered");
     return *p;
+}
+
+bool Registry::register_primitive_types() {
+    // static init of fundamental TypeInfo objects
+    ncore::rfl::Registry::emplace<bool>("bool");
+    ncore::rfl::Registry::emplace<int32_t>("int32_t");
+    ncore::rfl::Registry::emplace<uint32_t>("uint32_t");
+    ncore::rfl::Registry::emplace<int64_t>("int64_t");
+    ncore::rfl::Registry::emplace<uint64_t>("uint64_t");
+    ncore::rfl::Registry::emplace<float>("float");
+    ncore::rfl::Registry::emplace<double>("double");
+    ncore::rfl::Registry::emplace<size_t>("size_t");
+    ncore::rfl::Registry::emplace<uint8_t>("uint8_t");
+    ncore::rfl::Registry::emplace<ncore::rfl::StringClass, std::string>("std::string");
+    ncore::rfl::Registry::emplace<ncore::rfl::VectorClass<std::vector<int>>, std::vector<int>>("std::vector<int>");
+    return true;
 }
 
 // ======================================================================
 // ClassInfo::visit
 // ======================================================================
 
-void ClassInfo::visit(void const *instance, ClassVisitor *visitor, PropertyFlags filter,
-                      unsigned depth) const noexcept {
+void RecordInfo::visit(void const *instance, RecordVisitor *visitor, PropertyFlags filter,
+                       unsigned depth) const noexcept {
     if (!instance) {
         visitor->primitive(this, nullptr);
         return;
     }
 
     visitor->class_begin(this, static_cast<int>(depth));
-    for (auto &f : fields()) {
+    for (auto &f: fields()) {
         auto *ptr = f.get_void_ptr(const_cast<void *>(instance));
         if (f.qualifier.is_array)
             visit_array(ptr, &f, visitor, filter, depth + 1);
@@ -46,8 +62,8 @@ void ClassInfo::visit(void const *instance, ClassVisitor *visitor, PropertyFlags
 // ClassInfo::visit_field
 // ======================================================================
 
-void ClassInfo::visit_field(const void *ptr, const FieldInfo *field, ClassVisitor *visitor, PropertyFlags filter,
-                            int depth, int array_elem) const noexcept {
+void RecordInfo::visit_field(const void *ptr, const FieldInfo *field, RecordVisitor *visitor, PropertyFlags filter,
+                             int depth, int array_elem) const noexcept {
     if (!has_any_flag(field->flags, filter))
         return;
 
@@ -58,8 +74,8 @@ void ClassInfo::visit_field(const void *ptr, const FieldInfo *field, ClassVisito
     else
         visitor->class_member(field, depth);
 
-    if (field->type->is_class()) {
-        auto *c = static_cast<const ClassInfo *>(field->type);
+    if (field->type->is_record()) {
+        auto *c = static_cast<const RecordInfo *>(field->type);
         if (q.is_pointer) {
             auto *p = *static_cast<void const *const *>(ptr);
             if (p)
@@ -79,8 +95,8 @@ void ClassInfo::visit_field(const void *ptr, const FieldInfo *field, ClassVisito
 // ClassInfo::visit_array
 // ======================================================================
 
-void ClassInfo::visit_array(void const *ptr, FieldInfo const *field, ClassVisitor *visitor, PropertyFlags filter,
-                            unsigned depth) const noexcept {
+void RecordInfo::visit_array(void const *ptr, FieldInfo const *field, RecordVisitor *visitor, PropertyFlags filter,
+                             unsigned depth) const noexcept {
     if (!has_any_flag(field->flags, filter))
         return;
 

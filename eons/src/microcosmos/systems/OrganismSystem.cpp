@@ -1,6 +1,6 @@
 #include "OrganismSystem.h"
 
-#include <ncore/modules/ecs/ecs_world.h>
+#include <ncore/runtime/ecs_world.h>
 
 #include <microcosmos/SpeciesRegistry.h>
 #include <microcosmos/components/OrganismComponent.h>
@@ -8,11 +8,11 @@
 void OrganismSystem::on_fixed_update(ncore::EcsWorld &world, double fixedDelta) {
     float delta = static_cast<float>(fixedDelta);
 
-    //auto &reg = world.context<SpeciesRegistry>();
+    // auto &reg = world.context<SpeciesRegistry>();
 
-    //for (const auto &entity: world.get_entities()) {
-    //    if (!entity.is_enabled)
-    //        continue;
+    // for (const auto &entity: world.get_entities()) {
+    //     if (!entity.is_enabled)
+    //         continue;
 
     //    if (!world.has<OrganismComponent>(entity))
     //        continue;

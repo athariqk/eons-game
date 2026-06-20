@@ -1,5 +1,6 @@
 #pragma once
-#include "logger/assert_handler.h"
+
+#include <cstdlib>
 
 #if defined(_MSC_VER)
 #define NC_DEBUGBREAK() __debugbreak()
@@ -8,6 +9,10 @@
 #else
 #define NC_DEBUGBREAK() (void) 0
 #endif
+
+namespace ncore::log {
+void handle_assert(const char *expr, const char *msg, const char *file, int line);
+}
 
 #ifdef DEBUG
 #define NC_ASSERT(expr, msg)                                                                                           \

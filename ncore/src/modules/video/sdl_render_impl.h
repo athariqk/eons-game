@@ -1,6 +1,6 @@
 #pragma once
 
-#include <modules/video/render_service.h>
+#include <ncore/modules/video/render_service.h>
 
 #include <unordered_map>
 

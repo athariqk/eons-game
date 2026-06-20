@@ -35,7 +35,7 @@ public:
      */
     template<std::derived_from<IService> T>
     T *resolve() {
-        auto target = rfl::type_id<T>();
+        auto target = rfl::Registry::get_type_id<T>();
 
         auto it = services.find(target);
         if (it != services.end())
@@ -46,7 +46,7 @@ public:
                 return static_cast<T *>(svc.get());
         }
 
-        auto class_name = rfl::get_class<T>()->name;
+        auto class_name = rfl::Registry::get<T>().name;
         NC_ASSERT_RETVAL(false, nullptr, std::format("Service '{}' could not be resolved", class_name).c_str());
     }
 
@@ -56,9 +56,9 @@ public:
      */
     template<std::derived_from<IService> T, typename... Args>
     T *provide(Args &&...args) {
-        NC_ASSERT(!services.contains(rfl::type_id<T>()), "Service already registered");
+        NC_ASSERT(!services.contains(rfl::Registry::get_type_id<T>()), "Service already registered");
         auto instance = std::make_shared<T>(std::forward<Args>(args)...);
-        services[rfl::type_id<T>()] = instance;
+        services[rfl::Registry::get_type_id<T>()] = instance;
         return instance.get();
     }
 

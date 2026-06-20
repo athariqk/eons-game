@@ -2,33 +2,33 @@
 
 #include <imgui.h>
 
-#include <modules/ecs/ecs_world.h>
-#include <modules/events/event_bus.h>
-#include <modules/events/input_event.h>
+#include <ncore/modules/events/event_bus.h>
+#include <ncore/modules/events/input_event.h>
+#include <ncore/runtime/ecs_world.h>
 
 namespace ncore {
 
 void EcsInputSystem::on_init(EcsWorld &world) {
-    m_keyDownSub = world.get_event_bus()->subscribe<KeyboardEvent>([this](KeyboardEvent &e) {
+    m_keyDownSub = world.get_event_bus().subscribe<KeyboardEvent>([this](KeyboardEvent &e) {
         if (e.action == ButtonAction::PRESS)
             m_pressedKeys.insert(e.key);
         else
             m_pressedKeys.erase(e.key);
     });
 
-    m_mouseButtonSub = world.get_event_bus()->subscribe<MouseButtonEvent>([this](MouseButtonEvent &e) {
+    m_mouseButtonSub = world.get_event_bus().subscribe<MouseButtonEvent>([this](MouseButtonEvent &e) {
         if (e.action == ButtonAction::PRESS)
             m_pressedButtons.insert(e.button);
         else
             m_pressedButtons.erase(e.button);
     });
 
-    m_mouseMotionSub = world.get_event_bus()->subscribe<MouseMotionEvent>([this](MouseMotionEvent &e) {
+    m_mouseMotionSub = world.get_event_bus().subscribe<MouseMotionEvent>([this](MouseMotionEvent &e) {
         m_mousePosition = e.position;
         m_lastMouseDelta = e.delta;
     });
 
-    m_mouseWheelSub = world.get_event_bus()->subscribe<MouseWheelEvent>(
+    m_mouseWheelSub = world.get_event_bus().subscribe<MouseWheelEvent>(
         [this](MouseWheelEvent &e) { m_lastMouseWheelDelta = Vec2(e.scroll_x, e.scroll_y); });
 }
 
@@ -87,8 +87,8 @@ void EcsInputSystem::on_gui_render(EcsWorld &world) {
 
     ImGui::SeparatorText("Event Bus");
 
-    auto subscriberInfo = world.get_event_bus()->get_subscriber_debug_info();
-    ImGui::Text("Queue: %zu", world.get_event_bus()->get_queue_size());
+    auto subscriberInfo = world.get_event_bus().get_subscriber_debug_info();
+    ImGui::Text("Queue: %zu", world.get_event_bus().get_queue_size());
     ImGui::Text("Subscribers: %zu", subscriberInfo.size());
 
     for (const auto &[ev_type, count]: subscriberInfo)
@@ -98,10 +98,10 @@ void EcsInputSystem::on_gui_render(EcsWorld &world) {
 }
 
 void EcsInputSystem::on_shutdown(EcsWorld &world) {
-    world.get_event_bus()->unsubscribe(m_keyDownSub);
-    world.get_event_bus()->unsubscribe(m_mouseButtonSub);
-    world.get_event_bus()->unsubscribe(m_mouseMotionSub);
-    world.get_event_bus()->unsubscribe(m_mouseWheelSub);
+    world.get_event_bus().unsubscribe(m_keyDownSub);
+    world.get_event_bus().unsubscribe(m_mouseButtonSub);
+    world.get_event_bus().unsubscribe(m_mouseMotionSub);
+    world.get_event_bus().unsubscribe(m_mouseWheelSub);
 }
 
 } // namespace ncore

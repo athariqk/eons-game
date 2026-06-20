@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ncore/modules/ecs/ecs_system.h>
+#include <ncore/runtime/ecs/ecs_system.h>
 
 class SpeciesRegistry;
 

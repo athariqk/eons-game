@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ncore.h>
+#include <ncore/runtime/ecs/ecs_module.h>
 
 class MicrocosmModule : public ncore::EcsModule {
     NCLASS(MicrocosmModule, ncore::EcsModule)

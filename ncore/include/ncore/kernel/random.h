@@ -1,9 +1,4 @@
-//
-// Created by athariqk on 04/03/2025.
-//
 #pragma once
-#ifndef RANDOM_H
-#define RANDOM_H
 
 #include <random>
 
@@ -41,5 +36,4 @@ public:
     }
 };
 
-#endif // RANDOM_H
-}
+} // namespace ncore

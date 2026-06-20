@@ -2,14 +2,14 @@
 
 #include <modules/assets/asset_manager.h>
 #include <modules/audio/audio_clip.h>
-#include <modules/ecs/ecs_world.h>
-#include <runtime/service_locator.h>
+#include <ncore/runtime/ecs_world.h>
+#include <ncore/runtime/service_locator.h>
 
 namespace ncore {
 
 void EcsAudioSystem::on_init(EcsWorld &world) {
-    resources = world.get_services()->resolve<AssetManager>();
-    audio_mgr = world.get_services()->resolve<IAudioService>();
+    resources = world.get_services().resolve<AssetManager>();
+    audio_mgr = world.get_services().resolve<IAudioService>();
 }
 
 void EcsAudioSystem::on_variable_update(EcsWorld &world, double delta) {

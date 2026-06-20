@@ -1,4 +1,4 @@
-#include <modules/events/event_bus.h>
+#include <ncore/modules/events/event_bus.h>
 
 #include <algorithm>
 

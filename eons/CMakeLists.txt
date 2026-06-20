@@ -42,9 +42,7 @@ add_custom_command(
     COMMAND "${CMAKE_COMMAND}" -E copy_directory_if_different
         "${CMAKE_SOURCE_DIR}/eons/assets" "$<TARGET_FILE_DIR:eons>/assets"
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/eons/game.ini" "$<TARGET_FILE_DIR:eons>/game.ini"
-    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/eons/engine.ini" "$<TARGET_FILE_DIR:eons>/engine.ini"
+        "${CMAKE_SOURCE_DIR}/eons/eons.ini" "$<TARGET_FILE_DIR:eons>/eons.ini"
     COMMENT "Copying assets and config files"
     VERBATIM
 )

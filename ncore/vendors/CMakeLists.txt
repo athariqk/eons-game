@@ -1,6 +1,6 @@
 # NCORE engine vendored libraries
 
-option(NC_USE_PREBUILT "Skip rebuilding heavy dependencies (SDL/Box2D/Flecs)" OFF)
+option(NC_USE_PREBUILT "Skip rebuilding heavy dependencies (SDL/Box2D/Flecs)" ON)
 set(NC_PREBUILT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/prebuilt/${CMAKE_BUILD_TYPE}")
 
 # define IMPORTED targets from prebuilt binaries

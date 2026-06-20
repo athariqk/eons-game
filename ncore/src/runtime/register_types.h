@@ -1,4 +1,4 @@
 #pragma once
 
-void register_kernel_types();
+void register_primitive_types();
 void unregister_kernel_types();

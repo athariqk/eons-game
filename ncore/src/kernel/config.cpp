@@ -1,4 +1,4 @@
-#include <ncore/kernel/config.h>
+#include <kernel/config.h>
 
 #include <inicpp.h>
 
@@ -17,20 +17,20 @@ void ConfFile::load(const std::string &path) {
 
 void ConfFile::save() {}
 
-void ConfFile::read_into(const rfl::ClassInfo &type_info, void *result) {
+void ConfFile::read_into(const rfl::RecordInfo &type_info, void *result) {
     for (auto &field: type_info.fields()) {
         auto it = data.find(field.name.data());
         if (it == data.end()) {
             continue;
         }
         auto field_ptr = field.get_void_ptr(result);
-        if (field.type == rfl::get_type<int>()) {
+        if (field.type == rfl::Registry::find<int>()) {
             ini::Convert<int> c;
             c.decode(it->second, *static_cast<int *>(field_ptr));
-        } else if (field.type == rfl::get_type<float>()) {
+        } else if (field.type == rfl::Registry::find<float>()) {
             ini::Convert<float> c;
             c.decode(it->second, *static_cast<float *>(field_ptr));
-        } else if (field.type == rfl::get_type<std::string>()) {
+        } else if (field.type == rfl::Registry::find<std::string>()) {
             *static_cast<std::string *>(field_ptr) = it->second;
         }
     }

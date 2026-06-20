@@ -5,7 +5,7 @@
 
 namespace ncore::log {
 
-LogChannel::LogChannel() { name = DEFAULT.data(); }
+LogChannel::LogChannel() { name = DEFAULT; }
 
 LogChannel::LogChannel(std::string_view name, std::vector<std::shared_ptr<Sink>> p_sinks) :
     name(name), sinks(p_sinks) {}

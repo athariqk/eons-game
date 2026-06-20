@@ -3,8 +3,8 @@
 #include <SDL3/SDL_messagebox.h>
 #include <SDL3/SDL_render.h>
 
-#include <kernel/structures.h>
-#include <utils/macro.h>
+#include <ncore/kernel/structures.h>
+#include <ncore/utils/log.h>
 
 namespace ncore {
 

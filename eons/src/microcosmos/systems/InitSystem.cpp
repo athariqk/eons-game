@@ -1,7 +1,7 @@
 #include "InitSystem.h"
 
-#include <ncore/modules/ecs/ecs_world.h>
-#include <ncore/utils/macro.h>
+#include <ncore/runtime/ecs_world.h>
+#include <ncore/utils/log.h>
 
 #include <microcosmos/OrganismFactory.h>
 #include <microcosmos/SpeciesRegistry.h>

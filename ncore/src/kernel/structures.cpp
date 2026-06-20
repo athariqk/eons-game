@@ -1,4 +1,4 @@
-#include <kernel/structures.h>
+#include <ncore/kernel/structures.h>
 
 #include <cmath>
 #include <limits>

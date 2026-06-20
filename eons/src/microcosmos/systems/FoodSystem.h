@@ -1,7 +1,7 @@
 #pragma once
 
-#include <ncore/modules/ecs/ecs_system.h>
 #include <ncore/kernel/structures.h>
+#include <ncore/runtime/ecs/ecs_system.h>
 
 class FoodSystem : public ncore::EcsSystem {
 public:

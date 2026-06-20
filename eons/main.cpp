@@ -1,17 +1,31 @@
 #include "pch.h"
 
-#include <ncore.h>
+#include <ncore.hpp>
 
 #include <microcosmos/MicrocosmModule.h>
 
+class EonsApplication : public ncore::Application {
+public:
+    EonsApplication() :
+        Application("Eons",
+                    ncore::AppVersion{.Major = GAME_VERSION_MAJOR,
+                                      .Minor = GAME_VERSION_MINOR,
+                                      .Patch = GAME_VERSION_PATCH,
+                                      .Identifier = GAME_VERSION_IDENTIFIER},
+                    "eons.ini") {}
+
+    std::unique_ptr<ncore::IGameWorld> create_world() override {
+        auto ecs_world = std::make_unique<ncore::EcsWorld>(get_event_bus(), services);
+        ecs_world->load<ncore::EcsEngineModule>();
+        ecs_world->load<MicrocosmModule>();
+        return ecs_world;
+    }
+};
+
 int main(int argc, char *argv[]) {
-    auto title = std::format("EONS v{}.{}.{}-{}", GAME_VERSION_MAJOR, GAME_VERSION_MINOR, GAME_VERSION_PATCH,
-                             GAME_VERSION_IDENTIFIER);
-    ncore::GameLoop engine(title);
-
-    auto world = ncore::EcsWorld();
-    world.load<ncore::EcsEngineModule>();
-    world.load<MicrocosmModule>();
-
-    return (int) engine.run(&world);
+    EonsApplication app;
+    app.init();
+    app.run();
+    app.finish();
+    return 0;
 }

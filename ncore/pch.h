@@ -38,12 +38,12 @@
 #include <inicpp.h>
 
 // === Engine core ===
-#include "kernel/errors.h"
-#include "kernel/random.h"
-#include "kernel/structures.h"
-#include "kernel/types.h"
+#include <ncore/kernel/errors.h>
+#include <ncore/kernel/random.h>
+#include <ncore/kernel/structures.h>
+#include <ncore/kernel/types.h>
 
 // === Utilities ==
-#include "utils/assert.h"
-#include "utils/logger/logger.h"
-#include "utils/macro.h"
+#include <ncore/utils/assert.h>
+#include <ncore/utils/log.h>
+#include <utils/logger/logger.h>

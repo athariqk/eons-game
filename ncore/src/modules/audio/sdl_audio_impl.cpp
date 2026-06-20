@@ -5,8 +5,7 @@
 
 #include <modules/assets/asset_manager.h>
 #include <modules/audio/audio_clip.h>
-#include <utils/logger/log_channel.h>
-#include <utils/macro.h>
+#include <ncore/utils/log.h>
 
 namespace ncore {
 

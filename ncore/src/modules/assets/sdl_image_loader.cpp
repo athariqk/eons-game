@@ -1,6 +1,6 @@
 #include "sdl_image_loader.h"
 
-#include <utils/macro.h>
+#include <ncore/utils/log.h>
 
 namespace ncore {
 

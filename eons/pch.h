@@ -7,4 +7,4 @@
 #define GAME_VERSION_PATCH 0
 #define GAME_VERSION_IDENTIFIER "pre-alpha"
 
-#include <ncore.h>
+#include <ncore.hpp>

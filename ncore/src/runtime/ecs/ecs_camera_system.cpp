@@ -1,9 +1,10 @@
 #include <runtime/ecs/ecs_camera_system.h>
 
-#include <modules/ecs/ecs_world.h>
 #include <modules/video/viewport.h>
+#include <ncore/kernel/structures.h>
+#include <ncore/runtime/ecs/ecs_transform.h>
+#include <ncore/runtime/ecs_world.h>
 #include <runtime/ecs/ecs_input_system.h>
-#include <runtime/ecs/ecs_transform.h>
 
 namespace ncore {
 
@@ -13,8 +14,8 @@ void EcsCameraSystem::on_init(EcsWorld &world) {
 
     // Create camera entity in the world
     camera_entity = world.create_entity();
-    world.set_component(camera_entity, EcsTransform{Vec2{0, 0}});
-    world.set_component(camera_entity, CameraComponent{1.0f, true});
+    world.add<EcsTransform>(camera_entity, Vec2{0, 0});
+    world.add<CameraComponent>(camera_entity, 1.0f, true);
 }
 
 void EcsCameraSystem::on_variable_update(EcsWorld &world, double delta) {

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <ncore/modules/ecs/ecs_module.h>
-#include <ncore/modules/ecs/ecs_world.h>
+#include <ncore/runtime/ecs/ecs_module.h>
+#include <ncore/runtime/ecs_world.h>
 
 namespace ncore {
 

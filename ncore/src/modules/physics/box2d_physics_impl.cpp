@@ -2,9 +2,9 @@
 
 #include <box2d/box2d.h>
 
-#include <runtime/service_locator.h>
-#include <utils/assert.h>
-#include <utils/macro.h>
+#include <ncore/runtime/service_locator.h>
+#include <ncore/utils/assert.h>
+#include <ncore/utils/log.h>
 
 namespace ncore {
 

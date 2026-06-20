@@ -3,6 +3,14 @@
 
 add_library(ncore STATIC "pch.h")
 
+set(NCORE_VERSION_STABLE 0)
+set(NCORE_VERSION_MAJOR 0)
+set(NCORE_VERSION_MINOR 1)
+set(NCORE_VERSION_PATCH 0)
+
+set(NCORE_VERSION_STR ${NCORE_VERSION_STABLE}.${NCORE_VERSION_MAJOR}.${NCORE_VERSION_MINOR}.${NCORE_VERSION_PATCH})
+set(NCORE_VERSION ${NCORE_VERSION_STABLE}.${NCORE_VERSION_MAJOR}${NCORE_VERSION_MINOR}${NCORE_VERSION_PATCH})
+
 option(ENABLE_PCH "Enable Precompiled Headers performance optimization" ON)
 
 if(ENABLE_PCH)
@@ -39,3 +47,35 @@ target_include_directories(ncore PRIVATE
 add_subdirectory(vendors)
 add_subdirectory(include)
 add_subdirectory(src)
+
+
+## DOCUMENTATION ##
+# bits adapted from https://devblogs.microsoft.com/cppblog/clear-functional-c-documentation-with-sphinx-breathe-doxygen-cmake/
+
+# doxygen
+find_package(Doxygen REQUIRED)
+
+if(DOXYGEN_FOUND)
+	set(DOXYGEN_INPUT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/docs/doxygen)
+	set(DOXYGEN_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/docs/doxygen)
+
+	file(MAKE_DIRECTORY ${DOXYGEN_OUTPUT_DIR})
+	configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
+	add_custom_target(Doxygen ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+	                   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+	                   COMMENT "Generating API documentation with Doxygen")
+endif()
+
+# sphinx
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+find_package(Sphinx REQUIRED)
+
+if(SPHINX_FOUND)
+	add_custom_target(Sphinx ALL
+	                  COMMAND
+	                  ${SPHINX_EXECUTABLE} -b html
+					  -Dbreathe_projects.NCORE=${DOXYGEN_OUTPUT_DIR}/xml
+	                  ${CMAKE_CURRENT_SOURCE_DIR}/docs/sphinx ${CMAKE_CURRENT_BINARY_DIR}/docs/sphinx
+	                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+	                  COMMENT "Generating documentation with Sphinx")
+endif()

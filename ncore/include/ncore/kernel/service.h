@@ -1,6 +1,6 @@
 #pragma once
 
-#include "object.h"
+#include <ncore/kernel/object.h>
 
 namespace ncore {
 
@@ -12,8 +12,8 @@ namespace ncore {
  * There is so much alot to unpack regarding architecture and design of this relating
  * to the whole engine. TODO: write more about this so i don't forget
  */
-class IService : public NcObject {
-    NCLASS(IService, NcObject)
+class IService : public NObject {
+    NCLASS(IService, NObject)
 
 public:
     virtual ~IService() = default;

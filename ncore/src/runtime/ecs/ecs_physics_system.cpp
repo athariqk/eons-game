@@ -2,16 +2,16 @@
 
 #include <imgui.h>
 
-#include <modules/ecs/ecs_world.h>
-#include <runtime/ecs/ecs_rigidbody.h>
-#include <runtime/ecs/ecs_transform.h>
-#include <runtime/service_locator.h>
-#include <utils/assert.h>
-#include <utils/macro.h>
+#include <ncore/runtime/ecs/ecs_rigidbody.h>
+#include <ncore/runtime/ecs/ecs_transform.h>
+#include <ncore/runtime/ecs_world.h>
+#include <ncore/runtime/service_locator.h>
+#include <ncore/utils/assert.h>
+#include <ncore/utils/log.h>
 
 namespace ncore {
 
-void EcsPhysicsSystem::on_init(EcsWorld &world) { physics = world.get_services()->resolve<IPhysicsService>(); }
+void EcsPhysicsSystem::on_init(EcsWorld &world) { physics = world.get_services().resolve<IPhysicsService>(); }
 
 void EcsPhysicsSystem::on_fixed_update(EcsWorld &world, double fixedDelta) {
     // for (auto &entity: world.get_entities()) {

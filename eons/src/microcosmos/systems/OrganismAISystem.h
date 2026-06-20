@@ -1,11 +1,13 @@
 #pragma once
 
-#include <ncore/modules/ecs/ecs_system.h>
 #include <ncore/kernel/structures.h>
+#include <ncore/runtime/ecs/ecs_system.h>
 
 #include <microcosmos/components/OrganismAIComponent.h>
 
-namespace ncore { class EcsWorld; }
+namespace ncore {
+class EcsWorld;
+}
 
 struct OrganismComponent;
 
@@ -24,11 +26,13 @@ private:
     void update_idling(OrganismAIComponent &ai, float delta);
     void update_run_and_tumble(ncore::EcsEntity &entity, OrganismAIComponent &ai, OrganismComponent &organism,
                                ncore::EcsWorld &world, float delta);
-    void update_absorbing(ncore::EcsWorld &world, ncore::EcsEntity &entity, OrganismAIComponent &ai, OrganismComponent &organism, float delta);
+    void update_absorbing(ncore::EcsWorld &world, ncore::EcsEntity &entity, OrganismAIComponent &ai,
+                          OrganismComponent &organism, float delta);
     void update_eval(ncore::EcsEntity &entity, OrganismAIComponent &ai, OrganismComponent &organism,
                      ncore::EcsWorld &world, float delta);
 
-    void absorb_food(ncore::EcsWorld &world, ncore::EcsEntity &entity, OrganismAIComponent &ai, OrganismComponent &organism);
+    void absorb_food(ncore::EcsWorld &world, ncore::EcsEntity &entity, OrganismAIComponent &ai,
+                     OrganismComponent &organism);
     void reproduce(ncore::EcsWorld &world, ncore::EcsEntity &entity, OrganismAIComponent &ai,
                    OrganismComponent &organism);
 };

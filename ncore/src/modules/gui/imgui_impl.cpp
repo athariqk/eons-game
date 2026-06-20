@@ -1,12 +1,13 @@
 #include "imgui_impl.h"
 
-#include <modules/events/event_bus.h>
-#include <modules/events/events.h>
-#include <modules/events/input_event.h>
+#include <ncore/modules/events/event_bus.h>
+#include <ncore/modules/events/events.h>
+#include <ncore/modules/events/input_event.h>
+
 #include <modules/events/sdl_event_helpers.h>
 #include <modules/gui/imgui_sdl.h>
 #include <modules/gui/imgui_sdl_renderer.h>
-#include <utils/macro.h>
+#include <ncore/utils/log.h>
 
 namespace ncore {
 

@@ -1,6 +1,7 @@
-#include <runtime/ecs/ecs_engine_module.h>
+#include <ncore/runtime/ecs/ecs_engine_module.h>
 
-#include <modules/ecs/ecs_world.h>
+#include <ncore/runtime/ecs_world.h>
+
 #include <runtime/ecs/ecs_audio_system.h>
 #include <runtime/ecs/ecs_camera_system.h>
 #include <runtime/ecs/ecs_input_system.h>

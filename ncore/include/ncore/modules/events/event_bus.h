@@ -38,7 +38,7 @@ public:
     size_t subscribe(std::function<void(T &)> callback) {
         size_t index = next_subscription_id++;
         auto wrapper = [callback](Event &event) { callback(static_cast<T &>(event)); };
-        subscribers[rfl::type_id<T>()].emplace_back(index, wrapper);
+        subscribers[rfl::Registry::get_type_id<T>()].emplace_back(index, wrapper);
         return index;
     }
 

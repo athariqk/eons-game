@@ -12,8 +12,8 @@ namespace ncore {
  * Events are lightweight data structures that represent something
  * that happened in the game (input, collision, gameplay event, etc.)
  */
-class Event : public NcObject {
-    NCLASS(Event, NcObject)
+class Event : public NObject {
+    NCLASS(Event, NObject)
 
 public:
     virtual ~Event() = default;

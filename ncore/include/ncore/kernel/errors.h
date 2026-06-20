@@ -1,11 +1,10 @@
 #pragma once
 
+#include <cstdint>
+
 namespace ncore {
 
-enum class Error : int {
-    OK = 0,
-    FAIL = -1,
-    FATAL = -2,
-};
+enum class Error : uint8_t { OK = 0, FAIL, FATAL };
+inline constexpr uint8_t MAX_ERRORS = 3;
 
 } // namespace ncore

@@ -1,8 +1,8 @@
 #include "SpeciesGuiSystem.h"
 
-#include <ncore/modules/ecs/ecs_world.h>
+#include <ncore/runtime/ecs_world.h>
 #include <ncore/modules/video/render_service.h>
-#include <ncore/runtime/ecs/ecs_input_system.h>
+//#include <ncore/runtime/ecs/ecs_input_system.h>
 #include <ncore/runtime/ecs/ecs_rigidbody.h>
 
 #include <microcosmos/GameGroups.h>

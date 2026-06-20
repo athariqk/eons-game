@@ -1,6 +1,6 @@
 #pragma once
 
-#include <modules/events/input_event.h>
+#include <ncore/modules/events/input_event.h>
 
 #include <SDL3/SDL_events.h>
 

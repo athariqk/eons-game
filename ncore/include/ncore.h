@@ -1,11 +1,17 @@
 #pragma once
 
-// TODO: umbrella header for ncore
-#include <ncore/runtime/ecs/ecs_engine_module.h>
-#include <ncore/runtime/game_loop.h>
-#include <ncore/runtime/main_loop.h>
+#ifdef WIN32
+#define NCORE_API __declspec(dllexport)
+#else
+#define NCORE_API __attribute__((visibility("default")))
+#endif // WIN32
 
-#include <ncore/modules/ecs/ecs_world.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#include <ncore/kernel/object.h>
-#include <ncore/kernel/types.h>
+NCORE_API void ncore_init();
+
+#ifdef __cplusplus
+}
+#endif

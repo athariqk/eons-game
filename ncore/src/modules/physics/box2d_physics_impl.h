@@ -6,7 +6,7 @@
 
 #include <unordered_map>
 
-#include <kernel/structures.h>
+#include <ncore/kernel/structures.h>
 
 namespace ncore {
 

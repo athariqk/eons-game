@@ -1,8 +1,8 @@
 #include "sdl_render_impl.h"
 
-#include <kernel/structures.h>
+#include <ncore/kernel/structures.h>
 #include <modules/video/image.h>
-#include <utils/macro.h>
+#include <ncore/utils/log.h>
 
 namespace ncore {
 

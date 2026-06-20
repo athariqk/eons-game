@@ -60,7 +60,7 @@ struct Vec2 {
 
     std::string to_string() const { return std::format("Vec2D<x={},y={}>", x, y); }
 
-    NC_BIND(Vec2, NC_F(Vec2, x) NC_F(Vec2, y));
+    NSTRUCT(Vec2, NC_F(Vec2, x) NC_F(Vec2, y));
 };
 
 struct Vec4 : Vec2 {
@@ -71,7 +71,7 @@ struct Vec4 : Vec2 {
 
     bool is_zero() const { return Vec2::is_zero() && w == 0 && h == 0; }
 
-    NC_BIND(Vec4, NC_F(Vec4, w) NC_F(Vec4, h));
+    NSTRUCT(Vec4, NC_F(Vec4, w) NC_F(Vec4, h));
 };
 
 struct Color {
@@ -92,7 +92,7 @@ struct Color {
     uint8_t b = 0;
     uint8_t a = 0;
 
-    NC_BIND(Color, NC_F(Color, r) NC_F(Color, g) NC_F(Color, b) NC_F(Color, a));
+    NSTRUCT(Color, NC_F(Color, r) NC_F(Color, g) NC_F(Color, b) NC_F(Color, a));
 };
 
 using BytesBuffer = std::vector<uint8_t>;
