@@ -1,7 +1,7 @@
 #pragma once
 
 #include <modules/assets/asset_loader.h>
-#include <modules/video/image.h>
+#include <ncore/modules/video/image.h>
 
 namespace ncore {
 

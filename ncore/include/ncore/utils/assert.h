@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstdlib>
-
 #if defined(_MSC_VER)
 #define NC_DEBUGBREAK() __debugbreak()
 #elif defined(__GNUC__) || defined(__clang__)
@@ -14,7 +12,7 @@ namespace ncore::log {
 void handle_assert(const char *expr, const char *msg, const char *file, int line);
 }
 
-#ifdef DEBUG
+#ifdef NC_DEBUG
 #define NC_ASSERT(expr, msg)                                                                                           \
     do {                                                                                                               \
         if (!(expr)) {                                                                                                 \

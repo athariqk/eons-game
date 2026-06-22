@@ -1,7 +1,5 @@
 #pragma once
 
-#include <format>
-
 #include <ncore/kernel/structures.h>
 #include <ncore/kernel/types.h>
 

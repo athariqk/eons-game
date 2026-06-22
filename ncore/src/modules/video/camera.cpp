@@ -1,4 +1,4 @@
-#include <modules/video/camera.h>
+#include <ncore/modules/video/camera.h>
 
 namespace ncore {
 

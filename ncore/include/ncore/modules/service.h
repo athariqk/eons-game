@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ncore/kernel/errors.h>
 #include <ncore/kernel/object.h>
 
 namespace ncore {

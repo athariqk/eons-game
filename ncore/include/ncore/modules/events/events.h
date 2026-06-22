@@ -38,12 +38,12 @@ public:
     InputEvent(size_t p_window_id) : WindowEvent(p_window_id) {}
 };
 
-class MainLoopStopEvent : public WindowEvent {
-    NCLASS(MainLoopStopEvent, WindowEvent)
+class WindowCloseEvent : public WindowEvent {
+    NCLASS(WindowCloseEvent, WindowEvent)
 
 public:
-    MainLoopStopEvent(size_t p_window_id) : WindowEvent(p_window_id) {}
-    EventType get_type() const override { return EventType::USER_QUIT; }
+    WindowCloseEvent(size_t p_window_id) : WindowEvent(p_window_id) {}
+    EventType get_type() const override { return EventType::WINDOW_CLOSE; }
 };
 
 class WindowResizeEvent : public WindowEvent {

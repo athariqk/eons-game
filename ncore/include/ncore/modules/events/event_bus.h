@@ -3,6 +3,8 @@
 #include <functional>
 #include <memory>
 
+#include <ncore/modules/service.h>
+
 #include "events.h"
 
 namespace ncore {
@@ -22,8 +24,13 @@ namespace ncore {
  *   // Publish
  *   event_bus.publish(CollisionEvent(entityA, entityB));
  */
-class EventBus {
+class EventBus : public IService {
+    NCLASS(EventBus, IService)
+
 public:
+    Error init() override { return Error::OK; }
+    void cleanup() override;
+
     /**
      * @brief subscribe to an event type
      *
@@ -86,8 +93,6 @@ public:
      * using Queue(). Events are processed in FIFO order.
      */
     void process_queue();
-
-    void clear();
 
     size_t get_queue_size() const;
     using SubscriberDebugInfo = std::vector<std::pair<rfl::TypeId, size_t>>;

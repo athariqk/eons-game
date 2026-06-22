@@ -132,8 +132,10 @@ struct SDLEventHelpers {
     static std::unique_ptr<Event> map_from_sdl(SDL_Event &event) {
         switch (event.type) {
             case SDL_EVENT_QUIT:
+                // TODO: what should be the appropriate event mapping here?
+                break;
             case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-                return std::make_unique<MainLoopStopEvent>(event.window.windowID);
+                return std::make_unique<WindowCloseEvent>(event.window.windowID);
             case SDL_EVENT_WINDOW_RESIZED:
                 return std::make_unique<WindowResizeEvent>(event.window.windowID, event.window.data1,
                                                            event.window.data2);
@@ -241,7 +243,7 @@ struct SDLEventHelpers {
                 break;
             }
 
-            case EventType::USER_QUIT: {
+            case EventType::WINDOW_CLOSE: {
                 sdl.type = SDL_EVENT_WINDOW_CLOSE_REQUESTED;
                 sdl.window.windowID = event->window_id;
                 break;

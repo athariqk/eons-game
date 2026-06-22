@@ -29,12 +29,6 @@ void EventBus::process_queue() {
     event_queue.clear();
 }
 
-void EventBus::clear() {
-    subscribers.clear();
-    event_queue.clear();
-    next_subscription_id = 0;
-}
-
 size_t EventBus::get_queue_size() const { return event_queue.size(); }
 
 EventBus::SubscriberDebugInfo EventBus::get_subscriber_debug_info() const {
@@ -44,5 +38,10 @@ EventBus::SubscriberDebugInfo EventBus::get_subscriber_debug_info() const {
     return info;
 }
 
+void EventBus::cleanup() {
+    subscribers.clear();
+    event_queue.clear();
+    next_subscription_id = 0;
+}
 
 } // namespace ncore

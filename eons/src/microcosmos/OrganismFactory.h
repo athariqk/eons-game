@@ -1,12 +1,9 @@
 #pragma once
 
 #include <ncore/kernel/random.h>
+#include <ncore/modules/ecs/ecs_world.h>
+#include <ncore/modules/service_locator.h>
 #include <ncore/modules/video/render_service.h>
-#include <ncore/runtime/ecs/ecs_rigidbody.h>
-#include <ncore/runtime/ecs/ecs_sprite.h>
-#include <ncore/runtime/ecs/ecs_transform.h>
-#include <ncore/runtime/ecs_world.h>
-#include <ncore/runtime/service_locator.h>
 
 #include <microcosmos/SpeciesRegistry.h>
 #include <microcosmos/components/OrganismAIComponent.h>

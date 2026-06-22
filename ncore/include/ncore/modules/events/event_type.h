@@ -6,7 +6,7 @@ enum class EventType : size_t {
     UNKNOWN = 0,
 
     // General
-    USER_QUIT,
+    WINDOW_CLOSE,
     WORLD_CHANGE_REQUEST,
     WORLD_CHANGE_COMPLETE,
 

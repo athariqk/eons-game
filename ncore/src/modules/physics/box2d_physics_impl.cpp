@@ -108,7 +108,7 @@ void Box2DPhysicsImpl::step() const {
 void Box2DPhysicsImpl::cleanup() {
     NC_ASSERT_RET(b2World_IsValid(world_id), "Physics world is not initialized");
     b2DestroyWorld(world_id);
-    NC_LOG_TRACE(log::PHYSICS, "Destroyed physics world");
+    NC_LOG_TRACE_C(log::PHYSICS, "Destroyed physics world");
 }
 
 RID Box2DPhysicsImpl::create_shape(ShapeType type) {

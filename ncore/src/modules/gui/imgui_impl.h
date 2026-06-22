@@ -11,11 +11,11 @@ class EventBus;
 /**
  * @brief Immediate-mode GUI implementation
  */
-class ImGuiImpl : public IGuiService {
-    NCLASS(ImGuiImpl, IGuiService)
+class ImGuiImpl : public IIMGuiService {
+    NCLASS(ImGuiImpl, IIMGuiService)
 
 public:
-    ImGuiImpl(uint32_t window_id, EventBus &eventBus);
+    ImGuiImpl(uint32_t window_id);
     ~ImGuiImpl() {}
 
     Error init() override;
@@ -27,7 +27,6 @@ public:
 private:
     bool m_initialized = false;
     uint32_t window_id = 0;
-    EventBus &event_bus;
     SDL_Renderer *renderer = nullptr;
     SDL_Window *window = nullptr;
     ImGuiContext *imgui_ctx = nullptr;

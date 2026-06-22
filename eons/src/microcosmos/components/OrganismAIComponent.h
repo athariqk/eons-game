@@ -6,6 +6,9 @@
 
 enum class BehaviourState { IDLING = 0, RUN_TUMBLE = 1, ABSORBING = 2, EVALUATE = 3 };
 
+NENUM(BehaviourState, NENUM_ELEMENT(BehaviourState, IDLING), NENUM_ELEMENT(BehaviourState, RUN_TUMBLE),
+      NENUM_ELEMENT(BehaviourState, ABSORBING), NENUM_ELEMENT(BehaviourState, EVALUATE));
+
 struct OrganismAIComponent {
     OrganismAIComponent() : move_speed(0.0f), act_interval(10.0f) {}
     OrganismAIComponent(float p_speed, float p_think_interval) : move_speed(p_speed), act_interval(p_think_interval) {}

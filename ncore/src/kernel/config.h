@@ -34,6 +34,9 @@ public:
     }
 
 private:
+    /**
+	* @brief Decodes data to a type-safe struct.
+	*/
     void read_into(const rfl::RecordInfo &type_info, void *result);
 
     std::string path;

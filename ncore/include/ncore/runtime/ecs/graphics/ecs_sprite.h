@@ -1,14 +1,9 @@
 #pragma once
 
-#include <string>
-
 #include <ncore/kernel/resource.h>
 #include <ncore/kernel/structures.h>
-#include <ncore/kernel/types.h>
 
 namespace ncore {
-
-struct Image;
 
 struct EcsSprite {
     EcsSprite() = default;

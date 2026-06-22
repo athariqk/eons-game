@@ -3,6 +3,7 @@
 #include <ncore/modules/events/event_bus.h>
 #include <ncore/modules/events/events.h>
 #include <ncore/modules/events/input_event.h>
+#include <ncore/runtime/service_locator.h>
 
 #include <modules/events/sdl_event_helpers.h>
 #include <modules/gui/imgui_sdl.h>
@@ -11,7 +12,7 @@
 
 namespace ncore {
 
-ImGuiImpl::ImGuiImpl(uint32_t p_window_id, EventBus &p_eventBus) : window_id(p_window_id), event_bus(p_eventBus) {}
+ImGuiImpl::ImGuiImpl(uint32_t p_window_id) : window_id(p_window_id) {}
 
 Error ImGuiImpl::init() {
     if (!window_id) {
@@ -54,14 +55,15 @@ Error ImGuiImpl::init() {
             e.handled = true;
     };
 
-    event_bus.subscribe<KeyboardEvent>([&](KeyboardEvent &e) { forward(e, io); });
-    event_bus.subscribe<MouseButtonEvent>([&](MouseButtonEvent &e) { forward(e, io); });
-    event_bus.subscribe<MouseMotionEvent>([&](MouseMotionEvent &e) { forward(e, io); });
-    event_bus.subscribe<MouseWheelEvent>([&](MouseWheelEvent &e) { forward(e, io); });
-    event_bus.subscribe<TextInputEvent>([&](TextInputEvent &e) { forward(e, io); });
-    event_bus.subscribe<WindowFocusEvent>([&](WindowFocusEvent &e) { forward(e, io); });
-    event_bus.subscribe<WindowMouseEnterEvent>([&](WindowMouseEnterEvent &e) { forward(e, io); });
-    event_bus.subscribe<WindowMouseLeaveEvent>([&](WindowMouseLeaveEvent &e) { forward(e, io); });
+    auto event_bus = ServiceLocator::resolve<EventBus>();
+    event_bus->subscribe<KeyboardEvent>([&](KeyboardEvent &e) { forward(e, io); });
+    event_bus->subscribe<MouseButtonEvent>([&](MouseButtonEvent &e) { forward(e, io); });
+    event_bus->subscribe<MouseMotionEvent>([&](MouseMotionEvent &e) { forward(e, io); });
+    event_bus->subscribe<MouseWheelEvent>([&](MouseWheelEvent &e) { forward(e, io); });
+    event_bus->subscribe<TextInputEvent>([&](TextInputEvent &e) { forward(e, io); });
+    event_bus->subscribe<WindowFocusEvent>([&](WindowFocusEvent &e) { forward(e, io); });
+    event_bus->subscribe<WindowMouseEnterEvent>([&](WindowMouseEnterEvent &e) { forward(e, io); });
+    event_bus->subscribe<WindowMouseLeaveEvent>([&](WindowMouseLeaveEvent &e) { forward(e, io); });
 
     return Error::OK;
 }

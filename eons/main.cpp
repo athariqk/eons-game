@@ -7,16 +7,16 @@
 class EonsApplication : public ncore::Application {
 public:
     EonsApplication() :
-        Application("Eons",
-                    ncore::AppVersion{.Major = GAME_VERSION_MAJOR,
-                                      .Minor = GAME_VERSION_MINOR,
-                                      .Patch = GAME_VERSION_PATCH,
-                                      .Identifier = GAME_VERSION_IDENTIFIER},
-                    "eons.ini") {}
+        Application({"Eons",
+                     ncore::AppVersion{.Major = GAME_VERSION_MAJOR,
+                                       .Minor = GAME_VERSION_MINOR,
+                                       .Patch = GAME_VERSION_PATCH,
+                                       .Identifier = GAME_VERSION_IDENTIFIER},
+                     "eons.ini"}) {}
 
     std::unique_ptr<ncore::IGameWorld> create_world() override {
-        auto ecs_world = std::make_unique<ncore::EcsWorld>(get_event_bus(), services);
-        ecs_world->load<ncore::EcsEngineModule>();
+        auto ecs_world = std::make_unique<ncore::EcsWorld>(services);
+        ecs_world->load<ncore::EcsRuntime>();
         ecs_world->load<MicrocosmModule>();
         return ecs_world;
     }

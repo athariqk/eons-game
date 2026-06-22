@@ -9,6 +9,9 @@
 struct SpeciesComponent;
 struct OrganismComponent;
 
+/**
+ * REFACTOR: this is a wrong way to do things...
+ */
 class SpeciesRegistry {
 public:
     // Registration

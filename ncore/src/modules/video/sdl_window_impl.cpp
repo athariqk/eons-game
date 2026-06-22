@@ -4,12 +4,14 @@
 #include <SDL3/SDL_render.h>
 
 #include <ncore/kernel/structures.h>
+#include <ncore/modules/video/window_service.h>
 #include <ncore/utils/log.h>
 
 namespace ncore {
 
 SDLWindowImpl::SDLWindowImpl(const char *title, int width, int height, const bool fullscreen) :
-    title(title), resolution(width, height), fullscreen(fullscreen) {
+    title(title), resolution(width, height), fullscreen(fullscreen),
+    viewport(std::make_unique<Viewport>(Vec4{0, 0, (float) width, (float) height})) {
     int flags = 0;
     if (fullscreen)
         flags = SDL_WINDOW_FULLSCREEN;
@@ -63,5 +65,7 @@ void SDLWindowImpl::set_title(const char *title) const { SDL_SetWindowTitle(get_
 int SDLWindowImpl::show_msg_box(const uint32_t flags, const char *title, const char *message) const {
     return SDL_ShowSimpleMessageBox(flags, title, message, sdlWindow);
 }
+
+Viewport *SDLWindowImpl::get_viewport() const { return viewport.get(); }
 
 } // namespace ncore

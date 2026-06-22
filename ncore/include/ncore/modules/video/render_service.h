@@ -1,7 +1,7 @@
 #pragma once
 
-#include <ncore/kernel/service.h>
 #include <ncore/kernel/structures.h>
+#include <ncore/modules/service.h>
 
 namespace ncore {
 

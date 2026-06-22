@@ -1,8 +1,8 @@
 #pragma once
 
 #include <ncore/kernel/resource.h>
-#include <ncore/kernel/service.h>
 #include <ncore/kernel/structures.h>
+#include <ncore/modules/service.h>
 
 #include "physics_body.h"
 

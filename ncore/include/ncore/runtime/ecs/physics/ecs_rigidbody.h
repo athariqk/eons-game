@@ -1,10 +1,8 @@
 #pragma once
 
-#include <ncore/kernel/types.h>
+#include <ncore/kernel/structures.h>
 
 namespace ncore {
-
-struct Vec2;
 
 struct EcsRigidbody {
     Vec2 velocity;

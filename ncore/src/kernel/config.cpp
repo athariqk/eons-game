@@ -1,5 +1,7 @@
 #include <kernel/config.h>
 
+#include <algorithm>
+
 #include <inicpp.h>
 
 namespace ncore {
@@ -10,16 +12,23 @@ void ConfFile::load(const std::string &path) {
         auto &section = it.second;
         for (auto &field_it: section) {
             auto &field = field_it.second;
-            data[field_it.first] = field.as<std::string>();
+            auto qualified_name = it.first + "." + field_it.first;
+            data[qualified_name] = field.as<std::string>();
         }
     }
+
+    std::string summary;
+    std::for_each(data.begin(), data.end(),
+                  [&summary](const auto &pair) { summary += pair.first + "=" + pair.second + "\n"; });
+    NC_LOG_INFO("loaded config file: {}\n{}", path, summary);
 }
 
 void ConfFile::save() {}
 
 void ConfFile::read_into(const rfl::RecordInfo &type_info, void *result) {
     for (auto &field: type_info.fields()) {
-        auto it = data.find(field.name.data());
+        auto qualified_name = std::string(type_info.name) + "." + field.name.data();
+        auto it = data.find(qualified_name);
         if (it == data.end()) {
             continue;
         }

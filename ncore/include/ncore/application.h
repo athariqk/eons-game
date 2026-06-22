@@ -24,14 +24,25 @@ struct AppVersion {
 };
 
 /**
+ * @brief AppDesc can be used to initialize an app with the given specification.
+ */
+struct AppDesc {
+    std::string Name;
+    AppVersion Version;
+    std::string ConfigFile;
+    NSTRUCT(AppDesc, NC_F(AppDesc, Name) NC_F(AppDesc, Version) NC_F(AppDesc, ConfigFile));
+};
+
+/**
  * @brief The entry point for applications.
  *
  * This class handles initialization, driving the game world,
- * OS event polling, and cleanup.
+ * OS event polling, and cleanup. You may override this to
+ * implement custom main loop behavior.
  */
 class Application {
 public:
-    Application(const std::string &name, AppVersion version, const std::string &config_file);
+    Application(const AppDesc &desc);
     virtual ~Application();
 
     Application(const Application &) = delete;
@@ -42,23 +53,16 @@ public:
     virtual void finish();
 
     virtual void poll_events();
-
-    bool get_is_running() const { return is_running; }
-
     virtual std::unique_ptr<IGameWorld> create_world() = 0;
 
-    EventBus &get_event_bus() { return event_bus; }
-
 protected:
-    std::string app_name;
-    AppVersion app_version;
-    bool is_running = false;
-    EventBus event_bus;
+    AppDesc app_desc;
     ServiceLocator &services;
-    std::string config_file;
+    bool is_running = false;
     uint64_t ticks = 0;
     double delta_time = 0.0;
     std::unique_ptr<IGameWorld> g_world;
+    EventBus *event_bus;
 };
 
 } // namespace ncore

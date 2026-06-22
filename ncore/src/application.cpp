@@ -7,12 +7,12 @@
 #include <sstream>
 
 #include <SDL3/SDL_init.h>
-#include <SDL3/SDL_timer.h>
 
 #include <ncore/kernel/types.h>
-#include <ncore/modules/events/events.h>
-#include <ncore/runtime/game_world.h>
-#include <ncore/runtime/service_locator.h>
+#include <ncore/modules/game_world.h>
+#include <ncore/modules/service_locator.h>
+#include <ncore/modules/video/image.h>
+#include <ncore/modules/video/viewport.h>
 #include <ncore/utils/log.h>
 
 #include <kernel/config.h>
@@ -21,11 +21,12 @@
 #include <modules/assets/sdl_image_loader.h>
 #include <modules/audio/sdl_audio_impl.h>
 #include <modules/events/sdl_event_helpers.h>
+#include <modules/gui/gui_service.h>
 #include <modules/gui/imgui_impl.h>
 #include <modules/physics/box2d_physics_impl.h>
 #include <modules/video/sdl_render_impl.h>
 #include <modules/video/sdl_window_impl.h>
-#include <modules/video/viewport.h>
+#include <ncore/modules/video/render_service.h>
 #include <utils/logger/log_level.h>
 #include <utils/logger/logger.h>
 #include <utils/logger/sink.h>
@@ -55,13 +56,12 @@ struct Render {
 
 } // namespace cfg
 
-Application::Application(const std::string &name, AppVersion version, const std::string &config_file) :
-    app_name(name), app_version(version), config_file(config_file), services(ServiceLocator::get_instance()) {}
+Application::Application(const AppDesc &desc) : app_desc(desc), services(ServiceLocator::get_instance()) {}
 
-Application::~Application() { NC_ASSERT(!get_is_running(), "application destroyed while still running"); }
+Application::~Application() { NC_ASSERT(!is_running, "application destroyed while still running"); }
 
 void Application::init() {
-    auto cfg_file = ConfFile(config_file);
+    auto cfg_file = ConfFile(app_desc.ConfigFile);
     auto log_cfg = cfg_file.read<cfg::Log>();
     auto window_cfg = cfg_file.read<cfg::Window>();
     auto render_cfg = cfg_file.read<cfg::Render>();
@@ -87,93 +87,124 @@ void Application::init() {
         abort(); // TODO: handle this more gracefully
     }
 
+    event_bus = services.provide<EventBus>();
+
     auto resources = services.provide<AssetManager>();
     resources->register_loader<Image>(SDLImageLoader());
     resources->register_loader<AudioClip>(SDLAudioLoader());
 
-    auto window = services.provide<SDLWindowImpl>(app_name.c_str(), window_cfg.SizeWidth, window_cfg.SizeHeight,
+    auto window = services.provide<SDLWindowImpl>(app_desc.Name.c_str(), window_cfg.SizeWidth, window_cfg.SizeHeight,
                                                   window_cfg.Fullscreen);
+    window->get_viewport()->set_pixels_per_meter(render_cfg.PixelsPerMeter); // TODO: properly implement viewport later
+
     auto renderer = services.provide<SDLRenderImpl>(window->get_window_id());
     auto physics = services.provide<Box2DPhysicsImpl>();
     auto audio = services.provide<SDLAudioImpl>();
-    auto gui = services.provide<ImGuiImpl>(window->get_window_id(), event_bus);
+    auto gui = services.provide<ImGuiImpl>(window->get_window_id());
 
     services.init_all();
-
-    auto viewport = std::make_unique<Viewport>(render_cfg.PixelsPerMeter);
-    viewport->set_size(static_cast<float>(window_cfg.SizeWidth), static_cast<float>(window_cfg.SizeHeight));
 
     g_world = create_world();
     g_world->on_init();
 
-    event_bus.subscribe<MainLoopStopEvent>([this](MainLoopStopEvent &) {
-        is_running = false;
-        NC_LOG_TRACE("stop event received, stopping main loop...");
-    });
+    NC_LOG_TRACE("application initialized");
+}
 
-    event_bus.subscribe<WindowResizeEvent>(
-        [this](WindowResizeEvent &e) { NC_LOG_TRACE("window resolution changed: {}x{}", e.width, e.height); });
+void update_window_title(IWindowService *window, const std::string &base_title, char *window_attrs, double fps,
+                         double delta_time) {
+    std::snprintf(window_attrs, 64, "FPS: %.2f - Delta: %.6f", fps, delta_time);
+    const std::string full_title = std::format("{} - {}", base_title, window_attrs);
+    window->set_title(full_title.c_str());
+}
+
+void throttle_framerate(std::chrono::steady_clock::time_point &cur_time, double target_frame_time) {
+    auto frame_end_time = std::chrono::steady_clock::now();
+    double actual_frame_time = std::chrono::duration<double>(frame_end_time - cur_time).count();
+    if (actual_frame_time < target_frame_time) {
+        double sleep_duration = target_frame_time - actual_frame_time;
+        std::this_thread::sleep_for(std::chrono::duration<double>(sleep_duration));
+    }
 }
 
 void Application::run() {
     constexpr double FIXED_DT = 1.0 / 60.0;
     constexpr double MAX_ACCUMULATOR = FIXED_DT * 5.0;
 
-    double accumulator = 0.0;
+    constexpr double TARGET_FPS = 120.0;
+    constexpr double TARGET_FRAME_TIME = 1.0 / TARGET_FPS;
+
     auto last_time = std::chrono::high_resolution_clock::now();
+    auto last_fps_update_time = std::chrono::high_resolution_clock::now();
+
     int frame_count = 0;
-    auto last_fps_update_time = SDL_GetTicks();
+    double accumulator = 0.0;
 
     auto window = services.resolve<SDLWindowImpl>();
+    auto renderer = services.resolve<IRenderService>();
+    auto gui = services.resolve<IIMGuiService>();
     std::array<char, 64> window_attrs;
 
-    while (get_is_running()) {
+    is_running = true;
+    while (is_running) {
         auto cur_time = std::chrono::high_resolution_clock::now();
-        double delta_time = std::chrono::duration<double>(cur_time - last_time).count();
+        delta_time = std::chrono::duration<double>(cur_time - last_time).count();
         last_time = cur_time;
 
         if (delta_time > MAX_ACCUMULATOR)
             delta_time = MAX_ACCUMULATOR;
 
+        accumulator += delta_time;
+
+        event_bus->process_queue();
         poll_events();
 
-        accumulator += delta_time;
         while (accumulator >= FIXED_DT) {
-            g_world->on_fixed_update(FIXED_DT, ticks);
+            if (g_world->on_fixed_update(FIXED_DT)) {
+                break;
+            }
             accumulator -= FIXED_DT;
             ticks++;
         }
 
-        g_world->on_variable_update(delta_time);
+        renderer->clear();
+        gui->begin();
 
-        ticks = SDL_GetTicks();
-        if (ticks - last_fps_update_time > 1000) {
-            float fps = frame_count * 1000.0f / static_cast<float>(ticks - last_fps_update_time);
-            frame_count = 0;
-            last_fps_update_time = ticks;
-
-            std::snprintf(window_attrs.data(), window_attrs.size(), "FPS: %.1f - Delta: %.6f", fps, delta_time);
-            const std::string full_title = std::format("{} - {}", app_name, window_attrs.data());
-            window->set_title(full_title.c_str());
+        if (g_world->on_variable_update(delta_time)) {
+            break;
         }
+
+        gui->end();
+        renderer->present();
+
+        double elapsed = std::chrono::duration<double>(cur_time - last_fps_update_time).count();
+        if (elapsed >= 1.0) {
+            double fps = frame_count / elapsed;
+            frame_count = 0;
+            last_fps_update_time = cur_time;
+            update_window_title(window, app_desc.Name, window_attrs.data(), fps, delta_time);
+        }
+
+        throttle_framerate(cur_time, TARGET_FRAME_TIME);
 
         frame_count++;
     }
+
+    is_running = false;
 }
 
 void Application::poll_events() {
     SDL_Event sdl_event;
     while (SDL_PollEvent(&sdl_event)) {
         auto event = SDLEventHelpers::map_from_sdl(sdl_event);
-        event_bus.enqueue(std::move(event));
+        event_bus->enqueue(std::move(event));
     }
 }
 
 void Application::finish() {
     g_world->on_finish();
     services.cleanup_all();
-    event_bus.clear();
     SDL_Quit();
+    NC_LOG_TRACE("application finished");
 }
 
 } // namespace ncore

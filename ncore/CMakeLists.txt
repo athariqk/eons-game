@@ -28,10 +28,11 @@ set_target_properties(ncore PROPERTIES
 	VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:ncore>"
 )
 
+# build config macros
 target_compile_definitions(ncore PRIVATE
-    "$<$<CONFIG:Debug>:DEBUG>"
-    "$<$<CONFIG:Release>:RELEASE>"
-    "$<$<CONFIG:Dist>:DIST>"
+    $<$<CONFIG:Debug>:NC_DEBUG=1>
+    $<$<CONFIG:Release>:NC_RELEASE=1>
+    $<$<CONFIG:Dist>:NC_DIST=1>
 )
 
 target_compile_options(ncore PRIVATE "$<$<CXX_COMPILER_ID:MSVC>:/GR->")

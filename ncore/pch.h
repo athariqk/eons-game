@@ -17,6 +17,7 @@
 #include <mutex>
 #include <optional>
 #include <random>
+#include <set>
 #include <span>
 #include <sstream>
 #include <string>
@@ -24,8 +25,10 @@
 #include <thread>
 #include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
+#include <queue>
 
 // === External libraries ===
 #include <SDL3/SDL.h>

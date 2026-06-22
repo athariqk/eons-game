@@ -94,6 +94,7 @@ enum class FieldCategory : uint8_t {
     Container,
     Aggregate,
     Pointer,
+    Enum,
 };
 
 //------------------------------------------------------------------------------
@@ -184,6 +185,44 @@ struct FieldInfo {
 
 //------------------------------------------------------------------------------
 
+struct EnumElement {
+    std::string_view name;
+    int64_t value;
+};
+
+/**
+ * @brief EnumInfo represents a reflected enumeration type.
+ */
+struct EnumInfo : public TypeInfo {
+    const EnumElement *elements_begin = nullptr;
+    const EnumElement *elements_end = nullptr;
+
+    EnumInfo() = default;
+    EnumInfo(const char *name, TypeId t_id, size_t size, size_t align) : TypeInfo(name, t_id, size, align) {}
+
+    std::span<const EnumElement> elements() const noexcept { return {elements_begin, elements_end}; }
+
+    bool try_get_value(std::string_view name, int64_t &out_value) const noexcept {
+        for (const auto &elem: elements()) {
+            if (elem.name == name) {
+                out_value = elem.value;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    std::string_view get_name(int64_t value) const noexcept {
+        for (const auto &elem: elements()) {
+            if (elem.value == value)
+                return elem.name;
+        }
+        return "<unknown_enum_value>";
+    }
+};
+
+//------------------------------------------------------------------------------
+
 struct RecordVisitor;
 
 /**
@@ -253,7 +292,7 @@ public:
         for (auto *c = type_list_head; c; c = c->_next)
             if (c->id == id)
                 return c;
-        NC_LOG_WARN("class with ID '{}' not in the registry, probably not reflected?", id.value);
+        NC_LOG_WARN("type with ID '{}' not in the registry, probably not reflected?", id.value);
         return nullptr;
     }
 
@@ -261,7 +300,7 @@ public:
         for (auto *c = type_list_head; c; c = c->_next)
             if (name == c->name)
                 return c;
-        NC_LOG_WARN("class with name '{}' not in the registry, probably not reflected?", name);
+        NC_LOG_WARN("type with name '{}' not in the registry, probably not reflected?", name);
         return nullptr;
     }
 
@@ -430,6 +469,8 @@ struct hash<ncore::rfl::TypeId> {
 
 //------------------------------------------------------------------------------
 
+// TODO: may be better to use attributes after all
+
 #define NC_FIELD_IMPL(T, m, flg, q)                                                                                    \
     ::ncore::rfl::FieldInfo{                                                                                           \
         #m,                                                                                                            \
@@ -455,7 +496,7 @@ struct hash<ncore::rfl::TypeId> {
 
 //------------------------------------------------------------------------------
 
-#define NSTRUCT(T, ...)                                                                                            \
+#define NSTRUCT(T, ...)                                                                                                \
     static ::ncore::rfl::RecordInfo &_nc_info_##T() {                                                                  \
         static ::ncore::rfl::FieldInfo _nc_flds_##T[] = {__VA_ARGS__};                                                 \
         static ::ncore::rfl::RecordInfo &ci = []() -> ::ncore::rfl::RecordInfo & {                                     \
@@ -467,3 +508,21 @@ struct hash<ncore::rfl::TypeId> {
         return ci;                                                                                                     \
     }                                                                                                                  \
     inline static const int _nc_trig_##T = (_nc_info_##T(), 0);
+
+//------------------------------------------------------------------------------
+
+#define NENUM_ELEMENT(EnumT, element)                                                                                  \
+    ::ncore::rfl::EnumElement { #element, static_cast<int64_t>(EnumT::element) }
+
+#define NENUM(T, ...)                                                                                                  \
+    static ::ncore::rfl::EnumInfo &_nc_enum_info_##T() {                                                               \
+        static ::ncore::rfl::EnumElement _nc_enum_elems_##T[] = {__VA_ARGS__};                                         \
+        static ::ncore::rfl::EnumInfo &ei = []() -> ::ncore::rfl::EnumInfo & {                                         \
+            auto &e = ::ncore::rfl::Registry::emplace<::ncore::rfl::EnumInfo, T>(#T);                                  \
+            e.elements_begin = _nc_enum_elems_##T;                                                                     \
+            e.elements_end = _nc_enum_elems_##T + (sizeof(_nc_enum_elems_##T) / sizeof(::ncore::rfl::EnumElement));    \
+            return e;                                                                                                  \
+        }();                                                                                                           \
+        return ei;                                                                                                     \
+    }                                                                                                                  \
+    inline static const int _nc_trig_enum_##T = (_nc_enum_info_##T(), 0);

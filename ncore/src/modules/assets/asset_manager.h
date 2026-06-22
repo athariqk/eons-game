@@ -3,9 +3,9 @@
 #include <memory>
 #include <unordered_map>
 
-#include <ncore/kernel/service.h>
-#include <ncore/kernel/types.h>
 #include <modules/assets/asset_pool.h>
+#include <ncore/kernel/types.h>
+#include <ncore/modules/service.h>
 
 namespace ncore {
 
