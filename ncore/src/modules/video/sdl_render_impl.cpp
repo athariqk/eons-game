@@ -21,9 +21,9 @@ Error SDLRenderImpl::init() {
     return Error::OK;
 }
 
-void SDLRenderImpl::clear() { SDL_RenderClear(renderer); }
+void SDLRenderImpl::new_frame() { SDL_RenderClear(renderer); }
 
-void SDLRenderImpl::present() { SDL_RenderPresent(renderer); }
+void SDLRenderImpl::present_frame() { SDL_RenderPresent(renderer); }
 
 void SDLRenderImpl::set_draw_color(const Color &color) {
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);

@@ -3,13 +3,15 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-#include <string_view>
 
 #include <ncore/kernel/types.h>
-#include <ncore/modules/ecs/ecs_entity.h>
 #include <ncore/modules/ecs/ecs_system.h>
 
 namespace ncore {
+
+// Currently, we mostly just have wrappers for Flecs C API.
+// Just something that we can build upon in the future
+// from a standardized base.
 
 class EcsWorld;
 class EcsQueryBuilder;
@@ -88,7 +90,17 @@ public:
     }
 
     /**
-     * @brief Finalise and build the query. The query is owned by the world;
+     * @brief Add a wildcard term (match any component) with read-write access.
+     */
+    EcsQueryBuilder &any();
+
+    /**
+     * @brief Add a wildcard term (match any component) with read-only access.
+     */
+    EcsQueryBuilder &any_read();
+
+    /**
+     * @brief Finalise and build the query.  The query is owned by the world;
      * the returned EcsQuery is a lightweight handle.
      */
     EcsQuery build();

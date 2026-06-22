@@ -20,7 +20,7 @@ public:
     virtual ~IService() = default;
 
     virtual Error init() = 0;
-    virtual void cleanup() = 0;
+    virtual void finalize() = 0;
 };
 
 class NullService : public IService {
@@ -28,7 +28,7 @@ class NullService : public IService {
 
 public:
     Error init() override { return Error::OK; }
-    void cleanup() override {}
+    void finalize() override {}
 };
 
 } // namespace ncore

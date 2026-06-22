@@ -81,7 +81,7 @@ public:
 
     static void cleanup_all() {
         for (auto &[key, svc]: get_instance().services)
-            svc->cleanup();
+            svc->finalize();
     }
 
     static auto view() { return std::views::values(get_instance().services); }

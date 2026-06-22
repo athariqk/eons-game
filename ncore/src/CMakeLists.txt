@@ -9,10 +9,9 @@ target_sources(ncore PRIVATE
 	"modules/ecs/ecs_world.cpp"
 	"runtime/register_types.h" "runtime/register_types.cpp"
 	"runtime/ecs/ecs_runtime.cpp"
-	
 	"runtime/ecs/debug/ecs_debug.h" "runtime/ecs/debug/ecs_debug.cpp"
 	"runtime/ecs/audio/ecs_audio.h"
-	"runtime/ecs/graphics/ecs_graphics.h"
+	"runtime/ecs/graphics/ecs_graphics.h" "runtime/ecs/graphics/ecs_graphics.cpp"
 	"runtime/ecs/physics/ecs_physics.h"
 	"modules/audio/audio_service.h"
 	"modules/audio/audio_clip.h"
@@ -46,7 +45,7 @@ target_sources(ncore PRIVATE
 	"utils/logger/logger.h" "utils/logger/logger.cpp"
 	"utils/logger/sink.h" "utils/logger/sink.cpp"
 	"utils/logger/assert_handler.h" "utils/logger/assert_handler.cpp"
- "runtime/ecs/graphics/ecs_graphics.cpp")
+)
 
 target_include_directories(ncore
     PRIVATE

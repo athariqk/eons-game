@@ -9,7 +9,12 @@
 
 namespace ncore {
 
+// Currently, we mostly just have wrappers for Flecs C API.
+// Just something that we can build upon in the future
+// from a standardized base.
+
 class EcsWorld;
+class ServiceLocator;
 
 /**
  * @brief Defines which pipeline phase a system runs in.
@@ -32,28 +37,29 @@ using SystemCallback = void (*)(EcsIter &);
 
 class EcsIter {
 public:
-    double delta_time() const;
-    float delta_system_time() const;
-    int32_t count() const;
+    double delta_time() const; // The global delta time
+    float delta_time_internal() const; // System's own delta time
+    int32_t count() const; // The entity count being iterated
     EcsEntityId entity(int32_t row) const;
     EcsWorld &world() const;
+    ServiceLocator &services() const;
 
     /**
-     * @brief Typed column access. Column indices are 1-based in the order
+     * @brief Typed component access. Component indices are 1-based in the order
      * terms were added to the builder.
      */
     template<typename T>
-    T *field(int32_t column) {
+    T *get_component(int32_t column) {
         auto &info = rfl::Registry::get<T>();
-        return static_cast<T *>(field_(column, info.size, info.alignment));
+        return static_cast<T *>(get_component_(column, info.size, info.alignment));
     }
 
     /**
-     * @brief Gets a single element from a typed column at a given row.
+     * @brief Gets a single element from a typed component at a given row.
      */
     template<typename T>
-    T &get(int32_t column, int32_t row) {
-        return field<T>(column)[row];
+    T &get_component(int32_t column, int32_t row) {
+        return get_component<T>(column)[row];
     }
 
 private:
@@ -63,7 +69,7 @@ private:
     // iterator impl details
     explicit EcsIter(void *iter);
     void set_iter_(void *iter);
-    void *field_(int32_t column, size_t size, size_t alignment) const;
+    void *get_component_(int32_t column, size_t size, size_t alignment) const;
     void *it_ = nullptr;
 };
 
@@ -93,6 +99,16 @@ public:
         return *this;
     }
 
+    /**
+     * @brief Add a wildcard term (match any component) with read-write access.
+     */
+    EcsSystemBuilder &any();
+
+    /**
+     * @brief Add a wildcard term (match any component) with read-only access.
+     */
+    EcsSystemBuilder &any_read();
+
     EcsSystemBuilder &in(EcsSystemPhase phase);
     EcsSystemBuilder &order(int32_t priority);
 
@@ -101,6 +117,8 @@ public:
      * @return The entity handle of the created system.
      */
     EcsEntityId iter(SystemCallback callback);
+
+    EcsEntityId each(SystemCallback callback);
 
 private:
     template<typename T>

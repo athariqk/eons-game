@@ -69,6 +69,11 @@ std::span<EcsEntityId> EcsWorld::get_entities() const {
     return std::span<EcsEntityId>(const_cast<EcsEntityId *>(ents.ids), ents.alive_count);
 }
 
+size_t EcsWorld::get_entity_count(bool alive) const {
+    ecs_entities_t ents = ecs_get_entities(pImpl->world);
+    return static_cast<size_t>(alive ? ents.alive_count : ents.count);
+}
+
 void EcsWorld::destroy(EcsEntityId entity) {
     ecs_delete(pImpl->world, entity);
     NC_LOG_TRACE_C(log::ECS, "destroyed entity: {}", entity);
@@ -108,9 +113,9 @@ bool EcsWorld::has_component_(EcsComponentId eid, const rfl::TypeInfo *type) con
 // Systems & queries
 //------------------------------------------------------------------------------
 
-EcsSystemBuilder EcsWorld::system(std::string_view name) { return EcsSystemBuilder(*this, std::string(name)); }
+EcsSystemBuilder EcsWorld::create_system(std::string_view name) { return EcsSystemBuilder(*this, std::string(name)); }
 
-EcsQueryBuilder EcsWorld::query(std::string_view name) { return EcsQueryBuilder(*this, std::string(name)); }
+EcsQueryBuilder EcsWorld::create_query(std::string_view name) { return EcsQueryBuilder(*this, std::string(name)); }
 
 EcsComponentId EcsWorld::register_component_type(const rfl::TypeInfo *type) {
     auto it = pImpl->comp_id_map.find(type);

@@ -32,7 +32,7 @@ public:
 
 #define NCLASS(class_name, parent_class)                                                                               \
 public:                                                                                                                \
-    const std::string_view get_class_name() const override { return #class_name; }                                      \
+    const std::string_view get_class_name() const override { return #class_name; }                                     \
     ::ncore::rfl::TypeId get_type_id() const override { return ::ncore::rfl::Registry::get_type_id<class_name>(); }    \
     const ::ncore::rfl::RecordInfo &get_class_info() const override {                                                  \
         return static_cast<const ::ncore::rfl::RecordInfo &>(::ncore::rfl::Registry::get<class_name>());               \

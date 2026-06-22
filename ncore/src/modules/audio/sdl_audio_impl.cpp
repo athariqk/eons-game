@@ -14,7 +14,7 @@ Error SDLAudioImpl::init() {
     return Error::OK;
 }
 
-void SDLAudioImpl::cleanup() {
+void SDLAudioImpl::finalize() {
     for (auto &[handle, stream]: streams) {
         if (stream != nullptr) {
             SDL_DestroyAudioStream(stream);

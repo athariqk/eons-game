@@ -15,7 +15,7 @@ class AssetManager : public IService {
 public:
     AssetManager() = default;
     Error init() override { return Error::OK; }
-    void cleanup() override {}
+    void finalize() override {}
 
     template<typename T>
     void register_loader(typename AssetPool<T>::LoaderFn loader) {

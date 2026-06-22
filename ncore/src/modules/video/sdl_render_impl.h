@@ -13,15 +13,15 @@ class SDLRenderImpl : public IRenderService {
 
 public:
     SDLRenderImpl(uint32_t window_id) : window_id(window_id) {}
-    ~SDLRenderImpl() override { clear(); }
+    ~SDLRenderImpl() override {}
 
-	Error init() override;
-    void cleanup() override {}
+    Error init() override;
+    void finalize() override {}
 
-    void clear() override;
-    void present() override;
+    void new_frame() override;
+    void present_frame() override;
+
     void set_draw_color(const Color &color) override;
-
     void draw_line(const Vec4 &rect) override;
     void draw_rect(const Vec4 &rect) override;
     void fill_rect(const Vec4 &rect) override;

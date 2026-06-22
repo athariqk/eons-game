@@ -17,7 +17,7 @@ public:
     SDLAudioImpl() = default;
 
     Error init() override;
-    void cleanup() override;
+    void finalize() override;
 
     void play_sound(const AudioClip *p_sound) override;
 

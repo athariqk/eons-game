@@ -23,7 +23,7 @@ double EcsIter::delta_time() const {
     return static_cast<double>(it->delta_time);
 }
 
-float EcsIter::delta_system_time() const {
+float EcsIter::delta_time_internal() const {
     auto *it = static_cast<ecs_iter_t *>(it_);
     return it->delta_system_time;
 }
@@ -43,7 +43,9 @@ EcsWorld &EcsIter::world() const {
     return *static_cast<EcsWorld *>(ecs_get_binding_ctx(it->world));
 }
 
-void *EcsIter::field_(int32_t column, size_t size, size_t /*alignment*/) const {
+ServiceLocator &EcsIter::services() const { return world().get_services(); }
+
+void *EcsIter::get_component_(int32_t column, size_t size, size_t /*alignment*/) const {
     auto *it = static_cast<ecs_iter_t *>(it_);
     // ecs_field_w_size uses 0-based indices; public API is 1-based
     return ecs_field_w_size(it, size, static_cast<int8_t>(column - 1));
@@ -75,12 +77,28 @@ EcsSystemBuilder::~EcsSystemBuilder() {
 
 void EcsSystemBuilder::add_term_impl(const rfl::TypeInfo *type, uint8_t inout) {
     NC_ASSERT(type, "reflected component type missing");
-    uint64_t comp_id = pImpl->world.register_component_type(type);
+    EcsComponentId comp_id = pImpl->world.register_component_type(type);
 
     ecs_term_t term{};
     term.id = comp_id;
     term.inout = (inout == 0) ? EcsInOutDefault : EcsIn;
     pImpl->terms.push_back(term);
+}
+
+EcsSystemBuilder &EcsSystemBuilder::any() {
+    ecs_term_t term{};
+    term.id = EcsWildcard;
+    term.inout = EcsInOutDefault;
+    pImpl->terms.push_back(term);
+    return *this;
+}
+
+EcsSystemBuilder &EcsSystemBuilder::any_read() {
+    ecs_term_t term{};
+    term.id = EcsWildcard;
+    term.inout = EcsIn;
+    pImpl->terms.push_back(term);
+    return *this;
 }
 
 EcsSystemBuilder &EcsSystemBuilder::in(EcsSystemPhase phase) {

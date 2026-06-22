@@ -19,10 +19,10 @@ public:
     ~ImGuiImpl() {}
 
     Error init() override;
-    void cleanup() override;
+    void finalize() override;
 
-    void begin() override;
-    void end() override;
+    void begin_frame() override;
+    void render_frame() override;
 
 private:
     bool m_initialized = false;

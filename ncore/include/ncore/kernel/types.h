@@ -267,6 +267,13 @@ struct RecordInfo : public TypeInfo {
  */
 class Registry {
 public:
+    /**
+     * @brief Registers a TypeInfo subclass for a given type T.
+     *
+     * @param TI The TypeInfo subclass to construct (e.g. RecordInfo, EnumInfo, etc).
+     * @param T The actual type to reflect.
+     * @param Extra Extra arguments forwarded to the TypeInfo class/subclass constructor.
+     */
     template<std::derived_from<TypeInfo> TI, typename T, typename... Extra>
     static TI &emplace(const char *name, Extra &&...extra) noexcept {
         static TI info(name, detail::type_id<T>(), sizeof(T), alignof(T), std::forward<Extra>(extra)...);
@@ -282,11 +289,16 @@ public:
 
     /**
      * @brief Registers a plain TypeInfo for primitives/fundamentals.
+     *
+     * @param T The actual type to reflect.
+     * @param name The name to register the primitive type under (e.g. "int", "float", etc).
      */
     template<typename T>
     static TypeInfo &emplace(const char *name) noexcept {
         return emplace<TypeInfo, T>(name);
     }
+
+    // TODO: add register_class<T>() helper method
 
     static const TypeInfo *find(TypeId id) noexcept {
         for (auto *c = type_list_head; c; c = c->_next)

@@ -8,7 +8,7 @@ class EcsGraphics : public EcsModule {
     NCLASS(EcsGraphics, EcsModule)
 
 public:
-    void build(EcsWorld &world) override {}
+    void build(EcsWorld &world) override;
 };
 
 } // namespace ncore

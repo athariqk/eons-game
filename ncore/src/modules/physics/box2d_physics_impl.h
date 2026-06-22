@@ -20,7 +20,7 @@ public:
 
     Error init() override;
     void step() const override;
-    void cleanup() override;
+    void finalize() override;
 
     RID create_shape(ShapeType type) override;
 

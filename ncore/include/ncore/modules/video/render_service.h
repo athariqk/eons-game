@@ -14,8 +14,8 @@ public:
     virtual ~IRenderService() = default;
 
     // Basic rendering
-    virtual void clear() = 0;
-    virtual void present() = 0;
+    virtual void new_frame() = 0;
+    virtual void present_frame() = 0;
     virtual void set_draw_color(const Color &color) = 0;
 
     // Primitive shape drawing

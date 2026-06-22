@@ -1,5 +1,6 @@
 #include <ncore/kernel/types.h>
 
+#include <ncore/kernel/object.h>
 #include <ncore/utils/assert.h>
 
 namespace ncore::rfl {
@@ -22,17 +23,21 @@ const TypeInfo &Registry::get(std::string_view name) noexcept {
 
 bool Registry::register_primitive_types() {
     // static init of fundamental TypeInfo objects
-    ncore::rfl::Registry::emplace<bool>("bool");
-    ncore::rfl::Registry::emplace<int32_t>("int32_t");
-    ncore::rfl::Registry::emplace<uint32_t>("uint32_t");
-    ncore::rfl::Registry::emplace<int64_t>("int64_t");
-    ncore::rfl::Registry::emplace<uint64_t>("uint64_t");
-    ncore::rfl::Registry::emplace<float>("float");
-    ncore::rfl::Registry::emplace<double>("double");
-    ncore::rfl::Registry::emplace<size_t>("size_t");
-    ncore::rfl::Registry::emplace<uint8_t>("uint8_t");
-    ncore::rfl::Registry::emplace<ncore::rfl::StringClass, std::string>("std::string");
-    ncore::rfl::Registry::emplace<ncore::rfl::VectorClass<std::vector<int>>, std::vector<int>>("std::vector<int>");
+    Registry::emplace<bool>("bool");
+    Registry::emplace<int32_t>("int32_t");
+    Registry::emplace<uint32_t>("uint32_t");
+    Registry::emplace<int64_t>("int64_t");
+    Registry::emplace<uint64_t>("uint64_t");
+    Registry::emplace<float>("float");
+    Registry::emplace<double>("double");
+    Registry::emplace<size_t>("size_t");
+    Registry::emplace<uint8_t>("uint8_t");
+    Registry::emplace<StringClass, std::string>("std::string");
+    Registry::emplace<VectorClass<std::vector<int>>, std::vector<int>>("std::vector<int>");
+
+    // TODO: should this be here?
+    Registry::emplace<RecordInfo, ncore::NObject>("NObject");
+
     return true;
 }
 

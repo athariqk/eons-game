@@ -166,15 +166,9 @@ void Application::run() {
             ticks++;
         }
 
-        renderer->clear();
-        gui->begin();
-
         if (g_world->on_variable_update(delta_time)) {
             break;
         }
-
-        gui->end();
-        renderer->present();
 
         double elapsed = std::chrono::duration<double>(cur_time - last_fps_update_time).count();
         if (elapsed >= 1.0) {

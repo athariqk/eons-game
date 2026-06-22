@@ -23,8 +23,8 @@ public:
     void update();
     void add_layer(const std::string &layer_name, int order, std::function<void()> callback);
 
-    virtual void begin() = 0;
-    virtual void end() = 0;
+    virtual void begin_frame() = 0;
+    virtual void render_frame() = 0;
 
 protected:
     std::vector<IMGuiLayer> layers;

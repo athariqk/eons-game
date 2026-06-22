@@ -3,11 +3,11 @@
 namespace ncore {
 
 void IIMGuiService::update() {
-    begin();
+    begin_frame();
     for (const auto &layer: layers) {
         layer.callback();
     }
-    end();
+    render_frame();
 }
 
 void IIMGuiService::add_layer(const std::string &layer_name, int order, std::function<void()> callback) {

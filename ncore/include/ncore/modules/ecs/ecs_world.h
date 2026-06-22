@@ -11,9 +11,12 @@
 #include "ecs_entity.h"
 #include "ecs_module.h"
 #include "ecs_query.h"
-#include "ecs_system.h"
 
 namespace ncore {
+
+// Currently, we mostly just have wrappers for Flecs C API.
+// Just something that we can build upon in the future
+// from a standardized base.
 
 class EventBus;
 class Viewport;
@@ -51,6 +54,7 @@ public:
 
     EcsEntityId create_entity(std::string name = std::string());
     std::span<EcsEntityId> get_entities() const;
+    size_t get_entity_count(bool alive = true) const;
     void destroy(EcsEntityId entity);
 
     // components
@@ -84,12 +88,12 @@ public:
     /**
      * @brief Returns a fluent builder for registering a stateless system.
      */
-    EcsSystemBuilder system(std::string_view name);
+    EcsSystemBuilder create_system(std::string_view name);
 
     /**
      * @brief Returns a fluent builder for creating a cached query.
      */
-    EcsQueryBuilder query(std::string_view name);
+    EcsQueryBuilder create_query(std::string_view name);
 
     /**
      * @brief Registers (or resolves) a custom reflected component type.

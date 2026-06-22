@@ -38,7 +38,7 @@ EventBus::SubscriberDebugInfo EventBus::get_subscriber_debug_info() const {
     return info;
 }
 
-void EventBus::cleanup() {
+void EventBus::finalize() {
     subscribers.clear();
     event_queue.clear();
     next_subscription_id = 0;

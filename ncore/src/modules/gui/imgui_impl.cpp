@@ -3,7 +3,7 @@
 #include <ncore/modules/events/event_bus.h>
 #include <ncore/modules/events/events.h>
 #include <ncore/modules/events/input_event.h>
-#include <ncore/runtime/service_locator.h>
+#include <ncore/modules/service_locator.h>
 
 #include <modules/events/sdl_event_helpers.h>
 #include <modules/gui/imgui_sdl.h>
@@ -68,7 +68,7 @@ Error ImGuiImpl::init() {
     return Error::OK;
 }
 
-void ImGuiImpl::cleanup() {
+void ImGuiImpl::finalize() {
     if (!m_initialized) {
         return;
     }
@@ -79,7 +79,7 @@ void ImGuiImpl::cleanup() {
     m_initialized = false;
 }
 
-void ImGuiImpl::begin() {
+void ImGuiImpl::begin_frame() {
     if (!m_initialized) {
         return;
     }
@@ -89,7 +89,7 @@ void ImGuiImpl::begin() {
     ImGui::NewFrame();
 }
 
-void ImGuiImpl::end() {
+void ImGuiImpl::render_frame() {
     if (!m_initialized) {
         return;
     }

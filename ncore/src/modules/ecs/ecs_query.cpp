@@ -103,11 +103,27 @@ void EcsQueryBuilder::add_term_impl(const rfl::TypeInfo *type, uint8_t inout) {
     pImpl->terms.push_back(term);
 }
 
+EcsQueryBuilder &EcsQueryBuilder::any() {
+    ecs_term_t term{};
+    term.id    = EcsWildcard;
+    term.inout = EcsInOutDefault;
+    pImpl->terms.push_back(term);
+    return *this;
+}
+
+EcsQueryBuilder &EcsQueryBuilder::any_read() {
+    ecs_term_t term{};
+    term.id    = EcsWildcard;
+    term.inout = EcsIn;
+    pImpl->terms.push_back(term);
+    return *this;
+}
+
 EcsQuery EcsQueryBuilder::build() {
     size_t term_count = pImpl->terms.size();
     NC_ASSERT(term_count > 0,
               std::format("query '{}' has no terms! use .with<T>() or .read<T>() before .build()", pImpl->name).data());
-    NC_ASSERT(term_count <= FLECS_TERM_COUNT_MAX, std::format("too many query terms (%zu)", term_count).data());
+    NC_ASSERT(term_count <= FLECS_TERM_COUNT_MAX, std::format("too many query terms ({})", term_count).data());
 
     ecs_query_desc_t qdesc{};
     memcpy(qdesc.terms, pImpl->terms.data(), term_count * sizeof(ecs_term_t));

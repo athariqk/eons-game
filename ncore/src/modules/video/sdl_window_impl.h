@@ -16,7 +16,7 @@ public:
     SDLWindowImpl(const char *title, int width, int height, bool fullscreen);
 
     Error init() override;
-    void cleanup() override;
+    void finalize() override;
 
     SDL_Renderer *get_renderer() const;
     SDL_Window *get_native_handle() const;

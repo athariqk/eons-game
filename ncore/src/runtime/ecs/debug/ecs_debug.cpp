@@ -5,9 +5,12 @@
 namespace ncore {
 
 void EcsDebug::build(EcsWorld &world) {
-    // ImGui::Begin("ECS Debug");
-    // ImGui::Text("Entity count: %zu", entity_count);
-    // ImGui::End();
+    world.create_system("EcsDebug::Stats::Update").in(EcsSystemPhase::Update).iter([](EcsIter &iter) {
+        ImGui::Begin("ECS Debug");
+        ImGui::Text("Entity count:\n Total: %zu\n Alive: %zu", iter.world().get_entity_count(),
+                    iter.world().get_entity_count(true));
+        ImGui::End();
+    });
 }
 
 } // namespace ncore

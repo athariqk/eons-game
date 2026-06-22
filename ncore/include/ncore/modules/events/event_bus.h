@@ -29,7 +29,7 @@ class EventBus : public IService {
 
 public:
     Error init() override { return Error::OK; }
-    void cleanup() override;
+    void finalize() override;
 
     /**
      * @brief subscribe to an event type

@@ -41,7 +41,7 @@ Error SDLWindowImpl::init() {
     return Error::OK;
 }
 
-void SDLWindowImpl::cleanup() {
+void SDLWindowImpl::finalize() {
     NC_LOG_TRACE_C(log::GRAPHICS, "Destroying SDL renderer: {}", SDL_GetRendererName(renderer));
     SDL_DestroyRenderer(renderer);
     NC_LOG_TRACE_C(log::GRAPHICS, "Destroying SDL window. ID {}", get_window_id());
