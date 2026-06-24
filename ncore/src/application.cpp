@@ -1,3 +1,7 @@
+// Copyright (C) 2026 Ahmad Ghalib Athariq <alib.athariq@gmail.com>
+// This file is subject to the license terms in the LICENSE file
+// found in the top-level directory of this distribution.
+
 #include <ncore/application.h>
 
 #include <array>
@@ -12,7 +16,10 @@
 #include <ncore/modules/game_world.h>
 #include <ncore/modules/service_locator.h>
 #include <ncore/modules/video/image.h>
+#include <ncore/modules/video/render_service.h>
 #include <ncore/modules/video/viewport.h>
+#include <ncore/runtime/ecs/ecs_runtime.h>
+#include <ncore/scene/scene.h>
 #include <ncore/utils/log.h>
 
 #include <kernel/config.h>
@@ -26,7 +33,6 @@
 #include <modules/physics/box2d_physics_impl.h>
 #include <modules/video/sdl_render_impl.h>
 #include <modules/video/sdl_window_impl.h>
-#include <ncore/modules/video/render_service.h>
 #include <utils/logger/log_level.h>
 #include <utils/logger/logger.h>
 #include <utils/logger/sink.h>
@@ -106,6 +112,7 @@ void Application::init() {
 
     g_world = create_world();
     g_world->on_init();
+    on_world_init(*g_world);
 
     NC_LOG_TRACE("application initialized");
 }
@@ -192,6 +199,12 @@ void Application::poll_events() {
         auto event = SDLEventHelpers::map_from_sdl(sdl_event);
         event_bus->enqueue(std::move(event));
     }
+}
+
+std::unique_ptr<IGameWorld> Application::create_world() {
+    auto scene = std::make_unique<Scene>(services);
+    scene->get_ecs().load_feature<EcsRuntimeFeature>();
+    return scene;
 }
 
 void Application::finish() {

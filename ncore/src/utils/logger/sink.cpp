@@ -18,11 +18,10 @@ void ConsoleSink::write(const LogMsg &msg) {
     if (!msg.loc.empty()) {
         out += std::format("\x1b[2;37mloc: {}:{}\x1b[0m\n\n", msg.loc.file, msg.loc.line);
     }
-    auto stream = (msg.level >= Level::Warn) ? stderr : stdout;
-    fputs(out.c_str(), stream);
+    fputs(out.c_str(), stderr);
 }
 
-void ConsoleSink::flush() { fflush(stdout); }
+void ConsoleSink::flush() { fflush(stderr); }
 
 FileSink::FileSink(const std::string &path, size_t max_bytes, size_t max_files) :
     m_path(path), m_max_bytes(max_bytes), m_max_files(max_files) {

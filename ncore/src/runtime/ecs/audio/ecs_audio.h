@@ -4,8 +4,8 @@
 
 namespace ncore {
 
-class EcsAudio : public EcsModule {
-    NCLASS(EcsAudio, EcsModule)
+class EcsAudioFeature : public EcsFeature {
+    NCLASS(EcsAudioFeature, EcsFeature)
 
 public:
     void build(EcsWorld &world) override {}

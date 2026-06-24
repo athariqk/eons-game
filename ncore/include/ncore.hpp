@@ -1,3 +1,7 @@
+// Copyright (C) 2026 Ahmad Ghalib Athariq <alib.athariq@gmail.com>
+// This file is subject to the license terms in the LICENSE file
+// found in the top-level directory of this distribution.
+
 #pragma once
 
 #include <ncore/application.h>
@@ -22,6 +26,9 @@
 #include <ncore/runtime/ecs/graphics/ecs_sprite.h>
 #include <ncore/runtime/ecs/kernel/ecs_transform.h>
 #include <ncore/runtime/ecs/physics/ecs_rigidbody.h>
+
+#include <ncore/scene/node.h>
+#include <ncore/scene/scene.h>
 
 #include <ncore/utils/assert.h>
 #include <ncore/utils/log.h>

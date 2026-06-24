@@ -5,8 +5,8 @@
 
 namespace ncore {
 
-class EcsDebug : public EcsModule {
-    NCLASS(EcsDebug, EcsModule)
+class EcsDebugFeature : public EcsFeature {
+    NCLASS(EcsDebugFeature, EcsFeature)
 
 public:
     void build(EcsWorld &world) override;

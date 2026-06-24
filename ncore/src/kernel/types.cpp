@@ -22,6 +22,8 @@ const TypeInfo &Registry::get(std::string_view name) noexcept {
 }
 
 bool Registry::register_primitive_types() {
+	// !!TODO!!: make ALL these happen inside engine init instead of static init
+	// 
     // static init of fundamental TypeInfo objects
     Registry::emplace<bool>("bool");
     Registry::emplace<int32_t>("int32_t");

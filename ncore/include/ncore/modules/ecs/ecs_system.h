@@ -5,7 +5,7 @@
 #include <string>
 
 #include <ncore/kernel/types.h>
-#include <ncore/modules/ecs/ecs_entity.h>
+#include <ncore/modules/ecs/ecs_query.h>
 
 namespace ncore {
 
@@ -14,7 +14,6 @@ namespace ncore {
 // from a standardized base.
 
 class EcsWorld;
-class ServiceLocator;
 
 /**
  * @brief Defines which pipeline phase a system runs in.
@@ -27,106 +26,76 @@ enum class EcsSystemPhase {
     PostUpdate,
 };
 
-class EcsIter;
+using IterCallback = void (*)(EcsIter &);
+using EachCallback = void (*)(EcsIter &, EcsEntityId);
 
 /**
- * @brief A system callback is a stateless function receiving the
- * current iteration state.
- */
-using SystemCallback = void (*)(EcsIter &);
-
-class EcsIter {
-public:
-    double delta_time() const; // The global delta time
-    float delta_time_internal() const; // System's own delta time
-    int32_t count() const; // The entity count being iterated
-    EcsEntityId entity(int32_t row) const;
-    EcsWorld &world() const;
-    ServiceLocator &services() const;
-
-    /**
-     * @brief Typed component access. Component indices are 1-based in the order
-     * terms were added to the builder.
-     */
-    template<typename T>
-    T *get_component(int32_t column) {
-        auto &info = rfl::Registry::get<T>();
-        return static_cast<T *>(get_component_(column, info.size, info.alignment));
-    }
-
-    /**
-     * @brief Gets a single element from a typed component at a given row.
-     */
-    template<typename T>
-    T &get_component(int32_t column, int32_t row) {
-        return get_component<T>(column)[row];
-    }
-
-private:
-    friend class EcsSystemBuilder;
-    friend class EcsQuery;
-
-    // iterator impl details
-    explicit EcsIter(void *iter);
-    void set_iter_(void *iter);
-    void *get_component_(int32_t column, size_t size, size_t alignment) const;
-    void *it_ = nullptr;
-};
-
-/**
- * @brief EcsSystemBuilder is fluent API for registering ECS systems
+ * @brief EcsSystemBuilder is fluent API for registering EcsWorld-bound ECS systems.
  */
 class EcsSystemBuilder {
 public:
     EcsSystemBuilder(EcsWorld &world, std::string name);
     ~EcsSystemBuilder();
 
-    /**
-     * @brief Add read-write component terms.
-     */
+    // query builder forwarded functions
+
     template<typename... Comps>
     EcsSystemBuilder &with() {
-        (add_term_<Comps>(0), ...);
+        qb_.with<Comps...>();
         return *this;
     }
 
-    /**
-     * @brief Add read-only component terms.
-     */
+    template<typename First, typename Second>
+    EcsSystemBuilder &with_pair() {
+        qb_.with_pair<First, Second>();
+        return *this;
+    }
+
     template<typename... Comps>
     EcsSystemBuilder &read() {
-        (add_term_<Comps>(1), ...);
+        qb_.read<Comps...>();
         return *this;
     }
 
-    /**
-     * @brief Add a wildcard term (match any component) with read-write access.
-     */
-    EcsSystemBuilder &any();
+    EcsSystemBuilder &all() {
+        qb_.all();
+        return *this;
+    }
 
-    /**
-     * @brief Add a wildcard term (match any component) with read-only access.
-     */
-    EcsSystemBuilder &any_read();
+    EcsSystemBuilder &all_read() {
+        qb_.all_read();
+        return *this;
+    }
 
+    // system specific functions
+
+	/**
+     * @brief Sets which pipeline phase the system shall run in.
+     */
     EcsSystemBuilder &in(EcsSystemPhase phase);
+
+	// TODO: TBI
     EcsSystemBuilder &order(int32_t priority);
 
     /**
-     * @brief Finalise and register the system with the given callback.
+     * @brief Finalise and register the system with the given per-table callback.
      * @return The entity handle of the created system.
      */
-    EcsEntityId iter(SystemCallback callback);
+    EcsEntityId iter(IterCallback callback);
 
-    EcsEntityId each(SystemCallback callback);
+    /**
+     * @brief Finalise and register the system with the given per-entity callback.
+     * @return The entity handle of the created system.
+     */
+    EcsEntityId each(EachCallback callback);
 
 private:
-    template<typename T>
-    void add_term_(uint8_t inout) {
-        add_term_impl(rfl::Registry::find<T>(), inout);
-    }
+    EcsWorld &world_;
+    std::string name;
+    EcsQueryBuilder qb_;
 
-    void add_term_impl(const rfl::TypeInfo *type, uint8_t inout);
+    enum class SystemKind { Iter, Each };
+    EcsEntityId init_system_(SystemKind kind, void *callback);
 
     struct Impl;
     std::unique_ptr<Impl> pImpl;

@@ -31,9 +31,11 @@ public:
      * IService's inheritance hierarchy.
      *
      * TODO: add docs explaining implementation details and caveats
+	 * 
+     * TODO: cache resolved types?
      *
      * @return The **first** matching instance if multiple services are
-     * found, or nullptr if no matching service is found.
+     * found, or nullptr if no matching service are found.
      */
     template<std::derived_from<IService> T>
     static T *resolve() {

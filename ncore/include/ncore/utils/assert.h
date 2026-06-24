@@ -39,6 +39,14 @@ void handle_assert(const char *expr, const char *msg, const char *file, int line
         }                                                                                                              \
     } while (0)
 
+#define NC_ASSERT_NULL(ptr)                                                                                            \
+    do {                                                                                                               \
+        if (ptr == nullptr) {                                                                                          \
+            ncore::log::handle_assert(#ptr, "pointer to object is null", __FILE__, __LINE__);                          \
+            NC_DEBUGBREAK();                                                                                           \
+        }                                                                                                              \
+    } while (0)
+
 #else
 #define NC_ASSERT(expr, msg)                                                                                           \
     do {                                                                                                               \
@@ -61,6 +69,14 @@ void handle_assert(const char *expr, const char *msg, const char *file, int line
         if (!(expr)) {                                                                                                 \
             ncore::log::handle_assert(#expr, msg, __FILE__, __LINE__);                                                 \
             return ret_val;                                                                                            \
+        }                                                                                                              \
+    } while (0)
+
+#define NC_ASSERT_NULL(ptr)                                                                                            \
+    do {                                                                                                               \
+        if (ptr == nullptr) {                                                                                          \
+            ncore::log::handle_assert(#ptr, "pointer to object is null", __FILE__, __LINE__);                          \
+            std::abort();                                                                                              \
         }                                                                                                              \
     } while (0)
 #endif

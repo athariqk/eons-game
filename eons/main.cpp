@@ -14,11 +14,9 @@ public:
                                        .Identifier = GAME_VERSION_IDENTIFIER},
                      "eons.ini"}) {}
 
-    std::unique_ptr<ncore::IGameWorld> create_world() override {
-        auto ecs_world = std::make_unique<ncore::EcsWorld>(services);
-        ecs_world->load<ncore::EcsRuntime>();
-        ecs_world->load<MicrocosmModule>();
-        return ecs_world;
+    void on_world_init(ncore::IGameWorld &world) override {
+        auto &scene = static_cast<ncore::Scene &>(world);
+        scene.get_root_node()->create_child("Player");
     }
 };
 

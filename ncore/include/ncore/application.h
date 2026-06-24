@@ -53,7 +53,20 @@ public:
     virtual void finish();
 
     virtual void poll_events();
-    virtual std::unique_ptr<IGameWorld> create_world() = 0;
+
+    /**
+     * @brief Creates a new game world instance.
+     * By default, this creates a new Scene with the default ECS
+     * runtime features.
+     *
+     * See: EcsRuntimeFeature
+     */
+    virtual std::unique_ptr<IGameWorld> create_world();
+
+    /**
+     * @brief Called once after the world is initialized.
+     */
+    virtual void on_world_init(IGameWorld &world) {};
 
 protected:
     AppDesc app_desc;

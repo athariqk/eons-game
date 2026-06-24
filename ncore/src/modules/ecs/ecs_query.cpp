@@ -6,6 +6,8 @@
 #include <ncore/utils/assert.h>
 #include <ncore/utils/log.h>
 
+#include "flecs_helpers.h"
+
 namespace ncore {
 
 //------------------------------------------------------------------------------
@@ -16,6 +18,45 @@ EcsQuery::EcsQuery(EcsWorld *world_ref, void *world_handle, void *query_handle) 
     world_ref_(world_ref), world_(world_handle), query_(query_handle) {}
 
 EcsQuery::Iterator EcsQuery::begin() { return Iterator(world_ref_, world_, query_); }
+
+//------------------------------------------------------------------------------
+// EcsIter
+//------------------------------------------------------------------------------
+
+EcsIter::EcsIter(void *iter) : it_(iter) {}
+
+void EcsIter::set_iter_(void *iter) { it_ = iter; }
+
+double EcsIter::delta_time() const {
+    auto *it = static_cast<ecs_iter_t *>(it_);
+    return static_cast<double>(it->delta_time);
+}
+
+float EcsIter::delta_time_internal() const {
+    auto *it = static_cast<ecs_iter_t *>(it_);
+    return it->delta_system_time;
+}
+
+int32_t EcsIter::count() const {
+    auto *it = static_cast<ecs_iter_t *>(it_);
+    return static_cast<int32_t>(it->count);
+}
+
+EcsEntityId EcsIter::entity(int32_t row) const {
+    auto *it = static_cast<ecs_iter_t *>(it_);
+    return static_cast<EcsEntityId>(it->entities[row]);
+}
+
+EcsWorld &EcsIter::world() const {
+    auto *it = static_cast<ecs_iter_t *>(it_);
+    return *static_cast<EcsWorld *>(ecs_get_binding_ctx(it->world));
+}
+
+void *EcsIter::get_component_(int32_t column, size_t size, size_t alignment) const {
+    (void) alignment;
+    auto *it = static_cast<ecs_iter_t *>(it_);
+    return ecs_field_w_size(it, size, static_cast<int8_t>(column));
+}
 
 //------------------------------------------------------------------------------
 // EcsQuery::Iterator
@@ -74,14 +115,9 @@ EcsIter &EcsQuery::Iterator::operator*() { return wrapper_; }
 // EcsQueryBuilder
 //------------------------------------------------------------------------------
 
-struct EcsQueryBuilder::Impl {
-    EcsWorld &world;
-    std::string name;
-    std::string expr;
-    std::vector<ecs_term_t> terms;
-    bool built = false;
-
-    Impl(EcsWorld &world, std::string name) : world(world), name(std::move(name)) {}
+struct EcsQueryBuilder::Impl : public detail::FlecsQueryBuilder {
+    // inherit constructor so we can instantiate this in EcsQueryBuilder
+    using FlecsQueryBuilder::FlecsQueryBuilder;
 };
 
 EcsQueryBuilder::EcsQueryBuilder(EcsWorld &world, std::string name) :
@@ -103,32 +139,51 @@ void EcsQueryBuilder::add_term_impl(const rfl::TypeInfo *type, uint8_t inout) {
     pImpl->terms.push_back(term);
 }
 
-EcsQueryBuilder &EcsQueryBuilder::any() {
+void EcsQueryBuilder::add_term_pair_impl(const rfl::TypeInfo *first_type, const rfl::TypeInfo *sec_type,
+                                         uint8_t inout) {
+    NC_ASSERT(first_type && sec_type, "pair component types not registered");
+    EcsComponentId first_id = pImpl->world.register_component_type(first_type);
+    EcsComponentId second_id = pImpl->world.register_component_type(sec_type);
+
     ecs_term_t term{};
-    term.id    = EcsWildcard;
+    term.id = ecs_make_pair(first_id, second_id);
+    term.inout = (inout == 0) ? EcsInOutDefault : EcsIn;
+    pImpl->terms.push_back(term);
+}
+
+EcsQueryBuilder &EcsQueryBuilder::all() {
+    ecs_term_t term{};
+    term.id = EcsWildcard;
     term.inout = EcsInOutDefault;
     pImpl->terms.push_back(term);
     return *this;
 }
 
-EcsQueryBuilder &EcsQueryBuilder::any_read() {
+EcsQueryBuilder &EcsQueryBuilder::all_read() {
     ecs_term_t term{};
-    term.id    = EcsWildcard;
+    term.id = EcsWildcard;
     term.inout = EcsIn;
     pImpl->terms.push_back(term);
     return *this;
 }
 
+EcsQueryBuilder &EcsQueryBuilder::expr(std::string_view dsl) {
+    pImpl->expr = dsl;
+    return *this;
+}
+
+const std::string &EcsQueryBuilder::name() const { return pImpl->name; }
+
 EcsQuery EcsQueryBuilder::build() {
     size_t term_count = pImpl->terms.size();
     NC_ASSERT(term_count > 0,
-              std::format("query '{}' has no terms! use .with<T>() or .read<T>() before .build()", pImpl->name).data());
-    NC_ASSERT(term_count <= FLECS_TERM_COUNT_MAX, std::format("too many query terms ({})", term_count).data());
+        std::format("query '{}' has no terms! use .with<T>() or .read<T>() before .build()", pImpl->name).c_str());
+    NC_ASSERT(term_count <= FLECS_TERM_COUNT_MAX, std::format("too many query terms ({})", term_count).c_str());
 
-    ecs_query_desc_t qdesc{};
-    memcpy(qdesc.terms, pImpl->terms.data(), term_count * sizeof(ecs_term_t));
-
-    return pImpl->world.create_query_(pImpl->name, &qdesc);
+    ecs_query_desc_t qdesc = pImpl->get_as_descriptor();
+    EcsQuery result = pImpl->world.create_query_(pImpl->name, &qdesc);
+    pImpl->built = true;
+    return result;
 }
 
 } // namespace ncore

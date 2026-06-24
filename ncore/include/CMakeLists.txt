@@ -7,6 +7,8 @@
 		"ncore/application.h"
 		"ncore/utils/log.h"
 		"ncore/utils/assert.h"
+		"ncore/kernel/collection.h"
+		"ncore/kernel/memory.h"
 		"ncore/kernel/object.h"
 		"ncore/kernel/types.h"
 		"ncore/kernel/structures.h"
@@ -34,4 +36,6 @@
 		"ncore/runtime/ecs/kernel/ecs_transform.h"
 		"ncore/runtime/ecs/physics/ecs_rigidbody.h"
 		"ncore/runtime/ecs/graphics/ecs_sprite.h"
+		"ncore/scene/scene.h"
+		"ncore/scene/node.h"
 )

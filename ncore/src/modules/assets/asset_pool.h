@@ -1,6 +1,6 @@
 #pragma once
 
-#include <kernel/containers.h>
+#include <ncore/kernel/memory.h>
 #include <ncore/kernel/resource.h>
 
 namespace ncore {
@@ -27,7 +27,7 @@ public:
 
         NC_ASSERT(loader_func, "Requested asset has no loader");
 
-        size_t index = slots.allocate();
+        size_t index = slots.alloc();
         Slot *slot = slots.get(index);
 
         slot->data = loader_func(path);
@@ -67,7 +67,7 @@ public:
         slot->filepath.clear();
         slot->data.reset();
 
-        slots.deallocate(index);
+        slots.dealloc(index);
     }
 
     void unload_all() {

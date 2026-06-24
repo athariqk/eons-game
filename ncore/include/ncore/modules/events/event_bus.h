@@ -32,7 +32,7 @@ public:
     void finalize() override;
 
     /**
-     * @brief subscribe to an event type
+     * @brief Subscribe to an event type
      *
      * The order of subscribed consumers defines the event pipeline.
      * Subscribing to the base Event type is not supported.

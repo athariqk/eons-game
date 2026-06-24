@@ -8,106 +8,36 @@
 #include <ncore/utils/assert.h>
 #include <ncore/utils/log.h>
 
+#include "flecs_helpers.h"
+
 namespace ncore {
-
-//------------------------------------------------------------------------------
-// EcsIter
-//------------------------------------------------------------------------------
-
-EcsIter::EcsIter(void *iter) : it_(iter) {}
-
-void EcsIter::set_iter_(void *iter) { it_ = iter; }
-
-double EcsIter::delta_time() const {
-    auto *it = static_cast<ecs_iter_t *>(it_);
-    return static_cast<double>(it->delta_time);
-}
-
-float EcsIter::delta_time_internal() const {
-    auto *it = static_cast<ecs_iter_t *>(it_);
-    return it->delta_system_time;
-}
-
-int32_t EcsIter::count() const {
-    auto *it = static_cast<ecs_iter_t *>(it_);
-    return static_cast<int32_t>(it->count);
-}
-
-EcsEntityId EcsIter::entity(int32_t row) const {
-    auto *it = static_cast<ecs_iter_t *>(it_);
-    return static_cast<EcsEntityId>(it->entities[row]);
-}
-
-EcsWorld &EcsIter::world() const {
-    auto *it = static_cast<ecs_iter_t *>(it_);
-    return *static_cast<EcsWorld *>(ecs_get_binding_ctx(it->world));
-}
-
-ServiceLocator &EcsIter::services() const { return world().get_services(); }
-
-void *EcsIter::get_component_(int32_t column, size_t size, size_t /*alignment*/) const {
-    auto *it = static_cast<ecs_iter_t *>(it_);
-    // ecs_field_w_size uses 0-based indices; public API is 1-based
-    return ecs_field_w_size(it, size, static_cast<int8_t>(column - 1));
-}
 
 //------------------------------------------------------------------------------
 // EcsSystemBuilder
 //------------------------------------------------------------------------------
 
 struct EcsSystemBuilder::Impl {
-    EcsWorld &world;
-    std::string name;
-    EcsSystemPhase phase = EcsSystemPhase::Update;
-    int32_t order = 0;
-    std::vector<ecs_term_t> terms;
-    bool built = false;
-
-    Impl(EcsWorld &world, std::string name) : world(world), name(std::move(name)) {}
+    EcsSystemPhase phase_ = EcsSystemPhase::Update;
+    int32_t order_ = 0;
+    bool built_ = false;
 };
 
-EcsSystemBuilder::EcsSystemBuilder(EcsWorld &world, std::string name) :
-    pImpl(std::make_unique<Impl>(world, std::move(name))) {}
+EcsSystemBuilder::EcsSystemBuilder(EcsWorld &world, std::string p_name) :
+    world_(world), name(std::move(p_name)), qb_(world, name + "_qb"), pImpl(std::make_unique<Impl>()) {}
 
 EcsSystemBuilder::~EcsSystemBuilder() {
-    if (!pImpl->built) {
-        NC_LOG_WARN_C(log::ECS, "EcsSystemBuilder '{}' discarded without build", pImpl->name);
+    if (!pImpl->built_) {
+        NC_LOG_WARN_C(log::ECS, "EcsSystemBuilder '{}' discarded without being built", name);
     }
 }
 
-void EcsSystemBuilder::add_term_impl(const rfl::TypeInfo *type, uint8_t inout) {
-    NC_ASSERT(type, "reflected component type missing");
-    EcsComponentId comp_id = pImpl->world.register_component_type(type);
-
-    ecs_term_t term{};
-    term.id = comp_id;
-    term.inout = (inout == 0) ? EcsInOutDefault : EcsIn;
-    pImpl->terms.push_back(term);
-}
-
-EcsSystemBuilder &EcsSystemBuilder::any() {
-    ecs_term_t term{};
-    term.id = EcsWildcard;
-    term.inout = EcsInOutDefault;
-    pImpl->terms.push_back(term);
-    return *this;
-}
-
-EcsSystemBuilder &EcsSystemBuilder::any_read() {
-    ecs_term_t term{};
-    term.id = EcsWildcard;
-    term.inout = EcsIn;
-    pImpl->terms.push_back(term);
-    return *this;
-}
-
 EcsSystemBuilder &EcsSystemBuilder::in(EcsSystemPhase phase) {
-    pImpl->phase = phase;
+    pImpl->phase_ = phase;
     return *this;
 }
 
 EcsSystemBuilder &EcsSystemBuilder::order(int32_t priority) {
-    pImpl->order = priority;
+    pImpl->order_ = priority;
     return *this;
 }
 
@@ -133,40 +63,54 @@ ecs_entity_t map_phase(EcsSystemPhase p) {
 
 } // namespace
 
-EcsEntityId EcsSystemBuilder::iter(SystemCallback callback) {
-    NC_ASSERT(callback, "system callback is null");
+// just so the compiler can see the defs for Impl
+struct EcsQueryBuilder::Impl : public detail::FlecsQueryBuilder {};
 
-    auto *world = static_cast<ecs_world_t *>(pImpl->world.ecs_world_handle_());
+EcsEntityId EcsSystemBuilder::init_system_(SystemKind kind, void *p_callback) {
+    auto *world = static_cast<ecs_world_t *>(world_.get_native_handle_());
 
-    // assemble query descriptor
-    ecs_query_desc_t qdesc{};
-    size_t term_count = pImpl->terms.size();
-    NC_ASSERT(term_count <= FLECS_TERM_COUNT_MAX, std::format("too many query terms ({})", term_count).c_str());
-    memcpy(qdesc.terms, pImpl->terms.data(), term_count * sizeof(ecs_term_t));
+    // pick matching callback
+    ecs_iter_action_t callback = nullptr;
+    if (kind == SystemKind::Iter) {
+        callback = [](ecs_iter_t *it) {
+            auto fn = static_cast<IterCallback>(it->param);
+            EcsIter wrap(it);
+            fn(wrap);
+        };
+    } else {
+        callback = [](ecs_iter_t *it) {
+            auto fn = static_cast<EachCallback>(it->param);
+            EcsIter wrap(it);
+            for (int32_t row = 0; row < wrap.count(); row++) {
+                fn(wrap, static_cast<EcsEntityId>(row));
+            }
+        };
+    }
 
     // build system descriptor
-    ecs_entity_desc_t sys_ent_desc{.name = pImpl->name.c_str()};
+    ecs_entity_desc_t sys_ent_desc{.name = name.c_str()};
     ecs_entity_t sys_ent = ecs_entity_init(world, &sys_ent_desc);
     ecs_system_desc_t sdesc{};
     sdesc.entity = sys_ent;
-    sdesc.query = qdesc;
-    sdesc.phase = map_phase(pImpl->phase);
-    sdesc.callback = [](ecs_iter_t *it) {
-        auto fn = static_cast<SystemCallback>(it->param);
-        EcsIter wrap(it);
-        fn(wrap);
-    };
-    sdesc.ctx = reinterpret_cast<void *>(callback);
+    sdesc.query = qb_.pImpl->get_as_descriptor(); // copy query terms from query builder
+    sdesc.phase = map_phase(pImpl->phase_);
+    sdesc.callback = callback;
+    sdesc.ctx = p_callback;
 
     ecs_entity_t id = ecs_system_init(world, &sdesc);
-    NC_ASSERT(id != 0, std::format("failed to register ECS system '{}'", pImpl->name).c_str());
+    NC_ASSERT(id != 0, "failed to register ECS system");
 
     // TODO: apply ordering once custom pipelines are implemented
-    (void) pImpl->order;
+    (void) pImpl->order_;
 
-    pImpl->built = true;
-    NC_LOG_TRACE_C(log::ECS, "registered system '{}' (entity {})", pImpl->name, id);
+    pImpl->built_ = true;
+    qb_.pImpl->built = true; // mark the query builder as built too to silence warning
+    NC_LOG_TRACE_C(log::ECS, "registered system (entity {})", id);
     return static_cast<EcsEntityId>(id);
 }
+
+EcsEntityId EcsSystemBuilder::iter(IterCallback callback) { return init_system_(SystemKind::Iter, callback); }
+
+EcsEntityId EcsSystemBuilder::each(EachCallback callback) { return init_system_(SystemKind::Each, callback); }
 
 } // namespace ncore

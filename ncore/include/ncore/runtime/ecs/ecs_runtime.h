@@ -5,11 +5,19 @@
 
 namespace ncore {
 
-class EcsRuntime : public EcsModule {
-    NCLASS(EcsRuntime, EcsModule)
+/**
+ * @brief EcsRuntimeFeature is a default feature bundle that
+ * provides core engine functionalities for the ECS runtime.
+ * This contains for example: rendering, physics, etc.
+ *
+ * You may also bypass this altogether and just load whichever
+ * features you need via Scene.get_ecs().load_feature().
+ */
+class EcsRuntimeFeature : public EcsFeature {
+    NCLASS(EcsRuntimeFeature, EcsFeature)
 
 public:
-    EcsRuntime() {}
+    EcsRuntimeFeature() {}
     void build(EcsWorld &world) override;
 };
 

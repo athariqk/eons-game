@@ -4,8 +4,8 @@
 
 namespace ncore {
 
-class EcsPhysics : public EcsModule {
-    NCLASS(EcsPhysics, EcsModule)
+class EcsPhysicsFeature : public EcsFeature {
+    NCLASS(EcsPhysicsFeature, EcsFeature)
 
 public:
     void build(EcsWorld &world) override {}

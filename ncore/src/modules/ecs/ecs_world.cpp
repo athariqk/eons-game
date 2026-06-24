@@ -6,8 +6,6 @@
 #include <flecs/addons/system.h>
 
 #include <ncore/modules/ecs/ecs_entity.h>
-#include <ncore/modules/events/event_bus.h>
-#include <ncore/modules/service_locator.h>
 #include <ncore/utils/log.h>
 
 namespace ncore {
@@ -15,53 +13,46 @@ namespace ncore {
 struct EcsWorld::Impl {
     ecs_world_t *world = nullptr;
     std::unordered_map<const rfl::TypeInfo *, EcsComponentId> comp_id_map;
-    std::unordered_map<std::string, ecs_query_t *> query_cache;
+    std::unordered_map<std::string, ecs_query_t *>
+        query_cache; // TODO: is this even necessary? figure out how flecs cache queries
 };
 
-EcsWorld::EcsWorld(ServiceLocator &services) : IGameWorld(services), pImpl(std::make_unique<Impl>()) {
+EcsWorld::EcsWorld() : pImpl(std::make_unique<Impl>()) {
     pImpl->world = ecs_init();
     ecs_set_binding_ctx(pImpl->world, this, nullptr);
 }
 
-EcsWorld::~EcsWorld() {}
+EcsWorld::~EcsWorld() { ecs_fini(pImpl->world); }
 
 //------------------------------------------------------------------------------
 
-void EcsWorld::on_init() {
-    auto event_bus = get_services().resolve<EventBus>();
-
-    event_bus->subscribe<WindowCloseEvent>([this](WindowCloseEvent &) {
-        wants_to_quit = true;
-        NC_LOG_TRACE("window close event received, requesting exit...");
-    });
-
-    event_bus->subscribe<WindowResizeEvent>(
-        [this](WindowResizeEvent &e) { NC_LOG_TRACE("window resolution changed: {}x{}", e.width, e.height); });
-}
-
-bool EcsWorld::on_fixed_update(double p_delta) {
-    // Fixed timestep — TODO: run fixed-update pipeline
-    return wants_to_quit;
-}
-
-bool EcsWorld::on_variable_update(double p_delta) {
-    ecs_progress(pImpl->world, static_cast<float>(p_delta));
-    return wants_to_quit;
-}
-
-void EcsWorld::on_finish() {
-    ecs_fini(pImpl->world);
-    NC_LOG_TRACE_C(log::ECS, "world finished");
-}
+void EcsWorld::progress(double delta_time) { ecs_progress(pImpl->world, static_cast<float>(delta_time)); }
 
 //------------------------------------------------------------------------------
-// Entities
-//------------------------------------------------------------------------------
 
-EcsEntityId EcsWorld::create_entity(std::string name) {
-    ecs_entity_desc_t desc{.name = name.c_str()};
-    ecs_entity_t f_ent = ecs_entity_init(pImpl->world, &desc);
-    return static_cast<EcsEntityId>(f_ent);
+EcsEntityBuilder EcsWorld::create_entity(const std::string &name) { return EcsEntityBuilder(*this, name); }
+
+EcsEntityId EcsWorld::create_entity_impl_(const std::string &name) {
+    ecs_entity_desc_t desc{};
+    if (!name.empty())
+        desc.name = name.c_str();
+    ecs_entity_t result = ecs_entity_init(pImpl->world, &desc);
+    NC_ASSERT(result != 0, "failed to create entity");
+    return static_cast<EcsEntityId>(result);
+}
+
+EcsEntityId EcsWorld::get_entity(std::string_view name, EcsEntityId parent) const {
+    auto ent = INVALID_ENTITY_ID;
+    if (parent != INVALID_ENTITY_ID) {
+        ent = ecs_lookup_child(pImpl->world, parent, name.data());
+    } else {
+        ent = ecs_lookup(pImpl->world, name.data());
+    }
+    return static_cast<EcsEntityId>(ent);
+}
+
+std::string_view EcsWorld::get_entity_name(EcsEntityId entity) const {
+    return std::string_view(ecs_get_name(pImpl->world, entity));
 }
 
 std::span<EcsEntityId> EcsWorld::get_entities() const {
@@ -74,13 +65,11 @@ size_t EcsWorld::get_entity_count(bool alive) const {
     return static_cast<size_t>(alive ? ents.alive_count : ents.count);
 }
 
-void EcsWorld::destroy(EcsEntityId entity) {
+void EcsWorld::destroy_entity(EcsEntityId entity) {
     ecs_delete(pImpl->world, entity);
     NC_LOG_TRACE_C(log::ECS, "destroyed entity: {}", entity);
 }
 
-//------------------------------------------------------------------------------
-// Components
 //------------------------------------------------------------------------------
 
 EcsEntityId EcsWorld::set_component_(EcsEntityId eid, const rfl::TypeInfo *type, const void *data, size_t sz) {
@@ -110,7 +99,19 @@ bool EcsWorld::has_component_(EcsComponentId eid, const rfl::TypeInfo *type) con
 }
 
 //------------------------------------------------------------------------------
-// Systems & queries
+
+void EcsWorld::add_pair(EcsEntityId entity, EcsComponentId first, EcsComponentId second) {
+    ecs_add_pair(pImpl->world, entity, first, second);
+}
+
+bool EcsWorld::has_pair(EcsEntityId entity, EcsComponentId first, EcsComponentId second) const {
+    return ecs_has_pair(pImpl->world, entity, first, second);
+}
+
+void EcsWorld::remove_pair(EcsEntityId entity, EcsComponentId first, EcsComponentId second) {
+    ecs_remove_pair(pImpl->world, entity, first, second);
+}
+
 //------------------------------------------------------------------------------
 
 EcsSystemBuilder EcsWorld::create_system(std::string_view name) { return EcsSystemBuilder(*this, std::string(name)); }
@@ -128,15 +129,15 @@ EcsComponentId EcsWorld::register_component_type(const rfl::TypeInfo *type) {
                               .name = type->name};
     ecs_component_desc_t desc{.entity = 0, .type = type_info};
     auto comp_id = ecs_component_init(pImpl->world, &desc);
-    NC_ASSERT(comp_id != 0, std::format("failed to auto-register component '{}'", type->name).data());
+    NC_ASSERT(comp_id != 0, std::format("failed to auto-register component '{}'", type->name).c_str());
     pImpl->comp_id_map[type] = comp_id;
     return static_cast<EcsComponentId>(comp_id);
 }
 
-void *EcsWorld::ecs_world_handle_() const { return pImpl->world; }
+void *EcsWorld::get_native_handle_() const { return pImpl->world; }
 
-EcsQuery EcsWorld::create_query_(const std::string &name, void *qdesc_ptr) {
-    auto *qdesc = static_cast<ecs_query_desc_t *>(qdesc_ptr);
+EcsQuery EcsWorld::create_query_(const std::string &name, void *data) {
+    auto *qdesc = static_cast<ecs_query_desc_t *>(data);
 
     auto &cached = pImpl->query_cache[name];
     if (cached) {
@@ -145,7 +146,7 @@ EcsQuery EcsWorld::create_query_(const std::string &name, void *qdesc_ptr) {
     }
 
     ecs_query_t *q = ecs_query_init(pImpl->world, qdesc);
-    NC_ASSERT(q, std::format("failed to create query '{}'", name).data());
+    NC_ASSERT(q, std::format("failed to create query '{}'", name).c_str());
     cached = q;
     NC_LOG_TRACE_C(log::ECS, "created query '{}'", name);
     return EcsQuery(this, pImpl->world, q);

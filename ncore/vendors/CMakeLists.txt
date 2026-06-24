@@ -1,6 +1,6 @@
 # NCORE engine vendored libraries
 
-option(NC_USE_PREBUILT "Skip rebuilding heavy dependencies (SDL/Box2D/Flecs)" ON)
+option(NC_USE_PREBUILT "Skip rebuilding heavy dependencies (SDL/Box2D/Flecs)" OFF)
 set(NC_PREBUILT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/prebuilt/${CMAKE_BUILD_TYPE}")
 
 # define IMPORTED targets from prebuilt binaries
@@ -74,3 +74,6 @@ endif()
 target_link_libraries(ncore PRIVATE
     ImGui box2d::box2d SDL3::SDL3 SDL3::Headers inifile-cpp flecs::flecs
 )
+
+# tests
+add_subdirectory(catch2)

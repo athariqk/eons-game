@@ -280,7 +280,7 @@ public:
         static const bool registered = [] {
             info._next = type_list_head;
             type_list_head = &info;
-            NC_LOG_TRACE("registered type '{}' with ID '{}'", info.name, info.id.value);
+            //NC_LOG_TRACE("registered type '{}' with ID '{}'", info.name, info.id.value);
             return true;
         }();
         (void) registered;
@@ -325,6 +325,13 @@ public:
             return nullptr;
         }
         return static_cast<const RecordInfo *>(t);
+    }
+
+    static const std::string to_string(void *instance, TypeId id) noexcept {
+        auto t = find(id);
+        if (!t)
+            return "<unknown type>";
+        return std::format("<{}:{}>", t->name, instance);
     }
 
     static const TypeInfo &get(TypeId id) noexcept;

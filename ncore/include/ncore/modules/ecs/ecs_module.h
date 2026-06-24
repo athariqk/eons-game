@@ -7,15 +7,22 @@ namespace ncore {
 class EcsWorld;
 
 /**
- * @brief TODO: I wonder if we can make this just be a serialized composition of EcsWorld...
+ * @brief EcsFeature is a base class for defining ECS modules that can be loaded into
+ * an EcsWorld. Inspired by Bevy's concept of Plugins and Flecs' Modules.
+ *
+ * TODO: I wonder if we can make this just be a serialized composition of EcsWorld...
  * Imagine Godot's scene or Unity's prefabs
  */
-class EcsModule : public NObject {
-    NCLASS(EcsModule, NObject)
+class EcsFeature : public NObject {
+    NCLASS(EcsFeature, NObject)
 
 public:
-    virtual ~EcsModule() = default;
+    virtual ~EcsFeature() = default;
     void operator()(EcsWorld &world) { build(world); }
+
+    /**
+     * @brief Interact with the world here.
+     */
     virtual void build(EcsWorld &world) = 0;
 };
 

@@ -5,45 +5,41 @@
 #include <memory>
 
 #include <ncore/kernel/types.h>
-#include <ncore/modules/game_world.h>
 #include <ncore/utils/log.h>
 
 #include "ecs_entity.h"
 #include "ecs_module.h"
 #include "ecs_query.h"
+#include "ecs_system.h"
 
 namespace ncore {
 
-// Currently, we mostly just have wrappers for Flecs C API.
+// Currently, we're just doing wrappers for Flecs C API.
 // Just something that we can build upon in the future
 // from a standardized base.
 
-class EventBus;
-class Viewport;
-
 /**
- * @brief EcsWorld defines the default game world built on top of an
- * archetype-based ECS architecture.
+ * @brief EcsWorld is an implementation of an archetype-based ECS architecture.
  */
-class EcsWorld : public IGameWorld {
-    NCLASS(EcsWorld, IGameWorld)
+class EcsWorld : public NObject {
+    NCLASS(EcsWorld, NObject)
 
 public:
-    EcsWorld(ServiceLocator &services);
+    EcsWorld();
     ~EcsWorld();
 
     EcsWorld(const EcsWorld &) = delete;
     EcsWorld &operator=(const EcsWorld &) = delete;
 
-    void on_init() override;
-    bool on_fixed_update(double p_delta) override;
-    bool on_variable_update(double p_delta) override;
-    void on_finish() override;
+    /**
+     * @brief Ticks the systems.
+     */
+    void progress(double delta_time);
 
     // modules
 
-    template<std::derived_from<EcsModule> T, typename... TArgs>
-    void load(TArgs &&...args) {
+    template<std::derived_from<EcsFeature> T, typename... TArgs>
+    void load_feature(TArgs &&...args) {
         NC_LOG_TRACE_C(log::ECS, "load ECS module: {}", rfl::Registry::get_type_name<T>());
         T module{std::forward<TArgs>(args)...};
         module(*this);
@@ -52,10 +48,16 @@ public:
 
     // entities
 
-    EcsEntityId create_entity(std::string name = std::string());
+    EcsEntityBuilder create_entity(const std::string &name = std::string());
+    EcsEntityId get_entity(std::string_view name, EcsEntityId parent = INVALID_ENTITY_ID) const;
+    std::string_view get_entity_name(EcsEntityId entity) const;
     std::span<EcsEntityId> get_entities() const;
     size_t get_entity_count(bool alive = true) const;
-    void destroy(EcsEntityId entity);
+    void destroy_entity(EcsEntityId entity);
+
+    void add_pair(EcsEntityId entity, EcsComponentId first, EcsComponentId second);
+    bool has_pair(EcsEntityId entity, EcsComponentId first, EcsComponentId second) const;
+    void remove_pair(EcsEntityId entity, EcsComponentId first, EcsComponentId second);
 
     // components
 
@@ -67,7 +69,7 @@ public:
 
     template<typename T, typename... Args>
     EcsEntityId set_component(Args &&...args) {
-        auto entity = create_entity();
+        auto entity = create_entity_impl_({});
         T value{std::forward<Args>(args)...};
         return set_component_(entity, rfl::Registry::find<T>(), &value, sizeof(T));
     }
@@ -96,31 +98,29 @@ public:
     EcsQueryBuilder create_query(std::string_view name);
 
     /**
-     * @brief Registers (or resolves) a custom reflected component type.
+     * @brief Registers and/or resolves a component type to/from world
+     * via the reflection system.
      *
      * @return Its assigned ID.
      */
     EcsComponentId register_component_type(const rfl::TypeInfo *type);
 
-    void set_viewport(Viewport *vp) { viewport = vp; }
-    Viewport *get_viewport() const { return viewport; }
-
 private:
     friend class EcsSystemBuilder;
     friend class EcsQueryBuilder;
+    friend class EcsEntityBuilder;
     friend class EcsIter;
 
+    EcsEntityId create_entity_impl_(const std::string &name);
     EcsEntityId set_component_(EcsEntityId eid, const rfl::TypeInfo *type, const void *data, size_t sz);
     void *get_component_(EcsComponentId eid, const rfl::TypeInfo *type) const;
     bool has_component_(EcsComponentId eid, const rfl::TypeInfo *type) const;
 
-    void *ecs_world_handle_() const;
-    EcsQuery create_query_(const std::string &name, void *qdesc);
+    void *get_native_handle_() const;
+    EcsQuery create_query_(const std::string &name, void *data);
 
     struct Impl;
     std::unique_ptr<Impl> pImpl;
-    Viewport *viewport = nullptr;
-    bool wants_to_quit = false;
 };
 
 } // namespace ncore

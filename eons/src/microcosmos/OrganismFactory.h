@@ -18,7 +18,7 @@ inline OrganismComponent &create(ncore::EcsWorld &world, SpeciesRegistry &reg, S
     float spawn_x = 0.0f;
     float spawn_y = 0.0f;
 
-    auto renderer = world.get_services().resolve<ncore::IRenderService>();
+    //auto renderer = world.get_services().resolve<ncore::IRenderService>();
     // if (renderer) {
     //     auto camera = renderer->get_main_camera().lock();
     //     if (camera) {

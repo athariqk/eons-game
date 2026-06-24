@@ -12,6 +12,14 @@
 
 namespace ncore::log {
 
+static std::atomic<int> g_min_level = 0;
+
+inline void set_min_level(int level) { g_min_level.store(level); }
+inline int get_min_level() { return g_min_level.load(); }
+
+inline void silence() { set_min_level(6); } // OFF
+inline void unsilence() { set_min_level(0); }
+
 // Engine modules
 inline constexpr const char *DEFAULT = "NC";
 inline constexpr const char *AUDIO = "AUD";
@@ -35,19 +43,19 @@ void log_message(const char *channel, int level, const char *file, const char *f
 #define NC_LOG_DEBUG_C(cat, ...)                                                                                       \
     do {                                                                                                               \
         auto _nc_msg = std::format(__VA_ARGS__);                                                                       \
-        ncore::log::log_message(cat, 1, nullptr, nullptr, 0, _nc_msg.c_str());                                \
+        ncore::log::log_message(cat, 1, nullptr, nullptr, 0, _nc_msg.c_str());                                         \
     } while (0)
 
 #define NC_LOG_INFO_C(cat, ...)                                                                                        \
     do {                                                                                                               \
         auto _nc_msg = std::format(__VA_ARGS__);                                                                       \
-        ncore::log::log_message(cat, 2, nullptr, nullptr, 0, _nc_msg.c_str());                                \
+        ncore::log::log_message(cat, 2, nullptr, nullptr, 0, _nc_msg.c_str());                                         \
     } while (0)
 
 #define NC_LOG_WARN_C(cat, ...)                                                                                        \
     do {                                                                                                               \
         auto _nc_msg = std::format(__VA_ARGS__);                                                                       \
-        ncore::log::log_message(cat, 3, nullptr, nullptr, 0, _nc_msg.c_str());                                \
+        ncore::log::log_message(cat, 3, nullptr, nullptr, 0, _nc_msg.c_str());                                         \
     } while (0)
 
 #define NC_LOG_ERROR_C(cat, ...)                                                                                       \

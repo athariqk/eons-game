@@ -10,3 +10,6 @@
 [submodule "ncore/vendors/flecs"]
 	path = ncore/vendors/flecs
 	url = https://github.com/SanderMertens/flecs
+[submodule "ncore/vendors/catch2"]
+	path = ncore/vendors/catch2
+	url = https://github.com/catchorg/Catch2/

@@ -48,6 +48,7 @@ target_include_directories(ncore PRIVATE
 add_subdirectory(vendors)
 add_subdirectory(include)
 add_subdirectory(src)
+add_subdirectory(tests)
 
 
 ## DOCUMENTATION ##
