@@ -8,7 +8,7 @@ class EcsGraphicsFeature : public EcsFeature {
     NCLASS(EcsGraphicsFeature, EcsFeature)
 
 public:
-    void build(EcsWorld &world) override;
+    void build(EcsWorld& world) override;
 };
 
 } // namespace ncore

@@ -8,18 +8,30 @@ namespace ncore {
 class Camera {
 public:
     Camera();
-    Camera(const Vec2 &position, float zoom = 1.0f);
+    Camera(const Vec2& position, float zoom = 1.0f);
     ~Camera() = default;
 
     // ICamera interface
-    Vec2 get_position() const { return position; }
-    void set_position(const Vec2 &p_position) { position = p_position; }
+    Vec2 get_position() const
+    {
+        return position;
+    }
+    void set_position(const Vec2& p_position)
+    {
+        position = p_position;
+    }
 
-    float get_zoom() const { return zoom; }
-    void set_zoom(float p_zoom) { zoom = p_zoom; }
+    float get_zoom() const
+    {
+        return zoom;
+    }
+    void set_zoom(float p_zoom)
+    {
+        zoom = p_zoom;
+    }
 
     // Camera controls
-    void move(const Vec2 &delta);
+    void move(const Vec2& delta);
     void move(float dx, float dy);
 
 private:

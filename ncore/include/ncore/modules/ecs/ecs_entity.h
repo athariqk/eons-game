@@ -12,7 +12,7 @@
 
 namespace ncore {
 
-using EcsEntityId = uint64_t;
+using EcsEntityId    = uint64_t;
 using EcsComponentId = EcsEntityId;
 
 inline constexpr EcsEntityId INVALID_ENTITY_ID = static_cast<EcsEntityId>(-1);
@@ -25,12 +25,13 @@ class EcsWorld;
 
 class EcsEntityBuilder {
 public:
-    EcsEntityBuilder(EcsWorld &world, const std::string &name);
+    EcsEntityBuilder(EcsWorld& world, const std::string& name);
     ~EcsEntityBuilder();
 
     template<typename T, typename... Args>
-    EcsEntityBuilder &with(Args &&...args) {
-        auto *type = rfl::Registry::find<T>();
+    EcsEntityBuilder& with(Args&&... args)
+    {
+        auto* type = rfl::Registry::find<T>();
         NC_ASSERT(type, "component type not reflected via NSTRUCT");
         std::vector<uint8_t> data(sizeof(T));
         T value{std::forward<Args>(args)...};
@@ -40,9 +41,10 @@ public:
     }
 
     template<typename First, typename Second, typename... Args>
-    EcsEntityBuilder &with_pair(Args &&...args) {
-        auto *f_type = rfl::Registry::find<First>();
-        auto *s_type = rfl::Registry::find<Second>();
+    EcsEntityBuilder& with_pair(Args&&... args)
+    {
+        auto* f_type = rfl::Registry::find<First>();
+        auto* s_type = rfl::Registry::find<Second>();
         NC_ASSERT(f_type, "pair first type not reflected via NSTRUCT");
         NC_ASSERT(s_type, "pair second type not reflected via NSTRUCT");
         std::vector<uint8_t> data(sizeof(First));
@@ -53,27 +55,28 @@ public:
     }
 
     template<typename First, typename Second>
-    EcsEntityBuilder &add_pair() {
-        auto *f_type = rfl::Registry::find<First>();
-        auto *s_type = rfl::Registry::find<Second>();
+    EcsEntityBuilder& add_pair()
+    {
+        auto* f_type = rfl::Registry::find<First>();
+        auto* s_type = rfl::Registry::find<Second>();
         NC_ASSERT(f_type, "pair first type not reflected via NSTRUCT");
         NC_ASSERT(s_type, "pair second type not reflected via NSTRUCT");
         add_pair_tag_(f_type, s_type);
         return *this;
     }
 
-    EcsEntityBuilder &add_pair_id(EcsComponentId first, EcsComponentId second);
-    EcsEntityBuilder &child_of(EcsEntityId parent);
-    EcsEntityBuilder &is_a(EcsEntityId base);
-    EcsEntityBuilder &depends_on(EcsEntityId target);
-    EcsEntityBuilder &alias(std::string_view alias);
+    EcsEntityBuilder& add_pair_id(EcsComponentId first, EcsComponentId second);
+    EcsEntityBuilder& child_of(EcsEntityId parent);
+    EcsEntityBuilder& is_a(EcsEntityId base);
+    EcsEntityBuilder& depends_on(EcsEntityId target);
+    EcsEntityBuilder& alias(std::string_view alias);
 
     EcsEntityId build();
 
 private:
-    void add_component_(const rfl::TypeInfo *type, std::vector<uint8_t> &&data);
-    void add_pair_data_(const rfl::TypeInfo *first, const rfl::TypeInfo *second, std::vector<uint8_t> &&data);
-    void add_pair_tag_(const rfl::TypeInfo *first, const rfl::TypeInfo *second);
+    void add_component_(const rfl::TypeInfo* type, std::vector<uint8_t>&& data);
+    void add_pair_data_(const rfl::TypeInfo* first, const rfl::TypeInfo* second, std::vector<uint8_t>&& data);
+    void add_pair_tag_(const rfl::TypeInfo* first, const rfl::TypeInfo* second);
 
     struct Impl;
     std::unique_ptr<Impl> pImpl;

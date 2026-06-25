@@ -21,9 +21,9 @@ public:
     virtual ~IIMGuiService() = default;
 
     void update();
-    void add_layer(const std::string &layer_name, int order, std::function<void()> callback);
+    void add_layer(const std::string& layer_name, int order, std::function<void()> callback);
 
-    virtual void begin_frame() = 0;
+    virtual void begin_frame()  = 0;
     virtual void render_frame() = 0;
 
 protected:

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <ncore/kernel/structures.h>
 #include <modules/assets/asset.h>
+#include <ncore/kernel/structures.h>
 
 namespace ncore {
 
@@ -11,7 +11,10 @@ struct AudioClip : IAssetResource {
     int channels;
     int frequency;
     int bits_per_sample;
-    size_t get_size_in_bytes() const override { return data.size(); }
+    size_t get_size_in_bytes() const override
+    {
+        return data.size();
+    }
 };
 
 } // namespace ncore

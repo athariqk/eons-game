@@ -1,7 +1,7 @@
 #pragma once
-#include "events.h"
-
 #include <ncore/kernel/structures.h>
+
+#include "events.h"
 
 namespace ncore {
 
@@ -12,16 +12,24 @@ enum class ButtonIndex {
     RIGHT,
 };
 
-enum class ButtonAction { UNKNOWN = 0, PRESS, RELEASE };
+enum class ButtonAction {
+    UNKNOWN = 0,
+    PRESS,
+    RELEASE
+};
 
 class MouseButtonEvent : public InputEvent {
     NCLASS(MouseButtonEvent, InputEvent)
 
 public:
     MouseButtonEvent(size_t p_window_id, ButtonAction act, ButtonIndex btn, Vec2 pos) :
-        InputEvent(p_window_id), action(act), button(btn), position(pos) {}
+        InputEvent(p_window_id), action(act), button(btn), position(pos)
+    {}
 
-    EventType get_type() const override { return EventType::MOUSE_BUTTON; }
+    EventType get_type() const override
+    {
+        return EventType::MOUSE_BUTTON;
+    }
 
     ButtonAction action;
     ButtonIndex button;
@@ -33,12 +41,16 @@ class MouseMotionEvent : public InputEvent {
 
 public:
     MouseMotionEvent(size_t p_window_id, Vec2 pos, Vec2 d, uint32_t state) :
-        InputEvent(p_window_id), position(pos), delta(d), buttonState(state) {}
+        InputEvent(p_window_id), position(pos), delta(d), buttonState(state)
+    {}
 
-    EventType get_type() const override { return EventType::MOUSE_MOTION; }
+    EventType get_type() const override
+    {
+        return EventType::MOUSE_MOTION;
+    }
 
     Vec2 position; // Current screen position
-    Vec2 delta; // Relative motion since last event
+    Vec2 delta;    // Relative motion since last event
     uint32_t buttonState;
 };
 
@@ -48,7 +60,10 @@ class MouseWheelEvent : public InputEvent {
 public:
     MouseWheelEvent(size_t p_window_id, float x, float y) : InputEvent(p_window_id), scroll_x(x), scroll_y(y) {}
 
-    EventType get_type() const override { return EventType::MOUSE_WHEEL; }
+    EventType get_type() const override
+    {
+        return EventType::MOUSE_WHEEL;
+    }
 
     float scroll_x;
     float scroll_y;
@@ -79,9 +94,13 @@ public:
     };
 
     KeyboardEvent(size_t p_window_id, ButtonAction act, Key k, bool rep) :
-        InputEvent(p_window_id), action(act), key(k), repeat(rep) {}
+        InputEvent(p_window_id), action(act), key(k), repeat(rep)
+    {}
 
-    EventType get_type() const override { return EventType::KEYBOARD; }
+    EventType get_type() const override
+    {
+        return EventType::KEYBOARD;
+    }
 
     ButtonAction action;
     Key key;
@@ -93,7 +112,10 @@ class TextInputEvent : public InputEvent {
 
 public:
     TextInputEvent(size_t p_window_id, std::string t) : InputEvent(p_window_id), text(std::move(t)) {}
-    EventType get_type() const override { return EventType::TEXT_INPUT; }
+    EventType get_type() const override
+    {
+        return EventType::TEXT_INPUT;
+    }
     std::string text;
 };
 

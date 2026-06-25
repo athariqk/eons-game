@@ -1,26 +1,26 @@
 #include "imgui_impl.h"
 
+#include <modules/events/sdl_event_helpers.h>
+#include <modules/gui/imgui_sdl.h>
+#include <modules/gui/imgui_sdl_renderer.h>
 #include <ncore/modules/events/event_bus.h>
 #include <ncore/modules/events/events.h>
 #include <ncore/modules/events/input_event.h>
 #include <ncore/modules/service_locator.h>
-
-#include <modules/events/sdl_event_helpers.h>
-#include <modules/gui/imgui_sdl.h>
-#include <modules/gui/imgui_sdl_renderer.h>
 #include <ncore/utils/log.h>
 
 namespace ncore {
 
 ImGuiImpl::ImGuiImpl(uint32_t p_window_id) : window_id(p_window_id) {}
 
-Error ImGuiImpl::init() {
+Error ImGuiImpl::init()
+{
     if (!window_id) {
         NC_LOG_ERROR(log::GUI, "Failed to initialize ImGui, SDL window is missing!");
         return Error::FAIL;
     }
 
-    window = SDL_GetWindowFromID(window_id);
+    window   = SDL_GetWindowFromID(window_id);
     renderer = SDL_GetRenderer(window);
 
     IMGUI_CHECKVERSION();
@@ -39,16 +39,16 @@ Error ImGuiImpl::init() {
         return Error::FAIL;
     }
 
-    ImGui::StyleColorsLight();
+    ImGui::StyleColorsClassic();
 
     m_initialized = true;
     NC_LOG_TRACE_C(log::GUI, "GUI OK");
 
     // now hooking up events
 
-    auto &io = ImGui::GetIO();
+    auto& io = ImGui::GetIO();
 
-    auto forward = [this](WindowEvent &e, ImGuiIO &io) {
+    auto forward = [this](WindowEvent& e, ImGuiIO& io) {
         auto sdl = SDLEventHelpers::map_to_sdl(&e);
         ImGui_ImplSDL3_ProcessEvent(&sdl);
         if (io.WantCaptureKeyboard || io.WantCaptureMouse)
@@ -56,19 +56,20 @@ Error ImGuiImpl::init() {
     };
 
     auto event_bus = ServiceLocator::resolve<EventBus>();
-    event_bus->subscribe<KeyboardEvent>([&](KeyboardEvent &e) { forward(e, io); });
-    event_bus->subscribe<MouseButtonEvent>([&](MouseButtonEvent &e) { forward(e, io); });
-    event_bus->subscribe<MouseMotionEvent>([&](MouseMotionEvent &e) { forward(e, io); });
-    event_bus->subscribe<MouseWheelEvent>([&](MouseWheelEvent &e) { forward(e, io); });
-    event_bus->subscribe<TextInputEvent>([&](TextInputEvent &e) { forward(e, io); });
-    event_bus->subscribe<WindowFocusEvent>([&](WindowFocusEvent &e) { forward(e, io); });
-    event_bus->subscribe<WindowMouseEnterEvent>([&](WindowMouseEnterEvent &e) { forward(e, io); });
-    event_bus->subscribe<WindowMouseLeaveEvent>([&](WindowMouseLeaveEvent &e) { forward(e, io); });
+    event_bus->subscribe<KeyboardEvent>([&](KeyboardEvent& e) { forward(e, io); });
+    event_bus->subscribe<MouseButtonEvent>([&](MouseButtonEvent& e) { forward(e, io); });
+    event_bus->subscribe<MouseMotionEvent>([&](MouseMotionEvent& e) { forward(e, io); });
+    event_bus->subscribe<MouseWheelEvent>([&](MouseWheelEvent& e) { forward(e, io); });
+    event_bus->subscribe<TextInputEvent>([&](TextInputEvent& e) { forward(e, io); });
+    event_bus->subscribe<WindowFocusEvent>([&](WindowFocusEvent& e) { forward(e, io); });
+    event_bus->subscribe<WindowMouseEnterEvent>([&](WindowMouseEnterEvent& e) { forward(e, io); });
+    event_bus->subscribe<WindowMouseLeaveEvent>([&](WindowMouseLeaveEvent& e) { forward(e, io); });
 
     return Error::OK;
 }
 
-void ImGuiImpl::finalize() {
+void ImGuiImpl::finalize()
+{
     if (!m_initialized) {
         return;
     }
@@ -79,7 +80,8 @@ void ImGuiImpl::finalize() {
     m_initialized = false;
 }
 
-void ImGuiImpl::begin_frame() {
+void ImGuiImpl::begin_frame()
+{
     if (!m_initialized) {
         return;
     }
@@ -89,7 +91,8 @@ void ImGuiImpl::begin_frame() {
     ImGui::NewFrame();
 }
 
-void ImGuiImpl::render_frame() {
+void ImGuiImpl::render_frame()
+{
     if (!m_initialized) {
         return;
     }

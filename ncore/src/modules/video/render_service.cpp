@@ -1,12 +1,13 @@
-#include <ncore/modules/video/render_service.h>
-
 #include <cfloat>
 #include <cmath>
 #include <numbers>
 
+#include <ncore/modules/video/render_service.h>
+
 namespace ncore {
 
-void IRenderService::draw_circle(float x, float y, float radius, Color color, bool filled, bool edge) {
+void IRenderService::draw_circle(float x, float y, float radius, Color color, bool filled, bool edge)
+{
     set_draw_color(color);
 
     if (filled) {
@@ -23,8 +24,8 @@ void IRenderService::draw_circle(float x, float y, float radius, Color color, bo
             set_draw_color(Color(255, 255, 255, 150));
             for (int i = 0; i < 360; i++) {
                 float angle = i * std::numbers::pi_v<float> / 180.0f;
-                int xc = x + (radius + 2) * std::cos(angle);
-                int ys = x + (radius + 2) * std::sin(angle);
+                int xc      = x + (radius + 2) * std::cos(angle);
+                int ys      = x + (radius + 2) * std::sin(angle);
                 draw_point(xc, ys);
             }
         }
@@ -32,14 +33,15 @@ void IRenderService::draw_circle(float x, float y, float radius, Color color, bo
         // Draw an outlined circle using the midpoint circle algorithm
         for (int i = 0; i < 360; i++) {
             float angle = i * std::numbers::pi_v<float> / 180.0f;
-            int xc = x + radius * std::cos(angle);
-            int ys = y + radius * std::sin(angle);
+            int xc      = x + radius * std::cos(angle);
+            int ys      = y + radius * std::sin(angle);
             draw_point(xc, ys);
         }
     }
 }
 
-void IRenderService::draw_convex_polygon_filled(const Vec2 *vertices, int count, const Color &color) {
+void IRenderService::draw_convex_polygon_filled(const Vec2* vertices, int count, const Color& color)
+{
     set_draw_color(color);
 
     float minY = vertices[0].y, maxY = vertices[0].y;

@@ -19,10 +19,10 @@ public:
     Error init() override;
     void finalize() override;
 
-    void play_sound(const AudioClip *p_sound) override;
+    void play_sound(const AudioClip* p_sound) override;
 
 private:
-    std::unordered_map<const AudioClip *, SDL_AudioStream *> streams;
+    std::unordered_map<const AudioClip*, SDL_AudioStream*> streams;
 };
 
 } // namespace ncore

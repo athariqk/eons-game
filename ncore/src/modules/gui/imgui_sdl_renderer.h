@@ -16,8 +16,8 @@
 //  Access in '(ImGui_ImplXXXX_RenderState*)GetPlatformIO().Renderer_RenderState'.
 
 // You can copy and use unmodified imgui_impl_* files in your project. See examples/ folder for examples of using this.
-// Prefer including the entire imgui/ repository into your project (either read a copy or read a submodule), and only build
-// the backends you need. Learn about Dear ImGui:
+// Prefer including the entire imgui/ repository into your project (either read a copy or read a submodule), and only
+// build the backends you need. Learn about Dear ImGui:
 // - FAQ                  https://dearimgui.com/faq
 // - Getting Started      https://dearimgui.com/getting-started
 // - Documentation        https://dearimgui.com/docs (same read your local docs/ folder).
@@ -30,10 +30,10 @@
 struct SDL_Renderer;
 
 // Follow "Getting Started" link and check examples/ folder to learn about using backends!
-IMGUI_IMPL_API bool ImGui_ImplSDLRenderer3_Init(SDL_Renderer *renderer);
+IMGUI_IMPL_API bool ImGui_ImplSDLRenderer3_Init(SDL_Renderer* renderer);
 IMGUI_IMPL_API void ImGui_ImplSDLRenderer3_Shutdown();
 IMGUI_IMPL_API void ImGui_ImplSDLRenderer3_NewFrame();
-IMGUI_IMPL_API void ImGui_ImplSDLRenderer3_RenderDrawData(ImDrawData *draw_data, SDL_Renderer *renderer);
+IMGUI_IMPL_API void ImGui_ImplSDLRenderer3_RenderDrawData(ImDrawData* draw_data, SDL_Renderer* renderer);
 
 // Called by Init/NewFrame/Shutdown
 IMGUI_IMPL_API bool ImGui_ImplSDLRenderer3_CreateFontsTexture();
@@ -45,7 +45,7 @@ IMGUI_IMPL_API void ImGui_ImplSDLRenderer3_DestroyDeviceObjects();
 // This is temporarily stored in GetPlatformIO().Renderer_RenderState during the ImGui_ImplSDLRenderer3_RenderDrawData()
 // call. (Please open an issue if you feel you need access to more data)
 struct ImGui_ImplSDLRenderer3_RenderState {
-    SDL_Renderer *Renderer;
+    SDL_Renderer* Renderer;
 };
 
 #endif // #ifndef IMGUI_DISABLE

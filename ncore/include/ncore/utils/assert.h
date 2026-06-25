@@ -9,7 +9,7 @@
 #endif
 
 namespace ncore::log {
-void handle_assert(const char *expr, const char *msg, const char *file, int line);
+void handle_assert(const char* expr, const char* msg, const char* file, int line);
 }
 
 #ifdef NC_DEBUG

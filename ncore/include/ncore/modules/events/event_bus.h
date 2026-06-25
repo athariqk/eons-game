@@ -28,7 +28,10 @@ class EventBus : public IService {
     NCLASS(EventBus, IService)
 
 public:
-    Error init() override { return Error::OK; }
+    Error init() override
+    {
+        return Error::OK;
+    }
     void finalize() override;
 
     /**
@@ -42,9 +45,10 @@ public:
      * @return Subscription ID (can be used to unsubscribe)
      */
     template<std::derived_from<Event> T>
-    size_t subscribe(std::function<void(T &)> callback) {
+    size_t subscribe(std::function<void(T&)> callback)
+    {
         size_t index = next_subscription_id++;
-        auto wrapper = [callback](Event &event) { callback(static_cast<T &>(event)); };
+        auto wrapper = [callback](Event& event) { callback(static_cast<T&>(event)); };
         subscribers[rfl::Registry::get_type_id<T>()].emplace_back(index, wrapper);
         return index;
     }
@@ -61,12 +65,13 @@ public:
      * @param event Event instance to publish
      */
     template<std::derived_from<Event> T>
-    void publish(const T &event) {
+    void publish(const T& event)
+    {
         auto it = subscribers.find(event.get_type_id());
         if (it == subscribers.end())
             return;
 
-        for (auto &[index, callback]: it->second) {
+        for (auto& [index, callback] : it->second) {
             callback(event);
             if (event.handled)
                 break; // Stop propagation if marked read handled
@@ -82,7 +87,8 @@ public:
      * Useful for get_events that should not be processed immediately.
      */
     template<std::derived_from<Event> T>
-    void enqueue(std::unique_ptr<T> event) {
+    void enqueue(std::unique_ptr<T> event)
+    {
         event_queue.emplace_back(std::move(event));
     }
 
@@ -99,7 +105,7 @@ public:
     SubscriberDebugInfo get_subscriber_debug_info() const;
 
 private:
-    using CallbackType = std::function<void(Event &)>;
+    using CallbackType   = std::function<void(Event&)>;
     using SubscriberList = std::vector<std::pair<size_t, CallbackType>>;
     std::unordered_map<rfl::TypeId, SubscriberList> subscribers;
 

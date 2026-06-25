@@ -16,6 +16,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <queue>
 #include <random>
 #include <set>
 #include <span>
@@ -28,7 +29,6 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include <queue>
 
 // === External libraries ===
 #include <SDL3/SDL.h>

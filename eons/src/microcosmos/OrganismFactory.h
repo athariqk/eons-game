@@ -12,21 +12,22 @@
 
 namespace OrganismFactory {
 
-inline OrganismComponent &create(ncore::EcsWorld &world, SpeciesRegistry &reg, SpeciesComponent *species) {
+inline OrganismComponent& create(ncore::EcsWorld& world, SpeciesRegistry& reg, SpeciesComponent* species)
+{
     auto instance = world.create_entity();
 
     float spawn_x = 0.0f;
     float spawn_y = 0.0f;
 
-    //auto renderer = world.get_services().resolve<ncore::IRenderService>();
-    // if (renderer) {
-    //     auto camera = renderer->get_main_camera().lock();
-    //     if (camera) {
-    //         auto cam_pos = camera->get_position();
-    //         spawn_x = cam_pos.x + ncore::Random::rand_float(-3.0f, 3.0f);
-    //         spawn_y = cam_pos.y + ncore::Random::rand_float(-3.0f, 3.0f);
-    //     }
-    // }
+    // auto renderer = world.get_services().resolve<ncore::IRenderService>();
+    //  if (renderer) {
+    //      auto camera = renderer->get_main_camera().lock();
+    //      if (camera) {
+    //          auto cam_pos = camera->get_position();
+    //          spawn_x = cam_pos.x + ncore::Random::rand_float(-3.0f, 3.0f);
+    //          spawn_y = cam_pos.y + ncore::Random::rand_float(-3.0f, 3.0f);
+    //      }
+    //  }
 
     // auto &transform = world.emplace<ncore::TransformComponent>(instance, ncore::Vec2(spawn_x, spawn_y), 0.0f,
     //                                                            ncore::Vec2(species->genes.size,

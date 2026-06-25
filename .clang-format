@@ -1,19 +1,37 @@
-# Generated from CLion C/C++ Code Style settings
 ---
 Language: Cpp
 BasedOnStyle: LLVM
+Standard: c++20
+ColumnLimit: 120
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
 AccessModifierOffset: -4
-AlignConsecutiveAssignments: false
-AlignConsecutiveDeclarations: false
-AlignOperands: true
-AlignTrailingComments: false
+MaxEmptyLinesToKeep: 1
+InsertNewlineAtEOF: true
+IndentCaseLabels: true
+NamespaceIndentation: None
+AlignConsecutiveAssignments: Consecutive
+# AlignConsecutiveDeclarations: Consecutive
+AlignConsecutiveBitFields: Consecutive
+AlignConsecutiveMacros: Consecutive
+AlignOperands: Align
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 1
+AllowShortBlocksOnASingleLine: Never
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
 AlwaysBreakTemplateDeclarations: Yes
-BraceWrapping: 
+BreakBeforeBraces: Custom
+BraceWrapping:
   AfterCaseLabel: false
   AfterClass: false
-  AfterControlStatement: false
+  AfterControlStatement: Never
   AfterEnum: false
-  AfterFunction: false
+  AfterFunction: true 
   AfterNamespace: false
   AfterStruct: false
   AfterUnion: false
@@ -22,37 +40,36 @@ BraceWrapping:
   BeforeElse: false
   BeforeLambdaBody: false
   BeforeWhile: false
-  SplitEmptyFunction: true
-  SplitEmptyRecord: true
-  SplitEmptyNamespace: true
-BreakBeforeBraces: Custom
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+AlignAfterOpenBracket: BlockIndent
 BreakConstructorInitializers: AfterColon
-BreakConstructorInitializersBeforeComma: false
-ColumnLimit: 120
-ConstructorInitializerAllOnOneLineOrOnePerLine: false
-IncludeCategories: 
-  - Regex: '^<.*'
-    Priority: 1
-  - Regex: '^".*'
+PackConstructorInitializers: BinPack
+PointerAlignment: Left
+IncludeBlocks: Regroup
+IncludeCategories:
+  # Third-party
+  - Regex: '^<(SDL3|box2d|imgui|flecs|inicpp|backends|misc)[/.]'
     Priority: 2
-  - Regex: '.*'
+  # C++ standard library
+  - Regex: '^<[a-z_][a-z_0-9.]*>$'
+    Priority: 1
+  # Engine headers
+  - Regex: '^<(ncore|kernel|modules|utils|runtime|scene)[/.]'
     Priority: 3
-IncludeIsMainRegex: '([-_](test|unittest))?$'
-IndentCaseLabels: true
-IndentWidth: 4
-InsertNewlineAtEOF: true
-MacroBlockBegin: ''
-MacroBlockEnd: ''
-MaxEmptyLinesToKeep: 2
-NamespaceIndentation: None
+  # Game headers
+  - Regex: '^<microcosmos[/.]'
+    Priority: 4
+  # Local dir
+  - Regex: '^".*'
+    Priority: 5
 SpaceAfterCStyleCast: true
 SpaceAfterTemplateKeyword: false
-SpaceBeforeRangeBasedForLoopColon: false
-SpaceInEmptyParentheses: false
-SpacesInAngles: false
-SpacesInConditionalStatement: false
-SpacesInCStyleCastParentheses: false
-SpacesInParentheses: false
-TabWidth: 4
-UseTab: Never
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceBeforeAssignmentOperators: true
+SpacesInAngles: Never
+SpacesInParens: Never
+MacroBlockBegin: ''
+MacroBlockEnd: ''
 ...

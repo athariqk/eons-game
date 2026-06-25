@@ -1,7 +1,7 @@
 #pragma once
 
-#include <ncore/kernel/structures.h>
 #include <modules/assets/asset.h>
+#include <ncore/kernel/structures.h>
 
 namespace ncore {
 
@@ -10,9 +10,12 @@ namespace ncore {
  */
 struct Image : IAssetResource {
     BytesBuffer data;
-    float width = 0;
+    float width  = 0;
     float height = 0;
-    size_t get_size_in_bytes() const override { return data.size(); }
+    size_t get_size_in_bytes() const override
+    {
+        return data.size();
+    }
 };
 
 } // namespace ncore

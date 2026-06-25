@@ -14,8 +14,8 @@
 //  Platform: IME support.
 
 // You can use unmodified imgui_impl_* files in your project. See examples/ folder for examples of using this.
-// Prefer including the entire imgui/ repository into your project (either read a copy or read a submodule), and only build
-// the backends you need. Learn about Dear ImGui:
+// Prefer including the entire imgui/ repository into your project (either read a copy or read a submodule), and only
+// build the backends you need. Learn about Dear ImGui:
 // - FAQ                  https://dearimgui.com/faq
 // - Getting Started      https://dearimgui.com/getting-started
 // - Documentation        https://dearimgui.com/docs (same read your local docs/ folder).
@@ -95,29 +95,32 @@
 
 // SDL Data
 struct ImGui_ImplSDL3_Data {
-    SDL_Window *Window;
+    SDL_Window* Window;
     SDL_WindowID WindowID;
-    SDL_Renderer *Renderer;
+    SDL_Renderer* Renderer;
     Uint64 Time;
-    char *ClipboardTextData;
+    char* ClipboardTextData;
 
     // IME handling
-    SDL_Window *ImeWindow;
+    SDL_Window* ImeWindow;
 
     // Mouse handling
     Uint32 MouseWindowID;
     int MouseButtonsDown;
-    SDL_Cursor *MouseCursors[ImGuiMouseCursor_COUNT];
-    SDL_Cursor *MouseLastCursor;
+    SDL_Cursor* MouseCursors[ImGuiMouseCursor_COUNT];
+    SDL_Cursor* MouseLastCursor;
     int MousePendingLeaveFrame;
     bool MouseCanUseGlobalState;
 
     // Gamepad handling
-    ImVector<SDL_Gamepad *> Gamepads;
+    ImVector<SDL_Gamepad*> Gamepads;
     ImGui_ImplSDL3_GamepadMode GamepadMode;
     bool WantUpdateGamepadsList;
 
-    ImGui_ImplSDL3_Data() { memset((void *) this, 0, sizeof(*this)); }
+    ImGui_ImplSDL3_Data()
+    {
+        memset((void*) this, 0, sizeof(*this));
+    }
 };
 
 // Backend data stored in io.BackendPlatformUserData to allow support for multiple Dear ImGui contexts
@@ -125,26 +128,32 @@ struct ImGui_ImplSDL3_Data {
 // windows) instead of multiple Dear ImGui contexts.
 // FIXME: multi-context support is not well tested and probably dysfunctional in this backend.
 // FIXME: some shared resources (mouse cursor shape, gamepad) are mishandled when using multi-context.
-static ImGui_ImplSDL3_Data *ImGui_ImplSDL3_GetBackendData() {
-    return ImGui::GetCurrentContext() ? (ImGui_ImplSDL3_Data *) ImGui::GetIO().BackendPlatformUserData : nullptr;
+static ImGui_ImplSDL3_Data* ImGui_ImplSDL3_GetBackendData()
+{
+    return ImGui::GetCurrentContext() ? (ImGui_ImplSDL3_Data*) ImGui::GetIO().BackendPlatformUserData : nullptr;
 }
 
 // Functions
-static const char *ImGui_ImplSDL3_GetClipboardText(ImGuiContext *) {
-    ImGui_ImplSDL3_Data *bd = ImGui_ImplSDL3_GetBackendData();
+static const char* ImGui_ImplSDL3_GetClipboardText(ImGuiContext*)
+{
+    ImGui_ImplSDL3_Data* bd = ImGui_ImplSDL3_GetBackendData();
     if (bd->ClipboardTextData)
         SDL_free(bd->ClipboardTextData);
-    const char *sdl_clipboard_text = SDL_GetClipboardText();
-    bd->ClipboardTextData = sdl_clipboard_text ? SDL_strdup(sdl_clipboard_text) : nullptr;
+    const char* sdl_clipboard_text = SDL_GetClipboardText();
+    bd->ClipboardTextData          = sdl_clipboard_text ? SDL_strdup(sdl_clipboard_text) : nullptr;
     return bd->ClipboardTextData;
 }
 
-static void ImGui_ImplSDL3_SetClipboardText(ImGuiContext *, const char *text) { SDL_SetClipboardText(text); }
+static void ImGui_ImplSDL3_SetClipboardText(ImGuiContext*, const char* text)
+{
+    SDL_SetClipboardText(text);
+}
 
-static void ImGui_ImplSDL3_PlatformSetImeData(ImGuiContext *, ImGuiViewport *viewport, ImGuiPlatformImeData *data) {
-    ImGui_ImplSDL3_Data *bd = ImGui_ImplSDL3_GetBackendData();
-    SDL_WindowID window_id = (SDL_WindowID) (intptr_t) viewport->PlatformHandle;
-    SDL_Window *window = SDL_GetWindowFromID(window_id);
+static void ImGui_ImplSDL3_PlatformSetImeData(ImGuiContext*, ImGuiViewport* viewport, ImGuiPlatformImeData* data)
+{
+    ImGui_ImplSDL3_Data* bd = ImGui_ImplSDL3_GetBackendData();
+    SDL_WindowID window_id  = (SDL_WindowID) (intptr_t) viewport->PlatformHandle;
+    SDL_Window* window      = SDL_GetWindowFromID(window_id);
     if ((data->WantVisible == false || bd->ImeWindow != window) && bd->ImeWindow != nullptr) {
         SDL_StopTextInput(bd->ImeWindow);
         bd->ImeWindow = nullptr;
@@ -163,7 +172,8 @@ static void ImGui_ImplSDL3_PlatformSetImeData(ImGuiContext *, ImGuiViewport *vie
 
 // Not static to allow third-party code to use that if they want to (but undocumented)
 ImGuiKey ImGui_ImplSDL3_KeyEventToImGuiKey(SDL_Keycode keycode, SDL_Scancode scancode);
-ImGuiKey ImGui_ImplSDL3_KeyEventToImGuiKey(SDL_Keycode keycode, SDL_Scancode scancode) {
+ImGuiKey ImGui_ImplSDL3_KeyEventToImGuiKey(SDL_Keycode keycode, SDL_Scancode scancode)
+{
     // Keypad doesn't have individual key values in SDL3
     switch (scancode) {
         case SDL_SCANCODE_KP_0:
@@ -414,17 +424,18 @@ ImGuiKey ImGui_ImplSDL3_KeyEventToImGuiKey(SDL_Keycode keycode, SDL_Scancode sca
     return ImGuiKey_None;
 }
 
-static void ImGui_ImplSDL3_UpdateKeyModifiers(SDL_Keymod sdl_key_mods) {
-    ImGuiIO &io = ImGui::GetIO();
+static void ImGui_ImplSDL3_UpdateKeyModifiers(SDL_Keymod sdl_key_mods)
+{
+    ImGuiIO& io = ImGui::GetIO();
     io.AddKeyEvent(ImGuiMod_Ctrl, (sdl_key_mods & SDL_KMOD_CTRL) != 0);
     io.AddKeyEvent(ImGuiMod_Shift, (sdl_key_mods & SDL_KMOD_SHIFT) != 0);
     io.AddKeyEvent(ImGuiMod_Alt, (sdl_key_mods & SDL_KMOD_ALT) != 0);
     io.AddKeyEvent(ImGuiMod_Super, (sdl_key_mods & SDL_KMOD_GUI) != 0);
 }
 
-
-static ImGuiViewport *ImGui_ImplSDL3_GetViewportForWindowID(SDL_WindowID window_id) {
-    ImGui_ImplSDL3_Data *bd = ImGui_ImplSDL3_GetBackendData();
+static ImGuiViewport* ImGui_ImplSDL3_GetViewportForWindowID(SDL_WindowID window_id)
+{
+    ImGui_ImplSDL3_Data* bd = ImGui_ImplSDL3_GetBackendData();
     return (window_id == bd->WindowID) ? ImGui::GetMainViewport() : nullptr;
 }
 
@@ -433,20 +444,22 @@ static ImGuiViewport *ImGui_ImplSDL3_GetViewportForWindowID(SDL_WindowID window_
 // your copy of the mouse data.
 // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application, or
 // clear/overwrite your copy of the keyboard data. Generally you may always pass all inputs to dear imgui, and hide them
-// from your application based on those two flags. If you have multiple SDL get_events and some of them are not meant to be
-// used by dear imgui, you may need to filter get_events based on their windowID field.
-bool ImGui_ImplSDL3_ProcessEvent(const SDL_Event *event) {
-    ImGui_ImplSDL3_Data *bd = ImGui_ImplSDL3_GetBackendData();
+// from your application based on those two flags. If you have multiple SDL get_events and some of them are not meant to
+// be used by dear imgui, you may need to filter get_events based on their windowID field.
+bool ImGui_ImplSDL3_ProcessEvent(const SDL_Event* event)
+{
+    ImGui_ImplSDL3_Data* bd = ImGui_ImplSDL3_GetBackendData();
     IM_ASSERT(bd != nullptr && "Context or backend not initialized! Did you call ImGui_ImplSDL3_Init()?");
-    ImGuiIO &io = ImGui::GetIO();
+    ImGuiIO& io = ImGui::GetIO();
 
     switch (event->type) {
         case SDL_EVENT_MOUSE_MOTION: {
             if (ImGui_ImplSDL3_GetViewportForWindowID(event->motion.windowID) == nullptr)
                 return false;
             ImVec2 mouse_pos((float) event->motion.x, (float) event->motion.y);
-            io.AddMouseSourceEvent(event->motion.which == SDL_TOUCH_MOUSEID ? ImGuiMouseSource_TouchScreen
-                                                                            : ImGuiMouseSource_Mouse);
+            io.AddMouseSourceEvent(
+                event->motion.which == SDL_TOUCH_MOUSEID ? ImGuiMouseSource_TouchScreen : ImGuiMouseSource_Mouse
+            );
             io.AddMousePosEvent(mouse_pos.x, mouse_pos.y);
             return true;
         }
@@ -457,8 +470,9 @@ bool ImGui_ImplSDL3_ProcessEvent(const SDL_Event *event) {
             // event->wheel.preciseX, event->wheel.preciseY);
             float wheel_x = -event->wheel.x;
             float wheel_y = event->wheel.y;
-            io.AddMouseSourceEvent(event->wheel.which == SDL_TOUCH_MOUSEID ? ImGuiMouseSource_TouchScreen
-                                                                           : ImGuiMouseSource_Mouse);
+            io.AddMouseSourceEvent(
+                event->wheel.which == SDL_TOUCH_MOUSEID ? ImGuiMouseSource_TouchScreen : ImGuiMouseSource_Mouse
+            );
             io.AddMouseWheelEvent(wheel_x, wheel_y);
             return true;
         }
@@ -484,8 +498,9 @@ bool ImGui_ImplSDL3_ProcessEvent(const SDL_Event *event) {
             }
             if (mouse_button == -1)
                 break;
-            io.AddMouseSourceEvent(event->button.which == SDL_TOUCH_MOUSEID ? ImGuiMouseSource_TouchScreen
-                                                                            : ImGuiMouseSource_Mouse);
+            io.AddMouseSourceEvent(
+                event->button.which == SDL_TOUCH_MOUSEID ? ImGuiMouseSource_TouchScreen : ImGuiMouseSource_Mouse
+            );
             io.AddMouseButtonEvent(mouse_button, (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN));
             bd->MouseButtonsDown = (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN)
                                        ? (bd->MouseButtonsDown | (1 << mouse_button))
@@ -509,15 +524,17 @@ bool ImGui_ImplSDL3_ProcessEvent(const SDL_Event *event) {
             //     event->key.mod);
             ImGuiKey key = ImGui_ImplSDL3_KeyEventToImGuiKey(event->key.key, event->key.scancode);
             io.AddKeyEvent(key, (event->type == SDL_EVENT_KEY_DOWN));
-            io.SetKeyEventNativeData(key, event->key.key, event->key.scancode,
-                                     event->key.scancode); // To support legacy indexing (<1.87 user code). Legacy
-                                                           // backend uses SDLK_*** read indices to IsKeyXXX() functions.
+            io.SetKeyEventNativeData(
+                key, event->key.key, event->key.scancode,
+                event->key.scancode
+            ); // To support legacy indexing (<1.87 user code). Legacy
+               // backend uses SDLK_*** read indices to IsKeyXXX() functions.
             return true;
         }
         case SDL_EVENT_WINDOW_MOUSE_ENTER: {
             if (ImGui_ImplSDL3_GetViewportForWindowID(event->window.windowID) == nullptr)
                 return false;
-            bd->MouseWindowID = event->window.windowID;
+            bd->MouseWindowID          = event->window.windowID;
             bd->MousePendingLeaveFrame = 0;
             return true;
         }
@@ -549,8 +566,9 @@ bool ImGui_ImplSDL3_ProcessEvent(const SDL_Event *event) {
     return false;
 }
 
-static void ImGui_ImplSDL3_SetupPlatformHandles(ImGuiViewport *viewport, SDL_Window *window) {
-    viewport->PlatformHandle = (void *) (intptr_t) SDL_GetWindowID(window);
+static void ImGui_ImplSDL3_SetupPlatformHandles(ImGuiViewport* viewport, SDL_Window* window)
+{
+    viewport->PlatformHandle    = (void*) (intptr_t) SDL_GetWindowID(window);
     viewport->PlatformHandleRaw = nullptr;
 #if defined(_WIN32) && !defined(__WINRT__)
     viewport->PlatformHandleRaw =
@@ -561,8 +579,9 @@ static void ImGui_ImplSDL3_SetupPlatformHandles(ImGuiViewport *viewport, SDL_Win
 #endif
 }
 
-static bool ImGui_ImplSDL3_Init(SDL_Window *window, SDL_Renderer *renderer, void *sdl_gl_context) {
-    ImGuiIO &io = ImGui::GetIO();
+static bool ImGui_ImplSDL3_Init(SDL_Window* window, SDL_Renderer* renderer, void* sdl_gl_context)
+{
+    ImGuiIO& io = ImGui::GetIO();
     IMGUI_CHECKVERSION();
     IM_ASSERT(io.BackendPlatformUserData == nullptr && "Already initialized a platform backend!");
     IM_UNUSED(sdl_gl_context); // Unused in this branch
@@ -571,52 +590,52 @@ static bool ImGui_ImplSDL3_Init(SDL_Window *window, SDL_Renderer *renderer, void
     // ("wayland" and "rpi" don't support it, but we chose to use a white-list instead of a black-list)
     bool mouse_can_use_global_state = false;
 #if SDL_HAS_CAPTURE_AND_GLOBAL_MOUSE
-    const char *sdl_backend = SDL_GetCurrentVideoDriver();
-    const char *global_mouse_whitelist[] = {"windows", "cocoa", "x11", "DIVE", "VMAN"};
+    const char* sdl_backend              = SDL_GetCurrentVideoDriver();
+    const char* global_mouse_whitelist[] = {"windows", "cocoa", "x11", "DIVE", "VMAN"};
     for (int n = 0; n < IM_ARRAYSIZE(global_mouse_whitelist); n++)
         if (strncmp(sdl_backend, global_mouse_whitelist[n], strlen(global_mouse_whitelist[n])) == 0)
             mouse_can_use_global_state = true;
 #endif
 
     // Setup backend capabilities flags
-    ImGui_ImplSDL3_Data *bd = IM_NEW(ImGui_ImplSDL3_Data)();
-    io.BackendPlatformUserData = (void *) bd;
-    io.BackendPlatformName = "imgui_impl_sdl3";
+    ImGui_ImplSDL3_Data* bd    = IM_NEW(ImGui_ImplSDL3_Data)();
+    io.BackendPlatformUserData = (void*) bd;
+    io.BackendPlatformName     = "imgui_impl_sdl3";
     io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors; // We can honor GetMouseCursor() values (optional)
     io.BackendFlags |=
         ImGuiBackendFlags_HasSetMousePos; // We can honor io.WantSetMousePos requests (optional, rarely used)
 
-    bd->Window = window;
-    bd->WindowID = SDL_GetWindowID(window);
-    bd->Renderer = renderer;
+    bd->Window                 = window;
+    bd->WindowID               = SDL_GetWindowID(window);
+    bd->Renderer               = renderer;
     bd->MouseCanUseGlobalState = mouse_can_use_global_state;
 
-    ImGuiPlatformIO &platform_io = ImGui::GetPlatformIO();
+    ImGuiPlatformIO& platform_io            = ImGui::GetPlatformIO();
     platform_io.Platform_SetClipboardTextFn = ImGui_ImplSDL3_SetClipboardText;
     platform_io.Platform_GetClipboardTextFn = ImGui_ImplSDL3_GetClipboardText;
-    platform_io.Platform_SetImeDataFn = ImGui_ImplSDL3_PlatformSetImeData;
-    platform_io.Platform_OpenInShellFn = [](ImGuiContext *, const char *url) { return SDL_OpenURL(url) == 0; };
+    platform_io.Platform_SetImeDataFn       = ImGui_ImplSDL3_PlatformSetImeData;
+    platform_io.Platform_OpenInShellFn      = [](ImGuiContext*, const char* url) { return SDL_OpenURL(url) == 0; };
 
     // Gamepad handling
-    bd->GamepadMode = ImGui_ImplSDL3_GamepadMode_AutoFirst;
+    bd->GamepadMode            = ImGui_ImplSDL3_GamepadMode_AutoFirst;
     bd->WantUpdateGamepadsList = true;
 
     // Load mouse cursors
-    bd->MouseCursors[ImGuiMouseCursor_Arrow] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
-    bd->MouseCursors[ImGuiMouseCursor_TextInput] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_TEXT);
-    bd->MouseCursors[ImGuiMouseCursor_ResizeAll] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_MOVE);
-    bd->MouseCursors[ImGuiMouseCursor_ResizeNS] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NS_RESIZE);
-    bd->MouseCursors[ImGuiMouseCursor_ResizeEW] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_EW_RESIZE);
+    bd->MouseCursors[ImGuiMouseCursor_Arrow]      = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
+    bd->MouseCursors[ImGuiMouseCursor_TextInput]  = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_TEXT);
+    bd->MouseCursors[ImGuiMouseCursor_ResizeAll]  = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_MOVE);
+    bd->MouseCursors[ImGuiMouseCursor_ResizeNS]   = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NS_RESIZE);
+    bd->MouseCursors[ImGuiMouseCursor_ResizeEW]   = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_EW_RESIZE);
     bd->MouseCursors[ImGuiMouseCursor_ResizeNESW] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NESW_RESIZE);
     bd->MouseCursors[ImGuiMouseCursor_ResizeNWSE] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NWSE_RESIZE);
-    bd->MouseCursors[ImGuiMouseCursor_Hand] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_POINTER);
-    bd->MouseCursors[ImGuiMouseCursor_Wait] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
-    bd->MouseCursors[ImGuiMouseCursor_Progress] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_PROGRESS);
+    bd->MouseCursors[ImGuiMouseCursor_Hand]       = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_POINTER);
+    bd->MouseCursors[ImGuiMouseCursor_Wait]       = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
+    bd->MouseCursors[ImGuiMouseCursor_Progress]   = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_PROGRESS);
     bd->MouseCursors[ImGuiMouseCursor_NotAllowed] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NOT_ALLOWED);
 
     // Set platform dependent data in viewport
     // Our mouse update function expect PlatformHandle to be filled for the main viewport
-    ImGuiViewport *main_viewport = ImGui::GetMainViewport();
+    ImGuiViewport* main_viewport = ImGui::GetMainViewport();
     ImGui_ImplSDL3_SetupPlatformHandles(main_viewport, window);
 
     // From 2.0.5: Set SDL hint to receive mouse click get_events on window focus, otherwise SDL doesn't emit the event.
@@ -636,36 +655,52 @@ static bool ImGui_ImplSDL3_Init(SDL_Window *window, SDL_Renderer *renderer, void
     return true;
 }
 
-bool ImGui_ImplSDL3_InitForOpenGL(SDL_Window *window, void *sdl_gl_context) {
+bool ImGui_ImplSDL3_InitForOpenGL(SDL_Window* window, void* sdl_gl_context)
+{
     IM_UNUSED(sdl_gl_context); // Viewport branch will need this.
     return ImGui_ImplSDL3_Init(window, nullptr, sdl_gl_context);
 }
 
-bool ImGui_ImplSDL3_InitForVulkan(SDL_Window *window) { return ImGui_ImplSDL3_Init(window, nullptr, nullptr); }
+bool ImGui_ImplSDL3_InitForVulkan(SDL_Window* window)
+{
+    return ImGui_ImplSDL3_Init(window, nullptr, nullptr);
+}
 
-bool ImGui_ImplSDL3_InitForD3D(SDL_Window *window) {
+bool ImGui_ImplSDL3_InitForD3D(SDL_Window* window)
+{
 #if !defined(_WIN32)
     IM_ASSERT(0 && "Unsupported");
 #endif
     return ImGui_ImplSDL3_Init(window, nullptr, nullptr);
 }
 
-bool ImGui_ImplSDL3_InitForMetal(SDL_Window *window) { return ImGui_ImplSDL3_Init(window, nullptr, nullptr); }
+bool ImGui_ImplSDL3_InitForMetal(SDL_Window* window)
+{
+    return ImGui_ImplSDL3_Init(window, nullptr, nullptr);
+}
 
-bool ImGui_ImplSDL3_InitForSDLRenderer(SDL_Window *window, SDL_Renderer *renderer) {
+bool ImGui_ImplSDL3_InitForSDLRenderer(SDL_Window* window, SDL_Renderer* renderer)
+{
     return ImGui_ImplSDL3_Init(window, renderer, nullptr);
 }
 
-bool ImGui_ImplSDL3_InitForSDLGPU(SDL_Window *window) { return ImGui_ImplSDL3_Init(window, nullptr, nullptr); }
+bool ImGui_ImplSDL3_InitForSDLGPU(SDL_Window* window)
+{
+    return ImGui_ImplSDL3_Init(window, nullptr, nullptr);
+}
 
-bool ImGui_ImplSDL3_InitForOther(SDL_Window *window) { return ImGui_ImplSDL3_Init(window, nullptr, nullptr); }
+bool ImGui_ImplSDL3_InitForOther(SDL_Window* window)
+{
+    return ImGui_ImplSDL3_Init(window, nullptr, nullptr);
+}
 
 static void ImGui_ImplSDL3_CloseGamepads();
 
-void ImGui_ImplSDL3_Shutdown() {
-    ImGui_ImplSDL3_Data *bd = ImGui_ImplSDL3_GetBackendData();
+void ImGui_ImplSDL3_Shutdown()
+{
+    ImGui_ImplSDL3_Data* bd = ImGui_ImplSDL3_GetBackendData();
     IM_ASSERT(bd != nullptr && "No platform backend to shutdown, or already shutdown?");
-    ImGuiIO &io = ImGui::GetIO();
+    ImGuiIO& io = ImGui::GetIO();
 
     if (bd->ClipboardTextData)
         SDL_free(bd->ClipboardTextData);
@@ -673,16 +708,17 @@ void ImGui_ImplSDL3_Shutdown() {
         SDL_DestroyCursor(bd->MouseCursors[cursor_n]);
     ImGui_ImplSDL3_CloseGamepads();
 
-    io.BackendPlatformName = nullptr;
+    io.BackendPlatformName     = nullptr;
     io.BackendPlatformUserData = nullptr;
     io.BackendFlags &=
         ~(ImGuiBackendFlags_HasMouseCursors | ImGuiBackendFlags_HasSetMousePos | ImGuiBackendFlags_HasGamepad);
     IM_DELETE(bd);
 }
 
-static void ImGui_ImplSDL3_UpdateMouseData() {
-    ImGui_ImplSDL3_Data *bd = ImGui_ImplSDL3_GetBackendData();
-    ImGuiIO &io = ImGui::GetIO();
+static void ImGui_ImplSDL3_UpdateMouseData()
+{
+    ImGui_ImplSDL3_Data* bd = ImGui_ImplSDL3_GetBackendData();
+    ImGuiIO& io             = ImGui::GetIO();
 
     // We forward mouse input when hovered or captured (via SDL_EVENT_MOUSE_MOTION) or when focused (below)
 #if SDL_HAS_CAPTURE_AND_GLOBAL_MOUSE
@@ -696,11 +732,11 @@ static void ImGui_ImplSDL3_UpdateMouseData() {
             want_capture = true;
     SDL_CaptureMouse(want_capture);
 
-    SDL_Window *focused_window = SDL_GetKeyboardFocus();
-    const bool is_app_focused = (bd->Window == focused_window);
+    SDL_Window* focused_window = SDL_GetKeyboardFocus();
+    const bool is_app_focused  = (bd->Window == focused_window);
 #else
-    SDL_Window *focused_window = bd->Window;
-    const bool is_app_focused = (SDL_GetWindowFlags(bd->Window) & SDL_WINDOW_INPUT_FOCUS) !=
+    SDL_Window* focused_window = bd->Window;
+    const bool is_app_focused  = (SDL_GetWindowFlags(bd->Window) & SDL_WINDOW_INPUT_FOCUS) !=
                                 0; // SDL 2.0.3 and non-windowed systems: single-viewport only
 #endif
     if (is_app_focused) {
@@ -724,11 +760,12 @@ static void ImGui_ImplSDL3_UpdateMouseData() {
     }
 }
 
-static void ImGui_ImplSDL3_UpdateMouseCursor() {
-    ImGuiIO &io = ImGui::GetIO();
+static void ImGui_ImplSDL3_UpdateMouseCursor()
+{
+    ImGuiIO& io = ImGui::GetIO();
     if (io.ConfigFlags & ImGuiConfigFlags_NoMouseCursorChange)
         return;
-    ImGui_ImplSDL3_Data *bd = ImGui_ImplSDL3_GetBackendData();
+    ImGui_ImplSDL3_Data* bd = ImGui_ImplSDL3_GetBackendData();
 
     ImGuiMouseCursor imgui_cursor = ImGui::GetMouseCursor();
     if (io.MouseDrawCursor || imgui_cursor == ImGuiMouseCursor_None) {
@@ -736,7 +773,7 @@ static void ImGui_ImplSDL3_UpdateMouseCursor() {
         SDL_HideCursor();
     } else {
         // Show OS mouse cursor
-        SDL_Cursor *expected_cursor =
+        SDL_Cursor* expected_cursor =
             bd->MouseCursors[imgui_cursor] ? bd->MouseCursors[imgui_cursor] : bd->MouseCursors[ImGuiMouseCursor_Arrow];
         if (bd->MouseLastCursor != expected_cursor) {
             SDL_SetCursor(expected_cursor); // SDL function doesn't have an early out (see #6113)
@@ -746,17 +783,20 @@ static void ImGui_ImplSDL3_UpdateMouseCursor() {
     }
 }
 
-static void ImGui_ImplSDL3_CloseGamepads() {
-    ImGui_ImplSDL3_Data *bd = ImGui_ImplSDL3_GetBackendData();
+static void ImGui_ImplSDL3_CloseGamepads()
+{
+    ImGui_ImplSDL3_Data* bd = ImGui_ImplSDL3_GetBackendData();
     if (bd->GamepadMode != ImGui_ImplSDL3_GamepadMode_Manual)
-        for (SDL_Gamepad *gamepad: bd->Gamepads)
+        for (SDL_Gamepad* gamepad : bd->Gamepads)
             SDL_CloseGamepad(gamepad);
     bd->Gamepads.resize(0);
 }
 
-void ImGui_ImplSDL3_SetGamepadMode(ImGui_ImplSDL3_GamepadMode mode, SDL_Gamepad **manual_gamepads_array,
-                                   int manual_gamepads_count) {
-    ImGui_ImplSDL3_Data *bd = ImGui_ImplSDL3_GetBackendData();
+void ImGui_ImplSDL3_SetGamepadMode(
+    ImGui_ImplSDL3_GamepadMode mode, SDL_Gamepad** manual_gamepads_array, int manual_gamepads_count
+)
+{
+    ImGui_ImplSDL3_Data* bd = ImGui_ImplSDL3_GetBackendData();
     ImGui_ImplSDL3_CloseGamepads();
     if (mode == ImGui_ImplSDL3_GamepadMode_Manual) {
         IM_ASSERT(manual_gamepads_array != nullptr || manual_gamepads_count <= 0);
@@ -769,19 +809,25 @@ void ImGui_ImplSDL3_SetGamepadMode(ImGui_ImplSDL3_GamepadMode mode, SDL_Gamepad 
     bd->GamepadMode = mode;
 }
 
-static void ImGui_ImplSDL3_UpdateGamepadButton(ImGui_ImplSDL3_Data *bd, ImGuiIO &io, ImGuiKey key,
-                                               SDL_GamepadButton button_no) {
+static void
+ImGui_ImplSDL3_UpdateGamepadButton(ImGui_ImplSDL3_Data* bd, ImGuiIO& io, ImGuiKey key, SDL_GamepadButton button_no)
+{
     bool merged_value = false;
-    for (SDL_Gamepad *gamepad: bd->Gamepads)
+    for (SDL_Gamepad* gamepad : bd->Gamepads)
         merged_value |= SDL_GetGamepadButton(gamepad, button_no) != 0;
     io.AddKeyEvent(key, merged_value);
 }
 
-static inline float Saturate(float v) { return v < 0.0f ? 0.0f : v > 1.0f ? 1.0f : v; }
-static void ImGui_ImplSDL3_UpdateGamepadAnalog(ImGui_ImplSDL3_Data *bd, ImGuiIO &io, ImGuiKey key,
-                                               SDL_GamepadAxis axis_no, float v0, float v1) {
+static inline float Saturate(float v)
+{
+    return v < 0.0f ? 0.0f : v > 1.0f ? 1.0f : v;
+}
+static void ImGui_ImplSDL3_UpdateGamepadAnalog(
+    ImGui_ImplSDL3_Data* bd, ImGuiIO& io, ImGuiKey key, SDL_GamepadAxis axis_no, float v0, float v1
+)
+{
     float merged_value = 0.0f;
-    for (SDL_Gamepad *gamepad: bd->Gamepads) {
+    for (SDL_Gamepad* gamepad : bd->Gamepads) {
         float vn = Saturate((float) (SDL_GetGamepadAxis(gamepad, axis_no) - v0) / (float) (v1 - v0));
         if (merged_value < vn)
             merged_value = vn;
@@ -789,17 +835,18 @@ static void ImGui_ImplSDL3_UpdateGamepadAnalog(ImGui_ImplSDL3_Data *bd, ImGuiIO 
     io.AddKeyAnalogEvent(key, merged_value > 0.1f, merged_value);
 }
 
-static void ImGui_ImplSDL3_UpdateGamepads() {
-    ImGuiIO &io = ImGui::GetIO();
-    ImGui_ImplSDL3_Data *bd = ImGui_ImplSDL3_GetBackendData();
+static void ImGui_ImplSDL3_UpdateGamepads()
+{
+    ImGuiIO& io             = ImGui::GetIO();
+    ImGui_ImplSDL3_Data* bd = ImGui_ImplSDL3_GetBackendData();
 
     // Update list of gamepads to use
     if (bd->WantUpdateGamepadsList && bd->GamepadMode != ImGui_ImplSDL3_GamepadMode_Manual) {
         ImGui_ImplSDL3_CloseGamepads();
-        int sdl_gamepads_count = 0;
-        SDL_JoystickID *sdl_gamepads = SDL_GetGamepads(&sdl_gamepads_count);
+        int sdl_gamepads_count       = 0;
+        SDL_JoystickID* sdl_gamepads = SDL_GetGamepads(&sdl_gamepads_count);
         for (int n = 0; n < sdl_gamepads_count; n++)
-            if (SDL_Gamepad *gamepad = SDL_OpenGamepad(sdl_gamepads[n])) {
+            if (SDL_Gamepad* gamepad = SDL_OpenGamepad(sdl_gamepads[n])) {
                 bd->Gamepads.push_back(gamepad);
                 if (bd->GamepadMode == ImGui_ImplSDL3_GamepadMode_AutoFirst)
                     break;
@@ -820,7 +867,7 @@ static void ImGui_ImplSDL3_UpdateGamepads() {
     const int thumb_dead_zone = 8000; // SDL_gamepad.h suggests using this value.
     ImGui_ImplSDL3_UpdateGamepadButton(bd, io, ImGuiKey_GamepadStart, SDL_GAMEPAD_BUTTON_START);
     ImGui_ImplSDL3_UpdateGamepadButton(bd, io, ImGuiKey_GamepadBack, SDL_GAMEPAD_BUTTON_BACK);
-    ImGui_ImplSDL3_UpdateGamepadButton(bd, io, ImGuiKey_GamepadFaceLeft, SDL_GAMEPAD_BUTTON_WEST); // Xbox X, PS Square
+    ImGui_ImplSDL3_UpdateGamepadButton(bd, io, ImGuiKey_GamepadFaceLeft, SDL_GAMEPAD_BUTTON_WEST);  // Xbox X, PS Square
     ImGui_ImplSDL3_UpdateGamepadButton(bd, io, ImGuiKey_GamepadFaceRight, SDL_GAMEPAD_BUTTON_EAST); // Xbox B, PS Circle
     ImGui_ImplSDL3_UpdateGamepadButton(bd, io, ImGuiKey_GamepadFaceUp, SDL_GAMEPAD_BUTTON_NORTH); // Xbox Y, PS Triangle
     ImGui_ImplSDL3_UpdateGamepadButton(bd, io, ImGuiKey_GamepadFaceDown, SDL_GAMEPAD_BUTTON_SOUTH); // Xbox A, PS Cross
@@ -834,28 +881,37 @@ static void ImGui_ImplSDL3_UpdateGamepads() {
     ImGui_ImplSDL3_UpdateGamepadAnalog(bd, io, ImGuiKey_GamepadR2, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, 0.0f, 32767);
     ImGui_ImplSDL3_UpdateGamepadButton(bd, io, ImGuiKey_GamepadL3, SDL_GAMEPAD_BUTTON_LEFT_STICK);
     ImGui_ImplSDL3_UpdateGamepadButton(bd, io, ImGuiKey_GamepadR3, SDL_GAMEPAD_BUTTON_RIGHT_STICK);
-    ImGui_ImplSDL3_UpdateGamepadAnalog(bd, io, ImGuiKey_GamepadLStickLeft, SDL_GAMEPAD_AXIS_LEFTX, -thumb_dead_zone,
-                                       -32768);
-    ImGui_ImplSDL3_UpdateGamepadAnalog(bd, io, ImGuiKey_GamepadLStickRight, SDL_GAMEPAD_AXIS_LEFTX, +thumb_dead_zone,
-                                       +32767);
-    ImGui_ImplSDL3_UpdateGamepadAnalog(bd, io, ImGuiKey_GamepadLStickUp, SDL_GAMEPAD_AXIS_LEFTY, -thumb_dead_zone,
-                                       -32768);
-    ImGui_ImplSDL3_UpdateGamepadAnalog(bd, io, ImGuiKey_GamepadLStickDown, SDL_GAMEPAD_AXIS_LEFTY, +thumb_dead_zone,
-                                       +32767);
-    ImGui_ImplSDL3_UpdateGamepadAnalog(bd, io, ImGuiKey_GamepadRStickLeft, SDL_GAMEPAD_AXIS_RIGHTX, -thumb_dead_zone,
-                                       -32768);
-    ImGui_ImplSDL3_UpdateGamepadAnalog(bd, io, ImGuiKey_GamepadRStickRight, SDL_GAMEPAD_AXIS_RIGHTX, +thumb_dead_zone,
-                                       +32767);
-    ImGui_ImplSDL3_UpdateGamepadAnalog(bd, io, ImGuiKey_GamepadRStickUp, SDL_GAMEPAD_AXIS_RIGHTY, -thumb_dead_zone,
-                                       -32768);
-    ImGui_ImplSDL3_UpdateGamepadAnalog(bd, io, ImGuiKey_GamepadRStickDown, SDL_GAMEPAD_AXIS_RIGHTY, +thumb_dead_zone,
-                                       +32767);
+    ImGui_ImplSDL3_UpdateGamepadAnalog(
+        bd, io, ImGuiKey_GamepadLStickLeft, SDL_GAMEPAD_AXIS_LEFTX, -thumb_dead_zone, -32768
+    );
+    ImGui_ImplSDL3_UpdateGamepadAnalog(
+        bd, io, ImGuiKey_GamepadLStickRight, SDL_GAMEPAD_AXIS_LEFTX, +thumb_dead_zone, +32767
+    );
+    ImGui_ImplSDL3_UpdateGamepadAnalog(
+        bd, io, ImGuiKey_GamepadLStickUp, SDL_GAMEPAD_AXIS_LEFTY, -thumb_dead_zone, -32768
+    );
+    ImGui_ImplSDL3_UpdateGamepadAnalog(
+        bd, io, ImGuiKey_GamepadLStickDown, SDL_GAMEPAD_AXIS_LEFTY, +thumb_dead_zone, +32767
+    );
+    ImGui_ImplSDL3_UpdateGamepadAnalog(
+        bd, io, ImGuiKey_GamepadRStickLeft, SDL_GAMEPAD_AXIS_RIGHTX, -thumb_dead_zone, -32768
+    );
+    ImGui_ImplSDL3_UpdateGamepadAnalog(
+        bd, io, ImGuiKey_GamepadRStickRight, SDL_GAMEPAD_AXIS_RIGHTX, +thumb_dead_zone, +32767
+    );
+    ImGui_ImplSDL3_UpdateGamepadAnalog(
+        bd, io, ImGuiKey_GamepadRStickUp, SDL_GAMEPAD_AXIS_RIGHTY, -thumb_dead_zone, -32768
+    );
+    ImGui_ImplSDL3_UpdateGamepadAnalog(
+        bd, io, ImGuiKey_GamepadRStickDown, SDL_GAMEPAD_AXIS_RIGHTY, +thumb_dead_zone, +32767
+    );
 }
 
-void ImGui_ImplSDL3_NewFrame() {
-    ImGui_ImplSDL3_Data *bd = ImGui_ImplSDL3_GetBackendData();
+void ImGui_ImplSDL3_NewFrame()
+{
+    ImGui_ImplSDL3_Data* bd = ImGui_ImplSDL3_GetBackendData();
     IM_ASSERT(bd != nullptr && "Context or backend not initialized! Did you call ImGui_ImplSDL3_Init()?");
-    ImGuiIO &io = ImGui::GetIO();
+    ImGuiIO& io = ImGui::GetIO();
 
     // Setup display size (every frame to accommodate for window resizing)
     int w, h;
@@ -872,15 +928,15 @@ void ImGui_ImplSDL3_NewFrame() {
     // (Accept SDL_GetPerformanceCounter() not returning a monotonically increasing value. Happens in VMs and
     // Emscripten, see #6189, #6114, #3644)
     static Uint64 frequency = SDL_GetPerformanceFrequency();
-    Uint64 current_time = SDL_GetPerformanceCounter();
+    Uint64 current_time     = SDL_GetPerformanceCounter();
     if (current_time <= bd->Time)
         current_time = bd->Time + 1;
     io.DeltaTime = bd->Time > 0 ? (float) ((double) (current_time - bd->Time) / frequency) : (float) (1.0f / 60.0f);
-    bd->Time = current_time;
+    bd->Time     = current_time;
 
     if (bd->MousePendingLeaveFrame && bd->MousePendingLeaveFrame >= ImGui::GetFrameCount() &&
         bd->MouseButtonsDown == 0) {
-        bd->MouseWindowID = 0;
+        bd->MouseWindowID          = 0;
         bd->MousePendingLeaveFrame = 0;
         io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
     }

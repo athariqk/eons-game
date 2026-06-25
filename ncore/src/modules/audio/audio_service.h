@@ -12,7 +12,7 @@ class IAudioService : public IService {
     NCLASS(IAudioService, IService)
 
 public:
-    virtual void play_sound(const AudioClip *p_sound) = 0;
+    virtual void play_sound(const AudioClip* p_sound) = 0;
 };
 
 } // namespace ncore

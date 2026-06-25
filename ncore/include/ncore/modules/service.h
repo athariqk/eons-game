@@ -19,7 +19,7 @@ class IService : public NObject {
 public:
     virtual ~IService() = default;
 
-    virtual Error init() = 0;
+    virtual Error init()    = 0;
     virtual void finalize() = 0;
 };
 
@@ -27,7 +27,10 @@ class NullService : public IService {
     NCLASS(NullService, IService)
 
 public:
-    Error init() override { return Error::OK; }
+    Error init() override
+    {
+        return Error::OK;
+    }
     void finalize() override {}
 };
 

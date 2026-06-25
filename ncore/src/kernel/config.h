@@ -14,19 +14,29 @@ namespace ncore {
 class ConfFile {
 public:
     ConfFile() = default;
-    ConfFile(std::string path) { load(path); }
+    ConfFile(std::string path)
+    {
+        load(path);
+    }
 
-    void operator()(const std::string &path) { load(path); }
-    std::string operator[](const std::string &key) const { return get(key); }
+    void operator()(const std::string& path)
+    {
+        load(path);
+    }
+    std::string operator[](const std::string& key) const
+    {
+        return get(key);
+    }
 
-    void load(const std::string &path);
-    std::string get(const std::string &key, const std::string &default_value = "") const;
+    void load(const std::string& path);
+    std::string get(const std::string& key, const std::string& default_value = "") const;
     void save();
 
     template<typename T>
-    T read() {
+    T read()
+    {
         T result{};
-        auto *type_info = rfl::Registry::find_record<T>();
+        auto* type_info = rfl::Registry::find_record<T>();
         if (type_info) {
             read_into(*type_info, &result);
         }
@@ -35,9 +45,9 @@ public:
 
 private:
     /**
-	* @brief Decodes data to a type-safe struct.
-	*/
-    void read_into(const rfl::RecordInfo &type_info, void *result);
+     * @brief Decodes data to a type-safe struct.
+     */
+    void read_into(const rfl::RecordInfo& type_info, void* result);
 
     std::string path;
     std::unordered_map<std::string, std::string> data;

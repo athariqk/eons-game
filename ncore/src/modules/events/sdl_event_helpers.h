@@ -1,15 +1,16 @@
 #pragma once
 
-#include <ncore/modules/events/input_event.h>
+#include <memory>
 
 #include <SDL3/SDL_events.h>
 
-#include <memory>
+#include <ncore/modules/events/input_event.h>
 
 namespace ncore {
 
 struct SDLEventHelpers {
-    static KeyboardEvent::Key MapSDLKeyToKey(SDL_Scancode scancode) {
+    static KeyboardEvent::Key MapSDLKeyToKey(SDL_Scancode scancode)
+    {
         switch (scancode) {
             case SDL_SCANCODE_W:
                 return KeyboardEvent::Key::W;
@@ -51,7 +52,8 @@ struct SDLEventHelpers {
         }
     }
 
-    static ButtonAction MapSDLEventTypeToAction(uint32_t p_sdl_event_type) {
+    static ButtonAction MapSDLEventTypeToAction(uint32_t p_sdl_event_type)
+    {
         switch (p_sdl_event_type) {
             case SDL_EVENT_KEY_DOWN:
             case SDL_EVENT_MOUSE_BUTTON_DOWN:
@@ -64,7 +66,8 @@ struct SDLEventHelpers {
         }
     }
 
-    static ButtonIndex MapSDLButtonToButtonIndex(uint8_t p_sdl_button) {
+    static ButtonIndex MapSDLButtonToButtonIndex(uint8_t p_sdl_button)
+    {
         switch (p_sdl_button) {
             case SDL_BUTTON_LEFT:
                 return ButtonIndex::LEFT;
@@ -77,7 +80,8 @@ struct SDLEventHelpers {
         }
     }
 
-    static SDL_Scancode KeyToScancode(KeyboardEvent::Key key) {
+    static SDL_Scancode KeyToScancode(KeyboardEvent::Key key)
+    {
         switch (key) {
             case KeyboardEvent::Key::W:
                 return SDL_SCANCODE_W;
@@ -116,7 +120,8 @@ struct SDLEventHelpers {
         }
     }
 
-    static uint8_t BtnToSDL(ButtonIndex btn) {
+    static uint8_t BtnToSDL(ButtonIndex btn)
+    {
         switch (btn) {
             case ButtonIndex::LEFT:
                 return SDL_BUTTON_LEFT;
@@ -129,7 +134,8 @@ struct SDLEventHelpers {
         }
     }
 
-    static std::unique_ptr<Event> map_from_sdl(SDL_Event &event) {
+    static std::unique_ptr<Event> map_from_sdl(SDL_Event& event)
+    {
         switch (event.type) {
             case SDL_EVENT_QUIT:
                 // TODO: what should be the appropriate event mapping here?
@@ -137,8 +143,9 @@ struct SDLEventHelpers {
             case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
                 return std::make_unique<WindowCloseEvent>(event.window.windowID);
             case SDL_EVENT_WINDOW_RESIZED:
-                return std::make_unique<WindowResizeEvent>(event.window.windowID, event.window.data1,
-                                                           event.window.data2);
+                return std::make_unique<WindowResizeEvent>(
+                    event.window.windowID, event.window.data1, event.window.data2
+                );
             case SDL_EVENT_WINDOW_MOUSE_ENTER:
                 return std::make_unique<WindowMouseEnterEvent>(event.window.windowID);
             case SDL_EVENT_WINDOW_MOUSE_LEAVE:
@@ -149,15 +156,15 @@ struct SDLEventHelpers {
                 return std::make_unique<WindowFocusEvent>(event.window.windowID, false);
             case SDL_EVENT_MOUSE_BUTTON_DOWN:
             case SDL_EVENT_MOUSE_BUTTON_UP: {
-                auto action = MapSDLEventTypeToAction(event.type);
-                auto btn = MapSDLButtonToButtonIndex(event.button.button);
+                auto action    = MapSDLEventTypeToAction(event.type);
+                auto btn       = MapSDLButtonToButtonIndex(event.button.button);
                 auto mouse_pos = Vec2(event.button.x, event.button.y);
                 return std::make_unique<MouseButtonEvent>(event.window.windowID, action, btn, mouse_pos);
             }
             case SDL_EVENT_MOUSE_MOTION: {
                 auto mouse_pos = Vec2(event.motion.x, event.motion.y);
-                auto delta = Vec2(event.motion.xrel, event.motion.yrel);
-                auto state = event.motion.state;
+                auto delta     = Vec2(event.motion.xrel, event.motion.yrel);
+                auto state     = event.motion.state;
                 return std::make_unique<MouseMotionEvent>(event.window.windowID, mouse_pos, delta, state);
             }
             case SDL_EVENT_MOUSE_WHEEL:
@@ -180,95 +187,96 @@ struct SDLEventHelpers {
         return std::make_unique<Event>();
     }
 
-    static SDL_Event map_to_sdl(const WindowEvent *event) {
+    static SDL_Event map_to_sdl(const WindowEvent* event)
+    {
         SDL_Event sdl{};
 
         switch (event->get_type()) {
             case EventType::KEYBOARD: {
-                auto key_ev = static_cast<const KeyboardEvent *>(event);
-                sdl.type = key_ev->action == ButtonAction::PRESS ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
+                auto key_ev      = static_cast<const KeyboardEvent*>(event);
+                sdl.type         = key_ev->action == ButtonAction::PRESS ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
                 sdl.key.scancode = KeyToScancode(key_ev->key);
-                sdl.key.key = 0;
-                sdl.key.repeat = key_ev->repeat;
+                sdl.key.key      = 0;
+                sdl.key.repeat   = key_ev->repeat;
                 sdl.key.windowID = event->window_id;
                 break;
             }
 
             case EventType::MOUSE_BUTTON: {
-                auto mb_ev = static_cast<const MouseButtonEvent *>(event);
+                auto mb_ev = static_cast<const MouseButtonEvent*>(event);
                 sdl.type =
                     mb_ev->action == ButtonAction::PRESS ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
-                sdl.button.button = BtnToSDL(mb_ev->button);
-                sdl.button.x = mb_ev->position.x;
-                sdl.button.y = mb_ev->position.y;
+                sdl.button.button   = BtnToSDL(mb_ev->button);
+                sdl.button.x        = mb_ev->position.x;
+                sdl.button.y        = mb_ev->position.y;
                 sdl.button.windowID = event->window_id;
                 break;
             }
 
             case EventType::MOUSE_MOTION: {
-                auto mm_ev = static_cast<const MouseMotionEvent *>(event);
-                sdl.type = SDL_EVENT_MOUSE_MOTION;
-                sdl.motion.x = mm_ev->position.x;
-                sdl.motion.y = mm_ev->position.y;
-                sdl.motion.xrel = mm_ev->delta.x;
-                sdl.motion.yrel = mm_ev->delta.y;
-                sdl.motion.state = mm_ev->buttonState;
+                auto mm_ev          = static_cast<const MouseMotionEvent*>(event);
+                sdl.type            = SDL_EVENT_MOUSE_MOTION;
+                sdl.motion.x        = mm_ev->position.x;
+                sdl.motion.y        = mm_ev->position.y;
+                sdl.motion.xrel     = mm_ev->delta.x;
+                sdl.motion.yrel     = mm_ev->delta.y;
+                sdl.motion.state    = mm_ev->buttonState;
                 sdl.motion.windowID = event->window_id;
                 break;
             }
 
             case EventType::MOUSE_WHEEL: {
-                auto mw_ev = static_cast<const MouseWheelEvent *>(event);
-                sdl.type = SDL_EVENT_MOUSE_WHEEL;
-                sdl.wheel.x = mw_ev->scroll_x;
-                sdl.wheel.y = mw_ev->scroll_y;
+                auto mw_ev         = static_cast<const MouseWheelEvent*>(event);
+                sdl.type           = SDL_EVENT_MOUSE_WHEEL;
+                sdl.wheel.x        = mw_ev->scroll_x;
+                sdl.wheel.y        = mw_ev->scroll_y;
                 sdl.wheel.windowID = event->window_id;
                 break;
             }
 
             case EventType::TEXT_INPUT: {
-                auto ti_ev = static_cast<const TextInputEvent *>(event);
-                sdl.type = SDL_EVENT_TEXT_INPUT;
-                sdl.text.text = ti_ev->text.c_str();
+                auto ti_ev        = static_cast<const TextInputEvent*>(event);
+                sdl.type          = SDL_EVENT_TEXT_INPUT;
+                sdl.text.text     = ti_ev->text.c_str();
                 sdl.text.windowID = event->window_id;
                 break;
             }
 
             case EventType::WINDOW_RESIZE: {
-                auto wr_ev = static_cast<const WindowResizeEvent *>(event);
-                sdl.type = SDL_EVENT_WINDOW_RESIZED;
-                sdl.window.data1 = wr_ev->width;
-                sdl.window.data2 = wr_ev->height;
+                auto wr_ev          = static_cast<const WindowResizeEvent*>(event);
+                sdl.type            = SDL_EVENT_WINDOW_RESIZED;
+                sdl.window.data1    = wr_ev->width;
+                sdl.window.data2    = wr_ev->height;
                 sdl.window.windowID = event->window_id;
                 break;
             }
 
             case EventType::WINDOW_CLOSE: {
-                sdl.type = SDL_EVENT_WINDOW_CLOSE_REQUESTED;
+                sdl.type            = SDL_EVENT_WINDOW_CLOSE_REQUESTED;
                 sdl.window.windowID = event->window_id;
                 break;
             }
 
             case EventType::WINDOW_FOCUS: {
-                auto wf_ev = static_cast<const WindowFocusEvent *>(event);
-                sdl.type = wf_ev->focused ? SDL_EVENT_WINDOW_FOCUS_GAINED : SDL_EVENT_WINDOW_FOCUS_LOST;
+                auto wf_ev          = static_cast<const WindowFocusEvent*>(event);
+                sdl.type            = wf_ev->focused ? SDL_EVENT_WINDOW_FOCUS_GAINED : SDL_EVENT_WINDOW_FOCUS_LOST;
                 sdl.window.windowID = event->window_id;
                 break;
             }
 
             case EventType::WINDOW_MOUSE_ENTER: {
-                sdl.type = SDL_EVENT_WINDOW_MOUSE_ENTER;
+                sdl.type            = SDL_EVENT_WINDOW_MOUSE_ENTER;
                 sdl.window.windowID = event->window_id;
                 break;
             }
             case EventType::WINDOW_MOUSE_LEAVE: {
-                sdl.type = SDL_EVENT_WINDOW_MOUSE_LEAVE;
+                sdl.type            = SDL_EVENT_WINDOW_MOUSE_LEAVE;
                 sdl.window.windowID = event->window_id;
                 break;
             }
 
             case EventType::UNKNOWN: {
-                sdl.type = SDL_EVENT_FIRST;
+                sdl.type            = SDL_EVENT_FIRST;
                 sdl.window.windowID = event->window_id;
                 break;
             }

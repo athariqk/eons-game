@@ -1,15 +1,18 @@
-#include <ncore/scene/node.h>
-
 #include <ncore/modules/ecs/ecs_world.h>
+#include <ncore/scene/node.h>
 #include <ncore/scene/scene.h>
 
 namespace ncore {
 
 Node::Node() {}
 
-Node::~Node() { scene->node_pool.release(this); }
+Node::~Node()
+{
+    scene->node_pool.release(this);
+}
 
-Node *Node::create_child(const std::string &name) {
+Node* Node::create_child(const std::string& name)
+{
     auto node = scene->node_pool.acquire();
     node->set_scene(scene);
     node->internal_id = scene->ecs_world.create_entity(name).child_of(internal_id).build();
@@ -17,7 +20,8 @@ Node *Node::create_child(const std::string &name) {
     return node;
 }
 
-void Node::destroy_child(Node *child) {
+void Node::destroy_child(Node* child)
+{
     if (!child || child == this)
         return;
     // TODO: how to make this atomic?
@@ -27,8 +31,11 @@ void Node::destroy_child(Node *child) {
 
 void Node::destroy_children() {}
 
-void Node::reparent_to(Node *child) {}
+void Node::reparent_to(Node* child) {}
 
-std::string_view Node::get_name() const { return scene->ecs_world.get_entity_name(internal_id); }
+std::string_view Node::get_name() const
+{
+    return scene->ecs_world.get_entity_name(internal_id);
+}
 
 } // namespace ncore

@@ -16,7 +16,7 @@ class Node;
  * can have many child Nodes, and each Node can have multiple components attached to it.
  * You define game logic by... i don't know, lets figure it out :P
  *
- * This is very inspired by Godot's Node system.
+ * This was very inspired by Godot's Node system.
  *
  * In practice, this is just a thin layer of abstraction on top of EcsWorld which is
  * a pure ECS runtime and may not be easily approachable to most game developers.
@@ -25,25 +25,38 @@ class Node;
 class Scene : public IGameWorld {
     NCLASS(Scene, IGameWorld)
 
-    using NodePool = PagedObjectPool<Node>;
+    using NodePool                              = PagedObjectPool<Node>;
     static constexpr EcsEntityId ROOT_PARENT_ID = 0xABCDEF123FFFFF;
 
 public:
-    Scene(ServiceLocator &services);
+    Scene(ServiceLocator& services);
 
     void on_init() override;
     bool on_fixed_update(double p_delta) override;
     bool on_variable_update(double p_delta) override;
     void on_finish() override;
 
-    // This may be used for low-level accesss to the ECS runtime.
-    EcsWorld &get_ecs() { return ecs_world; }
+    /**
+     * @brief This may be used for low-level accesss to the ECS runtime.
+     */
+    EcsWorld& get_ecs()
+    {
+        return ecs_world;
+    }
 
-    void set_viewport(Viewport *vp) { viewport = vp; }
-    Viewport *get_viewport() const { return viewport; }
+    void set_viewport(Viewport* vp)
+    {
+        viewport = vp;
+    }
+    Viewport* get_viewport() const
+    {
+        return viewport;
+    }
 
-    // This creates a new root if current doesnt exist
-    Node *get_root_node();
+    /**
+     * @brief This creates a new root if current one doesn't exist.
+     */
+    Node* get_root_node();
 
 private:
     void ensure_root_node_exists_();
@@ -52,9 +65,9 @@ private:
     friend class Node;
 
     EcsWorld ecs_world;
-    Viewport *viewport = nullptr;
+    Viewport* viewport = nullptr;
     NodePool node_pool;
-    Node *root_node = nullptr;
+    Node* root_node    = nullptr;
     bool wants_to_quit = false;
 };
 

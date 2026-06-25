@@ -8,7 +8,7 @@ class EcsAudioFeature : public EcsFeature {
     NCLASS(EcsAudioFeature, EcsFeature)
 
 public:
-    void build(EcsWorld &world) override {}
+    void build(EcsWorld& world) override {}
 };
 
 } // namespace ncore

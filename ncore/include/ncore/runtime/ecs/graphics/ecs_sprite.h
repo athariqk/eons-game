@@ -18,7 +18,7 @@ struct EcsCircleDraw {
     float radius = 1.0f;
     Color color{0, 0, 0, 255};
     bool filled = false;
-    bool edge = false;
+    bool edge   = false;
 };
 
 } // namespace ncore

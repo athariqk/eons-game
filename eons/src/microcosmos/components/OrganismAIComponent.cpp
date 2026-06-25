@@ -1,6 +1,7 @@
 #include "OrganismAIComponent.h"
 
-std::string OrganismAIComponent::get_current_behavior() const {
+std::string OrganismAIComponent::get_current_behavior() const
+{
     switch (state) {
         case BehaviourState::IDLING:
         case BehaviourState::RUN_TUMBLE:

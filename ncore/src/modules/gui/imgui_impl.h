@@ -25,11 +25,11 @@ public:
     void render_frame() override;
 
 private:
-    bool m_initialized = false;
-    uint32_t window_id = 0;
-    SDL_Renderer *renderer = nullptr;
-    SDL_Window *window = nullptr;
-    ImGuiContext *imgui_ctx = nullptr;
+    bool m_initialized      = false;
+    uint32_t window_id      = 0;
+    SDL_Renderer* renderer  = nullptr;
+    SDL_Window* window      = nullptr;
+    ImGuiContext* imgui_ctx = nullptr;
 };
 
 } // namespace ncore

@@ -1,10 +1,10 @@
 #pragma once
 
-#include "log_level.h"
-
 #include <fstream>
 #include <mutex>
 #include <string>
+
+#include "log_level.h"
 
 namespace ncore::log {
 
@@ -12,11 +12,17 @@ class Sink {
 public:
     virtual ~Sink();
 
-    virtual void write(const LogMsg &msg) = 0;
-    virtual void flush() = 0;
+    virtual void write(const LogMsg& msg) = 0;
+    virtual void flush()                  = 0;
 
-    void set_level(Level p_level) { level = p_level; }
-    bool should_log(Level p_level) const { return p_level >= level; }
+    void set_level(Level p_level)
+    {
+        level = p_level;
+    }
+    bool should_log(Level p_level) const
+    {
+        return p_level >= level;
+    }
 
 protected:
     std::string current_time();
@@ -27,15 +33,15 @@ private:
 
 class ConsoleSink : public Sink {
 public:
-    void write(const LogMsg &msg) override;
+    void write(const LogMsg& msg) override;
     void flush() override;
 };
 
 class FileSink : public Sink {
 public:
-    FileSink(const std::string &path, size_t max_bytes = 1024 * 1024 * 5, size_t max_files = 3);
+    FileSink(const std::string& path, size_t max_bytes = 1024 * 1024 * 5, size_t max_files = 3);
 
-    void write(const LogMsg &msg) override;
+    void write(const LogMsg& msg) override;
     void flush() override;
 
 private:

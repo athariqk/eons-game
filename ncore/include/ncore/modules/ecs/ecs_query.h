@@ -28,19 +28,22 @@ public:
     EcsQuery() = default;
 
     Iterator begin();
-    static std::nullptr_t end() { return nullptr; }
+    static std::nullptr_t end()
+    {
+        return nullptr;
+    }
 
 private:
     friend class EcsWorld;
     friend class EcsQueryBuilder;
     friend class EcsSystemBuilder;
 
-    EcsQuery(EcsWorld *world_ref, void *world_handle, void *query_handle);
+    EcsQuery(EcsWorld* world_ref, void* world_handle, void* query_handle);
 
     // internal impl details
-    EcsWorld *world_ref_ = nullptr;
-    void *world_ = nullptr; // native world
-    void *query_ = nullptr; // native query
+    EcsWorld* world_ref_ = nullptr;
+    void* world_         = nullptr; // native world
+    void* query_         = nullptr; // native query
 };
 
 //------------------------------------------------------------------------------
@@ -52,27 +55,29 @@ private:
  */
 class EcsIter {
 public:
-    double delta_time() const; // The global delta time
+    double delta_time() const;         // The global delta time
     float delta_time_internal() const; // System's own delta time
-    int32_t count() const; // The entity count being iterated
+    int32_t count() const;             // The entity count being iterated
     EcsEntityId entity(int32_t row) const;
-    EcsWorld &world() const;
+    EcsWorld& world() const;
 
     /**
      * @brief Typed component access. Component indices are 0-based in the order
      * terms were added to the builder.
      */
     template<typename T>
-    T *get_component(int32_t column) {
-        auto &info = rfl::Registry::get<T>();
-        return static_cast<T *>(get_component_(column, info.size, info.alignment));
+    T* get_component(int32_t column)
+    {
+        auto& info = rfl::Registry::get<T>();
+        return static_cast<T*>(get_component_(column, info.size, info.alignment));
     }
 
     /**
      * @brief Gets a single element from a typed component at a given row.
      */
     template<typename T>
-    T &get_component(int32_t column, int32_t row) {
+    T& get_component(int32_t column, int32_t row)
+    {
         return get_component<T>(column)[row];
     }
 
@@ -81,10 +86,10 @@ private:
     friend class EcsQuery;
 
     // iterator impl details
-    explicit EcsIter(void *iter);
-    void set_iter_(void *iter);
-    void *get_component_(int32_t column, size_t size, size_t alignment) const;
-    void *it_ = nullptr;
+    explicit EcsIter(void* iter);
+    void set_iter_(void* iter);
+    void* get_component_(int32_t column, size_t size, size_t alignment) const;
+    void* it_ = nullptr;
 };
 
 //------------------------------------------------------------------------------
@@ -93,23 +98,23 @@ class EcsQuery::Iterator {
 public:
     ~Iterator();
 
-    Iterator(Iterator &&) noexcept;
-    Iterator &operator=(Iterator &&) noexcept;
-    Iterator(const Iterator &) = delete;
-    Iterator &operator=(const Iterator &) = delete;
+    Iterator(Iterator&&) noexcept;
+    Iterator& operator=(Iterator&&) noexcept;
+    Iterator(const Iterator&)            = delete;
+    Iterator& operator=(const Iterator&) = delete;
 
     bool operator!=(std::nullptr_t) const;
-    Iterator &operator++();
-    EcsIter &operator*();
+    Iterator& operator++();
+    EcsIter& operator*();
 
 private:
     friend class EcsQuery;
-    Iterator(EcsWorld *world_ref, void *world, void *query);
+    Iterator(EcsWorld* world_ref, void* world, void* query);
 
     // internal impl details
-    void *world_ = nullptr;
-    void *query_ = nullptr;
-    void *iter_ = nullptr;
+    void* world_ = nullptr;
+    void* query_ = nullptr;
+    void* iter_  = nullptr;
     EcsIter wrapper_{nullptr};
     bool done_ = true;
 };
@@ -118,39 +123,42 @@ private:
 
 class EcsQueryBuilder {
 public:
-    EcsQueryBuilder(EcsWorld &world, std::string name);
+    EcsQueryBuilder(EcsWorld& world, std::string name);
     ~EcsQueryBuilder();
 
     template<typename... Comps>
-    EcsQueryBuilder &with() {
+    EcsQueryBuilder& with()
+    {
         (add_term_<Comps>(0), ...);
         return *this;
     }
 
     template<typename First, typename Second>
-    EcsQueryBuilder &with_pair() {
+    EcsQueryBuilder& with_pair()
+    {
         add_term_pair_impl(rfl::Registry::find<First>(), rfl::Registry::find<Second>(), 0);
         return *this;
     }
 
     template<typename... Comps>
-    EcsQueryBuilder &read() {
+    EcsQueryBuilder& read()
+    {
         (add_term_<Comps>(1), ...);
         return *this;
     }
 
-    EcsQueryBuilder &all();
-    EcsQueryBuilder &all_read();
+    EcsQueryBuilder& all();
+    EcsQueryBuilder& all_read();
 
     /**
      * @brief Set the optional query DSL expression.
      */
-    EcsQueryBuilder &expr(std::string_view dsl);
+    EcsQueryBuilder& expr(std::string_view dsl);
 
     /**
      * @brief Returns the query name.
      */
-    const std::string &name() const;
+    const std::string& name() const;
 
     /**
      * @brief Finalise and build the query.
@@ -161,11 +169,12 @@ private:
     friend class EcsSystemBuilder;
 
     template<typename T>
-    void add_term_(uint8_t inout) {
+    void add_term_(uint8_t inout)
+    {
         add_term_impl(rfl::Registry::find<T>(), inout);
     }
-    void add_term_impl(const rfl::TypeInfo *type, uint8_t inout);
-    void add_term_pair_impl(const rfl::TypeInfo *first_type, const rfl::TypeInfo *sec_type, uint8_t inout);
+    void add_term_impl(const rfl::TypeInfo* type, uint8_t inout);
+    void add_term_pair_impl(const rfl::TypeInfo* first_type, const rfl::TypeInfo* sec_type, uint8_t inout);
 
     struct Impl;
     std::unique_ptr<Impl> pImpl;

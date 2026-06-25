@@ -15,7 +15,7 @@ class IGameWorld : public NObject {
     NCLASS(IGameWorld, NObject)
 
 public:
-    IGameWorld(ServiceLocator &services) : services(services) {}
+    IGameWorld(ServiceLocator& services) : services(services) {}
     virtual ~IGameWorld() = default;
 
     // Lifecycle hooks
@@ -44,10 +44,13 @@ public:
      */
     virtual void on_finish() = 0;
 
-    ServiceLocator &get_services() const { return services; }
+    ServiceLocator& get_services() const
+    {
+        return services;
+    }
 
 protected:
-    ServiceLocator &services;
+    ServiceLocator& services;
 };
 
 } // namespace ncore

@@ -18,7 +18,7 @@ class EcsRuntimeFeature : public EcsFeature {
 
 public:
     EcsRuntimeFeature() {}
-    void build(EcsWorld &world) override;
+    void build(EcsWorld& world) override;
 };
 
 } // namespace ncore

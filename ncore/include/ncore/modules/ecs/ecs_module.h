@@ -18,12 +18,15 @@ class EcsFeature : public NObject {
 
 public:
     virtual ~EcsFeature() = default;
-    void operator()(EcsWorld &world) { build(world); }
+    void operator()(EcsWorld& world)
+    {
+        build(world);
+    }
 
     /**
      * @brief Interact with the world here.
      */
-    virtual void build(EcsWorld &world) = 0;
+    virtual void build(EcsWorld& world) = 0;
 };
 
 } // namespace ncore

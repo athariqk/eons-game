@@ -16,10 +16,11 @@ namespace ncore {
  */
 class ServiceLocator {
 public:
-    ServiceLocator(ServiceLocator const &) = delete;
-    void operator=(ServiceLocator const &) = delete;
+    ServiceLocator(ServiceLocator const&) = delete;
+    void operator=(ServiceLocator const&) = delete;
 
-    static ServiceLocator &get_instance() {
+    static ServiceLocator& get_instance()
+    {
         static ServiceLocator instance;
         return instance;
     }
@@ -31,23 +32,24 @@ public:
      * IService's inheritance hierarchy.
      *
      * TODO: add docs explaining implementation details and caveats
-	 * 
+     *
      * TODO: cache resolved types?
      *
      * @return The **first** matching instance if multiple services are
      * found, or nullptr if no matching service are found.
      */
     template<std::derived_from<IService> T>
-    static T *resolve() {
+    static T* resolve()
+    {
         auto target = rfl::Registry::get_type_id<T>();
 
         auto it = get_instance().services.find(target);
         if (it != get_instance().services.end())
-            return static_cast<T *>(it->second.get());
+            return static_cast<T*>(it->second.get());
 
-        for (auto &[key, svc]: get_instance().services) {
+        for (auto& [key, svc] : get_instance().services) {
             if (svc->is_a(target))
-                return static_cast<T *>(svc.get());
+                return static_cast<T*>(svc.get());
         }
 
         auto class_name = rfl::Registry::get<T>().name;
@@ -59,34 +61,41 @@ public:
      * the provided constructor arguments.
      */
     template<std::derived_from<IService> T, typename... Args>
-    static T *provide(Args &&...args) {
+    static T* provide(Args&&... args)
+    {
         NC_ASSERT(!get_instance().services.contains(rfl::Registry::get_type_id<T>()), "Service already registered");
-        auto instance = std::make_shared<T>(std::forward<Args>(args)...);
+        auto instance                                            = std::make_shared<T>(std::forward<Args>(args)...);
         get_instance().services[rfl::Registry::get_type_id<T>()] = instance;
         return instance.get();
     }
 
-    static IService &resolve_by_name(std::string_view name) {
-        for (auto &[key, svc]: get_instance().services)
+    static IService& resolve_by_name(std::string_view name)
+    {
+        for (auto& [key, svc] : get_instance().services)
             if (svc->get_class_name() == name)
                 return *svc;
         NC_ASSERT(false, std::format("Service '{}' could not be resolved", name).c_str());
     }
 
-    static Error init_all() {
-        for (auto &[key, svc]: get_instance().services) {
+    static Error init_all()
+    {
+        for (auto& [key, svc] : get_instance().services) {
             if (svc->init() != Error::OK)
                 return Error::FAIL;
         }
         return Error::OK;
     }
 
-    static void cleanup_all() {
-        for (auto &[key, svc]: get_instance().services)
+    static void cleanup_all()
+    {
+        for (auto& [key, svc] : get_instance().services)
             svc->finalize();
     }
 
-    static auto view() { return std::views::values(get_instance().services); }
+    static auto view()
+    {
+        return std::views::values(get_instance().services);
+    }
 
 private:
     ServiceLocator() = default;

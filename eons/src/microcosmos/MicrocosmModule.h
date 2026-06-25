@@ -6,5 +6,5 @@ class MicrocosmModule : public ncore::EcsFeature {
     NCLASS(MicrocosmModule, ncore::EcsFeature)
 
 public:
-    void build(ncore::EcsWorld &world) override;
+    void build(ncore::EcsWorld& world) override;
 };

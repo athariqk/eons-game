@@ -1,11 +1,10 @@
 #pragma once
-#include <modules/physics/physics_service.h>
+#include <unordered_map>
 
 #include <box2d/id.h>
 #include <box2d/types.h>
 
-#include <unordered_map>
-
+#include <modules/physics/physics_service.h>
 #include <ncore/kernel/structures.h>
 
 namespace ncore {
@@ -34,11 +33,11 @@ public:
     float get_body_angle(RID body) const override;
     Vec2 get_body_velocity(RID body) const override;
 
-    void apply_linear_impulse(RID body, const Vec2 &impulse) override;
-    void apply_linear_force(RID body, const Vec2 &force) override;
+    void apply_linear_impulse(RID body, const Vec2& impulse) override;
+    void apply_linear_force(RID body, const Vec2& force) override;
 
     void update_debug_draw() override;
-    DebugDrawFnc &get_debug_draw_fnc() override;
+    DebugDrawFnc& get_debug_draw_fnc() override;
 
 private:
     b2WorldId world_id{0};

@@ -2,6 +2,9 @@
 
 namespace ncore {
 
-void AssetManager::unload_all() { pools.clear(); }
+void AssetManager::unload_all()
+{
+    pools.clear();
+}
 
 } // namespace ncore

@@ -11,13 +11,14 @@ namespace ncore::log {
 
 class Logger {
 public:
-    Logger(const Logger &) = delete;
-    Logger &operator=(const Logger &) = delete;
+    Logger(const Logger&)            = delete;
+    Logger& operator=(const Logger&) = delete;
 
-    Logger(Logger &&) = delete;
-    Logger &operator=(Logger &&) = delete;
+    Logger(Logger&&)            = delete;
+    Logger& operator=(Logger&&) = delete;
 
-    static Logger &get_instance() {
+    static Logger& get_instance()
+    {
         static Logger get_instance;
         return get_instance;
     }

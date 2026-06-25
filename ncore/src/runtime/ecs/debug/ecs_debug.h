@@ -9,7 +9,7 @@ class EcsDebugFeature : public EcsFeature {
     NCLASS(EcsDebugFeature, EcsFeature)
 
 public:
-    void build(EcsWorld &world) override;
+    void build(EcsWorld& world) override;
 };
 
 } // namespace ncore

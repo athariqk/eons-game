@@ -1,6 +1,5 @@
-#include <ncore/runtime/ecs/ecs_runtime.h>
-
 #include <ncore/modules/ecs/ecs_world.h>
+#include <ncore/runtime/ecs/ecs_runtime.h>
 
 #include "audio/ecs_audio.h"
 #include "debug/ecs_debug.h"
@@ -10,7 +9,8 @@
 
 namespace ncore {
 
-void EcsRuntimeFeature::build(EcsWorld &world) {
+void EcsRuntimeFeature::build(EcsWorld& world)
+{
     world.load_feature<EcsBaseFeature>();
     world.load_feature<EcsAudioFeature>();
     world.load_feature<EcsGraphicsFeature>();

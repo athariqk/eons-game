@@ -26,56 +26,61 @@ enum class EcsSystemPhase {
     PostUpdate,
 };
 
-using IterCallback = void (*)(EcsIter &);
-using EachCallback = void (*)(EcsIter &, EcsEntityId);
+using IterCallback = void (*)(EcsIter&);
+using EachCallback = void (*)(EcsIter&, EcsEntityId);
 
 /**
  * @brief EcsSystemBuilder is fluent API for registering EcsWorld-bound ECS systems.
  */
 class EcsSystemBuilder {
 public:
-    EcsSystemBuilder(EcsWorld &world, std::string name);
+    EcsSystemBuilder(EcsWorld& world, std::string name);
     ~EcsSystemBuilder();
 
     // query builder forwarded functions
 
     template<typename... Comps>
-    EcsSystemBuilder &with() {
+    EcsSystemBuilder& with()
+    {
         qb_.with<Comps...>();
         return *this;
     }
 
     template<typename First, typename Second>
-    EcsSystemBuilder &with_pair() {
+    EcsSystemBuilder& with_pair()
+    {
         qb_.with_pair<First, Second>();
         return *this;
     }
 
     template<typename... Comps>
-    EcsSystemBuilder &read() {
+    EcsSystemBuilder& read()
+    {
         qb_.read<Comps...>();
         return *this;
     }
 
-    EcsSystemBuilder &all() {
+    EcsSystemBuilder& all()
+    {
         qb_.all();
         return *this;
     }
 
-    EcsSystemBuilder &all_read() {
+    EcsSystemBuilder& all_read()
+    {
         qb_.all_read();
         return *this;
     }
 
     // system specific functions
 
-	/**
+    /**
      * @brief Sets which pipeline phase the system shall run in.
      */
-    EcsSystemBuilder &in(EcsSystemPhase phase);
+    EcsSystemBuilder& in(EcsSystemPhase phase);
 
-	// TODO: TBI
-    EcsSystemBuilder &order(int32_t priority);
+    // TODO: TBI
+    EcsSystemBuilder& order(int32_t priority);
 
     /**
      * @brief Finalise and register the system with the given per-table callback.
@@ -90,12 +95,15 @@ public:
     EcsEntityId each(EachCallback callback);
 
 private:
-    EcsWorld &world_;
+    EcsWorld& world_;
     std::string name;
     EcsQueryBuilder qb_;
 
-    enum class SystemKind { Iter, Each };
-    EcsEntityId init_system_(SystemKind kind, void *callback);
+    enum class SystemKind {
+        Iter,
+        Each
+    };
+    EcsEntityId init_system_(SystemKind kind, void* callback);
 
     struct Impl;
     std::unique_ptr<Impl> pImpl;

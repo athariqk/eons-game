@@ -10,7 +10,8 @@
 #include <microcosmos/systems/SpeciesGuiSystem.h>
 #include <microcosmos/systems/SpeciesSystem.h>
 
-void MicrocosmModule::build(ncore::EcsWorld &world) {
+void MicrocosmModule::build(ncore::EcsWorld& world)
+{
     // world.set<SpeciesRegistry>();
     // world.add_system<SpeciesGuiSystem>();
     // world.add_system<InitSystem>();

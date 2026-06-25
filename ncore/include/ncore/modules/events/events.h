@@ -17,7 +17,10 @@ class Event : public NObject {
 
 public:
     virtual ~Event() = default;
-    virtual EventType get_type() const { return EventType::UNKNOWN; }
+    virtual EventType get_type() const
+    {
+        return EventType::UNKNOWN;
+    }
     bool handled = false; // prevents further processing when true
 };
 
@@ -43,7 +46,10 @@ class WindowCloseEvent : public WindowEvent {
 
 public:
     WindowCloseEvent(size_t p_window_id) : WindowEvent(p_window_id) {}
-    EventType get_type() const override { return EventType::WINDOW_CLOSE; }
+    EventType get_type() const override
+    {
+        return EventType::WINDOW_CLOSE;
+    }
 };
 
 class WindowResizeEvent : public WindowEvent {
@@ -51,7 +57,10 @@ class WindowResizeEvent : public WindowEvent {
 
 public:
     WindowResizeEvent(size_t p_window_id, int w, int h) : WindowEvent(p_window_id), width(w), height(h) {}
-    EventType get_type() const override { return EventType::WINDOW_RESIZE; }
+    EventType get_type() const override
+    {
+        return EventType::WINDOW_RESIZE;
+    }
     int width;
     int height;
 };
@@ -61,7 +70,10 @@ class WindowFocusEvent : public WindowEvent {
 
 public:
     WindowFocusEvent(size_t p_window_id, bool p_is_focused) : WindowEvent(p_window_id), focused(p_is_focused) {}
-    EventType get_type() const override { return EventType::WINDOW_FOCUS; }
+    EventType get_type() const override
+    {
+        return EventType::WINDOW_FOCUS;
+    }
     bool focused;
 };
 
@@ -69,7 +81,10 @@ class WindowMouseEnterEvent : public WindowEvent {
     NCLASS(WindowMouseEnterEvent, WindowEvent)
 public:
     WindowMouseEnterEvent(size_t p_window_id) : WindowEvent(p_window_id) {}
-    EventType get_type() const override { return EventType::WINDOW_MOUSE_ENTER; }
+    EventType get_type() const override
+    {
+        return EventType::WINDOW_MOUSE_ENTER;
+    }
 };
 
 class WindowMouseLeaveEvent : public WindowEvent {
@@ -77,7 +92,10 @@ class WindowMouseLeaveEvent : public WindowEvent {
 
 public:
     WindowMouseLeaveEvent(size_t p_window_id) : WindowEvent(p_window_id) {}
-    EventType get_type() const override { return EventType::WINDOW_MOUSE_LEAVE; }
+    EventType get_type() const override
+    {
+        return EventType::WINDOW_MOUSE_LEAVE;
+    }
 };
 
 } // namespace ncore

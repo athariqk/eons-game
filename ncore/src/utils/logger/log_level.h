@@ -2,13 +2,24 @@
 
 namespace ncore::log {
 
-enum class Level : uint8_t { Trace = 0, Debug, Info, Warn, Error, Fatal, Off };
+enum class Level : uint8_t {
+    Trace = 0,
+    Debug,
+    Info,
+    Warn,
+    Error,
+    Fatal,
+    Off
+};
 
 struct SourceLoc {
-    const char *file = nullptr;
-    const char *func = nullptr;
-    int line = 0;
-    bool empty() const { return file == nullptr; }
+    const char* file = nullptr;
+    const char* func = nullptr;
+    int line         = 0;
+    bool empty() const
+    {
+        return file == nullptr;
+    }
 };
 
 struct LogMsg {
@@ -18,7 +29,8 @@ struct LogMsg {
     std::string payload;
 };
 
-constexpr std::string_view level_triplet(Level l) {
+constexpr std::string_view level_triplet(Level l)
+{
     switch (l) {
         case Level::Trace:
             return "TRC";
@@ -37,7 +49,8 @@ constexpr std::string_view level_triplet(Level l) {
     }
 }
 
-constexpr std::string_view level_name(Level l) {
+constexpr std::string_view level_name(Level l)
+{
     switch (l) {
         case Level::Trace:
             return "TRACE";
@@ -56,7 +69,8 @@ constexpr std::string_view level_name(Level l) {
     }
 }
 
-constexpr std::string_view level_color(Level l) {
+constexpr std::string_view level_color(Level l)
+{
     switch (l) {
         case Level::Trace:
             return "\x1b[2;37m";

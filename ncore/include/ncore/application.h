@@ -19,8 +19,9 @@ struct AppVersion {
     int Minor = 0;
     int Patch = 0;
     std::string Identifier;
-    NSTRUCT(AppVersion,
-            NC_F(AppVersion, Major) NC_F(AppVersion, Minor) NC_F(AppVersion, Patch) NC_F(AppVersion, Identifier));
+    NSTRUCT(
+        AppVersion, NC_F(AppVersion, Major) NC_F(AppVersion, Minor) NC_F(AppVersion, Patch) NC_F(AppVersion, Identifier)
+    );
 };
 
 /**
@@ -42,11 +43,11 @@ struct AppDesc {
  */
 class Application {
 public:
-    Application(const AppDesc &desc);
+    Application(const AppDesc& desc);
     virtual ~Application();
 
-    Application(const Application &) = delete;
-    Application &operator=(const Application &) = delete;
+    Application(const Application&)            = delete;
+    Application& operator=(const Application&) = delete;
 
     virtual void init();
     virtual void run();
@@ -66,16 +67,16 @@ public:
     /**
      * @brief Called once after the world is initialized.
      */
-    virtual void on_world_init(IGameWorld &world) {};
+    virtual void on_world_init(IGameWorld& world) {};
 
 protected:
     AppDesc app_desc;
-    ServiceLocator &services;
-    bool is_running = false;
-    uint64_t ticks = 0;
+    ServiceLocator& services;
+    bool is_running   = false;
+    uint64_t ticks    = 0;
     double delta_time = 0.0;
     std::unique_ptr<IGameWorld> g_world;
-    EventBus *event_bus;
+    EventBus* event_bus;
 };
 
 } // namespace ncore
