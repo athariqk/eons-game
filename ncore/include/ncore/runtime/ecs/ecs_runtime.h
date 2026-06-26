@@ -13,12 +13,12 @@ namespace ncore {
  * You may also bypass this altogether and just load whichever
  * features you need via Scene.get_ecs().load_feature().
  */
-class EcsRuntimeFeature : public EcsFeature {
-    NCLASS(EcsRuntimeFeature, EcsFeature)
+class NCORE_API EcsRuntimeFeature : public EcsFeature {
+    NCLASS( EcsRuntimeFeature, EcsFeature )
 
 public:
     EcsRuntimeFeature() {}
-    void build(EcsWorld& world) override;
+    void build( EcsWorld& world ) override;
 };
 
 } // namespace ncore

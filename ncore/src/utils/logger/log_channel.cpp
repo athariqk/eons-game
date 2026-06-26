@@ -10,7 +10,8 @@ LogChannel::LogChannel()
     name = DEFAULT;
 }
 
-LogChannel::LogChannel(std::string_view name, std::vector<std::shared_ptr<Sink>> p_sinks) : name(name), sinks(p_sinks)
+LogChannel::LogChannel( std::string_view name, std::vector<std::shared_ptr<Sink>> p_sinks ) :
+    name( name ), sinks( p_sinks )
 {}
 
 void LogChannel::flush()
@@ -19,7 +20,7 @@ void LogChannel::flush()
         sink->flush();
 }
 
-void LogChannel::set_level(Level p_level)
+void LogChannel::set_level( Level p_level )
 {
     level = p_level;
 }

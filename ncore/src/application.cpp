@@ -43,99 +43,101 @@ struct Log {
     int Level            = 0;
     std::string FilePath = "logs/engine.log";
     std::string Overrides;
-    NSTRUCT(Log, NC_F(Log, Level) NC_F(Log, FilePath) NC_F(Log, Overrides));
+    NSTRUCT( Log, NC_F( Log, Level ) NC_F( Log, FilePath ) NC_F( Log, Overrides ) );
 };
 
 struct Window {
     int SizeWidth   = 800;
     int SizeHeight  = 800;
     bool Fullscreen = false;
-    NSTRUCT(Window, NC_F(Window, SizeWidth) NC_F(Window, SizeHeight) NC_F(Window, Fullscreen));
+    NSTRUCT( Window, NC_F( Window, SizeWidth ) NC_F( Window, SizeHeight ) NC_F( Window, Fullscreen ) );
 };
 
 struct Render {
     float PixelsPerMeter = 32.0f;
-    NSTRUCT(Render, NC_F(Render, PixelsPerMeter));
+    NSTRUCT( Render, NC_F( Render, PixelsPerMeter ) );
 };
 
 } // namespace cfg
 
-Application::Application(const AppDesc& desc) : app_desc(desc), services(ServiceLocator::get_instance()) {}
+Application::Application( const AppDesc& desc ) : app_desc( desc ), services( ServiceLocator::get_instance() ) {}
 
 Application::~Application()
 {
-    NC_ASSERT(!is_running, "application destroyed while still running");
+    NC_ASSERT( !is_running, "application destroyed while still running" );
 }
 
 void Application::init()
 {
-    auto cfg_file   = ConfFile(app_desc.ConfigFile);
+    auto cfg_file   = ConfFile( app_desc.ConfigFile );
     auto log_cfg    = cfg_file.read<cfg::Log>();
     auto window_cfg = cfg_file.read<cfg::Window>();
     auto render_cfg = cfg_file.read<cfg::Render>();
 
     // Set up logging
-    log::Logger::get_instance().add_sink(std::make_shared<log::FileSink>(log_cfg.FilePath));
-    log::Logger::get_instance().set_level(log::Level(log_cfg.Level));
+    log::Logger::get_instance().add_sink( std::make_shared<log::FileSink>( log_cfg.FilePath ) );
+    log::Logger::get_instance().set_level( log::Level( log_cfg.Level ) );
     if (!log_cfg.Overrides.empty()) {
-        std::istringstream stream(log_cfg.Overrides);
+        std::istringstream stream( log_cfg.Overrides );
         std::string pair;
-        while (std::getline(stream, pair, ',')) {
-            auto sep = pair.find(':');
+        while (std::getline( stream, pair, ',' )) {
+            auto sep = pair.find( ':' );
             if (sep != std::string::npos) {
-                auto cat = pair.substr(0, sep);
-                auto lvl = std::stoi(pair.substr(sep + 1));
-                log::Logger::get_instance().set_level(cat, log::Level(lvl));
+                auto cat = pair.substr( 0, sep );
+                auto lvl = std::stoi( pair.substr( sep + 1 ) );
+                log::Logger::get_instance().set_level( cat, log::Level( lvl ) );
             }
         }
     }
 
-    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_AUDIO)) {
-        NC_LOG_ERROR("SDL init FAIL: {}", SDL_GetError());
+    if (!SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_AUDIO )) {
+        NC_LOG_ERROR( "SDL init FAIL: {}", SDL_GetError() );
         abort(); // TODO: handle this more gracefully
     }
 
     event_bus = services.provide<EventBus>();
 
     auto resources = services.provide<AssetManager>();
-    resources->register_loader<Image>(SDLImageLoader());
-    resources->register_loader<AudioClip>(SDLAudioLoader());
+    resources->register_loader<Image>( SDLImageLoader() );
+    resources->register_loader<AudioClip>( SDLAudioLoader() );
 
     auto window = services.provide<SDLWindowImpl>(
         app_desc.Name.c_str(), window_cfg.SizeWidth, window_cfg.SizeHeight, window_cfg.Fullscreen
     );
-    window->get_viewport()->set_pixels_per_meter(render_cfg.PixelsPerMeter); // TODO: properly implement viewport later
+    window->get_viewport()->set_pixels_per_meter(
+        render_cfg.PixelsPerMeter
+    ); // TODO: properly implement viewport later
 
-    auto renderer = services.provide<SDLRenderImpl>(window->get_window_id());
+    auto renderer = services.provide<SDLRenderImpl>( window->get_window_id() );
     auto physics  = services.provide<Box2DPhysicsImpl>();
     auto audio    = services.provide<SDLAudioImpl>();
-    auto gui      = services.provide<ImGuiImpl>(window->get_window_id());
+    auto gui      = services.provide<ImGuiImpl>( window->get_window_id() );
 
     services.init_all();
 
     g_world = create_world();
     g_world->on_init();
-    on_world_init(*g_world);
+    on_world_init( *g_world );
 
-    NC_LOG_TRACE("application initialized");
+    NC_LOG_TRACE( "application initialized" );
 }
 
 void update_window_title(
     IWindowService* window, const std::string& base_title, char* window_attrs, double fps, double delta_time
 )
 {
-    std::snprintf(window_attrs, 64, "FPS: %.2f - Delta: %.6f", fps, delta_time);
-    const std::string full_title = std::format("{} - {}", base_title, window_attrs);
-    window->set_title(full_title.c_str());
+    std::snprintf( window_attrs, 64, "FPS: %.2f - Delta: %.6f", fps, delta_time );
+    const std::string full_title = std::format( "{} - {}", base_title, window_attrs );
+    window->set_title( full_title.c_str() );
 }
 
-void throttle_framerate(std::chrono::steady_clock::time_point& cur_time, double target_frame_time)
+void throttle_framerate( std::chrono::steady_clock::time_point& cur_time, double target_frame_time )
 {
     auto frame_end_time      = std::chrono::steady_clock::now();
-    double actual_frame_time = std::chrono::duration<double>(frame_end_time - cur_time).count();
+    double actual_frame_time = std::chrono::duration<double>( frame_end_time - cur_time ).count();
     if (actual_frame_time < target_frame_time) {
         double sleep_duration = target_frame_time - actual_frame_time;
-        std::this_thread::sleep_for(std::chrono::duration<double>(sleep_duration));
+        std::this_thread::sleep_for( std::chrono::duration<double>( sleep_duration ) );
     }
 }
 
@@ -161,7 +163,7 @@ void Application::run()
     is_running = true;
     while (is_running) {
         auto cur_time = std::chrono::high_resolution_clock::now();
-        delta_time    = std::chrono::duration<double>(cur_time - last_time).count();
+        delta_time    = std::chrono::duration<double>( cur_time - last_time ).count();
         last_time     = cur_time;
 
         if (delta_time > MAX_ACCUMULATOR)
@@ -173,26 +175,26 @@ void Application::run()
         poll_events();
 
         while (accumulator >= FIXED_DT) {
-            if (g_world->on_fixed_update(FIXED_DT)) {
+            if (g_world->on_fixed_update( FIXED_DT )) {
                 break;
             }
             accumulator -= FIXED_DT;
             ticks++;
         }
 
-        if (g_world->on_variable_update(delta_time)) {
+        if (g_world->on_variable_update( delta_time )) {
             break;
         }
 
-        double elapsed = std::chrono::duration<double>(cur_time - last_fps_update_time).count();
+        double elapsed = std::chrono::duration<double>( cur_time - last_fps_update_time ).count();
         if (elapsed >= 1.0) {
             double fps           = frame_count / elapsed;
             frame_count          = 0;
             last_fps_update_time = cur_time;
-            update_window_title(window, app_desc.Name, window_attrs.data(), fps, delta_time);
+            update_window_title( window, app_desc.Name, window_attrs.data(), fps, delta_time );
         }
 
-        throttle_framerate(cur_time, TARGET_FRAME_TIME);
+        throttle_framerate( cur_time, TARGET_FRAME_TIME );
 
         frame_count++;
     }
@@ -203,15 +205,15 @@ void Application::run()
 void Application::poll_events()
 {
     SDL_Event sdl_event;
-    while (SDL_PollEvent(&sdl_event)) {
-        auto event = SDLEventHelpers::map_from_sdl(sdl_event);
-        event_bus->enqueue(std::move(event));
+    while (SDL_PollEvent( &sdl_event )) {
+        auto event = SDLEventHelpers::map_from_sdl( sdl_event );
+        event_bus->enqueue( std::move( event ) );
     }
 }
 
 std::unique_ptr<IGameWorld> Application::create_world()
 {
-    auto scene = std::make_unique<Scene>(services);
+    auto scene = std::make_unique<Scene>( services );
     scene->get_ecs().load_feature<EcsRuntimeFeature>();
     return scene;
 }
@@ -221,7 +223,7 @@ void Application::finish()
     g_world->on_finish();
     services.cleanup_all();
     SDL_Quit();
-    NC_LOG_TRACE("application finished");
+    NC_LOG_TRACE( "application finished" );
 }
 
 } // namespace ncore

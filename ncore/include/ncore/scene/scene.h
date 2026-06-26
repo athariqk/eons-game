@@ -3,6 +3,7 @@
 #include <ncore/kernel/collection.h>
 #include <ncore/modules/ecs/ecs_world.h>
 #include <ncore/modules/game_world.h>
+#include <ncore/scene/node.h>
 
 namespace ncore {
 
@@ -22,18 +23,21 @@ class Node;
  * a pure ECS runtime and may not be easily approachable to most game developers.
  * Therefore, with this we can at least make game authoring a little bit easier.
  */
-class Scene : public IGameWorld {
-    NCLASS(Scene, IGameWorld)
+class NCORE_API Scene : public IGameWorld {
+    NCLASS( Scene, IGameWorld )
 
     using NodePool                              = PagedObjectPool<Node>;
     static constexpr EcsEntityId ROOT_PARENT_ID = 0xABCDEF123FFFFF;
 
 public:
-    Scene(ServiceLocator& services);
+    Scene( ServiceLocator& services );
+
+    Scene( const Scene& )            = delete;
+    Scene& operator=( const Scene& ) = delete;
 
     void on_init() override;
-    bool on_fixed_update(double p_delta) override;
-    bool on_variable_update(double p_delta) override;
+    bool on_fixed_update( double p_delta ) override;
+    bool on_variable_update( double p_delta ) override;
     void on_finish() override;
 
     /**
@@ -44,7 +48,7 @@ public:
         return ecs_world;
     }
 
-    void set_viewport(Viewport* vp)
+    void set_viewport( Viewport* vp )
     {
         viewport = vp;
     }

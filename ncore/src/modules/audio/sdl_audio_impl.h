@@ -11,7 +11,7 @@ class AssetManager;
 struct AudioClip;
 
 class SDLAudioImpl : public IAudioService {
-    NCLASS(SDLAudioImpl, IAudioService)
+    NCLASS( SDLAudioImpl, IAudioService )
 
 public:
     SDLAudioImpl() = default;
@@ -19,7 +19,7 @@ public:
     Error init() override;
     void finalize() override;
 
-    void play_sound(const AudioClip* p_sound) override;
+    void play_sound( const AudioClip* p_sound ) override;
 
 private:
     std::unordered_map<const AudioClip*, SDL_AudioStream*> streams;

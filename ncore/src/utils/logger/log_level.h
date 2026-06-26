@@ -29,7 +29,7 @@ struct LogMsg {
     std::string payload;
 };
 
-constexpr std::string_view level_triplet(Level l)
+constexpr std::string_view level_triplet( Level l )
 {
     switch (l) {
         case Level::Trace:
@@ -49,7 +49,7 @@ constexpr std::string_view level_triplet(Level l)
     }
 }
 
-constexpr std::string_view level_name(Level l)
+constexpr std::string_view level_name( Level l )
 {
     switch (l) {
         case Level::Trace:
@@ -69,7 +69,7 @@ constexpr std::string_view level_name(Level l)
     }
 }
 
-constexpr std::string_view level_color(Level l)
+constexpr std::string_view level_color( Level l )
 {
     switch (l) {
         case Level::Trace:

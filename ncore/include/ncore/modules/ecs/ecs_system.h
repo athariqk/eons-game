@@ -26,16 +26,19 @@ enum class EcsSystemPhase {
     PostUpdate,
 };
 
-using IterCallback = void (*)(EcsIter&);
-using EachCallback = void (*)(EcsIter&, EcsEntityId);
+using IterCallback = void ( * )( EcsIter& );
+using EachCallback = void ( * )( EcsIter&, EcsEntityId );
 
 /**
  * @brief EcsSystemBuilder is fluent API for registering EcsWorld-bound ECS systems.
  */
-class EcsSystemBuilder {
+class NCORE_API EcsSystemBuilder {
 public:
-    EcsSystemBuilder(EcsWorld& world, std::string name);
+    EcsSystemBuilder( EcsWorld& world, std::string name );
     ~EcsSystemBuilder();
+
+    EcsSystemBuilder( const EcsSystemBuilder& )            = delete;
+    EcsSystemBuilder& operator=( const EcsSystemBuilder& ) = delete;
 
     // query builder forwarded functions
 
@@ -77,22 +80,22 @@ public:
     /**
      * @brief Sets which pipeline phase the system shall run in.
      */
-    EcsSystemBuilder& in(EcsSystemPhase phase);
+    EcsSystemBuilder& in( EcsSystemPhase phase );
 
     // TODO: TBI
-    EcsSystemBuilder& order(int32_t priority);
+    EcsSystemBuilder& order( int32_t priority );
 
     /**
      * @brief Finalise and register the system with the given per-table callback.
      * @return The entity handle of the created system.
      */
-    EcsEntityId iter(IterCallback callback);
+    EcsEntityId iter( IterCallback callback );
 
     /**
      * @brief Finalise and register the system with the given per-entity callback.
      * @return The entity handle of the created system.
      */
-    EcsEntityId each(EachCallback callback);
+    EcsEntityId each( EachCallback callback );
 
 private:
     EcsWorld& world_;
@@ -103,7 +106,7 @@ private:
         Iter,
         Each
     };
-    EcsEntityId init_system_(SystemKind kind, void* callback);
+    EcsEntityId init_system_( SystemKind kind, void* callback );
 
     struct Impl;
     std::unique_ptr<Impl> pImpl;

@@ -11,10 +11,10 @@ class Sink;
 class LogChannel {
 public:
     LogChannel();
-    LogChannel(std::string_view name, std::vector<std::shared_ptr<Sink>> p_sinks);
+    LogChannel( std::string_view name, std::vector<std::shared_ptr<Sink>> p_sinks );
 
     template<typename... Args>
-    void write(Level p_level, SourceLoc p_loc, std::format_string<Args...> p_fmt, Args&&... p_args)
+    void write( Level p_level, SourceLoc p_loc, std::format_string<Args...> p_fmt, Args&&... p_args )
     {
         if (p_level < level)
             return;
@@ -23,16 +23,16 @@ public:
         msg.channel = name;
         msg.level   = p_level;
         msg.loc     = p_loc;
-        msg.payload = std::format(p_fmt, std::forward<Args>(p_args)...);
+        msg.payload = std::format( p_fmt, std::forward<Args>( p_args )... );
 
         for (auto& sink : sinks) {
-            if (sink->should_log(p_level))
-                sink->write(msg);
+            if (sink->should_log( p_level ))
+                sink->write( msg );
         }
     }
 
     void flush();
-    void set_level(Level p_level);
+    void set_level( Level p_level );
 
 private:
     std::string name;

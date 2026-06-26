@@ -13,20 +13,20 @@ class EcsWorld;
  * TODO: I wonder if we can make this just be a serialized composition of EcsWorld...
  * Imagine Godot's scene or Unity's prefabs
  */
-class EcsFeature : public NObject {
-    NCLASS(EcsFeature, NObject)
+class NCORE_API EcsFeature : public NObject {
+    NCLASS( EcsFeature, NObject )
 
 public:
     virtual ~EcsFeature() = default;
-    void operator()(EcsWorld& world)
+    void operator()( EcsWorld& world )
     {
-        build(world);
+        build( world );
     }
 
     /**
      * @brief Interact with the world here.
      */
-    virtual void build(EcsWorld& world) = 0;
+    virtual void build( EcsWorld& world ) = 0;
 };
 
 } // namespace ncore

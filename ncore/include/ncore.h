@@ -5,9 +5,14 @@
 #pragma once
 
 #ifdef WIN32
-#define NCORE_API __declspec(dllexport)
+#ifdef ncore_EXPORTS
+#define NCORE_API __declspec( dllexport )
 #else
-#define NCORE_API __attribute__((visibility("default")))
+#define NCORE_API __declspec( dllimport )
+#endif
+
+#else
+#define NCORE_API __attribute__( ( visibility( "default" ) ) )
 #endif // WIN32
 
 #ifdef __cplusplus

@@ -9,34 +9,34 @@
 
 namespace ncore {
 
-SDLWindowImpl::SDLWindowImpl(const char* title, int width, int height, const bool fullscreen) :
-    title(title), resolution(width, height), fullscreen(fullscreen),
-    viewport(std::make_unique<Viewport>(Vec4{0, 0, (float) width, (float) height}))
+SDLWindowImpl::SDLWindowImpl( const char* title, int width, int height, const bool fullscreen ) :
+    title( title ), resolution( width, height ), fullscreen( fullscreen ),
+    viewport( std::make_unique<Viewport>( Vec4{ 0, 0, ( float ) width, ( float ) height } ) )
 {
     int flags = 0;
     if (fullscreen)
         flags = SDL_WINDOW_FULLSCREEN;
-    sdlWindow = SDL_CreateWindow(title, width, height, flags | SDL_WINDOW_RESIZABLE);
+    sdlWindow = SDL_CreateWindow( title, width, height, flags | SDL_WINDOW_RESIZABLE );
 }
 
 Error SDLWindowImpl::init()
 {
     if (sdlWindow) {
-        NC_LOG_TRACE_C(log::GRAPHICS, "New SDL window: ({}x{}), ID: {}", resolution.x, resolution.y, get_window_id());
+        NC_LOG_TRACE_C( log::GRAPHICS, "New SDL window: ({}x{}), ID: {}", resolution.x, resolution.y, get_window_id() );
     } else {
-        NC_LOG_ERROR_C(log::GRAPHICS, "SDL window creation failed!");
+        NC_LOG_ERROR_C( log::GRAPHICS, "SDL window creation failed!" );
         return Error::FAIL;
     }
 
-    SDL_SetWindowPosition(sdlWindow, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-    SDL_ShowWindow(sdlWindow);
+    SDL_SetWindowPosition( sdlWindow, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED );
+    SDL_ShowWindow( sdlWindow );
 
-    renderer = SDL_CreateRenderer(sdlWindow, nullptr);
+    renderer = SDL_CreateRenderer( sdlWindow, nullptr );
     if (renderer) {
-        NC_LOG_TRACE_C(log::GRAPHICS, "New SDL renderer: {}", SDL_GetRendererName(renderer));
+        NC_LOG_TRACE_C( log::GRAPHICS, "New SDL renderer: {}", SDL_GetRendererName( renderer ) );
     } else {
-        NC_LOG_ERROR_C(log::GRAPHICS, "SDL renderer creation failed!");
-        SDL_DestroyWindow(sdlWindow);
+        NC_LOG_ERROR_C( log::GRAPHICS, "SDL renderer creation failed!" );
+        SDL_DestroyWindow( sdlWindow );
         sdlWindow = nullptr;
         return Error::FAIL;
     }
@@ -45,10 +45,10 @@ Error SDLWindowImpl::init()
 
 void SDLWindowImpl::finalize()
 {
-    NC_LOG_TRACE_C(log::GRAPHICS, "Destroying SDL renderer: {}", SDL_GetRendererName(renderer));
-    SDL_DestroyRenderer(renderer);
-    NC_LOG_TRACE_C(log::GRAPHICS, "Destroying SDL window. ID {}", get_window_id());
-    SDL_DestroyWindow(sdlWindow);
+    NC_LOG_TRACE_C( log::GRAPHICS, "Destroying SDL renderer: {}", SDL_GetRendererName( renderer ) );
+    SDL_DestroyRenderer( renderer );
+    NC_LOG_TRACE_C( log::GRAPHICS, "Destroying SDL window. ID {}", get_window_id() );
+    SDL_DestroyWindow( sdlWindow );
 }
 
 SDL_Renderer* SDLWindowImpl::get_renderer() const
@@ -64,23 +64,23 @@ SDL_Window* SDLWindowImpl::get_native_handle() const
 Vec2 SDLWindowImpl::get_resolution() const
 {
     int width, height;
-    SDL_GetWindowSizeInPixels(sdlWindow, &width, &height);
-    return Vec2(width, height);
+    SDL_GetWindowSizeInPixels( sdlWindow, &width, &height );
+    return Vec2( width, height );
 }
 
 uint32_t SDLWindowImpl::get_window_id() const
 {
-    return SDL_GetWindowID(sdlWindow);
+    return SDL_GetWindowID( sdlWindow );
 }
 
-void SDLWindowImpl::set_title(const char* title) const
+void SDLWindowImpl::set_title( const char* title ) const
 {
-    SDL_SetWindowTitle(get_native_handle(), title);
+    SDL_SetWindowTitle( get_native_handle(), title );
 }
 
-int SDLWindowImpl::show_msg_box(const uint32_t flags, const char* title, const char* message) const
+int SDLWindowImpl::show_msg_box( const uint32_t flags, const char* title, const char* message ) const
 {
-    return SDL_ShowSimpleMessageBox(flags, title, message, sdlWindow);
+    return SDL_ShowSimpleMessageBox( flags, title, message, sdlWindow );
 }
 
 Viewport* SDLWindowImpl::get_viewport() const

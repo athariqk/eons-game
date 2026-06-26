@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.27)
 
-project(eons LANGUAGES C CXX)
+project(eons-project LANGUAGES C CXX)
 
 enable_testing()
 
@@ -29,6 +29,7 @@ endif()
 
 if(MSVC)
   add_compile_options(/wd5105 /Zc:preprocessor)
+  set(CMAKE_CXX_FLAGS_DEBUG "/MDd /ZI /Ob0 /Od /RTC1")
 endif()
 
 if(MINGW)
@@ -42,7 +43,8 @@ foreach(CONFIG Debug Release Dist)
   string(TOUPPER ${CONFIG} CONFIG_UPPER)
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${CONFIG_UPPER} "${OUTPUT_DIR}/${CONFIG}")
   set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${CONFIG_UPPER} "${OUTPUT_DIR}/${CONFIG}")
+  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${CONFIG_UPPER} "${CMAKE_BINARY_DIR}/lib/${CONFIG}")
 endforeach()
 
 add_subdirectory(ncore)
-add_subdirectory(eons)
+add_subdirectory(eons-game)

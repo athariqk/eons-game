@@ -9,7 +9,7 @@
 namespace ncore {
 
 struct SDLEventHelpers {
-    static KeyboardEvent::Key MapSDLKeyToKey(SDL_Scancode scancode)
+    static KeyboardEvent::Key MapSDLKeyToKey( SDL_Scancode scancode )
     {
         switch (scancode) {
             case SDL_SCANCODE_W:
@@ -52,7 +52,7 @@ struct SDLEventHelpers {
         }
     }
 
-    static ButtonAction MapSDLEventTypeToAction(uint32_t p_sdl_event_type)
+    static ButtonAction MapSDLEventTypeToAction( uint32_t p_sdl_event_type )
     {
         switch (p_sdl_event_type) {
             case SDL_EVENT_KEY_DOWN:
@@ -66,7 +66,7 @@ struct SDLEventHelpers {
         }
     }
 
-    static ButtonIndex MapSDLButtonToButtonIndex(uint8_t p_sdl_button)
+    static ButtonIndex MapSDLButtonToButtonIndex( uint8_t p_sdl_button )
     {
         switch (p_sdl_button) {
             case SDL_BUTTON_LEFT:
@@ -80,7 +80,7 @@ struct SDLEventHelpers {
         }
     }
 
-    static SDL_Scancode KeyToScancode(KeyboardEvent::Key key)
+    static SDL_Scancode KeyToScancode( KeyboardEvent::Key key )
     {
         switch (key) {
             case KeyboardEvent::Key::W:
@@ -120,7 +120,7 @@ struct SDLEventHelpers {
         }
     }
 
-    static uint8_t BtnToSDL(ButtonIndex btn)
+    static uint8_t BtnToSDL( ButtonIndex btn )
     {
         switch (btn) {
             case ButtonIndex::LEFT:
@@ -134,68 +134,68 @@ struct SDLEventHelpers {
         }
     }
 
-    static std::unique_ptr<Event> map_from_sdl(SDL_Event& event)
+    static std::unique_ptr<Event> map_from_sdl( SDL_Event& event )
     {
         switch (event.type) {
             case SDL_EVENT_QUIT:
                 // TODO: what should be the appropriate event mapping here?
                 break;
             case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-                return std::make_unique<WindowCloseEvent>(event.window.windowID);
+                return std::make_unique<WindowCloseEvent>( event.window.windowID );
             case SDL_EVENT_WINDOW_RESIZED:
                 return std::make_unique<WindowResizeEvent>(
                     event.window.windowID, event.window.data1, event.window.data2
                 );
             case SDL_EVENT_WINDOW_MOUSE_ENTER:
-                return std::make_unique<WindowMouseEnterEvent>(event.window.windowID);
+                return std::make_unique<WindowMouseEnterEvent>( event.window.windowID );
             case SDL_EVENT_WINDOW_MOUSE_LEAVE:
-                return std::make_unique<WindowMouseLeaveEvent>(event.window.windowID);
+                return std::make_unique<WindowMouseLeaveEvent>( event.window.windowID );
             case SDL_EVENT_WINDOW_FOCUS_GAINED:
-                return std::make_unique<WindowFocusEvent>(event.window.windowID, true);
+                return std::make_unique<WindowFocusEvent>( event.window.windowID, true );
             case SDL_EVENT_WINDOW_FOCUS_LOST:
-                return std::make_unique<WindowFocusEvent>(event.window.windowID, false);
+                return std::make_unique<WindowFocusEvent>( event.window.windowID, false );
             case SDL_EVENT_MOUSE_BUTTON_DOWN:
             case SDL_EVENT_MOUSE_BUTTON_UP: {
-                auto action    = MapSDLEventTypeToAction(event.type);
-                auto btn       = MapSDLButtonToButtonIndex(event.button.button);
-                auto mouse_pos = Vec2(event.button.x, event.button.y);
-                return std::make_unique<MouseButtonEvent>(event.window.windowID, action, btn, mouse_pos);
+                auto action    = MapSDLEventTypeToAction( event.type );
+                auto btn       = MapSDLButtonToButtonIndex( event.button.button );
+                auto mouse_pos = Vec2( event.button.x, event.button.y );
+                return std::make_unique<MouseButtonEvent>( event.window.windowID, action, btn, mouse_pos );
             }
             case SDL_EVENT_MOUSE_MOTION: {
-                auto mouse_pos = Vec2(event.motion.x, event.motion.y);
-                auto delta     = Vec2(event.motion.xrel, event.motion.yrel);
+                auto mouse_pos = Vec2( event.motion.x, event.motion.y );
+                auto delta     = Vec2( event.motion.xrel, event.motion.yrel );
                 auto state     = event.motion.state;
-                return std::make_unique<MouseMotionEvent>(event.window.windowID, mouse_pos, delta, state);
+                return std::make_unique<MouseMotionEvent>( event.window.windowID, mouse_pos, delta, state );
             }
             case SDL_EVENT_MOUSE_WHEEL:
-                return std::make_unique<MouseWheelEvent>(event.window.windowID, event.wheel.x, event.wheel.y);
+                return std::make_unique<MouseWheelEvent>( event.window.windowID, event.wheel.x, event.wheel.y );
             case SDL_EVENT_KEY_DOWN:
             case SDL_EVENT_KEY_UP: {
-                auto key = MapSDLKeyToKey(event.key.scancode);
+                auto key = MapSDLKeyToKey( event.key.scancode );
                 if (key != KeyboardEvent::Key::UNKNOWN) {
-                    auto action = MapSDLEventTypeToAction(event.type);
-                    return std::make_unique<KeyboardEvent>(event.window.windowID, action, key, event.key.repeat);
+                    auto action = MapSDLEventTypeToAction( event.type );
+                    return std::make_unique<KeyboardEvent>( event.window.windowID, action, key, event.key.repeat );
                 }
                 break;
             }
             case SDL_EVENT_TEXT_INPUT:
-                return std::make_unique<TextInputEvent>(event.window.windowID, std::string(event.text.text));
+                return std::make_unique<TextInputEvent>( event.window.windowID, std::string( event.text.text ) );
             default:
                 break;
         }
-        NC_LOG_ERROR_C(log::EVENTS, "Received unhandled SDL event type: {}", event.type);
+        NC_LOG_ERROR_C( log::EVENTS, "Received unhandled SDL event type: {}", event.type );
         return std::make_unique<Event>();
     }
 
-    static SDL_Event map_to_sdl(const WindowEvent* event)
+    static SDL_Event map_to_sdl( const WindowEvent* event )
     {
         SDL_Event sdl{};
 
         switch (event->get_type()) {
             case EventType::KEYBOARD: {
-                auto key_ev      = static_cast<const KeyboardEvent*>(event);
+                auto key_ev      = static_cast<const KeyboardEvent*>( event );
                 sdl.type         = key_ev->action == ButtonAction::PRESS ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
-                sdl.key.scancode = KeyToScancode(key_ev->key);
+                sdl.key.scancode = KeyToScancode( key_ev->key );
                 sdl.key.key      = 0;
                 sdl.key.repeat   = key_ev->repeat;
                 sdl.key.windowID = event->window_id;
@@ -203,10 +203,10 @@ struct SDLEventHelpers {
             }
 
             case EventType::MOUSE_BUTTON: {
-                auto mb_ev = static_cast<const MouseButtonEvent*>(event);
+                auto mb_ev = static_cast<const MouseButtonEvent*>( event );
                 sdl.type =
                     mb_ev->action == ButtonAction::PRESS ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
-                sdl.button.button   = BtnToSDL(mb_ev->button);
+                sdl.button.button   = BtnToSDL( mb_ev->button );
                 sdl.button.x        = mb_ev->position.x;
                 sdl.button.y        = mb_ev->position.y;
                 sdl.button.windowID = event->window_id;
@@ -214,7 +214,7 @@ struct SDLEventHelpers {
             }
 
             case EventType::MOUSE_MOTION: {
-                auto mm_ev          = static_cast<const MouseMotionEvent*>(event);
+                auto mm_ev          = static_cast<const MouseMotionEvent*>( event );
                 sdl.type            = SDL_EVENT_MOUSE_MOTION;
                 sdl.motion.x        = mm_ev->position.x;
                 sdl.motion.y        = mm_ev->position.y;
@@ -226,7 +226,7 @@ struct SDLEventHelpers {
             }
 
             case EventType::MOUSE_WHEEL: {
-                auto mw_ev         = static_cast<const MouseWheelEvent*>(event);
+                auto mw_ev         = static_cast<const MouseWheelEvent*>( event );
                 sdl.type           = SDL_EVENT_MOUSE_WHEEL;
                 sdl.wheel.x        = mw_ev->scroll_x;
                 sdl.wheel.y        = mw_ev->scroll_y;
@@ -235,7 +235,7 @@ struct SDLEventHelpers {
             }
 
             case EventType::TEXT_INPUT: {
-                auto ti_ev        = static_cast<const TextInputEvent*>(event);
+                auto ti_ev        = static_cast<const TextInputEvent*>( event );
                 sdl.type          = SDL_EVENT_TEXT_INPUT;
                 sdl.text.text     = ti_ev->text.c_str();
                 sdl.text.windowID = event->window_id;
@@ -243,7 +243,7 @@ struct SDLEventHelpers {
             }
 
             case EventType::WINDOW_RESIZE: {
-                auto wr_ev          = static_cast<const WindowResizeEvent*>(event);
+                auto wr_ev          = static_cast<const WindowResizeEvent*>( event );
                 sdl.type            = SDL_EVENT_WINDOW_RESIZED;
                 sdl.window.data1    = wr_ev->width;
                 sdl.window.data2    = wr_ev->height;
@@ -258,7 +258,7 @@ struct SDLEventHelpers {
             }
 
             case EventType::WINDOW_FOCUS: {
-                auto wf_ev          = static_cast<const WindowFocusEvent*>(event);
+                auto wf_ev          = static_cast<const WindowFocusEvent*>( event );
                 sdl.type            = wf_ev->focused ? SDL_EVENT_WINDOW_FOCUS_GAINED : SDL_EVENT_WINDOW_FOCUS_LOST;
                 sdl.window.windowID = event->window_id;
                 break;

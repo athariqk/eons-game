@@ -10,7 +10,7 @@ target_include_directories(
                      ${PROJECT_SOURCE_DIR}/ncore/src)
 
 list(APPEND CMAKE_MODULE_PATH
-     "${PROJECT_SOURCE_DIR}/ncore/vendors/catch2/extras")
+     "${PROJECT_SOURCE_DIR}/ncore/external/catch2/extras")
 
 include(CTest)
 include(Catch)

@@ -5,10 +5,10 @@
 namespace ncore {
 
 class EcsPhysicsFeature : public EcsFeature {
-    NCLASS(EcsPhysicsFeature, EcsFeature)
+    NCLASS( EcsPhysicsFeature, EcsFeature )
 
 public:
-    void build(EcsWorld& world) override {}
+    void build( EcsWorld& world ) override {}
 };
 
 } // namespace ncore

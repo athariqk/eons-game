@@ -7,13 +7,13 @@ namespace ncore {
 
 struct EcsTransform {
     EcsTransform() = default;
-    EcsTransform(const Vec2& pos) : position(pos) {}
-    EcsTransform(const Vec2& pos, float rot) : position(pos), angle(rot) {}
-    EcsTransform(const Vec2& pos, float rot, const Vec2& dim) : position(pos), angle(rot), dimension(dim) {}
+    EcsTransform( const Vec2& pos ) : position( pos ) {}
+    EcsTransform( const Vec2& pos, float rot ) : position( pos ), angle( rot ) {}
+    EcsTransform( const Vec2& pos, float rot, const Vec2& dim ) : position( pos ), angle( rot ), dimension( dim ) {}
 
-    Vec2 position{0.0f, 0.0f};
+    Vec2 position{ 0.0f, 0.0f };
     float angle = 0.0f;
-    Vec2 dimension{0.0f, 0.0f};
+    Vec2 dimension{ 0.0f, 0.0f };
     float scale = 1.0f;
 
     // TODO: remove this to use reflection instead
@@ -26,8 +26,8 @@ struct EcsTransform {
     }
 
     NSTRUCT(
-        EcsTransform,
-        NC_F(EcsTransform, position) NC_F(EcsTransform, angle) NC_F(EcsTransform, dimension) NC_F(EcsTransform, scale)
+        EcsTransform, NC_F( EcsTransform, position ) NC_F( EcsTransform, angle ) NC_F( EcsTransform, dimension )
+                          NC_F( EcsTransform, scale )
     )
 };
 

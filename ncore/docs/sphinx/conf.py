@@ -30,7 +30,7 @@ html_static_path = ['_static']
 breathe_default_project = "NCORE"
 breathe_projects_source = {
     "auto" : ( 
-        "../include/ncore/runtime", 
-        ["game_loop.h", "main_loop.h", "service_locator.h"] 
+        "../../include/ncore", 
+        ["application.h"] 
     )
 }

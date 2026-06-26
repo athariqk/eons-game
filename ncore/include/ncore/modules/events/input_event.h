@@ -18,12 +18,12 @@ enum class ButtonAction {
     RELEASE
 };
 
-class MouseButtonEvent : public InputEvent {
-    NCLASS(MouseButtonEvent, InputEvent)
+class NCORE_API MouseButtonEvent : public InputEvent {
+    NCLASS( MouseButtonEvent, InputEvent )
 
 public:
-    MouseButtonEvent(size_t p_window_id, ButtonAction act, ButtonIndex btn, Vec2 pos) :
-        InputEvent(p_window_id), action(act), button(btn), position(pos)
+    MouseButtonEvent( size_t p_window_id, ButtonAction act, ButtonIndex btn, Vec2 pos ) :
+        InputEvent( p_window_id ), action( act ), button( btn ), position( pos )
     {}
 
     EventType get_type() const override
@@ -36,12 +36,12 @@ public:
     Vec2 position; // Screen position
 };
 
-class MouseMotionEvent : public InputEvent {
-    NCLASS(MouseMotionEvent, InputEvent)
+class NCORE_API MouseMotionEvent : public InputEvent {
+    NCLASS( MouseMotionEvent, InputEvent )
 
 public:
-    MouseMotionEvent(size_t p_window_id, Vec2 pos, Vec2 d, uint32_t state) :
-        InputEvent(p_window_id), position(pos), delta(d), buttonState(state)
+    MouseMotionEvent( size_t p_window_id, Vec2 pos, Vec2 d, uint32_t state ) :
+        InputEvent( p_window_id ), position( pos ), delta( d ), buttonState( state )
     {}
 
     EventType get_type() const override
@@ -54,11 +54,11 @@ public:
     uint32_t buttonState;
 };
 
-class MouseWheelEvent : public InputEvent {
-    NCLASS(MouseWheelEvent, InputEvent)
+class NCORE_API MouseWheelEvent : public InputEvent {
+    NCLASS( MouseWheelEvent, InputEvent )
 
 public:
-    MouseWheelEvent(size_t p_window_id, float x, float y) : InputEvent(p_window_id), scroll_x(x), scroll_y(y) {}
+    MouseWheelEvent( size_t p_window_id, float x, float y ) : InputEvent( p_window_id ), scroll_x( x ), scroll_y( y ) {}
 
     EventType get_type() const override
     {
@@ -69,8 +69,8 @@ public:
     float scroll_y;
 };
 
-class KeyboardEvent : public InputEvent {
-    NCLASS(KeyboardEvent, InputEvent)
+class NCORE_API KeyboardEvent : public InputEvent {
+    NCLASS( KeyboardEvent, InputEvent )
 
 public:
     enum class Key {
@@ -93,8 +93,8 @@ public:
         BKSP,
     };
 
-    KeyboardEvent(size_t p_window_id, ButtonAction act, Key k, bool rep) :
-        InputEvent(p_window_id), action(act), key(k), repeat(rep)
+    KeyboardEvent( size_t p_window_id, ButtonAction act, Key k, bool rep ) :
+        InputEvent( p_window_id ), action( act ), key( k ), repeat( rep )
     {}
 
     EventType get_type() const override
@@ -107,11 +107,11 @@ public:
     bool repeat; // Is this a key repeat?
 };
 
-class TextInputEvent : public InputEvent {
-    NCLASS(TextInputEvent, InputEvent)
+class NCORE_API TextInputEvent : public InputEvent {
+    NCLASS( TextInputEvent, InputEvent )
 
 public:
-    TextInputEvent(size_t p_window_id, std::string t) : InputEvent(p_window_id), text(std::move(t)) {}
+    TextInputEvent( size_t p_window_id, std::string t ) : InputEvent( p_window_id ), text( std::move( t ) ) {}
     EventType get_type() const override
     {
         return EventType::TEXT_INPUT;

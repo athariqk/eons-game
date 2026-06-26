@@ -9,9 +9,9 @@
 namespace ncore {
 
 /**
- * @brief PagedObjectPool is a memory pool that allocates objects of type T in pages.
- * See PagedAllocator for the underlying page allocation mechanism.
- * TODO: write clearer docstring later
+ * @brief PagedObjectPool is a memory pool that pre-allocates objects of type T
+ * in fixed-size chunks. See PagedAllocator for the underlying page allocation
+ * mechanism. TODO: write clearer docstring later
  *
  * Useful reference: https://8dcc.github.io/programming/pool-allocator.html
  */
@@ -23,42 +23,42 @@ class PagedObjectPool {
 
     // ensures the input type is at least pointer-sized
     // so we can fit in a free list node into its allocated memory
-    struct alignas(alignof(T)) Slot {
-        std::byte data[std::max(sizeof(T), sizeof(FreeList))];
+    struct alignas( alignof( T ) ) Slot {
+        std::byte data[std::max( sizeof( T ), sizeof( FreeList ) )];
     };
 
 public:
-    PagedObjectPool(uint32_t page_capacity = PagedAllocator<T>::DEFAULT_PAGE_SIZE) :
-        arena(page_capacity), free_list(nullptr), active_count(0)
+    PagedObjectPool( uint32_t page_capacity = PagedAllocator<T>::DEFAULT_PAGE_SIZE ) :
+        arena( page_capacity ), free_list( nullptr ), active_count( 0 )
     {}
 
     template<typename... Args>
-    T* acquire(Args&&... args)
+    T* acquire( Args&&... args )
     {
         Slot* slot = nullptr;
 
         if (free_list) {
-            slot      = reinterpret_cast<Slot*>(free_list);
+            slot      = reinterpret_cast<Slot*>( free_list );
             free_list = free_list->next;
         } else {
             slot = arena.alloc();
         }
 
-        T* ptr = reinterpret_cast<T*>(slot);
-        new (ptr) T(std::forward<Args>(args)...);
+        T* ptr = reinterpret_cast<T*>( slot );
+        new ( ptr ) T( std::forward<Args>( args )... );
         ++active_count;
         return ptr;
     }
 
-    void release(T* obj)
+    void release( T* obj )
     {
-        NC_ASSERT_RET(obj != nullptr, "cannot release a null object");
-        auto slot = reinterpret_cast<Slot*>(obj);
-        NC_ASSERT_RET(arena.is_bounded_ptr(slot), "object does not belong to this pool");
+        NC_ASSERT_RET( obj != nullptr, "cannot release a null object" );
+        auto slot = reinterpret_cast<Slot*>( obj );
+        NC_ASSERT_RET( arena.is_bounded_ptr( slot ), "object does not belong to this pool" );
 
         obj->~T();
-        new (obj) FreeList(free_list);
-        FreeList* node = reinterpret_cast<FreeList*>(obj);
+        new ( obj ) FreeList( free_list );
+        FreeList* node = reinterpret_cast<FreeList*>( obj );
         free_list      = node;
 
         --active_count;

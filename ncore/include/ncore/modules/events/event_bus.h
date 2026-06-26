@@ -24,10 +24,14 @@ namespace ncore {
  *   // Publish
  *   event_bus.publish(CollisionEvent(entityA, entityB));
  */
-class EventBus : public IService {
-    NCLASS(EventBus, IService)
+class NCORE_API EventBus : public IService {
+    NCLASS( EventBus, IService )
 
 public:
+    EventBus()                             = default;
+    EventBus( const EventBus& )            = delete;
+    EventBus& operator=( const EventBus& ) = delete;
+
     Error init() override
     {
         return Error::OK;
@@ -45,11 +49,11 @@ public:
      * @return Subscription ID (can be used to unsubscribe)
      */
     template<std::derived_from<Event> T>
-    size_t subscribe(std::function<void(T&)> callback)
+    size_t subscribe( std::function<void( T& )> callback )
     {
         size_t index = next_subscription_id++;
-        auto wrapper = [callback](Event& event) { callback(static_cast<T&>(event)); };
-        subscribers[rfl::Registry::get_type_id<T>()].emplace_back(index, wrapper);
+        auto wrapper = [callback]( Event& event ) { callback( static_cast<T&>( event ) ); };
+        subscribers[rfl::Registry::get_type_id<T>()].emplace_back( index, wrapper );
         return index;
     }
 
@@ -57,7 +61,7 @@ public:
      * @brief Unsubscribe from an event
      * @param subscriptionId ID returned from subscribe()
      */
-    void unsubscribe(size_t p_subscription_id);
+    void unsubscribe( size_t p_subscription_id );
 
     /**
      * @brief Publish an event immediately (synchronous)
@@ -65,14 +69,14 @@ public:
      * @param event Event instance to publish
      */
     template<std::derived_from<Event> T>
-    void publish(const T& event)
+    void publish( const T& event )
     {
-        auto it = subscribers.find(event.get_type_id());
+        auto it = subscribers.find( event.get_type_id() );
         if (it == subscribers.end())
             return;
 
         for (auto& [index, callback] : it->second) {
-            callback(event);
+            callback( event );
             if (event.handled)
                 break; // Stop propagation if marked read handled
         }
@@ -87,9 +91,9 @@ public:
      * Useful for get_events that should not be processed immediately.
      */
     template<std::derived_from<Event> T>
-    void enqueue(std::unique_ptr<T> event)
+    void enqueue( std::unique_ptr<T> event )
     {
-        event_queue.emplace_back(std::move(event));
+        event_queue.emplace_back( std::move( event ) );
     }
 
     /**
@@ -105,7 +109,7 @@ public:
     SubscriberDebugInfo get_subscriber_debug_info() const;
 
 private:
-    using CallbackType   = std::function<void(Event&)>;
+    using CallbackType   = std::function<void( Event& )>;
     using SubscriberList = std::vector<std::pair<size_t, CallbackType>>;
     std::unordered_map<rfl::TypeId, SubscriberList> subscribers;
 

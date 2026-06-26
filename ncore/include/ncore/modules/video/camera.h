@@ -5,10 +5,10 @@
 namespace ncore {
 
 //! \brief Default 2D camera implementation
-class Camera {
+class NCORE_API Camera {
 public:
     Camera();
-    Camera(const Vec2& position, float zoom = 1.0f);
+    Camera( const Vec2& position, float zoom = 1.0f );
     ~Camera() = default;
 
     // ICamera interface
@@ -16,7 +16,7 @@ public:
     {
         return position;
     }
-    void set_position(const Vec2& p_position)
+    void set_position( const Vec2& p_position )
     {
         position = p_position;
     }
@@ -25,14 +25,14 @@ public:
     {
         return zoom;
     }
-    void set_zoom(float p_zoom)
+    void set_zoom( float p_zoom )
     {
         zoom = p_zoom;
     }
 
     // Camera controls
-    void move(const Vec2& delta);
-    void move(float dx, float dy);
+    void move( const Vec2& delta );
+    void move( float dx, float dy );
 
 private:
     Vec2 position;

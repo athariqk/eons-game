@@ -1,6 +1,8 @@
 # NCORE engine library TODO: separate into dedicated project in the future
 
-add_library(ncore STATIC "pch.h")
+# option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
+
+add_library(ncore SHARED)
 
 set(NCORE_VERSION_STABLE 0)
 set(NCORE_VERSION_MAJOR 0)
@@ -38,16 +40,16 @@ target_compile_options(ncore PRIVATE "$<$<CXX_COMPILER_ID:MSVC>:/GR->")
 
 target_include_directories(
   ncore
-  PRIVATE "${CMAKE_SOURCE_DIR}/ncore/vendors/imgui"
-          "${CMAKE_SOURCE_DIR}/ncore/vendors/box2d/include"
-          "${CMAKE_SOURCE_DIR}/ncore/vendors/sdl/include"
-          "${CMAKE_SOURCE_DIR}/ncore/vendors/inifile-cpp"
-          "${CMAKE_SOURCE_DIR}/ncore/vendors/flecs/include")
+  PRIVATE "${CMAKE_SOURCE_DIR}/ncore/external/imgui"
+          "${CMAKE_SOURCE_DIR}/ncore/external/box2d/include"
+          "${CMAKE_SOURCE_DIR}/ncore/external/sdl/include"
+          "${CMAKE_SOURCE_DIR}/ncore/external/inifile-cpp"
+          "${CMAKE_SOURCE_DIR}/ncore/external/flecs/include")
 
-add_subdirectory(vendors)
+add_subdirectory(external)
 add_subdirectory(include)
 add_subdirectory(src)
-add_subdirectory(tests)
+add_subdirectory(tests EXCLUDE_FROM_ALL)
 
 # DOCUMENTATION ## bits adapted from
 # https://devblogs.microsoft.com/cppblog/clear-functional-c-documentation-with-sphinx-breathe-doxygen-cmake/

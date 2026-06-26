@@ -1,4 +1,4 @@
-$excludeDirs = @('vendors', 'build', 'graphify-out', '.opencode', 'out')
+$excludeDirs = @('external', 'build', 'graphify-out', '.opencode', 'out')
 
 $escapedDirs = ($excludeDirs | ForEach-Object { [regex]::Escape($_) }) -join '|'
 $excludePattern = "[\\/]($escapedDirs)[\\/]"

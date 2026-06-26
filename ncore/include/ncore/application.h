@@ -20,7 +20,8 @@ struct AppVersion {
     int Patch = 0;
     std::string Identifier;
     NSTRUCT(
-        AppVersion, NC_F(AppVersion, Major) NC_F(AppVersion, Minor) NC_F(AppVersion, Patch) NC_F(AppVersion, Identifier)
+        AppVersion,
+        NC_F( AppVersion, Major ) NC_F( AppVersion, Minor ) NC_F( AppVersion, Patch ) NC_F( AppVersion, Identifier )
     );
 };
 
@@ -31,7 +32,7 @@ struct AppDesc {
     std::string Name;
     AppVersion Version;
     std::string ConfigFile;
-    NSTRUCT(AppDesc, NC_F(AppDesc, Name) NC_F(AppDesc, Version) NC_F(AppDesc, ConfigFile));
+    NSTRUCT( AppDesc, NC_F( AppDesc, Name ) NC_F( AppDesc, Version ) NC_F( AppDesc, ConfigFile ) );
 };
 
 /**
@@ -41,13 +42,13 @@ struct AppDesc {
  * OS event polling, and cleanup. You may override this to
  * implement custom main loop behavior.
  */
-class Application {
+class NCORE_API Application {
 public:
-    Application(const AppDesc& desc);
+    Application( const AppDesc& desc );
     virtual ~Application();
 
-    Application(const Application&)            = delete;
-    Application& operator=(const Application&) = delete;
+    Application( const Application& )            = delete;
+    Application& operator=( const Application& ) = delete;
 
     virtual void init();
     virtual void run();
@@ -67,7 +68,7 @@ public:
     /**
      * @brief Called once after the world is initialized.
      */
-    virtual void on_world_init(IGameWorld& world) {};
+    virtual void on_world_init( IGameWorld& world ) {};
 
 protected:
     AppDesc app_desc;

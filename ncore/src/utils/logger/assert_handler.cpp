@@ -3,12 +3,12 @@
 
 namespace ncore::log {
 
-void handle_assert(const char* expr, const char* msg, const char* file, int line)
+void handle_assert( const char* expr, const char* msg, const char* file, int line )
 {
-    if (Level::Fatal < static_cast<Level>(g_min_level.load()))
+    if (Level::Fatal < static_cast<Level>( g_min_level.load() ))
         return;
     auto channel = Logger::get_instance().channel();
-    channel->write(Level::Fatal, SourceLoc{file, nullptr, line}, "**assertion failed**: {}; {}", expr, msg);
+    channel->write( Level::Fatal, SourceLoc{ file, nullptr, line }, "**assertion failed**: {}; {}", expr, msg );
     Logger::get_instance().flush_all();
 }
 

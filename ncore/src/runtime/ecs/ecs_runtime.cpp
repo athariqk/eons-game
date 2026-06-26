@@ -9,7 +9,7 @@
 
 namespace ncore {
 
-void EcsRuntimeFeature::build(EcsWorld& world)
+void EcsRuntimeFeature::build( EcsWorld& world )
 {
     world.load_feature<EcsBaseFeature>();
     world.load_feature<EcsAudioFeature>();

@@ -31,16 +31,16 @@ struct SDL_Gamepad;
 typedef union SDL_Event SDL_Event;
 
 // Follow "Getting Started" link and check examples/ folder to learn about using backends!
-IMGUI_IMPL_API bool ImGui_ImplSDL3_InitForOpenGL(SDL_Window* window, void* sdl_gl_context);
-IMGUI_IMPL_API bool ImGui_ImplSDL3_InitForVulkan(SDL_Window* window);
-IMGUI_IMPL_API bool ImGui_ImplSDL3_InitForD3D(SDL_Window* window);
-IMGUI_IMPL_API bool ImGui_ImplSDL3_InitForMetal(SDL_Window* window);
-IMGUI_IMPL_API bool ImGui_ImplSDL3_InitForSDLRenderer(SDL_Window* window, SDL_Renderer* renderer);
-IMGUI_IMPL_API bool ImGui_ImplSDL3_InitForSDLGPU(SDL_Window* window);
-IMGUI_IMPL_API bool ImGui_ImplSDL3_InitForOther(SDL_Window* window);
+IMGUI_IMPL_API bool ImGui_ImplSDL3_InitForOpenGL( SDL_Window* window, void* sdl_gl_context );
+IMGUI_IMPL_API bool ImGui_ImplSDL3_InitForVulkan( SDL_Window* window );
+IMGUI_IMPL_API bool ImGui_ImplSDL3_InitForD3D( SDL_Window* window );
+IMGUI_IMPL_API bool ImGui_ImplSDL3_InitForMetal( SDL_Window* window );
+IMGUI_IMPL_API bool ImGui_ImplSDL3_InitForSDLRenderer( SDL_Window* window, SDL_Renderer* renderer );
+IMGUI_IMPL_API bool ImGui_ImplSDL3_InitForSDLGPU( SDL_Window* window );
+IMGUI_IMPL_API bool ImGui_ImplSDL3_InitForOther( SDL_Window* window );
 IMGUI_IMPL_API void ImGui_ImplSDL3_Shutdown();
 IMGUI_IMPL_API void ImGui_ImplSDL3_NewFrame();
-IMGUI_IMPL_API bool ImGui_ImplSDL3_ProcessEvent(const SDL_Event* event);
+IMGUI_IMPL_API bool ImGui_ImplSDL3_ProcessEvent( const SDL_Event* event );
 
 // Gamepad selection automatically starts in AutoFirst mode, picking first available SDL_Gamepad. You may override this.
 // When using manual mode, caller is responsible for opening/closing gamepad.

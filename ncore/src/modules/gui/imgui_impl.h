@@ -12,10 +12,10 @@ class EventBus;
  * @brief Immediate-mode GUI implementation
  */
 class ImGuiImpl : public IIMGuiService {
-    NCLASS(ImGuiImpl, IIMGuiService)
+    NCLASS( ImGuiImpl, IIMGuiService )
 
 public:
-    ImGuiImpl(uint32_t window_id);
+    ImGuiImpl( uint32_t window_id );
     ~ImGuiImpl() {}
 
     Error init() override;

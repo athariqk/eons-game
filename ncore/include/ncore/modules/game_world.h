@@ -11,11 +11,11 @@ class ServiceLocator;
  *
  * Derived classes should implement the specific behavior of the game world.
  */
-class IGameWorld : public NObject {
-    NCLASS(IGameWorld, NObject)
+class NCORE_API IGameWorld : public NObject {
+    NCLASS( IGameWorld, NObject )
 
 public:
-    IGameWorld(ServiceLocator& services) : services(services) {}
+    IGameWorld( ServiceLocator& services ) : services( services ) {}
     virtual ~IGameWorld() = default;
 
     // Lifecycle hooks
@@ -30,14 +30,14 @@ public:
      *
      * Return false to continue the main loop.
      */
-    virtual bool on_fixed_update(double p_delta) = 0;
+    virtual bool on_fixed_update( double p_delta ) = 0;
 
     /**
      * @brief Called at a variable timestep, ideal for non-deterministic updates.
      *
      * Return false to continue the main loop.
      */
-    virtual bool on_variable_update(double p_delta) = 0;
+    virtual bool on_variable_update( double p_delta ) = 0;
 
     /**
      * @brief Called once when the world is being destroyed, ideal for cleanup.

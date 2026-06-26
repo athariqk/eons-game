@@ -11,11 +11,11 @@ namespace ncore::log {
 
 class Logger {
 public:
-    Logger(const Logger&)            = delete;
-    Logger& operator=(const Logger&) = delete;
+    Logger( const Logger& )            = delete;
+    Logger& operator=( const Logger& ) = delete;
 
-    Logger(Logger&&)            = delete;
-    Logger& operator=(Logger&&) = delete;
+    Logger( Logger&& )            = delete;
+    Logger& operator=( Logger&& ) = delete;
 
     static Logger& get_instance()
     {
@@ -24,14 +24,14 @@ public:
     }
 
     // Add to the global sinks for all log channels
-    void add_sink(std::shared_ptr<Sink> p_sink);
+    void add_sink( std::shared_ptr<Sink> p_sink );
 
-    std::shared_ptr<LogChannel> channel(std::string_view p_channel = DEFAULT);
-    void set_level(std::string_view log_name, log::Level level);
+    std::shared_ptr<LogChannel> channel( std::string_view p_channel = DEFAULT );
+    void set_level( std::string_view log_name, log::Level level );
 
     // Gets and sets the global log level
     Level get_level() const;
-    void set_level(log::Level level);
+    void set_level( log::Level level );
 
     void flush_all();
 

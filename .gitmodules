@@ -1,15 +1,15 @@
-[submodule "ncore/vendors/box2d"]
-	path = ncore/vendors/box2d
+[submodule "ncore/external/box2d"]
+	path = ncore/external/box2d
 	url = https://github.com/erincatto/box2d.git
-[submodule "ncore/vendors/imgui"]
-	path = ncore/vendors/imgui
+[submodule "ncore/external/imgui"]
+	path = ncore/external/imgui
 	url = https://github.com/ocornut/imgui.git
-[submodule "ncore/vendors/sdl"]
-	path = ncore/vendors/sdl
+[submodule "ncore/external/sdl"]
+	path = ncore/external/sdl
 	url = https://github.com/libsdl-org/SDL
-[submodule "ncore/vendors/flecs"]
-	path = ncore/vendors/flecs
+[submodule "ncore/external/flecs"]
+	path = ncore/external/flecs
 	url = https://github.com/SanderMertens/flecs
-[submodule "ncore/vendors/catch2"]
-	path = ncore/vendors/catch2
+[submodule "ncore/external/catch2"]
+	path = ncore/external/catch2
 	url = https://github.com/catchorg/Catch2/

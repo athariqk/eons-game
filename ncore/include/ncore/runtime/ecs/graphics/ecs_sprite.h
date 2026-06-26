@@ -7,7 +7,7 @@ namespace ncore {
 
 struct EcsSprite {
     EcsSprite() = default;
-    EcsSprite(std::string p_filepath) : filepath(std::move(p_filepath)) {}
+    EcsSprite( std::string p_filepath ) : filepath( std::move( p_filepath ) ) {}
     std::string filepath;
     Vec4 rect{};
     RID res;
@@ -16,7 +16,7 @@ struct EcsSprite {
 
 struct EcsCircleDraw {
     float radius = 1.0f;
-    Color color{0, 0, 0, 255};
+    Color color{ 0, 0, 0, 255 };
     bool filled = false;
     bool edge   = false;
 };

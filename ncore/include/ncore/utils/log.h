@@ -3,8 +3,10 @@
 #include <format>
 #include <string>
 
-#define NC_CONCAT_IMPL(a, b) a##b
-#define NC_CONCAT(a, b)      NC_CONCAT_IMPL(a, b)
+#include <ncore.h>
+
+#define NC_CONCAT_IMPL( a, b ) a##b
+#define NC_CONCAT( a, b )      NC_CONCAT_IMPL( a, b )
 
 #ifndef NC_LOG_CHANNEL_NAME
 #define NC_LOG_CHANNEL_NAME "NCORE"
@@ -14,9 +16,9 @@ namespace ncore::log {
 
 static std::atomic<int> g_min_level = 0;
 
-inline void set_min_level(int level)
+inline void set_min_level( int level )
 {
-    g_min_level.store(level);
+    g_min_level.store( level );
 }
 inline int get_min_level()
 {
@@ -25,11 +27,11 @@ inline int get_min_level()
 
 inline void silence()
 {
-    set_min_level(6);
+    set_min_level( 6 );
 } // OFF
 inline void unsilence()
 {
-    set_min_level(0);
+    set_min_level( 0 );
 }
 
 // Engine modules
@@ -42,49 +44,50 @@ inline constexpr const char* GUI      = "GUI";
 inline constexpr const char* PHYSICS  = "PHYS";
 inline constexpr const char* IO       = "IO";
 
-void log_message(const char* channel, int level, const char* file, const char* func, int line, const char* message);
+NCORE_API void
+log_message( const char* channel, int level, const char* file, const char* func, int line, const char* message );
 
 } // namespace ncore::log
 
-#define NC_LOG_TRACE_C(cat, ...)                                                                                       \
+#define NC_LOG_TRACE_C( cat, ... )                                                                                     \
     do {                                                                                                               \
-        auto _nc_msg = std::format(__VA_ARGS__);                                                                       \
-        ncore::log::log_message(cat, 0, __FILE__, __func__, __LINE__, _nc_msg.c_str());                                \
+        auto _nc_msg = std::format( __VA_ARGS__ );                                                                     \
+        ncore::log::log_message( cat, 0, __FILE__, __func__, __LINE__, _nc_msg.c_str() );                              \
     } while (0)
 
-#define NC_LOG_DEBUG_C(cat, ...)                                                                                       \
+#define NC_LOG_DEBUG_C( cat, ... )                                                                                     \
     do {                                                                                                               \
-        auto _nc_msg = std::format(__VA_ARGS__);                                                                       \
-        ncore::log::log_message(cat, 1, nullptr, nullptr, 0, _nc_msg.c_str());                                         \
+        auto _nc_msg = std::format( __VA_ARGS__ );                                                                     \
+        ncore::log::log_message( cat, 1, nullptr, nullptr, 0, _nc_msg.c_str() );                                       \
     } while (0)
 
-#define NC_LOG_INFO_C(cat, ...)                                                                                        \
+#define NC_LOG_INFO_C( cat, ... )                                                                                      \
     do {                                                                                                               \
-        auto _nc_msg = std::format(__VA_ARGS__);                                                                       \
-        ncore::log::log_message(cat, 2, nullptr, nullptr, 0, _nc_msg.c_str());                                         \
+        auto _nc_msg = std::format( __VA_ARGS__ );                                                                     \
+        ncore::log::log_message( cat, 2, nullptr, nullptr, 0, _nc_msg.c_str() );                                       \
     } while (0)
 
-#define NC_LOG_WARN_C(cat, ...)                                                                                        \
+#define NC_LOG_WARN_C( cat, ... )                                                                                      \
     do {                                                                                                               \
-        auto _nc_msg = std::format(__VA_ARGS__);                                                                       \
-        ncore::log::log_message(cat, 3, nullptr, nullptr, 0, _nc_msg.c_str());                                         \
+        auto _nc_msg = std::format( __VA_ARGS__ );                                                                     \
+        ncore::log::log_message( cat, 3, nullptr, nullptr, 0, _nc_msg.c_str() );                                       \
     } while (0)
 
-#define NC_LOG_ERROR_C(cat, ...)                                                                                       \
+#define NC_LOG_ERROR_C( cat, ... )                                                                                     \
     do {                                                                                                               \
-        auto _nc_msg = std::format(__VA_ARGS__);                                                                       \
-        ncore::log::log_message(cat, 4, __FILE__, __func__, __LINE__, _nc_msg.c_str());                                \
+        auto _nc_msg = std::format( __VA_ARGS__ );                                                                     \
+        ncore::log::log_message( cat, 4, __FILE__, __func__, __LINE__, _nc_msg.c_str() );                              \
     } while (0)
 
-#define NC_LOG_FATAL_C(cat, ...)                                                                                       \
+#define NC_LOG_FATAL_C( cat, ... )                                                                                     \
     do {                                                                                                               \
-        auto _nc_msg = std::format(__VA_ARGS__);                                                                       \
-        ncore::log::log_message(cat, 5, __FILE__, __func__, __LINE__, _nc_msg.c_str());                                \
+        auto _nc_msg = std::format( __VA_ARGS__ );                                                                     \
+        ncore::log::log_message( cat, 5, __FILE__, __func__, __LINE__, _nc_msg.c_str() );                              \
     } while (0)
 
-#define NC_LOG_TRACE(...) NC_LOG_TRACE_C(NC_LOG_CHANNEL_NAME, __VA_ARGS__)
-#define NC_LOG_DEBUG(...) NC_LOG_DEBUG_C(NC_LOG_CHANNEL_NAME, __VA_ARGS__)
-#define NC_LOG_INFO(...)  NC_LOG_INFO_C(NC_LOG_CHANNEL_NAME, __VA_ARGS__)
-#define NC_LOG_WARN(...)  NC_LOG_WARN_C(NC_LOG_CHANNEL_NAME, __VA_ARGS__)
-#define NC_LOG_ERROR(...) NC_LOG_ERROR_C(NC_LOG_CHANNEL_NAME, __VA_ARGS__)
-#define NC_LOG_FATAL(...) NC_LOG_FATAL_C(NC_LOG_CHANNEL_NAME, __VA_ARGS__)
+#define NC_LOG_TRACE( ... ) NC_LOG_TRACE_C( NC_LOG_CHANNEL_NAME, __VA_ARGS__ )
+#define NC_LOG_DEBUG( ... ) NC_LOG_DEBUG_C( NC_LOG_CHANNEL_NAME, __VA_ARGS__ )
+#define NC_LOG_INFO( ... )  NC_LOG_INFO_C( NC_LOG_CHANNEL_NAME, __VA_ARGS__ )
+#define NC_LOG_WARN( ... )  NC_LOG_WARN_C( NC_LOG_CHANNEL_NAME, __VA_ARGS__ )
+#define NC_LOG_ERROR( ... ) NC_LOG_ERROR_C( NC_LOG_CHANNEL_NAME, __VA_ARGS__ )
+#define NC_LOG_FATAL( ... ) NC_LOG_FATAL_C( NC_LOG_CHANNEL_NAME, __VA_ARGS__ )

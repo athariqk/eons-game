@@ -10,10 +10,10 @@ namespace ncore {
 struct Vec2;
 
 class SDLWindowImpl : public IWindowService {
-    NCLASS(SDLWindowImpl, IWindowService)
+    NCLASS( SDLWindowImpl, IWindowService )
 
 public:
-    SDLWindowImpl(const char* title, int width, int height, bool fullscreen);
+    SDLWindowImpl( const char* title, int width, int height, bool fullscreen );
 
     Error init() override;
     void finalize() override;
@@ -22,8 +22,8 @@ public:
     SDL_Window* get_native_handle() const;
     Vec2 get_resolution() const;
     uint32_t get_window_id() const;
-    void set_title(const char* title) const;
-    int show_msg_box(uint32_t flags, const char* title, const char* message) const;
+    void set_title( const char* title ) const;
+    int show_msg_box( uint32_t flags, const char* title, const char* message ) const;
 
     Viewport* get_viewport() const override;
 

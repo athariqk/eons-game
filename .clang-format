@@ -52,15 +52,15 @@ IncludeCategories:
   # Third-party
   - Regex: '^<(SDL3|box2d|imgui|flecs|inicpp|backends|misc)[/.]'
     Priority: 2
-  # C++ standard library
-  - Regex: '^<[a-z_][a-z_0-9.]*>$'
-    Priority: 1
   # Engine headers
   - Regex: '^<(ncore|kernel|modules|utils|runtime|scene)[/.]'
     Priority: 3
   # Game headers
   - Regex: '^<microcosmos[/.]'
     Priority: 4
+  # C++ standard library
+  - Regex: '^<[a-z_][a-z_0-9.]*>$'
+    Priority: 1
   # Local dir
   - Regex: '^".*'
     Priority: 5
@@ -69,7 +69,14 @@ SpaceAfterTemplateKeyword: false
 SpaceBeforeRangeBasedForLoopColon: true
 SpaceBeforeAssignmentOperators: true
 SpacesInAngles: Never
-SpacesInParens: Never
+SpacesInParens: Custom
+SpacesInParensOptions:
+  ExceptDoubleParentheses: false
+  # this doesnt seem to work with clang-format version 19.1.5 (bundled in VS 2022)
+  InConditionalStatements: false
+  InEmptyParentheses: false
+  InCStyleCasts: true
+  Other: true
 MacroBlockBegin: ''
 MacroBlockEnd: ''
 ...
