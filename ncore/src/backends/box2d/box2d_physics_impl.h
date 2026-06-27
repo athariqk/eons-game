@@ -4,8 +4,8 @@
 #include <box2d/id.h>
 #include <box2d/types.h>
 
-#include <modules/physics/physics_service.h>
 #include <ncore/kernel/structures.h>
+#include <ncore/modules/physics/physics_service.h>
 
 namespace ncore {
 

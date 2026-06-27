@@ -1,7 +1,7 @@
 #pragma once
 
 #include <modules/assets/asset_loader.h>
-#include <modules/audio/audio_clip.h>
+#include <ncore/modules/audio/audio_clip.h>
 
 namespace ncore {
 

@@ -1,8 +1,9 @@
 #include "imgui_impl.h"
 
-#include <modules/events/sdl_event_helpers.h>
-#include <modules/gui/imgui_sdl.h>
-#include <modules/gui/imgui_sdl_renderer.h>
+#include <backends/sdl/imgui_sdl.h>
+#include <backends/sdl/imgui_sdl_renderer.h>
+#include <backends/sdl/sdl_event_helpers.h>
+
 #include <ncore/modules/events/event_bus.h>
 #include <ncore/modules/events/events.h>
 #include <ncore/modules/events/input_event.h>

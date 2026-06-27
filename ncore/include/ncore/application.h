@@ -10,6 +10,7 @@ namespace ncore {
 
 class IGameWorld;
 class ServiceLocator;
+class ConfFile;
 
 /**
  * @brief A semantic version representation for the application.
@@ -55,6 +56,17 @@ public:
     virtual void finish();
 
     virtual void poll_events();
+
+    /**
+     * @brief Registers the IServices used by the application.
+     * This can be overridden to register custom services.
+     */
+    virtual void register_services( ConfFile& cfg_file );
+
+    /**
+     * @brief Called once when the application is being destroyed.
+     */
+    virtual void unregister_services();
 
     /**
      * @brief Creates a new game world instance.

@@ -86,10 +86,21 @@ public:
         return Error::OK;
     }
 
+    /**
+     * @brief Finalizes all registered services.
+     */
     static void cleanup_all()
     {
         for (auto& [key, svc] : get_instance().services)
             svc->finalize();
+    }
+
+    /**
+     * @brief Clears all registered services from the registry.
+     */
+    static void clear()
+    {
+        get_instance().services.clear();
     }
 
     static auto view()

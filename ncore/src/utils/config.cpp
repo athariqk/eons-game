@@ -2,7 +2,7 @@
 
 #include <inicpp.h>
 
-#include <kernel/config.h>
+#include <ncore/utils/config.h>
 
 namespace ncore {
 

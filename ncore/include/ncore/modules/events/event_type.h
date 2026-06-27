@@ -18,7 +18,7 @@ enum class EventType : size_t {
     // Keyboard
     KEYBOARD,
 
-    // Window
+    // IWindowService
     WINDOW_RESIZE,
     WINDOW_FOCUS,
     WINDOW_MOUSE_ENTER,

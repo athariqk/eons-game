@@ -95,7 +95,7 @@
 
 // SDL Data
 struct ImGui_ImplSDL3_Data {
-    SDL_Window* Window;
+    SDL_Window* IWindowService;
     SDL_WindowID WindowID;
     SDL_Renderer* Renderer;
     Uint64 Time;
@@ -606,7 +606,7 @@ static bool ImGui_ImplSDL3_Init( SDL_Window* window, SDL_Renderer* renderer, voi
     io.BackendFlags |=
         ImGuiBackendFlags_HasSetMousePos; // We can honor io.WantSetMousePos requests (optional, rarely used)
 
-    bd->Window                 = window;
+    bd->IWindowService                 = window;
     bd->WindowID               = SDL_GetWindowID( window );
     bd->Renderer               = renderer;
     bd->MouseCanUseGlobalState = mouse_can_use_global_state;
@@ -734,7 +734,7 @@ static void ImGui_ImplSDL3_UpdateMouseData()
     SDL_CaptureMouse( want_capture );
 
     SDL_Window* focused_window = SDL_GetKeyboardFocus();
-    const bool is_app_focused  = ( bd->Window == focused_window );
+    const bool is_app_focused  = ( bd->IWindowService == focused_window );
 #else
     SDL_Window* focused_window = bd->Window;
     const bool is_app_focused  = ( SDL_GetWindowFlags( bd->Window ) & SDL_WINDOW_INPUT_FOCUS ) !=
@@ -744,11 +744,11 @@ static void ImGui_ImplSDL3_UpdateMouseData()
         // (Optional) Set OS mouse position from Dear ImGui if requested (rarely used, only when
         // io.ConfigNavMoveSetMousePos is enabled by user)
         if (io.WantSetMousePos)
-            SDL_WarpMouseInWindow( bd->Window, io.MousePos.x, io.MousePos.y );
+            SDL_WarpMouseInWindow( bd->IWindowService, io.MousePos.x, io.MousePos.y );
 
         // (Optional) Fallback to provide mouse position when focused (SDL_EVENT_MOUSE_MOTION already provides this when
         // hovered or captured)
-        const bool is_relative_mouse_mode = SDL_GetWindowRelativeMouseMode( bd->Window );
+        const bool is_relative_mouse_mode = SDL_GetWindowRelativeMouseMode( bd->IWindowService );
         if (bd->MouseCanUseGlobalState && bd->MouseButtonsDown == 0 && !is_relative_mouse_mode) {
             // Single-viewport mode: mouse position in client window coordinates (io.MousePos is (0,0) when the mouse is
             // on the upper-left corner of the app window)
@@ -925,10 +925,10 @@ void ImGui_ImplSDL3_NewFrame()
     // Setup display size (every frame to accommodate for window resizing)
     int w, h;
     int display_w, display_h;
-    SDL_GetWindowSize( bd->Window, &w, &h );
-    if (SDL_GetWindowFlags( bd->Window ) & SDL_WINDOW_MINIMIZED)
+    SDL_GetWindowSize( bd->IWindowService, &w, &h );
+    if (SDL_GetWindowFlags( bd->IWindowService ) & SDL_WINDOW_MINIMIZED)
         w = h = 0;
-    SDL_GetWindowSizeInPixels( bd->Window, &display_w, &display_h );
+    SDL_GetWindowSizeInPixels( bd->IWindowService, &display_w, &display_h );
     io.DisplaySize = ImVec2( ( float ) w, ( float ) h );
     if (w > 0 && h > 0)
         io.DisplayFramebufferScale = ImVec2( ( float ) display_w / w, ( float ) display_h / h );

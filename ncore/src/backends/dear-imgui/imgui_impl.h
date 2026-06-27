@@ -1,5 +1,6 @@
 #pragma once
-#include <modules/gui/gui_service.h>
+
+#include <ncore/modules/gui/gui_service.h>
 
 struct ImGuiContext;
 
@@ -9,10 +10,10 @@ class SDLWindowImpl;
 class EventBus;
 
 /**
- * @brief Immediate-mode GUI implementation
+ * @brief Immediate-mode GUI implementation using Dear ImGui.
  */
-class ImGuiImpl : public IIMGuiService {
-    NCLASS( ImGuiImpl, IIMGuiService )
+class ImGuiImpl : public IImGuiService {
+    NCLASS( ImGuiImpl, IImGuiService )
 
 public:
     ImGuiImpl( uint32_t window_id );

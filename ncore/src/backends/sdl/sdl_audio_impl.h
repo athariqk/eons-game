@@ -1,7 +1,7 @@
 #pragma once
 
-#include <modules/audio/audio_service.h>
 #include <ncore/kernel/resource.h>
+#include <ncore/modules/audio/audio_service.h>
 
 struct SDL_AudioStream;
 

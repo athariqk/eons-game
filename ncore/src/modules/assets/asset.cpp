@@ -1,3 +1,3 @@
-#include <modules/assets/asset.h>
+#include <ncore/modules/assets/asset.h>
 
 // stub

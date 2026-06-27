@@ -4,7 +4,7 @@
 #include <SDL3/SDL_error.h>
 
 #include <modules/assets/asset_manager.h>
-#include <modules/audio/audio_clip.h>
+#include <ncore/modules/audio/audio_clip.h>
 #include <ncore/utils/log.h>
 
 namespace ncore {

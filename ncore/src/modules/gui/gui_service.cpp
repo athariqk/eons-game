@@ -1,8 +1,8 @@
-#include "gui_service.h"
+#include <ncore/modules/gui/gui_service.h>
 
 namespace ncore {
 
-void IIMGuiService::update()
+void IImGuiService::update()
 {
     begin_frame();
     for (const auto& layer : layers) {
@@ -11,7 +11,7 @@ void IIMGuiService::update()
     render_frame();
 }
 
-void IIMGuiService::add_layer( const std::string& layer_name, int order, std::function<void()> callback )
+void IImGuiService::add_layer( const std::string& layer_name, int order, std::function<void()> callback )
 {
     layers.push_back( { layer_name, order, callback } );
 

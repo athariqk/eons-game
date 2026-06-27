@@ -9,27 +9,27 @@
 #include <sstream>
 
 #include <SDL3/SDL_init.h>
+#include <backends/box2d/box2d_physics_impl.h>
+#include <backends/dear-imgui/imgui_impl.h>
+#include <backends/sdl/sdl_audio_impl.h>
+#include <backends/sdl/sdl_audio_loader.h>
+#include <backends/sdl/sdl_event_helpers.h>
+#include <backends/sdl/sdl_image_loader.h>
+#include <backends/sdl/sdl_render_impl.h>
+#include <backends/sdl/sdl_window_impl.h>
 
-#include <kernel/config.h>
 #include <modules/assets/asset_manager.h>
-#include <modules/assets/sdl_audio_loader.h>
-#include <modules/assets/sdl_image_loader.h>
-#include <modules/audio/sdl_audio_impl.h>
-#include <modules/events/sdl_event_helpers.h>
-#include <modules/gui/gui_service.h>
-#include <modules/gui/imgui_impl.h>
-#include <modules/physics/box2d_physics_impl.h>
-#include <modules/video/sdl_render_impl.h>
-#include <modules/video/sdl_window_impl.h>
 #include <ncore/application.h>
 #include <ncore/kernel/types.h>
 #include <ncore/modules/game_world.h>
+#include <ncore/modules/gui/gui_service.h>
 #include <ncore/modules/service_locator.h>
 #include <ncore/modules/video/image.h>
 #include <ncore/modules/video/render_service.h>
 #include <ncore/modules/video/viewport.h>
 #include <ncore/runtime/ecs/ecs_runtime.h>
 #include <ncore/scene/scene.h>
+#include <ncore/utils/config.h>
 #include <ncore/utils/log.h>
 #include <utils/logger/log_level.h>
 #include <utils/logger/logger.h>
@@ -69,10 +69,8 @@ Application::~Application()
 
 void Application::init()
 {
-    auto cfg_file   = ConfFile( app_desc.ConfigFile );
-    auto log_cfg    = cfg_file.read<cfg::Log>();
-    auto window_cfg = cfg_file.read<cfg::Window>();
-    auto render_cfg = cfg_file.read<cfg::Render>();
+    auto cfg_file = ConfFile( app_desc.ConfigFile );
+    auto log_cfg  = cfg_file.read<cfg::Log>();
 
     // Set up logging
     log::Logger::get_instance().add_sink( std::make_shared<log::FileSink>( log_cfg.FilePath ) );
@@ -90,29 +88,7 @@ void Application::init()
         }
     }
 
-    if (!SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_AUDIO )) {
-        NC_LOG_ERROR( "SDL init FAIL: {}", SDL_GetError() );
-        abort(); // TODO: handle this more gracefully
-    }
-
-    event_bus = services.provide<EventBus>();
-
-    auto resources = services.provide<AssetManager>();
-    resources->register_loader<Image>( SDLImageLoader() );
-    resources->register_loader<AudioClip>( SDLAudioLoader() );
-
-    auto window = services.provide<SDLWindowImpl>(
-        app_desc.Name.c_str(), window_cfg.SizeWidth, window_cfg.SizeHeight, window_cfg.Fullscreen
-    );
-    window->get_viewport()->set_pixels_per_meter(
-        render_cfg.PixelsPerMeter
-    ); // TODO: properly implement viewport later
-
-    auto renderer = services.provide<SDLRenderImpl>( window->get_window_id() );
-    auto physics  = services.provide<Box2DPhysicsImpl>();
-    auto audio    = services.provide<SDLAudioImpl>();
-    auto gui      = services.provide<ImGuiImpl>( window->get_window_id() );
-
+    register_services( cfg_file );
     services.init_all();
 
     g_world = create_world();
@@ -155,9 +131,9 @@ void Application::run()
     int frame_count    = 0;
     double accumulator = 0.0;
 
-    auto window   = services.resolve<SDLWindowImpl>();
+    auto window   = services.resolve<IWindowService>();
     auto renderer = services.resolve<IRenderService>();
-    auto gui      = services.resolve<IIMGuiService>();
+    auto gui      = services.resolve<IImGuiService>();
     std::array<char, 64> window_attrs;
 
     is_running = true;
@@ -211,6 +187,41 @@ void Application::poll_events()
     }
 }
 
+void Application::register_services( ConfFile& cfg_file )
+{
+    auto window_cfg = cfg_file.read<cfg::Window>();
+    auto render_cfg = cfg_file.read<cfg::Render>();
+
+    if (!SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_AUDIO )) {
+        NC_LOG_ERROR( "SDL init FAIL: {}", SDL_GetError() );
+        abort(); // TODO: handle this more gracefully
+    }
+
+    event_bus = services.provide<EventBus>();
+
+    auto resources = services.provide<AssetManager>();
+    resources->register_loader<Image>( SDLImageLoader() );
+    resources->register_loader<AudioClip>( SDLAudioLoader() );
+
+    auto window = services.provide<SDLWindowImpl>(
+        app_desc.Name.c_str(), window_cfg.SizeWidth, window_cfg.SizeHeight, window_cfg.Fullscreen
+    );
+    window->get_viewport()->set_pixels_per_meter(
+        render_cfg.PixelsPerMeter
+    ); // TODO: properly implement viewport later
+
+    services.provide<SDLRenderImpl>( window->get_window_id() );
+    services.provide<Box2DPhysicsImpl>();
+    services.provide<SDLAudioImpl>();
+    services.provide<ImGuiImpl>( window->get_window_id() );
+}
+
+void Application::unregister_services()
+{
+    services.clear();
+    SDL_Quit();
+}
+
 std::unique_ptr<IGameWorld> Application::create_world()
 {
     auto scene = std::make_unique<Scene>( services );
@@ -222,7 +233,7 @@ void Application::finish()
 {
     g_world->on_finish();
     services.cleanup_all();
-    SDL_Quit();
+    unregister_services();
     NC_LOG_TRACE( "application finished" );
 }
 

@@ -7,8 +7,8 @@ namespace ncore {
 /**
  * @brief Immediate-mode GUI service interface.
  */
-class IIMGuiService : public IService {
-    NCLASS( IIMGuiService, IService )
+class IImGuiService : public IService {
+    NCLASS( IImGuiService, IService )
 
 public:
     struct IMGuiLayer {
@@ -18,7 +18,7 @@ public:
     };
 
 public:
-    virtual ~IIMGuiService() = default;
+    virtual ~IImGuiService() = default;
 
     void update();
     void add_layer( const std::string& layer_name, int order, std::function<void()> callback );

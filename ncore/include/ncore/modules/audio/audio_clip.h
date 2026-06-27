@@ -1,7 +1,7 @@
 #pragma once
 
-#include <modules/assets/asset.h>
 #include <ncore/kernel/structures.h>
+#include <ncore/modules/assets/asset.h>
 
 namespace ncore {
 
