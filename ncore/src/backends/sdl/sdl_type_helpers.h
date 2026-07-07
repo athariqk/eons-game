@@ -1,7 +1,7 @@
 #pragma once
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wswitch-enum"
-#pragma GCC diagnostic ignored "-Wcovered-switch-default" 
+#pragma GCC diagnostic ignored "-Wcovered-switch-default"
 
 #include <memory>
 
@@ -140,57 +140,58 @@ struct SDLTypeHelpers {
         }
     }
 
-    static std::unique_ptr<Event> map_from_sdl( SDL_Event& event )
+    static Ref<BaseEvent> map_from_sdl( SDL_Event& event )
     {
         switch (event.type) {
             case SDL_EVENT_QUIT:
                 // TODO: what should be the appropriate event mapping here?
                 break;
-            case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-                return std::make_unique<WindowCloseEvent>( event.window.windowID );
+            case SDL_EVENT_WINDOW_CLOSE_REQUESTED: {
+                return Ref<WindowCloseEvent>::create( event.window.windowID ).as<BaseEvent>();
+            }
             case SDL_EVENT_WINDOW_RESIZED:
-                return std::make_unique<WindowResizeEvent>(
-                    event.window.windowID, event.window.data1, event.window.data2
-                );
+                return Ref<WindowResizeEvent>::create( event.window.windowID, event.window.data1, event.window.data2 )
+                    .as<BaseEvent>();
             case SDL_EVENT_WINDOW_MOUSE_ENTER:
-                return std::make_unique<WindowMouseEnterEvent>( event.window.windowID );
+                return Ref<WindowMouseEnterEvent>::create( event.window.windowID ).as<BaseEvent>();
             case SDL_EVENT_WINDOW_MOUSE_LEAVE:
-                return std::make_unique<WindowMouseLeaveEvent>( event.window.windowID );
+                return Ref<WindowMouseLeaveEvent>::create( event.window.windowID ).as<BaseEvent>();
             case SDL_EVENT_WINDOW_FOCUS_GAINED:
-                return std::make_unique<WindowFocusEvent>( event.window.windowID, true );
+                return Ref<WindowFocusEvent>::create( event.window.windowID, true ).as<BaseEvent>();
             case SDL_EVENT_WINDOW_FOCUS_LOST:
-                return std::make_unique<WindowFocusEvent>( event.window.windowID, false );
+                return Ref<WindowFocusEvent>::create( event.window.windowID, false ).as<BaseEvent>();
             case SDL_EVENT_MOUSE_BUTTON_DOWN:
             case SDL_EVENT_MOUSE_BUTTON_UP: {
                 auto action    = MapSDLEventTypeToAction( event.type );
                 auto btn       = MapSDLButtonToButtonIndex( event.button.button );
                 auto mouse_pos = Vec2( event.button.x, event.button.y );
-                return std::make_unique<MouseButtonEvent>( event.window.windowID, action, btn, mouse_pos );
+                return Ref<MouseButtonEvent>::create( event.window.windowID, action, btn, mouse_pos ).as<BaseEvent>();
             }
             case SDL_EVENT_MOUSE_MOTION: {
                 auto mouse_pos = Vec2( event.motion.x, event.motion.y );
                 auto delta     = Vec2( event.motion.xrel, event.motion.yrel );
                 auto state     = event.motion.state;
-                return std::make_unique<MouseMotionEvent>( event.window.windowID, mouse_pos, delta, state );
+                return Ref<MouseMotionEvent>::create( event.window.windowID, mouse_pos, delta, state ).as<BaseEvent>();
             }
             case SDL_EVENT_MOUSE_WHEEL:
-                return std::make_unique<MouseWheelEvent>( event.window.windowID, event.wheel.x, event.wheel.y );
+                return Ref<MouseWheelEvent>::create( event.window.windowID, event.wheel.x, event.wheel.y ).as<BaseEvent>();
             case SDL_EVENT_KEY_DOWN:
             case SDL_EVENT_KEY_UP: {
                 auto key = MapSDLKeyToKey( event.key.scancode );
                 if (key != KeyboardEvent::Key::UNKNOWN) {
                     auto action = MapSDLEventTypeToAction( event.type );
-                    return std::make_unique<KeyboardEvent>( event.window.windowID, action, key, event.key.repeat );
+                    return Ref<KeyboardEvent>::create( event.window.windowID, action, key, event.key.repeat )
+                        .as<BaseEvent>();
                 }
                 break;
             }
             case SDL_EVENT_TEXT_INPUT:
-                return std::make_unique<TextInputEvent>( event.window.windowID, std::string( event.text.text ) );
+                return Ref<TextInputEvent>::create( event.window.windowID, std::string( event.text.text ) ).as<BaseEvent>();
             default:
                 break;
         }
         NC_LOG_ERROR_C( log::EVENTS, "Received unhandled SDL event type: {}", event.type );
-        return std::make_unique<Event>();
+        return nullptr;
     }
 
     static SDL_Event map_to_sdl( const WindowEvent* event )

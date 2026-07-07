@@ -10,11 +10,12 @@
 
 namespace nc {
 
-NCORE_API void* nc_alloc( size_t size );
-NCORE_API void* nc_alloc_align( size_t size, size_t alignment );
-NCORE_API void nc_free( void* ptr );
-NCORE_API void nc_free_align( void* ptr, size_t alignment );
-NCORE_API void* nc_realloc( void* ptr, size_t size );
+NCORE_API void* memalloc( size_t size );
+NCORE_API void* memalloc_aligned( size_t size, size_t alignment );
+NCORE_API void memfree( void* ptr );
+NCORE_API void memfree_align( void* ptr, size_t alignment );
+NCORE_API void* memrealloc( void* ptr, size_t size );
+NCORE_API void* memcalloc( size_t count, size_t size );
 
 /**
  * @brief STL-compatible allocator object for NCORE.
@@ -41,12 +42,12 @@ struct NcAllocator {
 
     T* allocate( size_t n )
     {
-        return static_cast<T*>( nc_alloc_align( n * sizeof( T ), alignof( T ) ) );
+        return static_cast<T*>( memalloc_aligned( n * sizeof( T ), alignof( T ) ) );
     }
 
     void deallocate( T* p, size_t )
     {
-        nc_free_align( p, alignof( T ) );
+        memfree_align( p, alignof( T ) );
     }
 };
 
@@ -72,7 +73,7 @@ class BumpAllocator {
 public:
     BumpAllocator( size_t p_capacity ) : capacity( p_capacity ), size( 0 )
     {
-        data = ::operator new( capacity * sizeof( T ), std::align_val_t( alignof( T ) ) );
+        data = static_cast<T*>( memalloc_aligned( capacity * sizeof( T ), alignof( T ) ) );
     }
 
     ~BumpAllocator()
@@ -90,7 +91,7 @@ public:
     void dealloc()
     {
         size = 0;
-        ::operator delete( data, std::align_val_t( alignof( T ) ) );
+        memfree_align( data, alignof( T ) );
     }
 
     T* operator[]( size_t index )
@@ -175,8 +176,7 @@ public:
         uint32_t page_idx = idx >> page_shift;
 
         if (page_idx >= get_page_count()) {
-            auto chunk =
-                static_cast<T*>( ::operator new( page_capacity * sizeof( T ), std::align_val_t( alignof( T ) ) ) );
+            auto chunk = static_cast<T*>( memalloc_aligned( page_capacity * sizeof( T ), alignof( T ) ) );
             pages.push_back( chunk );
         }
 
@@ -194,7 +194,7 @@ public:
     {
         size = 0;
         for (auto page : pages) {
-            ::operator delete( page, std::align_val_t( alignof( T ) ) );
+            memfree_align( page, alignof( T ) );
         }
         pages.clear();
     }

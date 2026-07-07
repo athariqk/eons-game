@@ -34,7 +34,7 @@ public:
     template<typename T, typename... Args>
     EcsEntityBuilder& with( Args&&... args )
     {
-        auto* type = rfl::Registry::find<T>();
+        auto* type = rtti::Registry::find<T>();
         NC_ASSERT( type, "component type not reflected via NSTRUCT" );
         std::vector<uint8_t> data( sizeof( T ) );
         T value{ std::forward<Args>( args )... };
@@ -46,8 +46,8 @@ public:
     template<typename First, typename Second, typename... Args>
     EcsEntityBuilder& with_pair( Args&&... args )
     {
-        auto* f_type = rfl::Registry::find<First>();
-        auto* s_type = rfl::Registry::find<Second>();
+        auto* f_type = rtti::Registry::find<First>();
+        auto* s_type = rtti::Registry::find<Second>();
         NC_ASSERT( f_type, "pair first type not reflected via NSTRUCT" );
         NC_ASSERT( s_type, "pair second type not reflected via NSTRUCT" );
         std::vector<uint8_t> data( sizeof( First ) );
@@ -60,8 +60,8 @@ public:
     template<typename First, typename Second>
     EcsEntityBuilder& add_pair()
     {
-        auto* f_type = rfl::Registry::find<First>();
-        auto* s_type = rfl::Registry::find<Second>();
+        auto* f_type = rtti::Registry::find<First>();
+        auto* s_type = rtti::Registry::find<Second>();
         NC_ASSERT( f_type, "pair first type not reflected via NSTRUCT" );
         NC_ASSERT( s_type, "pair second type not reflected via NSTRUCT" );
         add_pair_tag_( f_type, s_type );
@@ -77,9 +77,9 @@ public:
     EcsEntityId build();
 
 private:
-    void add_component_( const rfl::TypeInfo* type, std::vector<uint8_t>&& data );
-    void add_pair_data_( const rfl::TypeInfo* first, const rfl::TypeInfo* second, std::vector<uint8_t>&& data );
-    void add_pair_tag_( const rfl::TypeInfo* first, const rfl::TypeInfo* second );
+    void add_component_( const rtti::TypeInfo* type, std::vector<uint8_t>&& data );
+    void add_pair_data_( const rtti::TypeInfo* first, const rtti::TypeInfo* second, std::vector<uint8_t>&& data );
+    void add_pair_tag_( const rtti::TypeInfo* first, const rtti::TypeInfo* second );
 
     struct Impl;
     std::unique_ptr<Impl> pImpl;

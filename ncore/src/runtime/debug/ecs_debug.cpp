@@ -10,7 +10,10 @@ void EcsDebugFeature::build( EcsWorld& world )
         ImGui::Begin( "Debug" );
 
         ImGui::SeparatorText( "RTTI" );
-        ImGui::Text( "Hits: %d", rfl::Registry::get_rtti_hits() );
+        ImGui::Text( "Hits: %d", rtti::Registry::get_rtti_hits() );
+
+        ImGui::SeparatorText( "Rendering" );
+        ImGui::Text( "Stub" );
 
         ImGui::SeparatorText( "ECS Debug" );
         ImGui::Text(

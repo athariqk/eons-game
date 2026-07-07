@@ -68,7 +68,7 @@ public:
     template<typename T>
     T* get_component( int32_t column )
     {
-        auto& info = rfl::Registry::get<T>();
+        auto& info = rtti::Registry::get<T>();
         return static_cast<T*>( get_component_( column, info.size, info.alignment ) );
     }
 
@@ -139,7 +139,7 @@ public:
     template<typename First, typename Second>
     EcsQueryBuilder& with_pair()
     {
-        add_term_pair_impl( rfl::Registry::find<First>(), rfl::Registry::find<Second>(), 0 );
+        add_term_pair_impl( rtti::Registry::find<First>(), rtti::Registry::find<Second>(), 0 );
         return *this;
     }
 
@@ -174,10 +174,10 @@ private:
     template<typename T>
     void add_term_( uint8_t inout )
     {
-        add_term_impl( rfl::Registry::find<T>(), inout );
+        add_term_impl( rtti::Registry::find<T>(), inout );
     }
-    void add_term_impl( const rfl::TypeInfo* type, uint8_t inout );
-    void add_term_pair_impl( const rfl::TypeInfo* first_type, const rfl::TypeInfo* sec_type, uint8_t inout );
+    void add_term_impl( const rtti::TypeInfo* type, uint8_t inout );
+    void add_term_pair_impl( const rtti::TypeInfo* first_type, const rtti::TypeInfo* sec_type, uint8_t inout );
 
     struct Impl;
     std::unique_ptr<Impl> pImpl;

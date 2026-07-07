@@ -9,6 +9,7 @@
 #include <sstream>
 
 #include <SDL3/SDL_init.h>
+#include <SDL3/SDL_stdinc.h>
 #include <backends/box2d/box2d_physics_impl.h>
 #include <backends/dear-imgui/dear_imgui_impl.h>
 #include <backends/sdl/sdl_audio_loader.h>
@@ -19,6 +20,7 @@
 
 #include <ncore/application.h>
 #include <ncore/game_world.h>
+#include <ncore/kernel/memory.h>
 #include <ncore/kernel/types.h>
 #include <ncore/modules/audio/audio_module.h>
 #include <ncore/modules/events/event_bus.h>
@@ -74,7 +76,7 @@ Application::~Application()
 
 void Application::init()
 {
-    rfl::Registry::register_primitive_types();
+    rtti::Registry::register_primitive_types();
 
     auto cfg_file = ConfFile( app_desc.ConfigFile );
     auto log_cfg  = cfg_file.read<cfg::Log>();
@@ -156,7 +158,7 @@ void Application::run()
 
         accumulator += delta_time;
 
-        events->process_queue();
+        events->flush();
         poll_events();
 
         while (accumulator >= FIXED_DT) {
@@ -192,6 +194,9 @@ void Application::poll_events()
     SDL_Event sdl_event;
     while (SDL_PollEvent( &sdl_event )) {
         auto event = SDLTypeHelpers::map_from_sdl( sdl_event );
+        if (!event)
+            continue;
+
         imgui->process_event( event.get() );
         // TODO: make this more proper
         if (gfx && event->get_type() == EventType::WINDOW_RESIZE) {
@@ -206,6 +211,12 @@ void Application::register_modules( ConfFile& cfg_file )
 {
     auto window_cfg = cfg_file.read<cfg::Window>();
     auto render_cfg = cfg_file.read<cfg::Render>();
+
+    SDL_SetMemoryFunctions(
+        []( size_t size ) -> void* { return memalloc( size ); },
+        []( size_t nmemb, size_t size ) -> void* { return memcalloc( nmemb, size ); },
+        []( void* ptr, size_t size ) -> void* { return memrealloc( ptr, size ); }, []( void* ptr ) { memfree( ptr ); }
+    );
 
     if (!SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_AUDIO )) {
         NC_LOG_ERROR( "SDL init FAIL: {}", SDL_GetError() );

@@ -219,7 +219,7 @@ inline static ImGuiKey KeyToImGuiKey( KeyboardEvent::Key key )
     }
 }
 
-bool DearImGuiImpl::process_event( Event* event )
+bool DearImGuiImpl::process_event( BaseEvent* event )
 {
     if (!event)
         return false;

@@ -8,13 +8,13 @@ namespace nc {
 
 struct EcsEntityBuilder::Impl {
     struct ComponentEntry {
-        const rfl::TypeInfo* type;
+        const rtti::TypeInfo* type;
         std::vector<uint8_t> data;
     };
     struct PairEntry {
         EcsComponentId first_id;
         EcsComponentId second_id;
-        const rfl::TypeInfo* comp_type = nullptr; // nullptr -> tag-only
+        const rtti::TypeInfo* comp_type = nullptr; // nullptr -> tag-only
         std::vector<uint8_t> comp_data;
     };
 
@@ -41,13 +41,13 @@ EcsEntityBuilder::~EcsEntityBuilder()
 
 //------------------------------------------------------------------------------
 
-void EcsEntityBuilder::add_component_( const rfl::TypeInfo* type, std::vector<uint8_t>&& data )
+void EcsEntityBuilder::add_component_( const rtti::TypeInfo* type, std::vector<uint8_t>&& data )
 {
     pImpl->components.push_back( { type, std::move( data ) } );
 }
 
 void EcsEntityBuilder::add_pair_data_(
-    const rfl::TypeInfo* first, const rfl::TypeInfo* second, std::vector<uint8_t>&& data
+    const rtti::TypeInfo* first, const rtti::TypeInfo* second, std::vector<uint8_t>&& data
 )
 {
     EcsComponentId f_id = pImpl->world.register_component_type( first );
@@ -55,7 +55,7 @@ void EcsEntityBuilder::add_pair_data_(
     pImpl->pairs.push_back( { f_id, s_id, first, std::move( data ) } );
 }
 
-void EcsEntityBuilder::add_pair_tag_( const rfl::TypeInfo* first, const rfl::TypeInfo* second )
+void EcsEntityBuilder::add_pair_tag_( const rtti::TypeInfo* first, const rtti::TypeInfo* second )
 {
     EcsComponentId f_id = pImpl->world.register_component_type( first );
     EcsComponentId s_id = pImpl->world.register_component_type( second );

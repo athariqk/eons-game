@@ -4,11 +4,12 @@
 
 namespace nc {
 
-class Event;
+class BaseEvent;
 
 /**
- * @brief IGuiModule provides base functionality for GUI display/layout
- * (immediate-mode or retained-mode is an implementation detail).
+ * @brief IGuiModule provides base functionality for GUI display/layout.
+ *
+ * Choosing immediate-mode or retained-mode is an implementation detail.
  */
 class IGuiModule : public IModule {
     NCLASS( IGuiModule, IModule )
@@ -27,7 +28,7 @@ public:
     virtual void begin_frame()  = 0;
     virtual void render_frame() = 0;
 
-    virtual bool process_event( Event* event ) = 0;
+    virtual bool process_event( BaseEvent* event ) = 0;
 
 protected:
     std::vector<IMGuiLayer> layers;

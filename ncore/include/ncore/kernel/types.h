@@ -20,7 +20,7 @@
 // Inspired by Arvid Gerstmann's metareflect
 // https://github.com/Leandros/metareflect
 
-namespace nc::rfl {
+namespace nc::rtti {
 
 //------------------------------------------------------------------------------
 
@@ -583,14 +583,14 @@ struct NCORE_API StringClass : public RecordInfo {
     }
 };
 
-} // namespace nc::rfl
+} // namespace nc::rtti
 
 //------------------------------------------------------------------------------
 
 namespace std {
 template<>
-struct hash<nc::rfl::TypeId> {
-    size_t operator()( nc::rfl::TypeId id ) const noexcept
+struct hash<nc::rtti::TypeId> {
+    size_t operator()( nc::rtti::TypeId id ) const noexcept
     {
         return id.value;
     }
@@ -602,41 +602,42 @@ struct hash<nc::rfl::TypeId> {
 // TODO: may be better to use attributes after all
 
 #define NC_FIELD_IMPL( T, m, flg, q )                                                                                  \
-    ::nc::rfl::FieldInfo{                                                                                              \
+    ::nc::rtti::FieldInfo{                                                                                             \
         #m,                                                                                                            \
-        ::nc::rfl::detail::type_id<decltype( ( ( T* ) 0 )->m )>(),                                                     \
+        ::nc::rtti::detail::type_id<decltype( ( ( T* ) 0 )->m )>(),                                                    \
         sizeof( ( ( T* ) 0 )->m ),                                                                                     \
         offsetof( T, m ),                                                                                              \
         flg,                                                                                                           \
-        ::nc::rfl::detail::category_of<decltype( ( ( T* ) 0 )->m )>(),                                                 \
+        ::nc::rtti::detail::category_of<decltype( ( ( T* ) 0 )->m )>(),                                                \
         q,                                                                                                             \
     },
 
 #define NC_F( T, m )                                                                                                   \
     NC_FIELD_IMPL(                                                                                                     \
-        T, m, ( ::nc::rfl::PropertyFlags::Serializable | ::nc::rfl::PropertyFlags::Editable ), ::nc::rfl::Qualifier{}  \
+        T, m, ( ::nc::rtti::PropertyFlags::Serializable | ::nc::rtti::PropertyFlags::Editable ),                       \
+        ::nc::rtti::Qualifier{}                                                                                        \
     )
 
 #define NC_FR( T, m )                                                                                                  \
     NC_FIELD_IMPL(                                                                                                     \
         T, m,                                                                                                          \
-        ( ::nc::rfl::PropertyFlags::Serializable | ::nc::rfl::PropertyFlags::Editable |                                \
-          ::nc::rfl::PropertyFlags::ReadOnly ),                                                                        \
-        ::nc::rfl::Qualifier{}                                                                                         \
+        ( ::nc::rtti::PropertyFlags::Serializable | ::nc::rtti::PropertyFlags::Editable |                              \
+          ::nc::rtti::PropertyFlags::ReadOnly ),                                                                       \
+        ::nc::rtti::Qualifier{}                                                                                        \
     )
 
-#define NC_FH( T, m ) NC_FIELD_IMPL( T, m, ::nc::rfl::PropertyFlags::Serializable, ::nc::rfl::Qualifier{} )
+#define NC_FH( T, m ) NC_FIELD_IMPL( T, m, ::nc::rtti::PropertyFlags::Serializable, ::nc::rtti::Qualifier{} )
 
 //------------------------------------------------------------------------------
 
 #define NSTRUCT( T, ... )                                                                                              \
-    inline static ::nc::rfl::RecordInfo& nc_info_##T()                                                                 \
+    inline static ::nc::rtti::RecordInfo& nc_info_##T()                                                                \
     {                                                                                                                  \
-        static ::nc::rfl::FieldInfo nc_flds_##T[] = { __VA_ARGS__ };                                                   \
-        static ::nc::rfl::RecordInfo& ci          = []() -> ::nc::rfl::RecordInfo& {                                   \
-            auto& c        = ::nc::rfl::Registry::emplace<::nc::rfl::RecordInfo, T>( #T );                             \
+        static ::nc::rtti::FieldInfo nc_flds_##T[] = { __VA_ARGS__ };                                                  \
+        static ::nc::rtti::RecordInfo& ci          = []() -> ::nc::rtti::RecordInfo& {                                 \
+            auto& c        = ::nc::rtti::Registry::emplace<::nc::rtti::RecordInfo, T>( #T );                           \
             c.fields_begin = nc_flds_##T;                                                                              \
-            c.fields_end   = nc_flds_##T + ( sizeof( nc_flds_##T ) / sizeof( ::nc::rfl::FieldInfo ) );                 \
+            c.fields_end   = nc_flds_##T + ( sizeof( nc_flds_##T ) / sizeof( ::nc::rtti::FieldInfo ) );                \
             return c;                                                                                                  \
         }();                                                                                                           \
         return ci;                                                                                                     \
@@ -646,21 +647,21 @@ struct hash<nc::rfl::TypeId> {
 //------------------------------------------------------------------------------
 
 #define NENUM_ELEMENT( EnumT, element )                                                                                \
-    ::nc::rfl::EnumElement                                                                                             \
+    ::nc::rtti::EnumElement                                                                                            \
     {                                                                                                                  \
         #element, static_cast<int64_t>( EnumT::element )                                                               \
     }
 
-#define NENUM( T, ... )                                                                                                \
-    inline static ::nc::rfl::EnumInfo& nc_enum_info_##T()                                                              \
-    {                                                                                                                  \
-        static ::nc::rfl::EnumElement nc_enum_elems_##T[] = { __VA_ARGS__ };                                           \
-        static ::nc::rfl::EnumInfo& ei                    = []() -> ::nc::rfl::EnumInfo& {                             \
-            auto& e          = ::nc::rfl::Registry::emplace<::nc::rfl::EnumInfo, T>( #T );                             \
-            e.elements_begin = nc_enum_elems_##T;                                                                      \
-            e.elements_end   = nc_enum_elems_##T + ( sizeof( nc_enum_elems_##T ) / sizeof( ::nc::rfl::EnumElement ) ); \
-            return e;                                                                                                  \
-        }();                                                                                                           \
-        return ei;                                                                                                     \
-    }                                                                                                                  \
+#define NENUM( T, ... )                                                                                                 \
+    inline static ::nc::rtti::EnumInfo& nc_enum_info_##T()                                                              \
+    {                                                                                                                   \
+        static ::nc::rtti::EnumElement nc_enum_elems_##T[] = { __VA_ARGS__ };                                           \
+        static ::nc::rtti::EnumInfo& ei                    = []() -> ::nc::rtti::EnumInfo& {                            \
+            auto& e          = ::nc::rtti::Registry::emplace<::nc::rtti::EnumInfo, T>( #T );                            \
+            e.elements_begin = nc_enum_elems_##T;                                                                       \
+            e.elements_end   = nc_enum_elems_##T + ( sizeof( nc_enum_elems_##T ) / sizeof( ::nc::rtti::EnumElement ) ); \
+            return e;                                                                                                   \
+        }();                                                                                                            \
+        return ei;                                                                                                      \
+    }                                                                                                                   \
     inline static const int nc_trig_enum_##T = ( nc_enum_info_##T(), 0 );

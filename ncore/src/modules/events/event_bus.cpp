@@ -27,9 +27,9 @@ void EventBus::unsubscribe( size_t p_subscription_id )
     }
 }
 
-void EventBus::process_queue()
+void EventBus::flush()
 {
-    for (auto& event : event_queue) {
+    for (auto event : event_queue) {
         auto it = subscribers.find( event->get_type_id() );
         if (it == subscribers.end())
             continue;

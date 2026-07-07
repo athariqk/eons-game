@@ -37,7 +37,7 @@ public:
     template<std::derived_from<IModule> T>
     T* resolve()
     {
-        rfl::TypeId target = rfl::Registry::get_type_id<T>();
+        rtti::TypeId target = rtti::Registry::get_type_id<T>();
 
         auto it = cache_by_id.find( target );
         if (it != cache_by_id.end()) {
@@ -58,7 +58,7 @@ public:
             }
         }
 
-        auto class_name = rfl::Registry::get<T>().name;
+        auto class_name = rtti::Registry::get<T>().name;
         NC_ASSERT_RETVAL( false, nullptr, std::format( "Module '{}' could not be resolved", class_name ).c_str() );
     }
 
@@ -76,7 +76,7 @@ public:
         cache_by_id.clear();
         cache_by_name.clear();
 
-        rfl::TypeId id = rfl::Registry::get_type_id<T>();
+        rtti::TypeId id = rtti::Registry::get_type_id<T>();
 
         for (auto& [existing_id, m] : modules)
             NC_ASSERT( existing_id != id, "Module already registered" );
@@ -141,9 +141,9 @@ public:
     }
 
 private:
-    using ModuleEntry = std::pair<rfl::TypeId, std::unique_ptr<IModule>>;
+    using ModuleEntry = std::pair<rtti::TypeId, std::unique_ptr<IModule>>;
     Vector<ModuleEntry> modules;
-    std::unordered_map<rfl::TypeId, IModule*> cache_by_id;
+    std::unordered_map<rtti::TypeId, IModule*> cache_by_id;
     std::unordered_map<std::string_view, IModule*> cache_by_name;
 };
 

@@ -43,7 +43,7 @@ public:
     template<std::derived_from<EcsFeature> T, typename... TArgs>
     void load_feature( TArgs&&... args )
     {
-        NC_LOG_TRACE_C( log::ECS, "Loading ECS module: {}", rfl::Registry::get_type_name<T>() );
+        NC_LOG_TRACE_C( log::ECS, "Loading ECS module: {}", rtti::Registry::get_type_name<T>() );
         T module{ std::forward<TArgs>( args )... };
         module( *this );
         NC_LOG_TRACE_C( log::ECS, "ECS module loaded" );
@@ -67,7 +67,7 @@ public:
     template<typename T>
     T& get_component() const
     {
-        auto result = get_component_( EcsEntityId{}, rfl::Registry::find<T>() );
+        auto result = get_component_( EcsEntityId{}, rtti::Registry::find<T>() );
         return *static_cast<T*>( result );
     }
 
@@ -76,20 +76,20 @@ public:
     {
         auto entity = create_entity_impl_( {} );
         T value{ std::forward<Args>( args )... };
-        return set_component_( entity, rfl::Registry::find<T>(), &value, sizeof( T ) );
+        return set_component_( entity, rtti::Registry::find<T>(), &value, sizeof( T ) );
     }
 
     template<typename T, typename... Args>
     void set_component( EcsEntityId entity, Args&&... args )
     {
         T value{ std::forward<Args>( args )... };
-        set_component_( entity, rfl::Registry::find<T>(), &value, sizeof( T ) );
+        set_component_( entity, rtti::Registry::find<T>(), &value, sizeof( T ) );
     }
 
     template<typename T>
     bool has_component( const EcsEntityId& entity ) const
     {
-        return has_component_( entity, rfl::Registry::find<T>() );
+        return has_component_( entity, rtti::Registry::find<T>() );
     }
 
     // systems & queries
@@ -110,7 +110,7 @@ public:
      *
      * @return Its assigned ID.
      */
-    EcsComponentId register_component_type( const rfl::TypeInfo* type );
+    EcsComponentId register_component_type( const rtti::TypeInfo* type );
 
     ModuleRegistry& get_modules()
     {
@@ -124,9 +124,9 @@ private:
     friend class EcsIter;
 
     EcsEntityId create_entity_impl_( const std::string& name );
-    EcsEntityId set_component_( EcsEntityId eid, const rfl::TypeInfo* type, const void* data, size_t sz );
-    void* get_component_( EcsComponentId eid, const rfl::TypeInfo* type ) const;
-    bool has_component_( EcsComponentId eid, const rfl::TypeInfo* type ) const;
+    EcsEntityId set_component_( EcsEntityId eid, const rtti::TypeInfo* type, const void* data, size_t sz );
+    void* get_component_( EcsComponentId eid, const rtti::TypeInfo* type ) const;
+    bool has_component_( EcsComponentId eid, const rtti::TypeInfo* type ) const;
 
     void* get_native_handle_() const;
     EcsQuery create_query_( const std::string& name, void* data );

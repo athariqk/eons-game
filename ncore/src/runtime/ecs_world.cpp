@@ -2,21 +2,40 @@
 #include <flecs/addons/pipeline.h>
 #include <flecs/addons/system.h>
 
+#include <ncore/kernel/memory.h>
 #include <ncore/runtime/ecs_entity.h>
 #include <ncore/runtime/ecs_world.h>
 #include <ncore/utils/log.h>
 
 namespace nc {
 
+static void init_flecs_os_allocator()
+{
+    ecs_os_set_api_defaults();
+    ecs_os_api_t os_api = ecs_os_get_api();
+    os_api.malloc_      = []( ecs_size_t size ) -> void* { return memalloc( static_cast<size_t>( size ) ); };
+    os_api.free_        = []( void* ptr ) { memfree( ptr ); };
+    os_api.realloc_     = []( void* ptr, ecs_size_t size ) -> void* {
+        return memrealloc( ptr, static_cast<size_t>( size ) );
+    };
+    os_api.calloc_ = []( ecs_size_t size ) -> void* { return memcalloc( 1, static_cast<size_t>( size ) ); };
+    ecs_os_set_api( &os_api );
+}
+
+//------------------------------------------------------------------------------
+
 struct EcsWorld::Impl {
     ecs_world_t* world = nullptr;
-    std::unordered_map<const rfl::TypeInfo*, EcsComponentId> comp_id_map;
+    std::unordered_map<const rtti::TypeInfo*, EcsComponentId> comp_id_map;
     std::unordered_map<std::string, ecs_query_t*>
         query_cache; // TODO: is this even necessary? figure out how flecs cache queries
 };
 
 EcsWorld::EcsWorld( ModuleRegistry& p_modules ) : pImpl( std::make_unique<Impl>() ), modules( p_modules )
 {
+    static bool os_allocator_init = ( init_flecs_os_allocator(), true );
+    ( void ) os_allocator_init;
+
     pImpl->world = ecs_init();
     ecs_set_binding_ctx( pImpl->world, this, nullptr );
 }
@@ -86,7 +105,7 @@ void EcsWorld::destroy_entity( EcsEntityId entity )
 
 //------------------------------------------------------------------------------
 
-EcsEntityId EcsWorld::set_component_( EcsEntityId eid, const rfl::TypeInfo* type, const void* data, size_t sz )
+EcsEntityId EcsWorld::set_component_( EcsEntityId eid, const rtti::TypeInfo* type, const void* data, size_t sz )
 {
     // IF entity ID is invalid, we can use the component ID as entity ID,
     // meaning it is a singleton entity
@@ -99,7 +118,7 @@ EcsEntityId EcsWorld::set_component_( EcsEntityId eid, const rfl::TypeInfo* type
     return eid;
 }
 
-void* EcsWorld::get_component_( EcsComponentId eid, const rfl::TypeInfo* type ) const
+void* EcsWorld::get_component_( EcsComponentId eid, const rtti::TypeInfo* type ) const
 {
     auto it = pImpl->comp_id_map.find( type );
     if (it == pImpl->comp_id_map.end())
@@ -107,7 +126,7 @@ void* EcsWorld::get_component_( EcsComponentId eid, const rfl::TypeInfo* type ) 
     return const_cast<void*>( ecs_get_id( pImpl->world, eid, it->second ) );
 }
 
-bool EcsWorld::has_component_( EcsComponentId eid, const rfl::TypeInfo* type ) const
+bool EcsWorld::has_component_( EcsComponentId eid, const rtti::TypeInfo* type ) const
 {
     auto it = pImpl->comp_id_map.find( type );
     if (it == pImpl->comp_id_map.end())
@@ -144,7 +163,7 @@ EcsQueryBuilder EcsWorld::create_query( std::string_view name )
     return EcsQueryBuilder( *this, std::string( name ) );
 }
 
-EcsComponentId EcsWorld::register_component_type( const rfl::TypeInfo* type )
+EcsComponentId EcsWorld::register_component_type( const rtti::TypeInfo* type )
 {
     auto it = pImpl->comp_id_map.find( type );
     if (it != pImpl->comp_id_map.end())

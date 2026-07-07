@@ -36,7 +36,7 @@ public:
     T read()
     {
         T result{};
-        auto* type_info = rfl::Registry::find_record<T>();
+        auto* type_info = rtti::Registry::find_record<T>();
         if (type_info) {
             read_into( *type_info, &result );
         }
@@ -47,7 +47,7 @@ private:
     /**
      * @brief Decodes data to a type-safe struct.
      */
-    void read_into( const rfl::RecordInfo& type_info, void* result );
+    void read_into( const rtti::RecordInfo& type_info, void* result );
 
     std::string path;
     std::unordered_map<std::string, std::string> data;

@@ -11,6 +11,7 @@
 #include <ncore/modules/video/render_backend.h>
 
 #include "batch_renderer_2d.h"
+#include "diligent_allocator.h"
 
 namespace nc {
 
@@ -59,6 +60,8 @@ public:
 
 private:
     void create_2d_pipeline_state_();
+
+    NcoreDiligentAllocator allocator;
 
     IWindowModule* windows;
     DiligentRef<Diligent::IRenderDevice> render_device;

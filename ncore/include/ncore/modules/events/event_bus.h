@@ -1,8 +1,8 @@
 #pragma once
 
 #include <functional>
-#include <memory>
 
+#include <ncore/kernel/collection.h>
 #include <ncore/modules/module.h>
 
 #include "events.h"
@@ -26,7 +26,7 @@ class NCORE_API EventBus : public IModule {
     NCLASS( EventBus, IModule )
 
 public:
-    EventBus()                               = default;
+    EventBus()                             = default;
     EventBus( const EventBus& )            = delete;
     EventBus& operator=( const EventBus& ) = delete;
 
@@ -37,18 +37,18 @@ public:
      * @brief Subscribe to an event type
      *
      * The order of subscribed consumers defines the event pipeline.
-     * Subscribing to the base Event type is not supported.
+     * Subscribing to BaseEvent type is not supported.
      *
      * @tparam T Event type to subscribe to
      * @param callback Function to call when event is published
      * @return Subscription ID (can be used to unsubscribe)
      */
-    template<std::derived_from<Event> T>
+    template<std::derived_from<BaseEvent> T>
     size_t subscribe( std::function<void( T& )> callback )
     {
         size_t index = next_subscription_id++;
-        auto wrapper = [callback]( Event& event ) { callback( static_cast<T&>( event ) ); };
-        subscribers[rfl::Registry::get_type_id<T>()].emplace_back( index, wrapper );
+        auto wrapper = [callback]( BaseEvent& event ) { callback( static_cast<T&>( event ) ); };
+        subscribers[rtti::Registry::get_type_id<T>()].emplace_back( index, wrapper );
         return index;
     }
 
@@ -60,57 +60,53 @@ public:
 
     /**
      * @brief Publish an event immediately (synchronous)
-     * @tparam T Event type
      * @param event Event instance to publish
      */
-    template<std::derived_from<Event> T>
-    void publish( const T& event )
+    void publish( const Ref<BaseEvent>& event )
     {
-        auto it = subscribers.find( event.get_type_id() );
+        auto it = subscribers.find( event->get_type_id() );
         if (it == subscribers.end())
             return;
 
         for (auto& [index, callback] : it->second) {
-            callback( event );
-            if (event.handled)
+            callback( const_cast<BaseEvent&>( *event ) );
+            if (event->handled)
                 break; // Stop propagation if marked read handled
         }
     }
 
     /**
      * @brief Queue an event for deferred processing
-     * @tparam T Event type
      * @param event Event instance to queue
      *
-     * Queued get_events are processed when ProcessQueue() is called.
-     * Useful for get_events that should not be processed immediately.
+     * Queued events are processed when ProcessQueue() is called.
+     * Useful for events that should not be processed immediately.
      */
-    template<std::derived_from<Event> T>
-    void enqueue( std::unique_ptr<T> event )
+    void enqueue( const Ref<BaseEvent>& event )
     {
-        event_queue.push_back( std::move( event ) );
+        event_queue.push_back( event );
     }
 
     void clear();
 
     /**
-     * @brief Process all queued get_events
+     * @brief Process all queued events
      *
-     * Called once per frame to process get_events that were queued
+     * Called once per frame to process events that were queued
      * using Queue(). Events are processed in FIFO order.
      */
-    void process_queue();
+    void flush();
 
     size_t get_queue_size() const;
-    using SubscriberDebugInfo = std::vector<std::pair<rfl::TypeId, size_t>>;
+    using SubscriberDebugInfo = std::vector<std::pair<rtti::TypeId, size_t>>;
     SubscriberDebugInfo get_subscriber_debug_info() const;
 
 private:
-    using CallbackType   = std::function<void( Event& )>;
+    using CallbackType   = std::function<void( BaseEvent& )>;
     using SubscriberList = std::vector<std::pair<size_t, CallbackType>>;
-    std::unordered_map<rfl::TypeId, SubscriberList> subscribers;
+    std::unordered_map<rtti::TypeId, SubscriberList> subscribers;
 
-    std::vector<std::unique_ptr<Event>> event_queue;
+    Vector<Ref<BaseEvent>> event_queue;
 
     size_t next_subscription_id = 0;
 };

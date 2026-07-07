@@ -29,8 +29,8 @@ public:
     void reparent_to( Node* child );
 
     void add_component( Component* comp );
-    Component* get_component( const rfl::TypeInfo* type ) const;
-    bool has_component( const rfl::TypeInfo* type ) const;
+    Component* get_component( const rtti::TypeInfo* type ) const;
+    bool has_component( const rtti::TypeInfo* type ) const;
 
     std::string_view get_name() const;
 
@@ -47,7 +47,7 @@ private:
     EcsEntityId internal_id = INVALID_ENTITY_ID;
 
     // minimum of 32 managed components sounds good
-    PagedObjectPool<Component> components{ 32 };
+    PagedPool<Component> components{ 32 };
 };
 
 } // namespace nc

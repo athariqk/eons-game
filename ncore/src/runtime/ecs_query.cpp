@@ -156,9 +156,9 @@ EcsQueryBuilder::~EcsQueryBuilder()
     }
 }
 
-void EcsQueryBuilder::add_term_impl( const rfl::TypeInfo* type, uint8_t inout )
+void EcsQueryBuilder::add_term_impl( const rtti::TypeInfo* type, uint8_t inout )
 {
-    NC_ASSERT( type, "Component type not registered in rfl::Registry" );
+    NC_ASSERT( type, "Component type not registered in rtti::Registry" );
     EcsComponentId comp_id = pImpl->world.register_component_type( type );
 
     ecs_term_t term{};
@@ -168,7 +168,7 @@ void EcsQueryBuilder::add_term_impl( const rfl::TypeInfo* type, uint8_t inout )
 }
 
 void EcsQueryBuilder::add_term_pair_impl(
-    const rfl::TypeInfo* first_type, const rfl::TypeInfo* sec_type, uint8_t inout
+    const rtti::TypeInfo* first_type, const rtti::TypeInfo* sec_type, uint8_t inout
 )
 {
     NC_ASSERT( first_type && sec_type, "Pair component types not registered" );

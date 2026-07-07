@@ -2,10 +2,10 @@
 
 namespace nc {
 
-bool NcObject::is_a( rfl::TypeId target ) const
+bool NcObject::is_a( rtti::TypeId target ) const
 {
-    for (auto info = rfl::Registry::find_record( get_type_id() ); info;
-         info      = rfl::Registry::find_record( info->parent_id )) {
+    for (auto info = rtti::Registry::find_record( get_type_id() ); info;
+         info      = rtti::Registry::find_record( info->parent_id )) {
         if (info->id == target)
             return true;
         if (!info->parent_id.valid())

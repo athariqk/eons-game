@@ -106,7 +106,7 @@ protected:
     EventBus* events       = nullptr;
     IWindowModule* windows = nullptr;
     GraphicsModule* gfx    = nullptr;
-    IGuiModule* imgui    = nullptr;
+    IGuiModule* imgui      = nullptr;
 };
 
 } // namespace nc

@@ -11,6 +11,7 @@ target_sources(
          "ncore/game_world.h"
          "ncore/kernel/collection.h"
          "ncore/kernel/memory.h"
+         "ncore/kernel/alloc_overrides.h"
          "ncore/kernel/object.h"
          "ncore/kernel/types.h"
          "ncore/kernel/structures.h"
@@ -22,10 +23,11 @@ target_sources(
          "ncore/modules/module_registry.h"
          "ncore/modules/audio/audio_module.h"
          "ncore/modules/audio/resources/audio_clip.h"
-         "ncore/modules/events/event_bus.h"
-         "ncore/modules/events/events.h"
          "ncore/modules/events/event_type.h"
+         "ncore/modules/events/event_base.h"
+         "ncore/modules/events/window_event.h"
          "ncore/modules/events/input_event.h"
+         "ncore/modules/events/event_bus.h"
          "ncore/modules/gui/gui_module.h"
          "ncore/modules/physics/physics_module.h"
          "ncore/modules/physics/physics_body.h"
@@ -57,4 +59,5 @@ target_sources(
          "ncore/utils/assert.h"
          "ncore/utils/config.h"
          "ncore/utils/log.h"
-         "ncore/utils/four_cc.h")
+         "ncore/utils/four_cc.h"
+         "ncore/modules/events/events.h")

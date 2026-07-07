@@ -1,9 +1,19 @@
 #pragma once
+
 #include <ncore/kernel/structures.h>
 
-#include "events.h"
+#include "window_event.h"
 
 namespace nc {
+
+class NCORE_API InputEvent : public WindowEvent {
+    NCLASS( InputEvent, WindowEvent )
+
+public:
+    InputEvent( size_t p_window_id ) : WindowEvent( p_window_id ) {}
+};
+
+// ---------------------------------------------------------------------------
 
 enum class ButtonIndex {
     UNKNOWN = 0,
@@ -17,6 +27,8 @@ enum class ButtonAction {
     PRESS,
     RELEASE
 };
+
+// ---------------------------------------------------------------------------
 
 class NCORE_API MouseButtonEvent : public InputEvent {
     NCLASS( MouseButtonEvent, InputEvent )

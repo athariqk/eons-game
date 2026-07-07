@@ -3,6 +3,7 @@ add_executable(eons-game)
 target_sources(
   eons-game
   PRIVATE "main.cpp"
+          "src/alloc_overrides.cpp"
           "src/microcosmos/Evolution.cpp"
           "src/microcosmos/MicrocosmModule.cpp"
           "src/microcosmos/SpeciesRegistry.cpp"

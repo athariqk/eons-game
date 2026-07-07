@@ -26,7 +26,7 @@ class Node;
 class NCORE_API Scene : public IGameWorld {
     NCLASS( Scene, IGameWorld )
 
-    using NodePool                              = PagedObjectPool<Node>;
+    using NodePool                              = PagedPool<Node>;
     static constexpr EcsEntityId ROOT_PARENT_ID = 0xABCDEF123FFFFF;
 
 public:

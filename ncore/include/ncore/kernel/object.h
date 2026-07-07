@@ -20,16 +20,16 @@ public:
     NcObject& operator=( const NcObject& ) = default;
 
     virtual const std::string_view get_class_name() const = 0;
-    virtual rfl::TypeId get_type_id() const               = 0;
+    virtual rtti::TypeId get_type_id() const              = 0;
 
-    virtual const rfl::RecordInfo& get_class_info() const = 0;
+    virtual const rtti::RecordInfo& get_class_info() const = 0;
 
-    bool is_a( rfl::TypeId type_id ) const;
+    bool is_a( rtti::TypeId type_id ) const;
 
     template<typename T>
     bool is_a() const
     {
-        return is_a( rfl::Registry::get_type_id<T>() );
+        return is_a( rtti::Registry::get_type_id<T>() );
     }
 };
 
@@ -41,21 +41,21 @@ public:                                                                         
     {                                                                                                                  \
         return #class_name;                                                                                            \
     }                                                                                                                  \
-    ::nc::rfl::TypeId get_type_id() const override                                                                     \
+    ::nc::rtti::TypeId get_type_id() const override                                                                    \
     {                                                                                                                  \
-        return ::nc::rfl::Registry::get_type_id<class_name>();                                                         \
+        return ::nc::rtti::Registry::get_type_id<class_name>();                                                        \
     }                                                                                                                  \
-    const ::nc::rfl::RecordInfo& get_class_info() const override                                                       \
+    const ::nc::rtti::RecordInfo& get_class_info() const override                                                      \
     {                                                                                                                  \
-        return static_cast<const ::nc::rfl::RecordInfo&>( ::nc::rfl::Registry::get<class_name>() );                    \
+        return static_cast<const ::nc::rtti::RecordInfo&>( ::nc::rtti::Registry::get<class_name>() );                  \
     }                                                                                                                  \
                                                                                                                        \
 private:                                                                                                               \
-    inline static auto nc_object_init_##class_name() -> ::nc::rfl::RecordInfo&                                         \
+    inline static auto nc_object_init_##class_name() -> ::nc::rtti::RecordInfo&                                        \
     {                                                                                                                  \
-        ::nc::rfl::RecordInfo& ci_##class_name = []() -> ::nc::rfl::RecordInfo& {                                      \
-            auto& c     = ::nc::rfl::Registry::emplace<::nc::rfl::RecordInfo, class_name>( #class_name );              \
-            c.parent_id = ::nc::rfl::Registry::get_type_id<parent_class>();                                            \
+        ::nc::rtti::RecordInfo& ci_##class_name = []() -> ::nc::rtti::RecordInfo& {                                    \
+            auto& c     = ::nc::rtti::Registry::emplace<::nc::rtti::RecordInfo, class_name>( #class_name );            \
+            c.parent_id = ::nc::rtti::Registry::get_type_id<parent_class>();                                           \
             return c;                                                                                                  \
         }();                                                                                                           \
         return ci_##class_name;                                                                                        \

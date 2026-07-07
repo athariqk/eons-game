@@ -211,7 +211,7 @@ TEST_CASE( "EventBus publish", "[!benchmark][EventBus][publish]" )
     {
         EventBus bus;
         meter.measure( [&] {
-            BenchEvent e;
+            auto e = Ref<BenchEvent>::create();
             bus.publish( e );
         } );
     };
@@ -222,7 +222,7 @@ TEST_CASE( "EventBus publish", "[!benchmark][EventBus][publish]" )
         EventBus bus;
         bus.subscribe<BenchEvent>( noop );
         meter.measure( [&] {
-            BenchEvent e;
+            auto e = Ref<BenchEvent>::create();
             bus.publish( e );
         } );
     };
@@ -234,7 +234,7 @@ TEST_CASE( "EventBus publish", "[!benchmark][EventBus][publish]" )
         for (int i = 0; i < 10; ++i)
             bus.subscribe<BenchEvent>( noop );
         meter.measure( [&] {
-            BenchEvent e;
+            auto e = Ref<BenchEvent>::create();
             bus.publish( e );
         } );
     };
@@ -246,7 +246,7 @@ TEST_CASE( "EventBus publish", "[!benchmark][EventBus][publish]" )
         for (int i = 0; i < 100; ++i)
             bus.subscribe<BenchEvent>( noop );
         meter.measure( [&] {
-            BenchEvent e;
+            auto e = Ref<BenchEvent>::create();
             bus.publish( e );
         } );
     };
@@ -259,7 +259,7 @@ TEST_CASE( "EventBus publish", "[!benchmark][EventBus][publish]" )
         for (int i = 0; i < 99; ++i)
             bus.subscribe<BenchEvent>( noop );
         meter.measure( [&] {
-            BenchEvent e;
+            auto e = Ref<BenchEvent>::create();
             bus.publish( e );
         } );
     };
@@ -274,7 +274,7 @@ TEST_CASE( "EventBus publish", "[!benchmark][EventBus][publish]" )
         for (int i = 0; i < 50; ++i)
             bus.subscribe<BenchEvent>( noop );
         meter.measure( [&] {
-            BenchEvent e;
+            auto e = Ref<BenchEvent>::create();
             bus.publish( e );
         } );
     };
@@ -295,7 +295,7 @@ TEST_CASE( "EventBus publish", "[!benchmark][EventBus][publish]" )
         bus.subscribe<BenchEventJ>( noopJ );
         bus.subscribe<BenchEvent>( noop );
         meter.measure( [&] {
-            BenchEvent e;
+            auto e = Ref<BenchEvent>::create();
             bus.publish( e );
         } );
     };
@@ -310,7 +310,7 @@ TEST_CASE( "EventBus enqueue", "[!benchmark][EventBus][enqueue]" )
     BENCHMARK( "enqueue 1 event" )
     {
         EventBus bus;
-        bus.enqueue( std::make_unique<BenchEvent>() );
+        bus.enqueue( Ref<BenchEvent>::create() );
         return bus.get_queue_size();
     };
 
@@ -318,7 +318,7 @@ TEST_CASE( "EventBus enqueue", "[!benchmark][EventBus][enqueue]" )
     {
         EventBus bus;
         for (int i = 0; i < 10; ++i)
-            bus.enqueue( std::make_unique<BenchEvent>() );
+            bus.enqueue( Ref<BenchEvent>::create() );
         return bus.get_queue_size();
     };
 
@@ -326,7 +326,7 @@ TEST_CASE( "EventBus enqueue", "[!benchmark][EventBus][enqueue]" )
     {
         EventBus bus;
         for (int i = 0; i < 100; ++i)
-            bus.enqueue( std::make_unique<BenchEvent>() );
+            bus.enqueue( Ref<BenchEvent>::create() );
         return bus.get_queue_size();
     };
 
@@ -334,7 +334,7 @@ TEST_CASE( "EventBus enqueue", "[!benchmark][EventBus][enqueue]" )
     {
         EventBus bus;
         for (int i = 0; i < 1000; ++i)
-            bus.enqueue( std::make_unique<MouseMotionEvent>( 0, Vec2{}, Vec2{}, 0 ) );
+            bus.enqueue( Ref<MouseMotionEvent>::create( 0, Vec2{}, Vec2{}, 0 ) );
         return bus.get_queue_size();
     };
 }
@@ -350,7 +350,7 @@ TEST_CASE( "EventBus process_queue", "[!benchmark][EventBus][process_queue]" )
     ( Chronometer meter )
     {
         EventBus bus;
-        meter.measure( [&] { bus.process_queue(); } );
+        meter.measure( [&] { bus.flush(); } );
     };
 
     BENCHMARK_ADVANCED( "process 10 events x 1 subscriber" )
@@ -360,8 +360,8 @@ TEST_CASE( "EventBus process_queue", "[!benchmark][EventBus][process_queue]" )
         bus.subscribe<BenchEvent>( noop );
         meter.measure( [&] {
             for (int i = 0; i < 10; ++i)
-                bus.enqueue( std::make_unique<BenchEvent>() );
-            bus.process_queue();
+                bus.enqueue( Ref<BenchEvent>::create() );
+            bus.flush();
         } );
     };
 
@@ -372,8 +372,8 @@ TEST_CASE( "EventBus process_queue", "[!benchmark][EventBus][process_queue]" )
         bus.subscribe<BenchEvent>( noop );
         meter.measure( [&] {
             for (int i = 0; i < 100; ++i)
-                bus.enqueue( std::make_unique<BenchEvent>() );
-            bus.process_queue();
+                bus.enqueue( Ref<BenchEvent>::create() );
+            bus.flush();
         } );
     };
 
@@ -383,8 +383,8 @@ TEST_CASE( "EventBus process_queue", "[!benchmark][EventBus][process_queue]" )
         EventBus bus;
         meter.measure( [&] {
             for (int i = 0; i < 100; ++i)
-                bus.enqueue( std::make_unique<BenchEvent>() );
-            bus.process_queue();
+                bus.enqueue( Ref<BenchEvent>::create() );
+            bus.flush();
         } );
     };
 
@@ -396,8 +396,8 @@ TEST_CASE( "EventBus process_queue", "[!benchmark][EventBus][process_queue]" )
             bus.subscribe<BenchEvent>( noop );
         meter.measure( [&] {
             for (int i = 0; i < 100; ++i)
-                bus.enqueue( std::make_unique<BenchEvent>() );
-            bus.process_queue();
+                bus.enqueue( Ref<BenchEvent>::create() );
+            bus.flush();
         } );
     };
 
@@ -410,12 +410,12 @@ TEST_CASE( "EventBus process_queue", "[!benchmark][EventBus][process_queue]" )
         bus.subscribe<BenchEventC>( noopC );
         meter.measure( [&] {
             for (int i = 0; i < 17; ++i)
-                bus.enqueue( std::make_unique<BenchEventA>() );
+                bus.enqueue( Ref<BenchEventA>::create() );
             for (int i = 0; i < 16; ++i)
-                bus.enqueue( std::make_unique<BenchEventB>() );
+                bus.enqueue( Ref<BenchEventB>::create() );
             for (int i = 0; i < 17; ++i)
-                bus.enqueue( std::make_unique<BenchEventC>() );
-            bus.process_queue();
+                bus.enqueue( Ref<BenchEventC>::create() );
+            bus.flush();
         } );
     };
 }
@@ -438,8 +438,8 @@ TEST_CASE( "EventBus frame simulation", "[!benchmark][EventBus][frame]" )
 
         meter.measure( [&] {
             for (int i = 0; i < 200; ++i)
-                bus.enqueue( std::make_unique<MouseMotionEvent>( 0, Vec2{}, Vec2{}, 0 ) );
-            bus.process_queue();
+                bus.enqueue( Ref<MouseMotionEvent>::create( 0, Vec2{}, Vec2{}, 0 ) );
+            bus.flush();
         } );
     };
 
@@ -452,17 +452,17 @@ TEST_CASE( "EventBus frame simulation", "[!benchmark][EventBus][frame]" )
         bus.subscribe<MouseMotionEvent>( []( MouseMotionEvent& ) {} );
 
         meter.measure( [&] {
-            bus.enqueue( std::make_unique<MouseMotionEvent>( 0, Vec2{}, Vec2{}, 0 ) );
-            bus.enqueue( std::make_unique<MouseMotionEvent>( 0, Vec2{}, Vec2{}, 0 ) );
-            bus.enqueue( std::make_unique<MouseMotionEvent>( 0, Vec2{}, Vec2{}, 0 ) );
-            bus.enqueue( std::make_unique<KeyboardEvent>( 0, ButtonAction::PRESS, KeyboardEvent::Key::W, false ) );
-            bus.enqueue( std::make_unique<KeyboardEvent>( 0, ButtonAction::RELEASE, KeyboardEvent::Key::W, false ) );
-            bus.enqueue( std::make_unique<MouseMotionEvent>( 0, Vec2{}, Vec2{}, 0 ) );
-            bus.enqueue( std::make_unique<MouseMotionEvent>( 0, Vec2{}, Vec2{}, 0 ) );
-            bus.enqueue( std::make_unique<MouseMotionEvent>( 0, Vec2{}, Vec2{}, 0 ) );
-            bus.enqueue( std::make_unique<MouseMotionEvent>( 0, Vec2{}, Vec2{}, 0 ) );
-            bus.enqueue( std::make_unique<MouseMotionEvent>( 0, Vec2{}, Vec2{}, 0 ) );
-            bus.process_queue();
+            bus.enqueue( Ref<MouseMotionEvent>::create( 0, Vec2{}, Vec2{}, 0 ) );
+            bus.enqueue( Ref<MouseMotionEvent>::create( 0, Vec2{}, Vec2{}, 0 ) );
+            bus.enqueue( Ref<MouseMotionEvent>::create( 0, Vec2{}, Vec2{}, 0 ) );
+            bus.enqueue( Ref<KeyboardEvent>::create( 0, ButtonAction::PRESS, KeyboardEvent::Key::W, false ) );
+            bus.enqueue( Ref<KeyboardEvent>::create( 0, ButtonAction::RELEASE, KeyboardEvent::Key::W, false ) );
+            bus.enqueue( Ref<MouseMotionEvent>::create( 0, Vec2{}, Vec2{}, 0 ) );
+            bus.enqueue( Ref<MouseMotionEvent>::create( 0, Vec2{}, Vec2{}, 0 ) );
+            bus.enqueue( Ref<MouseMotionEvent>::create( 0, Vec2{}, Vec2{}, 0 ) );
+            bus.enqueue( Ref<MouseMotionEvent>::create( 0, Vec2{}, Vec2{}, 0 ) );
+            bus.enqueue( Ref<MouseMotionEvent>::create( 0, Vec2{}, Vec2{}, 0 ) );
+            bus.flush();
         } );
     };
 }
@@ -481,7 +481,7 @@ TEST_CASE( "EventBus callback overhead", "[!benchmark][EventBus][callback]" )
         EventBus bus;
         bus.subscribe<BenchEvent>( [&sink]( BenchEvent& e ) { sink = e.payload; } );
         meter.measure( [&] {
-            BenchEvent e;
+            auto e = Ref<BenchEvent>::create();
             bus.publish( e );
         } );
     };
@@ -491,9 +491,11 @@ TEST_CASE( "EventBus callback overhead", "[!benchmark][EventBus][callback]" )
     ( Chronometer meter )
     {
         EventBus bus;
-        bus.subscribe<BenchEvent>( [&sink, capture_me]( BenchEvent& e ) { sink = e.payload + capture_me; } );
+        bus.subscribe<BenchEvent>( [&sink, capture_me]( BenchEvent& e ) {
+            sink = e.payload + capture_me;
+        } );
         meter.measure( [&] {
-            BenchEvent e;
+            auto e = Ref<BenchEvent>::create();
             bus.publish( e );
         } );
     };
@@ -505,7 +507,7 @@ TEST_CASE( "EventBus callback overhead", "[!benchmark][EventBus][callback]" )
         for (int i = 0; i < 10; ++i)
             bus.subscribe<BenchEvent>( [&sink]( BenchEvent& e ) { sink = e.payload; } );
         meter.measure( [&] {
-            BenchEvent e;
+            auto e = Ref<BenchEvent>::create();
             bus.publish( e );
         } );
     };

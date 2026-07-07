@@ -2,7 +2,7 @@
 #include <ncore/kernel/types.h>
 #include <ncore/utils/assert.h>
 
-namespace nc::rfl {
+namespace nc::rtti {
 
 bool Registry::primitive_types_registered = false;
 TypeInfo* Registry::type_list_head        = nullptr;
@@ -144,4 +144,4 @@ void RecordInfo::visit_array(
     visitor->array_end( t, static_cast<int>( depth ) );
 }
 
-} // namespace nc::rfl
+} // namespace nc::rtti

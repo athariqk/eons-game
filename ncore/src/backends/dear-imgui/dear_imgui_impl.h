@@ -21,7 +21,7 @@ public:
     virtual void begin_frame() override;
     virtual void render_frame() override;
 
-    virtual bool process_event( Event* event ) override;
+    virtual bool process_event( BaseEvent* event ) override;
 
 protected:
     GraphicsModule* gfx;

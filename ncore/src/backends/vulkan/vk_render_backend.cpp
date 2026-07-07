@@ -4,6 +4,7 @@
 #include <BasicTypes.h>
 #include <DebugOutput.h>
 #include <EngineFactoryVk.h>
+#include <EngineMemory.h>
 #include <GraphicsAccessories.hpp>
 #include <GraphicsTypes.h>
 #include <format>
@@ -43,6 +44,8 @@ VkRenderBackend::~VkRenderBackend() {}
 
 Error VkRenderBackend::init()
 {
+    Diligent::SetRawAllocator( &allocator );
+
     Diligent::IEngineFactoryVk* factory = Diligent::LoadAndGetEngineFactoryVk();
     factory->SetMessageCallback( DebugMessageCallbackVk );
 

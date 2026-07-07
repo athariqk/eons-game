@@ -16,7 +16,7 @@ void EcsBaseFeature::build( EcsWorld& world )
             transform->position += Vec2{ 0.1f, 0.0f };
             NC_LOG_TRACE_C(
                 log::ECS, "Entity: {}, Transform: {}", eid,
-                rfl::Registry::to_string( transform, rfl::Registry::get_type_id<EcsTransform>() )
+                rtti::Registry::to_string( transform, rtti::Registry::get_type_id<EcsTransform>() )
             );
         } );
 }

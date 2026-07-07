@@ -26,7 +26,7 @@ using UnorderedMap =
 using BytesBuffer = std::vector<std::byte, NcAllocator<std::byte>>;
 
 /**
- * @brief PagedObjectPool is a memory pool that pre-allocates objects of type T
+ * @brief PagedPool is a memory pool that pre-allocates objects of type T
  * in fixed-size chunks. See PagedAllocator for the underlying page allocation
  * mechanism. TODO: write clearer docstring later
  *
@@ -38,7 +38,7 @@ using BytesBuffer = std::vector<std::byte, NcAllocator<std::byte>>;
  * Useful reference: https://8dcc.github.io/programming/pool-allocator.html
  */
 template<typename T>
-class PagedObjectPool {
+class PagedPool {
     struct FreeList {
         FreeList* next;
     };
@@ -50,11 +50,11 @@ class PagedObjectPool {
     };
 
 public:
-    PagedObjectPool( uint32_t page_capacity = PagedAllocator<T>::DEFAULT_PAGE_SIZE ) :
+    PagedPool( uint32_t page_capacity = PagedAllocator<T>::DEFAULT_PAGE_SIZE ) :
         arena( page_capacity ), free_list( nullptr ), active_count( 0 )
     {}
 
-    ~PagedObjectPool()
+    ~PagedPool()
     {
         // collect all pointers to the already freed slots
         // so we don't call the destructor on them again
