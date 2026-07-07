@@ -1,14 +1,14 @@
 #pragma once
 
+#include <ncore/game_world.h>
 #include <ncore/kernel/collection.h>
-#include <ncore/modules/ecs/ecs_world.h>
-#include <ncore/modules/game_world.h>
+#include <ncore/runtime/ecs_world.h>
 #include <ncore/scene/node.h>
 
-namespace ncore {
+namespace nc {
 
 class Viewport;
-class ServiceLocator;
+class ModuleRegistry;
 class Node;
 
 /**
@@ -30,7 +30,7 @@ class NCORE_API Scene : public IGameWorld {
     static constexpr EcsEntityId ROOT_PARENT_ID = 0xABCDEF123FFFFF;
 
 public:
-    Scene( ServiceLocator& services );
+    Scene( ModuleRegistry& modules );
 
     Scene( const Scene& )            = delete;
     Scene& operator=( const Scene& ) = delete;
@@ -75,4 +75,4 @@ private:
     bool wants_to_quit = false;
 };
 
-} // namespace ncore
+} // namespace nc

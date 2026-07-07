@@ -1,23 +1,23 @@
 #include <ncore/modules/events/event_bus.h>
-#include <ncore/modules/service_locator.h>
+#include <ncore/modules/module_registry.h>
 #include <ncore/scene/node.h>
 #include <ncore/scene/scene.h>
 
-namespace ncore {
+namespace nc {
 
-Scene::Scene( ServiceLocator& services ) : IGameWorld( services ), ecs_world() {}
+Scene::Scene( ModuleRegistry& p_modules ) : IGameWorld( p_modules ), ecs_world( p_modules ) {}
 
 void Scene::on_init()
 {
-    auto event_bus = get_services().resolve<EventBus>();
+    auto events = get_modules().resolve<EventBus>();
 
-    event_bus->subscribe<WindowCloseEvent>( [this]( WindowCloseEvent& ) {
+    events->subscribe<WindowCloseEvent>( [this]( WindowCloseEvent& ) {
         wants_to_quit = true;
-        NC_LOG_TRACE( "window close event received, requesting exit..." );
+        NC_LOG_TRACE( "Window close event received, requesting exit..." );
     } );
 
-    event_bus->subscribe<WindowResizeEvent>( [this]( WindowResizeEvent& e ) {
-        NC_LOG_TRACE( "window resolution changed: {}x{}", e.width, e.height );
+    events->subscribe<WindowResizeEvent>( []( WindowResizeEvent& e ) {
+        NC_LOG_TRACE( "Window resolution changed: {}x{}", e.width, e.height );
     } );
 
     ensure_root_node_exists_();
@@ -37,7 +37,7 @@ bool Scene::on_variable_update( double p_delta )
 
 void Scene::on_finish()
 {
-    NC_LOG_TRACE_C( log::ECS, "world finished" );
+    NC_LOG_TRACE_C( log::ECS, "World finished" );
 }
 
 Node* Scene::get_root_node()
@@ -53,7 +53,7 @@ void Scene::ensure_root_node_exists_()
     root_node = node_pool.acquire();
     root_node->set_scene( this );
     root_node->internal_id = ecs_world.create_entity( "RootNode" ).build();
-    NC_LOG_TRACE( "root node was missing but is now created with entity ID {}", root_node->internal_id );
+    NC_LOG_TRACE( "Root node was missing but is now created with entity ID {}", root_node->internal_id );
 }
 
-} // namespace ncore
+} // namespace nc

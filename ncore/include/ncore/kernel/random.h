@@ -2,7 +2,7 @@
 
 #include <random>
 
-namespace ncore {
+namespace nc {
 
 /**
  * @brief PRNG
@@ -38,4 +38,4 @@ public:
     }
 };
 
-} // namespace ncore
+} // namespace nc

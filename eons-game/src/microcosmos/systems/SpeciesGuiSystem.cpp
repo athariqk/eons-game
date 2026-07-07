@@ -1,8 +1,8 @@
 #include "SpeciesGuiSystem.h"
 
-#include <ncore/modules/ecs/ecs_world.h>
-#include <ncore/modules/video/render_service.h>
-// #include <ncore/modules/ecs/ecs_input_system.h>
+#include <ncore/modules/video/graphics_module.h>
+#include <ncore/runtime/ecs_world.h>
+// #include <ncore/runtime/ecs_input_system.h>
 
 #include <microcosmos/GameGroups.h>
 #include <microcosmos/OrganismFactory.h>
@@ -12,12 +12,12 @@
 #include <microcosmos/components/OrganismComponent.h>
 #include <microcosmos/components/SpeciesComponent.h>
 
-// void SpeciesGuiSystem::on_init(ncore::EcsWorld &world) {
+// void SpeciesGuiSystem::on_init(nc::EcsWorld &world) {
 // reg_ = world.try_context<SpeciesRegistry>();
 // return reg_ != nullptr;
 //}
 //
-// void SpeciesGuiSystem::on_gui_render(ncore::EcsWorld &world) {
+// void SpeciesGuiSystem::on_gui_render(nc::EcsWorld &world) {
 // if (!reg_)
 //    return;
 
@@ -41,7 +41,7 @@
 // ImGui::End();
 //}
 //
-// void SpeciesGuiSystem::draw_species_panel(ncore::EcsWorld &world) {
+// void SpeciesGuiSystem::draw_species_panel(nc::EcsWorld &world) {
 // auto &all_species = reg_->all_species();
 // if (ImGui::TreeNode("SpeciesList", "Species alive: %zu", all_species.size())) {
 //    for (int n = 0; n < static_cast<int>(all_species.size()); n++) {
@@ -69,9 +69,9 @@
 //                        behaviour = ai.get_current_behavior();
 //                    }
 
-//                    ncore::Vec2 vel;
-//                    if (organism->entity && world.has<ncore::RigidbodyComponent>(*organism->entity)) {
-//                        auto &body = world.get<ncore::RigidbodyComponent>(*organism->entity);
+//                    nc::Vec2 vel;
+//                    if (organism->entity && world.has<nc::RigidbodyComponent>(*organism->entity)) {
+//                        auto &body = world.get<nc::RigidbodyComponent>(*organism->entity);
 //                        vel = body.velocity;
 //                    }
 
@@ -113,7 +113,7 @@
 // }
 //}
 
-// void SpeciesGuiSystem::draw_create_species_modal(ncore::EcsWorld &world) {
+// void SpeciesGuiSystem::draw_create_species_modal(nc::EcsWorld &world) {
 // if (ImGui::BeginPopupModal("Create a new species", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
 //     ImGui::Text("Enter the species' name");
 //     ImGui::InputText("Genus", input_genus_, 255);

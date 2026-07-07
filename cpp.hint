@@ -1,7 +1,7 @@
 // Hint files help the Visual Studio IDE interpret Visual C++ identifiers
 // such as names of functions and macros.
 // For more information see https://go.microsoft.com/fwlink/?linkid=865984
-#define LOG_INFO(__VA_ARGS__) Logger::GetLogger()->info(__VA_ARGS__)
-#define ERROR_OK 0
-#define NC_REG_EVENT_TYPE(type) static constexpr EventType static_type = type; EventType get_type() const override { return static_type; }
-#define NC_DEF_CFG_MAP(TYPE_NAME, __VA_ARGS__) void serialize(ini::IniFile &ini) const { NC_FOR_EACH(NC_INIFILE_WRITE, TYPE_NAME, __VA_ARGS__) } void deserialize(ini::IniFile &ini){NC_FOR_EACH(NC_INIFILE_READ, TYPE_NAME, __VA_ARGS__)} std::string print() const { std::ostringstream ss; ss << #TYPE_NAME; NC_FOR_EACH(NC_PRINT_FIELD, TYPE_NAME, __VA_ARGS__) return ss.str(); }
+#define NCORE_API __declspec( dllexport )
+#define NCORE_API __declspec( dllimport )
+#define NCORE_API __attribute__( ( visibility( "default" ) ) )
+#define NCLASS(class_name, parent_class) public: const std::string_view get_class_name() const override { return #class_name; } ::nc::rfl::TypeId get_type_id() const override { return ::nc::rfl::Registry::get_type_id<class_name>(); } const ::nc::rfl::RecordInfo& get_class_info() const override { return static_cast<const ::nc::rfl::RecordInfo&>( ::nc::rfl::Registry::get<class_name>() ); } private: static auto _nc_object_init_##class_name() -> ::nc::rfl::RecordInfo& { static ::nc::rfl::RecordInfo& ci = []() -> ::nc::rfl::RecordInfo& { auto& c = ::nc::rfl::Registry::emplace<::nc::rfl::RecordInfo, class_name>( #class_name ); c.parent_id = ::nc::rfl::Registry::get_type_id<parent_class>(); return c; }(); return ci; } inline static const int _nc_trig_nclass_##class_name = ( _nc_object_init_##class_name(), 0 );

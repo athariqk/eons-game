@@ -1,7 +1,7 @@
 #include <ncore/utils/log.h>
 #include <utils/logger/logger.h>
 
-namespace ncore::log {
+namespace nc::log {
 
 Logger::Logger()
 {
@@ -53,4 +53,4 @@ void Logger::flush_all()
         ch->flush();
 }
 
-} // namespace ncore::log
+} // namespace nc::log

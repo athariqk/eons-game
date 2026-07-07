@@ -1,39 +1,36 @@
 #pragma once
 
-#include <ncore/modules/video/window_service.h>
+#include <ncore/modules/video/window_module.h>
 
-struct SDL_Renderer;
-struct SDL_Window;
-
-namespace ncore {
+namespace nc {
 
 struct Vec2;
 
-class SDLWindowImpl : public IWindowService {
-    NCLASS( SDLWindowImpl, IWindowService )
+class SDLWindowImpl : public IWindowModule {
+    NCLASS( SDLWindowImpl, IWindowModule )
 
 public:
-    SDLWindowImpl( const char* title, int width, int height, bool fullscreen );
-
     Error init() override;
     void finalize() override;
 
-    SDL_Renderer* get_renderer() const;
-    SDL_Window* get_native_handle() const;
-    Vec2 get_resolution() const;
-    uint32_t get_window_id() const;
-    void set_title( const char* title ) const;
-    int show_msg_box( uint32_t flags, const char* title, const char* message ) const;
+    RID create_window( const std::string& title, Vec2 size, bool fullscreen ) override;
+    void destroy_window( RID window_id ) override;
+    RID get_main_window_id() const override;
+
+    Vec2 get_resolution( RID window_id ) const override;
+    void set_title( RID window_id, const std::string& title ) const override;
+
+    void set_cursor_type( CursorType cursor_type ) override;
+
+    bool show_message_box( MessageBoxType type, const std::string& title, const std::string& message ) const override;
 
     Viewport* get_viewport() const override;
 
+    void* get_native_handle( RID window_id ) const override;
+
 private:
-    std::string_view title;
-    Vec2 resolution;
-    bool fullscreen;
-    SDL_Window* sdlWindow{};
-    SDL_Renderer* renderer{};
-    std::unique_ptr<Viewport> viewport{}; // TODO: properly implement later
+    std::unordered_map<RID, std::unique_ptr<Viewport>> viewport; // TODO: properly implement later
+    std::unordered_map<CursorType, SDL_Cursor*> mouse_cursors;
 };
 
-} // namespace ncore
+} // namespace nc

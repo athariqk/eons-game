@@ -1,21 +1,21 @@
 #include <ncore/modules/video/camera.h>
 
-namespace ncore {
+namespace nc {
 
 Camera::Camera() : position( 0.0f, 0.0f ), zoom( 1.0f ) {}
 
-Camera::Camera( const Vec2& position, float zoom ) : position( position ), zoom( zoom ) {}
+Camera::Camera( const Vec2& p_position, float p_zoom ) : position( p_position ), zoom( p_zoom ) {}
 
 void Camera::move( const Vec2& delta )
 {
-    position.x += delta.x;
-    position.y += delta.y;
+    position.X += delta.X;
+    position.Y += delta.Y;
 }
 
 void Camera::move( float dx, float dy )
 {
-    position.x += dx;
-    position.y += dy;
+    position.X += dx;
+    position.Y += dy;
 }
 
-} // namespace ncore
+} // namespace nc

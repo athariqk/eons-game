@@ -2,13 +2,20 @@
 
 #include <SDL3/SDL_audio.h>
 
+#include <ncore/kernel/collection.h>
+#include <ncore/modules/audio/resources/audio_clip.h>
 #include <ncore/utils/log.h>
 
-namespace ncore {
+namespace nc {
 
-std::unique_ptr<AudioClip> SDLAudioLoader::load( const std::string_view path )
+bool SDLAudioLoader::is_handling_extension( const std::string& ext )
 {
-    uint8_t* raw_buf = new uint8_t[0];
+    return ext == ".wav";
+}
+
+Ref<IResource> SDLAudioLoader::import( const std::string_view path )
+{
+    uint8_t* raw_buf = nullptr;
     uint32_t wav_len = 0;
 
     SDL_AudioSpec spec{};
@@ -17,17 +24,14 @@ std::unique_ptr<AudioClip> SDLAudioLoader::load( const std::string_view path )
     spec.freq     = 44100;
 
     if (!SDL_LoadWAV( path.data(), &spec, &raw_buf, &wav_len )) {
-        NC_LOG_ERROR_C( log::AUDIO, "WAV load FAIL: {}", SDL_GetError() );
+        NC_LOG_ERROR_C( log::AUDIO, "WAV import FAIL: {}", SDL_GetError() );
         return {};
     }
 
-    auto result             = std::make_unique<AudioClip>();
-    result->data            = BytesBuffer( raw_buf, raw_buf + wav_len );
-    result->length          = wav_len;
-    result->channels        = spec.channels;
-    result->frequency       = spec.freq;
-    result->bits_per_sample = SDL_AUDIO_BITSIZE( spec.format );
-    return result;
+    auto result =
+        Ref<AudioClip>::create( raw_buf, wav_len, spec.channels, spec.freq, SDL_AUDIO_BITSIZE( spec.format ) );
+    SDL_free( raw_buf );
+    return result.as<IResource>();
 }
 
-} // namespace ncore
+} // namespace nc

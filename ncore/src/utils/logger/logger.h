@@ -7,7 +7,7 @@
 #include "log_channel.h"
 #include "log_level.h"
 
-namespace ncore::log {
+namespace nc::log {
 
 class Logger {
 public:
@@ -19,8 +19,8 @@ public:
 
     static Logger& get_instance()
     {
-        static Logger get_instance;
-        return get_instance;
+        static Logger instance;
+        return instance;
     }
 
     // Add to the global sinks for all log channels
@@ -43,4 +43,4 @@ private:
     std::unordered_map<std::string, std::shared_ptr<LogChannel>> channels{};
 };
 
-} // namespace ncore::log
+} // namespace nc::log

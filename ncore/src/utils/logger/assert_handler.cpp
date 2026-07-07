@@ -1,7 +1,7 @@
 #include <utils/logger/assert_handler.h>
 #include <utils/logger/logger.h>
 
-namespace ncore::log {
+namespace nc::log {
 
 void handle_assert( const char* expr, const char* msg, const char* file, int line )
 {
@@ -12,4 +12,4 @@ void handle_assert( const char* expr, const char* msg, const char* file, int lin
     Logger::get_instance().flush_all();
 }
 
-} // namespace ncore::log
+} // namespace nc::log

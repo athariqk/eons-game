@@ -3,7 +3,7 @@
 #include <numbers>
 
 #include <ncore/kernel/random.h>
-#include <ncore/modules/ecs/ecs_world.h>
+#include <ncore/runtime/ecs_world.h>
 #include <ncore/utils/log.h>
 
 #include <microcosmos/GameGroups.h>
@@ -15,21 +15,21 @@
 #include <microcosmos/components/OrganismComponent.h>
 #include <microcosmos/components/SpeciesComponent.h>
 
-// void OrganismAISystem::on_init(ncore::EcsWorld &world) {
+// void OrganismAISystem::on_init(nc::EcsWorld &world) {
 //  for (const auto &entity: world.get_entities()) {
 //      if (!entity.is_enabled || !world.has<OrganismAIComponent>(entity))
 //          continue;
 
 //    auto &ai = world.get<OrganismAIComponent>(entity);
 
-//    if (world.has<ncore::EcsTransform>(entity))
+//    if (world.has<nc::EcsTransform>(entity))
 //        change_state(ai, BehaviourState::IDLING);
 //    else
 //        NC_LOG_ERROR("Organism AI entity missing transform component!");
 //}
 //}
 
-// void OrganismAISystem::on_process(ncore::EcsWorld &world, double delta_time) {
+// void OrganismAISystem::on_process(nc::EcsWorld &world, double delta_time) {
 //     float delta = static_cast<float>(delta_time);
 
 // for (const auto &entity: world.get_entities()) {
@@ -51,13 +51,13 @@
 //            update_idling(ai, delta);
 //            break;
 //        case BehaviourState::RUN_TUMBLE:
-//            update_run_and_tumble(const_cast<ncore::EcsEntity &>(entity), ai, organism, world, delta);
+//            update_run_and_tumble(const_cast<nc::EcsEntity &>(entity), ai, organism, world, delta);
 //            break;
 //        case BehaviourState::ABSORBING:
-//            update_absorbing(world, const_cast<ncore::EcsEntity &>(entity), ai, organism, delta);
+//            update_absorbing(world, const_cast<nc::EcsEntity &>(entity), ai, organism, delta);
 //            break;
 //        case BehaviourState::EVALUATE:
-//            update_eval(const_cast<ncore::EcsEntity &>(entity), ai, organism, world, delta);
+//            update_eval(const_cast<nc::EcsEntity &>(entity), ai, organism, world, delta);
 //            break;
 //        default:
 //            break;
@@ -86,15 +86,15 @@
 // void OrganismAISystem::update_idling(OrganismAIComponent &ai, double delta) {
 //     ai.act_timer += delta;
 //
-//     if (ai.act_timer > ncore::Random::rand_float(0.5f, 1.5f))
+//     if (ai.act_timer > nc::Random::rand_float(0.5f, 1.5f))
 //         change_state(ai, BehaviourState::RUN_TUMBLE);
 // }
 //
-// void OrganismAISystem::update_run_and_tumble(ncore::EcsEntity &entity, OrganismAIComponent &ai,
-//                                              OrganismComponent &organism, ncore::EcsWorld &world, double delta) {
+// void OrganismAISystem::update_run_and_tumble(nc::EcsEntity &entity, OrganismAIComponent &ai,
+//                                              OrganismComponent &organism, nc::EcsWorld &world, double delta) {
 //  ai.act_timer += delta;
 
-// auto &transform = world.get<ncore::TransformComponent>(entity);
+// auto &transform = world.get<nc::TransformComponent>(entity);
 // auto &foods = world.get_group(GameGroups::NUTRIENTS_GROUP);
 
 // float sight_dist_sqr = 0.5f * 0.5f;
@@ -102,7 +102,7 @@
 // float closest_dist_sqr = sight_dist_sqr;
 
 // FoodComponent *closest_food = nullptr;
-// ncore::Vec2 target_pos;
+// nc::Vec2 target_pos;
 // bool smells_food = false;
 
 // for (auto *food_entity: foods) {
@@ -110,10 +110,10 @@
 //         continue;
 
 //    auto &nutrient = world.get<FoodComponent>(*food_entity);
-//    if (nutrient.caught || !world.has<ncore::TransformComponent>(*food_entity))
+//    if (nutrient.caught || !world.has<nc::TransformComponent>(*food_entity))
 //        continue;
 
-//    auto &food_tsfm = world.get<ncore::TransformComponent>(*food_entity);
+//    auto &food_tsfm = world.get<nc::TransformComponent>(*food_entity);
 //    float dist_sqr = (transform.position - food_tsfm.position).length_sqr();
 
 //    if (dist_sqr < closest_dist_sqr) {
@@ -124,21 +124,21 @@
 //    }
 //}
 
-// if (!ai.has_moved && world.has<ncore::RigidbodyComponent>(entity)) {
+// if (!ai.has_moved && world.has<nc::RigidbodyComponent>(entity)) {
 //     ai.has_moved = true;
-//     auto &body = world.get<ncore::RigidbodyComponent>(entity);
+//     auto &body = world.get<nc::RigidbodyComponent>(entity);
 
-//    ncore::Vec2 impulse;
+//    nc::Vec2 impulse;
 //    bool is_hungry = organism.cur_energy < organism.genome.energy_capacity * 0.8f;
 
 //    if (smells_food && is_hungry) {
-//        ncore::Vec2 dir_to_food = target_pos - transform.position;
+//        nc::Vec2 dir_to_food = target_pos - transform.position;
 //        float length = dir_to_food.length();
 //        if (length > 0.001f)
 //            dir_to_food = dir_to_food / length;
 
-//        ncore::Vec2 wobble = get_rand_dir() * 0.4f;
-//        ncore::Vec2 final_dir = dir_to_food + wobble;
+//        nc::Vec2 wobble = get_rand_dir() * 0.4f;
+//        nc::Vec2 final_dir = dir_to_food + wobble;
 
 //        float final_len = final_dir.length();
 //        if (final_len > 0.001f)
@@ -162,7 +162,7 @@
 // }
 //}
 
-// void OrganismAISystem::update_absorbing(ncore::EcsWorld &world, ncore::EcsEntity &entity, OrganismAIComponent &ai,
+// void OrganismAISystem::update_absorbing(nc::EcsWorld &world, nc::EcsEntity &entity, OrganismAIComponent &ai,
 //                                         OrganismComponent &organism, double delta) {
 //     absorb_food(world, entity, ai, organism);
 //
@@ -176,8 +176,8 @@
 //     }
 // }
 
-// void OrganismAISystem::update_eval(ncore::EcsEntity &entity, OrganismAIComponent &ai, OrganismComponent &organism,
-//                                    ncore::EcsWorld &world, double delta) {
+// void OrganismAISystem::update_eval(nc::EcsEntity &entity, OrganismAIComponent &ai, OrganismComponent &organism,
+//                                    nc::EcsWorld &world, double delta) {
 //  ai.act_timer += delta;
 
 // if (organism.cur_energy > organism.genome.energy_capacity * 0.7f && ai.reproduce_interval > 100.0f) {
@@ -190,12 +190,12 @@
 // }
 //}
 //
-// ncore::Vec2 OrganismAISystem::get_rand_dir() {
-//    float angle = ncore::Random::rand_float(0.0f, 2.0f * std::numbers::pi_v<float>);
-//    return ncore::Vec2(std::cos(angle), std::sin(angle));
+// nc::Vec2 OrganismAISystem::get_rand_dir() {
+//    float angle = nc::Random::rand_float(0.0f, 2.0f * std::numbers::pi_v<float>);
+//    return nc::Vec2(std::cos(angle), std::sin(angle));
 //}
 //
-// void OrganismAISystem::absorb_food(ncore::EcsWorld &world, ncore::EcsEntity &entity, OrganismAIComponent &ai,
+// void OrganismAISystem::absorb_food(nc::EcsWorld &world, nc::EcsEntity &entity, OrganismAIComponent &ai,
 //                                   OrganismComponent &organism) {
 // if (ai.captured_food == nullptr) {
 //     NC_LOG_ERROR("Nutrient is not found while trying to absorb it!");
@@ -203,7 +203,7 @@
 //     return;
 // }
 
-// auto &transform = world.get<ncore::TransformComponent>(entity);
+// auto &transform = world.get<nc::TransformComponent>(entity);
 
 // ai.captured_food->caught = true;
 // ai.captured_food->eater_pos = transform.position;
@@ -217,7 +217,7 @@
 //}
 //}
 //
-// void OrganismAISystem::reproduce(ncore::EcsWorld &world, ncore::EcsEntity &entity, OrganismAIComponent &ai,
+// void OrganismAISystem::reproduce(nc::EcsWorld &world, nc::EcsEntity &entity, OrganismAIComponent &ai,
 //                                 OrganismComponent &organism) {
 // if (ai.reproduced)
 //     return;
@@ -236,9 +236,9 @@
 // if (organism.entity)
 //     NC_LOG_INFO("Organism {} has been birthed into the world", organism.entity->id);
 
-// if (offspring.entity && world.has<ncore::TransformComponent>(entity)) {
-//     auto &parent_tsfm = world.get<ncore::TransformComponent>(entity);
-//     auto &offspring_tsfm = world.get<ncore::TransformComponent>(*offspring.entity);
+// if (offspring.entity && world.has<nc::TransformComponent>(entity)) {
+//     auto &parent_tsfm = world.get<nc::TransformComponent>(entity);
+//     auto &offspring_tsfm = world.get<nc::TransformComponent>(*offspring.entity);
 //     offspring_tsfm.position = parent_tsfm.position;
 // }
 

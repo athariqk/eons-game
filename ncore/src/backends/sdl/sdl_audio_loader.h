@@ -1,14 +1,18 @@
 #pragma once
 
-#include <modules/assets/asset_loader.h>
-#include <ncore/modules/audio/audio_clip.h>
+#include <string>
 
-namespace ncore {
+#include <ncore/modules/resource/resource_importer.h>
 
-// Can only load WAV of a certain format for now
-struct SDLAudioLoader : public IAssetLoader<AudioClip> {
+namespace nc {
+
+class SDLAudioLoader : public IResourceImporter {
+    NCLASS( SDLAudioLoader, IResourceImporter )
+
 public:
-    std::unique_ptr<AudioClip> load( const std::string_view path ) override;
+    bool is_handling_extension( const std::string& ext ) override;
+
+    Ref<IResource> import( const std::string_view path ) override;
 };
 
-} // namespace ncore
+} // namespace nc

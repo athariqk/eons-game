@@ -2,7 +2,7 @@
 
 #include <ncore/kernel/structures.h>
 
-namespace ncore {
+namespace nc {
 
 enum class ShapeType {
     Box,
@@ -29,4 +29,4 @@ struct PhysicsBody {
     float linear_damping = 0.5f;
 };
 
-} // namespace ncore
+} // namespace nc

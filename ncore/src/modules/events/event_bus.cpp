@@ -2,17 +2,27 @@
 
 #include <ncore/modules/events/event_bus.h>
 
-namespace ncore {
+namespace nc {
+
+Error EventBus::init()
+{
+    return Error::OK;
+}
+
+void EventBus::finalize()
+{
+    clear();
+}
 
 void EventBus::unsubscribe( size_t p_subscription_id )
 {
-    for (auto& [event_type, subscribers] : subscribers) {
-        subscribers.erase(
+    for (auto& [ev, subs] : subscribers) {
+        subs.erase(
             std::remove_if(
-                subscribers.begin(), subscribers.end(),
+                subs.begin(), subs.end(),
                 [p_subscription_id]( const auto& sub ) { return sub.first == p_subscription_id; }
             ),
-            subscribers.end()
+            subs.end()
         );
     }
 }
@@ -47,11 +57,11 @@ EventBus::SubscriberDebugInfo EventBus::get_subscriber_debug_info() const
     return info;
 }
 
-void EventBus::finalize()
+void EventBus::clear()
 {
     subscribers.clear();
     event_queue.clear();
     next_subscription_id = 0;
 }
 
-} // namespace ncore
+} // namespace nc

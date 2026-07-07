@@ -27,9 +27,12 @@ if(SCCACHE)
   message(STATUS "sccache found — compiler caching enabled")
 endif()
 
-if(MSVC)
-  add_compile_options(/wd5105 /Zc:preprocessor)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  add_compile_options(/W4 /wd4146 /wd4245 /wd5105 /Zc:preprocessor)
   set(CMAKE_CXX_FLAGS_DEBUG "/MDd /ZI /Ob0 /Od /RTC1")
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  add_compile_options(-Wno-unknown-argument -Wno-c++98-compat
+                      -Wno-c++98-compat-pedantic)
 endif()
 
 if(MINGW)
@@ -43,7 +46,8 @@ foreach(CONFIG Debug Release Dist)
   string(TOUPPER ${CONFIG} CONFIG_UPPER)
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${CONFIG_UPPER} "${OUTPUT_DIR}/${CONFIG}")
   set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${CONFIG_UPPER} "${OUTPUT_DIR}/${CONFIG}")
-  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${CONFIG_UPPER} "${CMAKE_BINARY_DIR}/lib/${CONFIG}")
+  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${CONFIG_UPPER}
+      "${CMAKE_BINARY_DIR}/lib/${CONFIG}")
 endforeach()
 
 add_subdirectory(ncore)

@@ -2,22 +2,22 @@
 
 #include <ncore/kernel/collection.h>
 #include <ncore/kernel/object.h>
-#include <ncore/modules/ecs/ecs_entity.h>
+#include <ncore/runtime/ecs_entity.h>
 
-namespace ncore {
+namespace nc {
 
 class EcsWorld;
 
-class NCORE_API Component : public NObject {
-    NCLASS( Component, NObject )
+class NCORE_API Component : public NcObject {
+    NCLASS( Component, NcObject )
 };
 
-class NCORE_API Node : public NObject {
-    NCLASS( Node, NObject )
+class NCORE_API Node : public NcObject {
+    NCLASS( Node, NcObject )
 
 public:
     Node();
-    ~Node();
+    ~Node() override;
 
     Node( const Node& )            = delete;
     Node& operator=( const Node& ) = delete;
@@ -50,4 +50,4 @@ private:
     PagedObjectPool<Component> components{ 32 };
 };
 
-} // namespace ncore
+} // namespace nc

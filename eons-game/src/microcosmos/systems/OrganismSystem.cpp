@@ -1,11 +1,11 @@
 #include "OrganismSystem.h"
 
-#include <ncore/modules/ecs/ecs_world.h>
+#include <ncore/runtime/ecs_world.h>
 
 #include <microcosmos/SpeciesRegistry.h>
 #include <microcosmos/components/OrganismComponent.h>
 
-// void OrganismSystem::on_fixed_update(ncore::EcsWorld &world, double fixedDelta) {
+// void OrganismSystem::on_fixed_update(nc::EcsWorld &world, double fixedDelta) {
 //     float delta = static_cast<float>(fixedDelta);
 
 // auto &reg = world.context<SpeciesRegistry>();
@@ -23,7 +23,7 @@
 //    organism.fitness -= 0.005f * delta;
 
 //    if (organism.cur_energy <= 0) {
-//        world.destroy(const_cast<ncore::EcsEntity &>(entity));
+//        world.destroy(const_cast<nc::EcsEntity &>(entity));
 //        reg.untrack_organism(&organism);
 //        auto *species = reg.get_species_by_id(organism.species_id);
 //        if (species)

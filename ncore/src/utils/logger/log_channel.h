@@ -4,7 +4,7 @@
 
 #include "sink.h"
 
-namespace ncore::log {
+namespace nc::log {
 
 class Sink;
 
@@ -40,4 +40,4 @@ private:
     std::vector<std::shared_ptr<Sink>> sinks{};
 };
 
-} // namespace ncore::log
+} // namespace nc::log

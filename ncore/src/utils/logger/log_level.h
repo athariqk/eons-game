@@ -1,6 +1,6 @@
 #pragma once
 
-namespace ncore::log {
+namespace nc::log {
 
 enum class Level : uint8_t {
     Trace = 0,
@@ -89,4 +89,4 @@ constexpr std::string_view level_color( Level l )
     }
 }
 
-} // namespace ncore::log
+} // namespace nc::log

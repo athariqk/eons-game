@@ -3,7 +3,7 @@
 
 #include "events.h"
 
-namespace ncore {
+namespace nc {
 
 enum class ButtonIndex {
     UNKNOWN = 0,
@@ -58,7 +58,7 @@ class NCORE_API MouseWheelEvent : public InputEvent {
     NCLASS( MouseWheelEvent, InputEvent )
 
 public:
-    MouseWheelEvent( size_t p_window_id, float x, float y ) : InputEvent( p_window_id ), scroll_x( x ), scroll_y( y ) {}
+    MouseWheelEvent( size_t p_window_id, float X, float Y ) : InputEvent( p_window_id ), scroll_x( X ), scroll_y( Y ) {}
 
     EventType get_type() const override
     {
@@ -119,4 +119,4 @@ public:
     std::string text;
 };
 
-} // namespace ncore
+} // namespace nc

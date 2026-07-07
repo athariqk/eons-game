@@ -36,10 +36,29 @@ target_compile_definitions(
   ncore PRIVATE $<$<CONFIG:Debug>:NC_DEBUG=1> $<$<CONFIG:Release>:NC_RELEASE=1>
                 $<$<CONFIG:Dist>:NC_DIST=1>)
 
-target_compile_options(ncore PRIVATE "$<$<CXX_COMPILER_ID:MSVC>:/GR->")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  target_compile_options(ncore PRIVATE /GR-)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  target_compile_options(
+    ncore
+    PRIVATE -Wall
+            -Wextra
+            -Werror
+            -Wconversion
+            -Wdouble-promotion
+            -Wno-unused-parameter
+            -Wno-unused-function
+            -Wno-sign-conversion
+            -Wno-padded
+            -Wno-global-constructors
+            -Wno-unsafe-buffer-usage
+            -Wno-switch-default
+            -fsanitize=undefined
+            -fsanitize-trap)
+endif()
 
 target_include_directories(
-  ncore
+  ncore SYSTEM
   PRIVATE "${CMAKE_SOURCE_DIR}/ncore/external/imgui"
           "${CMAKE_SOURCE_DIR}/ncore/external/box2d/include"
           "${CMAKE_SOURCE_DIR}/ncore/external/sdl/include"
@@ -50,6 +69,8 @@ add_subdirectory(external)
 add_subdirectory(include)
 add_subdirectory(src)
 add_subdirectory(tests EXCLUDE_FROM_ALL)
+
+# DiligentCore dlls copy_required_dlls(ncore)
 
 # DOCUMENTATION ## bits adapted from
 # https://devblogs.microsoft.com/cppblog/clear-functional-c-documentation-with-sphinx-breathe-doxygen-cmake/

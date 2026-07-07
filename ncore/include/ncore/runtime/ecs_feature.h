@@ -1,0 +1,31 @@
+#pragma once
+
+#include <ncore/kernel/object.h>
+
+namespace nc {
+
+class EcsWorld;
+
+/**
+ * @brief EcsFeature is a base class for defining ECS features that can be loaded into
+ * an EcsWorld. Inspired by Bevy's concept of Plugins and Flecs' Modules.
+ *
+ * TODO: I wonder if we can make this just be a serialized composition of EcsWorld...
+ * Imagine Godot's scene or Unity's prefabs
+ */
+class NCORE_API EcsFeature : public NcObject {
+    NCLASS( EcsFeature, NcObject )
+
+public:
+    void operator()( EcsWorld& world )
+    {
+        build( world );
+    }
+
+    /**
+     * @brief Interact with the world here.
+     */
+    virtual void build( EcsWorld& world ) = 0;
+};
+
+} // namespace nc

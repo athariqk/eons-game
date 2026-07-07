@@ -4,11 +4,11 @@
 
 #include <ncore/utils/config.h>
 
-namespace ncore {
+namespace nc {
 
-void ConfFile::load( const std::string& path )
+void ConfFile::load( const std::string& p_path )
 {
-    ini::IniFile inifile( path );
+    ini::IniFile inifile( p_path );
     for (auto& it : inifile) {
         auto& section = it.second;
         for (auto& field_it : section) {
@@ -22,7 +22,7 @@ void ConfFile::load( const std::string& path )
     std::for_each( data.begin(), data.end(), [&summary]( const auto& pair ) {
         summary += pair.first + "=" + pair.second + "\n";
     } );
-    NC_LOG_INFO( "loaded config file: {}\n{}", path, summary );
+    NC_LOG_INFO( "Config file loaded: {}\n{}", p_path, summary );
 }
 
 void ConfFile::save() {}
@@ -36,13 +36,16 @@ void ConfFile::read_into( const rfl::RecordInfo& type_info, void* result )
             continue;
         }
         auto field_ptr = field.get_void_ptr( result );
-        if (field.type == rfl::Registry::find<int>()) {
+        if (field.type_id == rfl::Registry::get_type_id<bool>()) {
+            ini::Convert<bool> c;
+            c.decode( it->second, *static_cast<bool*>( field_ptr ) );
+        } else if (field.type_id == rfl::Registry::get_type_id<int>()) {
             ini::Convert<int> c;
             c.decode( it->second, *static_cast<int*>( field_ptr ) );
-        } else if (field.type == rfl::Registry::find<float>()) {
+        } else if (field.type_id == rfl::Registry::get_type_id<float>()) {
             ini::Convert<float> c;
             c.decode( it->second, *static_cast<float*>( field_ptr ) );
-        } else if (field.type == rfl::Registry::find<std::string>()) {
+        } else if (field.type_id == rfl::Registry::get_type_id<std::string>()) {
             *static_cast<std::string*>( field_ptr ) = it->second;
         }
     }
@@ -57,4 +60,4 @@ std::string ConfFile::get( const std::string& key, const std::string& default_va
     return default_value;
 }
 
-} // namespace ncore
+} // namespace nc

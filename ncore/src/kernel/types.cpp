@@ -2,7 +2,10 @@
 #include <ncore/kernel/types.h>
 #include <ncore/utils/assert.h>
 
-namespace ncore::rfl {
+namespace nc::rfl {
+
+bool Registry::primitive_types_registered = false;
+TypeInfo* Registry::type_list_head        = nullptr;
 
 // ======================================================================
 // ClassRegistry
@@ -22,11 +25,11 @@ const TypeInfo& Registry::get( std::string_view name ) noexcept
     return *p;
 }
 
-bool Registry::register_primitive_types()
+void Registry::register_primitive_types()
 {
-    // !!TODO!!: make ALL these happen inside engine init instead of static init
-    //
-    // static init of fundamental TypeInfo objects
+    if (primitive_types_registered)
+        return;
+
     Registry::emplace<bool>( "bool" );
     Registry::emplace<int32_t>( "int32_t" );
     Registry::emplace<uint32_t>( "uint32_t" );
@@ -40,17 +43,26 @@ bool Registry::register_primitive_types()
     Registry::emplace<VectorClass<std::vector<int>>, std::vector<int>>( "std::vector<int>" );
 
     // TODO: should this be here?
-    Registry::emplace<RecordInfo, ncore::NObject>( "NObject" );
+    Registry::emplace<RecordInfo, nc::NcObject>( "NcObject" );
 
-    return true;
+    primitive_types_registered = true;
 }
 
 // ======================================================================
-// ClassInfo::visit
+// FieldInfo
+// ======================================================================
+
+const TypeInfo* FieldInfo::get_type() const
+{
+    return Registry::find( type_id );
+}
+
+// ======================================================================
+// RecordInfo::visit
 // ======================================================================
 
 void RecordInfo::visit(
-    void const* instance, RecordVisitor* visitor, PropertyFlags filter, unsigned depth
+    const void* instance, RecordVisitor* visitor, PropertyFlags filter, unsigned depth
 ) const noexcept
 {
     if (!instance) {
@@ -60,7 +72,7 @@ void RecordInfo::visit(
 
     visitor->class_begin( this, static_cast<int>( depth ) );
     for (auto& f : fields()) {
-        auto* ptr = f.get_void_ptr( const_cast<void*>( instance ) );
+        auto* ptr = f.get_void_ptr( instance );
         if (f.qualifier.is_array)
             visit_array( ptr, &f, visitor, filter, depth + 1 );
         else
@@ -70,7 +82,7 @@ void RecordInfo::visit(
 }
 
 // ======================================================================
-// ClassInfo::visit_field
+// RecordInfo::visit_field
 // ======================================================================
 
 void RecordInfo::visit_field(
@@ -81,14 +93,15 @@ void RecordInfo::visit_field(
         return;
 
     auto& q = field->qualifier;
+    auto t  = field->get_type();
 
     if (q.is_array)
-        visitor->array_element( field->type, depth, array_elem );
+        visitor->array_element( t, depth, array_elem );
     else
         visitor->class_member( field, depth );
 
-    if (field->type->is_record()) {
-        auto* c = static_cast<const RecordInfo*>( field->type );
+    if (t->is_record()) {
+        auto* c = static_cast<const RecordInfo*>( t );
         if (q.is_pointer) {
             auto* p = *static_cast<void const* const*>( ptr );
             if (p)
@@ -98,26 +111,28 @@ void RecordInfo::visit_field(
         }
     } else {
         if (field->category == FieldCategory::String)
-            visitor->string( field->type, ptr );
+            visitor->string( t, ptr );
         else
-            visitor->primitive( field->type, ptr );
+            visitor->primitive( t, ptr );
     }
 }
 
 // ======================================================================
-// ClassInfo::visit_array
+// RecordInfo::visit_array
 // ======================================================================
 
 void RecordInfo::visit_array(
-    void const* ptr, FieldInfo const* field, RecordVisitor* visitor, PropertyFlags filter, unsigned depth
+    const void* ptr, FieldInfo const* field, RecordVisitor* visitor, PropertyFlags filter, unsigned depth
 ) const noexcept
 {
     if (!has_any_flag( field->flags, filter ))
         return;
 
     auto& q = field->qualifier;
+    auto t  = field->get_type();
+
     visitor->class_member( field, static_cast<int>( depth ) );
-    visitor->array_begin( field->type, static_cast<int>( depth ), static_cast<int>( q.array_length ) );
+    visitor->array_begin( t, static_cast<int>( depth ), static_cast<int>( q.array_length ) );
 
     auto* cursor = static_cast<const uint8_t*>( ptr );
     for (unsigned i = 0; i < q.array_length; ++i) {
@@ -125,7 +140,7 @@ void RecordInfo::visit_array(
         cursor += field->width;
     }
 
-    visitor->array_end( field->type, static_cast<int>( depth ) );
+    visitor->array_end( t, static_cast<int>( depth ) );
 }
 
-} // namespace ncore::rfl
+} // namespace nc::rfl

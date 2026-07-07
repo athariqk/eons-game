@@ -1,13 +1,18 @@
 #pragma once
 
-#include <modules/assets/asset_loader.h>
-#include <ncore/modules/video/image.h>
+#include <string>
 
-namespace ncore {
+#include <ncore/modules/resource/resource_importer.h>
 
-struct SDLImageLoader : public IAssetLoader<Image> {
+namespace nc {
+
+class SDLImageLoader : public IResourceImporter {
+    NCLASS( SDLImageLoader, IResourceImporter )
+
 public:
-    std::unique_ptr<Image> load( const std::string_view path ) override;
+    bool is_handling_extension( const std::string& ext ) override;
+
+    Ref<IResource> import( const std::string_view path ) override;
 };
 
-} // namespace ncore
+} // namespace nc

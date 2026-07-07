@@ -1,0 +1,79 @@
+// Copyright (C) 2026 Ahmad Ghalib Athariq <alib.athariq@gmail.com>
+// This file is subject to the license terms in the LICENSE file
+// found in the top-level directory of this distribution.
+
+#pragma once
+
+#include <array>
+#include <memory>
+#include <string>
+#include <string_view>
+
+#include <ncore/kernel/collection.h>
+#include <ncore/kernel/object.h>
+#include <ncore/kernel/rid.h>
+#include <ncore/modules/module.h>
+
+namespace nc {
+
+class IResource;
+class IResourceImporter;
+
+/**
+ * @brief ResourceManager handles resource loading.
+ *
+ * TODO: asynchronous I/O, streaming, asset compilation
+ */
+class ResourceManager : public IModule {
+    NCLASS( ResourceManager, IModule )
+
+    static constexpr int MAX_IMPORTERS = 64;
+
+public:
+    ResourceManager();
+
+    Error init() override;
+    void finalize() override;
+
+    void register_importer( std::unique_ptr<IResourceImporter>&& importer );
+
+    RID load_resource( const std::string_view path );
+    void unload_resource( RID rid );
+    void unload_all();
+
+    template<std::derived_from<IResourceImporter> T, typename... TArgs>
+    void register_importer( TArgs&&... args )
+    {
+        register_importer( std::make_unique<T>( std::forward<TArgs>( args )... ) );
+    }
+
+    template<typename T>
+    T* get_resource( RID rid )
+    {
+        auto it = storage.find( rid );
+        if (it == storage.end())
+            return nullptr;
+
+        IResource* res = it->second.get();
+        if (!res->template is_a<T>())
+            return nullptr;
+
+        return static_cast<T*>( res );
+    }
+
+    size_t get_resource_count() const
+    {
+        return storage.size();
+    }
+
+private:
+    int num_importers = 0;
+    std::array<std::unique_ptr<IResourceImporter>, MAX_IMPORTERS> importers;
+
+    UnorderedMap<std::string, RID> path_map;
+    UnorderedMap<RID, Ref<IResource>> storage;
+
+    RID next_rid = RID( 1 );
+};
+
+} // namespace nc

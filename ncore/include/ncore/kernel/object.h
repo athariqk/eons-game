@@ -2,18 +2,22 @@
 
 #include <ncore/kernel/types.h>
 
-namespace ncore {
+namespace nc {
 
 /**
- * @brief Base class for types interfacing with the engine.
+ * @brief NcObject is the base class for every object-oriented NCORE types.
  * This provides runtime type reflection features and others.
  *
  * NOTE: always declare NCLASS macro in derived classes to properly
  * register them in the reflection system.
  */
-class NCORE_API NObject {
+class NCORE_API NcObject {
 public:
-    virtual ~NObject() = default;
+    virtual ~NcObject() = default;
+
+    NcObject()                             = default;
+    NcObject( const NcObject& )            = default;
+    NcObject& operator=( const NcObject& ) = default;
 
     virtual const std::string_view get_class_name() const = 0;
     virtual rfl::TypeId get_type_id() const               = 0;
@@ -29,7 +33,7 @@ public:
     }
 };
 
-} // namespace ncore
+} // namespace nc
 
 #define NCLASS( class_name, parent_class )                                                                             \
 public:                                                                                                                \
@@ -37,23 +41,23 @@ public:                                                                         
     {                                                                                                                  \
         return #class_name;                                                                                            \
     }                                                                                                                  \
-    ::ncore::rfl::TypeId get_type_id() const override                                                                  \
+    ::nc::rfl::TypeId get_type_id() const override                                                                     \
     {                                                                                                                  \
-        return ::ncore::rfl::Registry::get_type_id<class_name>();                                                      \
+        return ::nc::rfl::Registry::get_type_id<class_name>();                                                         \
     }                                                                                                                  \
-    const ::ncore::rfl::RecordInfo& get_class_info() const override                                                    \
+    const ::nc::rfl::RecordInfo& get_class_info() const override                                                       \
     {                                                                                                                  \
-        return static_cast<const ::ncore::rfl::RecordInfo&>( ::ncore::rfl::Registry::get<class_name>() );              \
+        return static_cast<const ::nc::rfl::RecordInfo&>( ::nc::rfl::Registry::get<class_name>() );                    \
     }                                                                                                                  \
                                                                                                                        \
 private:                                                                                                               \
-    static auto _nc_object_init_##class_name() -> ::ncore::rfl::RecordInfo&                                            \
+    inline static auto nc_object_init_##class_name() -> ::nc::rfl::RecordInfo&                                         \
     {                                                                                                                  \
-        static ::ncore::rfl::RecordInfo& ci = []() -> ::ncore::rfl::RecordInfo& {                                      \
-            auto& c     = ::ncore::rfl::Registry::emplace<::ncore::rfl::RecordInfo, class_name>( #class_name );        \
-            c.parent_id = ::ncore::rfl::Registry::get_type_id<parent_class>();                                         \
+        ::nc::rfl::RecordInfo& ci_##class_name = []() -> ::nc::rfl::RecordInfo& {                                      \
+            auto& c     = ::nc::rfl::Registry::emplace<::nc::rfl::RecordInfo, class_name>( #class_name );              \
+            c.parent_id = ::nc::rfl::Registry::get_type_id<parent_class>();                                            \
             return c;                                                                                                  \
         }();                                                                                                           \
-        return ci;                                                                                                     \
+        return ci_##class_name;                                                                                        \
     }                                                                                                                  \
-    inline static const int _nc_trig_nclass_##class_name = ( _nc_object_init_##class_name(), 0 );
+    inline static const int nc_trig_nclass_##class_name = ( nc_object_init_##class_name(), 0 );

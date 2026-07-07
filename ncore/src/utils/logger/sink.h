@@ -6,7 +6,7 @@
 
 #include "log_level.h"
 
-namespace ncore::log {
+namespace nc::log {
 
 class Sink {
 public:
@@ -56,4 +56,4 @@ private:
     size_t m_bytes_written = 0;
 };
 
-} // namespace ncore::log
+} // namespace nc::log

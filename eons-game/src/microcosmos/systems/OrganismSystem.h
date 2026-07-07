@@ -1,12 +1,12 @@
 #pragma once
 
-#include <ncore/modules/ecs/ecs_system.h>
+#include <ncore/runtime/ecs_system.h>
 
-// class OrganismSystem : public ncore::EcsSystem {
-//     NCLASS(OrganismSystem, ncore::EcsSystem)
+// class OrganismSystem : public nc::EcsSystem {
+//     NCLASS(OrganismSystem, nc::EcsSystem)
 //
 // public:
 //     OrganismSystem() { set_priority(55); }
 //
-//     void on_fixed_update(ncore::EcsWorld &world, double fixedDelta) override;
+//     void on_fixed_update(nc::EcsWorld &world, double fixedDelta) override;
 // };

@@ -5,18 +5,14 @@
 #include <box2d/types.h>
 
 #include <ncore/kernel/structures.h>
-#include <ncore/modules/physics/physics_service.h>
+#include <ncore/modules/physics/physics_module.h>
 
-namespace ncore {
+namespace nc {
 
-class AssetManager;
-
-class Box2DPhysicsImpl : public IPhysicsService {
-    NCLASS( Box2DPhysicsImpl, IPhysicsService )
+class Box2DPhysicsImpl : public IPhysicsModule {
+    NCLASS( Box2DPhysicsImpl, IPhysicsModule )
 
 public:
-    Box2DPhysicsImpl() = default;
-
     Error init() override;
     void step() const override;
     void finalize() override;
@@ -37,15 +33,15 @@ public:
     void apply_linear_force( RID body, const Vec2& force ) override;
 
     void update_debug_draw() override;
-    DebugDrawFnc& get_debug_draw_fnc() override;
+    PhysicsDebugDraw& get_debug_draw() override;
 
 private:
-    b2WorldId world_id{ 0 };
+    b2WorldId world_id{};
     std::unordered_map<RID, b2BodyId> body_map;
-    b2DebugDraw b2_debug_draw{ 0 };
-    DebugDrawFnc debug_draw_fnc;
+    b2DebugDraw b2_debug_draw{};
+    PhysicsDebugDraw debug_draw;
 
     void sync_debug_draw_flags();
 };
 
-} // namespace ncore
+} // namespace nc

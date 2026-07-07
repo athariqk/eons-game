@@ -3,39 +3,34 @@
 #include <functional>
 #include <memory>
 
-#include <ncore/modules/service.h>
+#include <ncore/modules/module.h>
 
 #include "events.h"
 
-namespace ncore {
+namespace nc {
 
 /**
- * @brief Type-safe event bus for publishing and subscribing to get_events
- *
- * The EventBus allows systems to subscribe to specific event types
- * and receive callbacks when those get_events are published.
+ * @brief EventBus is an implementation of the event bus pattern
+ * for publishing and subscribing to Events.
  *
  * Usage:
  *   // Subscribe
- *   event_bus.subscribe<CollisionEvent>([](CollisionEvent &e) {
+ *   events.subscribe<CollisionEvent>([](CollisionEvent &e) {
  *       // Handle collision
  *   });
  *
  *   // Publish
- *   event_bus.publish(CollisionEvent(entityA, entityB));
+ *   events.publish(CollisionEvent(entityA, entityB));
  */
-class NCORE_API EventBus : public IService {
-    NCLASS( EventBus, IService )
+class NCORE_API EventBus : public IModule {
+    NCLASS( EventBus, IModule )
 
 public:
-    EventBus()                             = default;
+    EventBus()                               = default;
     EventBus( const EventBus& )            = delete;
     EventBus& operator=( const EventBus& ) = delete;
 
-    Error init() override
-    {
-        return Error::OK;
-    }
+    Error init() override;
     void finalize() override;
 
     /**
@@ -59,7 +54,7 @@ public:
 
     /**
      * @brief Unsubscribe from an event
-     * @param subscriptionId ID returned from subscribe()
+     * @param p_subscription_id ID returned from subscribe()
      */
     void unsubscribe( size_t p_subscription_id );
 
@@ -93,8 +88,10 @@ public:
     template<std::derived_from<Event> T>
     void enqueue( std::unique_ptr<T> event )
     {
-        event_queue.emplace_back( std::move( event ) );
+        event_queue.push_back( std::move( event ) );
     }
+
+    void clear();
 
     /**
      * @brief Process all queued get_events
@@ -113,10 +110,9 @@ private:
     using SubscriberList = std::vector<std::pair<size_t, CallbackType>>;
     std::unordered_map<rfl::TypeId, SubscriberList> subscribers;
 
-    // We own the queued get_events
     std::vector<std::unique_ptr<Event>> event_queue;
 
     size_t next_subscription_id = 0;
 };
 
-} // namespace ncore
+} // namespace nc

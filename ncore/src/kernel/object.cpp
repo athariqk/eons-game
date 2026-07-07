@@ -1,8 +1,8 @@
 #include <ncore/kernel/object.h>
 
-namespace ncore {
+namespace nc {
 
-bool NObject::is_a( rfl::TypeId target ) const
+bool NcObject::is_a( rfl::TypeId target ) const
 {
     for (auto info = rfl::Registry::find_record( get_type_id() ); info;
          info      = rfl::Registry::find_record( info->parent_id )) {
@@ -14,4 +14,4 @@ bool NObject::is_a( rfl::TypeId target ) const
     return false;
 }
 
-} // namespace ncore
+} // namespace nc

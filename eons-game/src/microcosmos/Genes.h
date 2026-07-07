@@ -10,15 +10,15 @@ struct Genes {
 public:
     Genes()
     {
-        energy_capacity = ncore::Random::rand_int( 50, 100 );
-        speed = ncore::Random::rand_float( 3.0f, 10.0f ); // Speed in Meters per second (e.g., 3.0m/s to 10.0m/s)
-        size  = ncore::Random::rand_float( 0.3f, 1.0f );  // Size in Meters (e.g., 0.3m to 1.0m diameter)
-        membrane_color = ncore::Color(
-            static_cast<uint8_t>( ncore::Random::rand_int( 1, 255 ) ),
-            static_cast<uint8_t>( ncore::Random::rand_int( 1, 255 ) ),
-            static_cast<uint8_t>( ncore::Random::rand_int( 1, 255 ) ), 150
+        energy_capacity = nc::Random::rand_int( 50, 100 );
+        speed           = nc::Random::rand_float( 3.0f, 10.0f ); // Speed in Meters per second (e.g., 3.0m/s to 10.0m/s)
+        size            = nc::Random::rand_float( 0.3f, 1.0f );  // Size in Meters (e.g., 0.3m to 1.0m diameter)
+        membrane_color  = nc::Color(
+            static_cast<uint8_t>( nc::Random::rand_int( 1, 255 ) ),
+            static_cast<uint8_t>( nc::Random::rand_int( 1, 255 ) ),
+            static_cast<uint8_t>( nc::Random::rand_int( 1, 255 ) ), 150
         );
-        aggresiveness = ncore::Random::rand_int( 1, 20 );
+        aggresiveness = nc::Random::rand_int( 1, 20 );
     }
 
     // Traits (Parameters) of the organisms
@@ -26,21 +26,21 @@ public:
     float speed;
     float size;
     float aggresiveness;
-    ncore::Color membrane_color;
+    nc::Color membrane_color;
 
     NSTRUCT(
         Genes, NC_F( Genes, energy_capacity ) NC_F( Genes, speed ) NC_F( Genes, size ) NC_F( Genes, aggresiveness )
                    NC_F( Genes, membrane_color )
-    );
+    )
 
     bool mutate( const uint32_t p_mut_prob, const float mut_rate )
     {
         //! \todo Fix mutation probability calculations
-        if (static_cast<uint32_t>( ncore::Random::rand_int( 0, p_mut_prob * 2 ) ) < p_mut_prob) {
-            energy_capacity += ncore::Random::rand_int( -mut_rate, mut_rate );
-            speed += ncore::Random::rand_int( -mut_rate, mut_rate );
-            size += ncore::Random::rand_int( -mut_rate, mut_rate );
-            aggresiveness += ncore::Random::rand_int( -mut_rate, mut_rate );
+        if (static_cast<uint32_t>( nc::Random::rand_int( 0, p_mut_prob * 2 ) ) < p_mut_prob) {
+            energy_capacity += nc::Random::rand_int( -mut_rate, mut_rate );
+            speed += nc::Random::rand_int( -mut_rate, mut_rate );
+            size += nc::Random::rand_int( -mut_rate, mut_rate );
+            aggresiveness += nc::Random::rand_int( -mut_rate, mut_rate );
             return true;
         }
 

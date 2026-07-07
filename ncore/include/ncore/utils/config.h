@@ -5,7 +5,7 @@
 
 #include <ncore/kernel/types.h>
 
-namespace ncore {
+namespace nc {
 
 /**
  * @brief Represents a simple keyval config file.
@@ -14,14 +14,14 @@ namespace ncore {
 class ConfFile {
 public:
     ConfFile() = default;
-    ConfFile( std::string path )
+    ConfFile( std::string p_path )
     {
-        load( path );
+        load( p_path );
     }
 
-    void operator()( const std::string& path )
+    void operator()( const std::string& p_path )
     {
-        load( path );
+        load( p_path );
     }
     std::string operator[]( const std::string& key ) const
     {
@@ -53,4 +53,4 @@ private:
     std::unordered_map<std::string, std::string> data;
 };
 
-} // namespace ncore
+} // namespace nc

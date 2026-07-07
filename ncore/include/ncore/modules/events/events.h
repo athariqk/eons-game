@@ -4,27 +4,26 @@
 
 #include "event_type.h"
 
-namespace ncore {
+namespace nc {
 
 /**
- * @brief Base class for all get_events
- *
- * Events are lightweight data structures that represent something
- * that happened in the game (input, collision, gameplay event, etc.)
+ * @brief Base class for all engine/game events that respects
+ * the event bus pattern.
  */
-class NCORE_API Event : public NObject {
-    NCLASS( Event, NObject )
+class NCORE_API Event : public NcObject {
+    NCLASS( Event, NcObject )
 
 public:
-    virtual ~Event() = default;
     virtual EventType get_type() const
     {
         return EventType::UNKNOWN;
     }
-    bool handled = false; // prevents further processing when true
+
+    // prevents further processing when true
+    bool handled = false;
 };
 
-// -------- DERIVED TYPES --------
+// ---------------------------------------------------------------------------
 
 class NCORE_API WindowEvent : public Event {
     NCLASS( WindowEvent, Event )
@@ -98,4 +97,4 @@ public:
     }
 };
 
-} // namespace ncore
+} // namespace nc

@@ -1,6 +1,6 @@
 #pragma once
 
-namespace ncore {
+namespace nc {
 
 enum class EventType : size_t {
     UNKNOWN = 0,
@@ -18,7 +18,7 @@ enum class EventType : size_t {
     // Keyboard
     KEYBOARD,
 
-    // IWindowService
+    // IWindowModule
     WINDOW_RESIZE,
     WINDOW_FOCUS,
     WINDOW_MOUSE_ENTER,
@@ -30,4 +30,4 @@ enum class EventType : size_t {
     COUNT
 };
 
-} // namespace ncore
+} // namespace nc

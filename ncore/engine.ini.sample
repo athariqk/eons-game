@@ -4,6 +4,7 @@ SizeHeight = 720
 Fullscreen = false
 
 [Render]
+VSync = true
 PixelsPerMeter = 32
 
 [Runtime]

@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace ncore {
+namespace nc {
 
 enum class Error : uint8_t {
     OK = 0,
@@ -11,4 +11,4 @@ enum class Error : uint8_t {
 };
 inline constexpr uint8_t MAX_ERRORS = 3;
 
-} // namespace ncore
+} // namespace nc

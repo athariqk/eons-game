@@ -1,6 +1,6 @@
 #include "MicrocosmModule.h"
 
-#include <ncore/modules/ecs/ecs_world.h>
+#include <ncore/runtime/ecs_world.h>
 
 #include <microcosmos/SpeciesRegistry.h>
 #include <microcosmos/systems/FoodSystem.h>
@@ -10,8 +10,9 @@
 #include <microcosmos/systems/SpeciesGuiSystem.h>
 #include <microcosmos/systems/SpeciesSystem.h>
 
-void MicrocosmModule::build( ncore::EcsWorld& world )
+void MicrocosmModule::build( nc::EcsWorld& world )
 {
+    ( void ) world;
     // world.set<SpeciesRegistry>();
     // world.add_system<SpeciesGuiSystem>();
     // world.add_system<InitSystem>();

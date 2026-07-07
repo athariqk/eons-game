@@ -1,8 +1,6 @@
-#pragma once
-
 #include <utils/logger/sink.h>
 
-namespace ncore::log {
+namespace nc::log {
 
 Sink::~Sink() {}
 
@@ -38,8 +36,7 @@ FileSink::FileSink( const std::string& path, size_t max_bytes, size_t max_files 
 
 void FileSink::write( const LogMsg& msg )
 {
-    std::lock_guard lock( m_mutex );
-    auto idx  = static_cast<uint8_t>( msg.level );
+    std::lock_guard<std::mutex> lock( m_mutex );
     auto line = std::format( "[{}] {} - {}: {}\n", msg.channel, current_time(), level_name( msg.level ), msg.payload );
 
     if (!msg.loc.empty())
@@ -54,7 +51,7 @@ void FileSink::write( const LogMsg& msg )
 
 void FileSink::flush()
 {
-    std::lock_guard lock( m_mutex );
+    std::lock_guard<std::mutex> lock( m_mutex );
     m_file.flush();
 }
 
@@ -76,4 +73,4 @@ void FileSink::open()
     m_bytes_written = m_file.tellp();
 }
 
-} // namespace ncore::log
+} // namespace nc::log

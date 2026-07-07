@@ -6,7 +6,63 @@
 #include <utility>
 #include <vector>
 
-namespace ncore {
+#include <ncore.h>
+
+namespace nc {
+
+NCORE_API void* nc_alloc( size_t size );
+NCORE_API void* nc_alloc_align( size_t size, size_t alignment );
+NCORE_API void nc_free( void* ptr );
+NCORE_API void nc_free_align( void* ptr, size_t alignment );
+NCORE_API void* nc_realloc( void* ptr, size_t size );
+
+/**
+ * @brief STL-compatible allocator object for NCORE.
+ */
+template<typename T>
+struct NcAllocator {
+    using value_type = T;
+
+    template<typename U>
+    struct rebind {
+        using other = NcAllocator<U>;
+    };
+
+    using propagate_on_container_copy_assignment = std::true_type;
+    using propagate_on_container_move_assignment = std::true_type;
+    using propagate_on_container_swap            = std::true_type;
+    using is_always_equal                        = std::true_type;
+
+    NcAllocator() = default;
+
+    template<typename U>
+    NcAllocator( const NcAllocator<U>& )
+    {}
+
+    T* allocate( size_t n )
+    {
+        return static_cast<T*>( nc_alloc_align( n * sizeof( T ), alignof( T ) ) );
+    }
+
+    void deallocate( T* p, size_t )
+    {
+        nc_free_align( p, alignof( T ) );
+    }
+};
+
+template<typename T, typename U>
+bool operator==( const NcAllocator<T>&, const NcAllocator<U>& )
+{
+    return true;
+}
+
+template<typename T, typename U>
+bool operator!=( const NcAllocator<T>&, const NcAllocator<U>& )
+{
+    return false;
+}
+
+// ---------------------------------------------------------------------------
 
 /**
  * @brief BumpAllocator defines a single contiguous block of memory on the heap.
@@ -44,7 +100,7 @@ public:
         return &data[index];
     }
 
-    // This does NOT free memory, just resets counter to 0
+    // This does NOT free memory, just resets the counter to 0
     void reset()
     {
         size = 0;
@@ -68,7 +124,8 @@ private:
 /**
  * @brief PagedAllocator defines a growable collection of elements on the heap,
  * allocated in pages (chunks) of fixed size. You may only ever allocate linearly
- * to the arena. Calling dealloc() frees all previously allocated pages.
+ * to the arena. Pointers are guaranteed to be stable.
+ * Calling dealloc() frees all previously allocated pages.
  *
  * This is intended to be used on top of managers that handle object lifetimes.
  * Otherwise, you are responsible for calling the constructors and destructors
@@ -79,7 +136,8 @@ class PagedAllocator {
 public:
     static constexpr uint32_t DEFAULT_PAGE_SIZE = 4096; // 4KB
 
-    PagedAllocator( size_t p_page_capacity = DEFAULT_PAGE_SIZE ) : page_capacity( std::bit_ceil( p_page_capacity ) )
+    PagedAllocator( size_t p_page_capacity = DEFAULT_PAGE_SIZE ) :
+        page_capacity( static_cast<uint32_t>( std::bit_ceil( p_page_capacity ) ) )
     {
         // these are for power of 2 division and modulo optimizations
         // used during new allocations to find the right page index
@@ -102,8 +160,19 @@ public:
      */
     T* alloc()
     {
-        uint32_t page_idx = size >> page_shift;
-        uint32_t slot_idx = size & page_mask;
+        uint32_t idx = alloc_idx();
+        return &pages[idx >> page_shift][idx & page_mask];
+    }
+
+    /**
+     * @brief Allocates a new memory of the given T size in the arena.
+     *
+     * @return The index to it.
+     */
+    uint32_t alloc_idx()
+    {
+        uint32_t idx      = size;
+        uint32_t page_idx = idx >> page_shift;
 
         if (page_idx >= get_page_count()) {
             auto chunk =
@@ -111,10 +180,8 @@ public:
             pages.push_back( chunk );
         }
 
-        T* ptr = &pages[page_idx][slot_idx];
-        ++size;
-
-        return ptr;
+        size++;
+        return idx;
     }
 
     /**
@@ -132,8 +199,23 @@ public:
         pages.clear();
     }
 
+    T* get( uint32_t i )
+    {
+        if (i >= size)
+            return nullptr;
+        return &pages[i >> page_shift][i & page_mask];
+    }
+
+    const T* get( uint32_t i ) const
+    {
+        if (i >= size)
+            return nullptr;
+        return &pages[i >> page_shift][i & page_mask];
+    }
+
     T& operator[]( uint32_t i )
     {
+        NC_ASSERT( i < size, "Index out of bounds in PagedAllocator" );
         return pages[i >> page_shift][i & page_mask];
     }
 
@@ -151,25 +233,33 @@ public:
         return false;
     }
 
-    // This does NOT free memory, just resets counter to 0
+    /**
+     * @brief This does NOT free memory, just resets the counter to 0!
+     */
     void reset()
     {
         size = 0;
     }
 
-    // Returns the total number of elements allocated in the arena
+    /**
+     * @brief Returns the total number of elements allocated in the arena
+     */
     uint32_t get_size() const
     {
         return size;
     }
 
-    // Returns the number of pages currently allocated
-    uint32_t get_page_count() const
+    /**
+     * @brief Returns the number of pages currently allocated
+     */
+    size_t get_page_count() const
     {
         return pages.size();
     }
 
-    // Returns the size of each page in the arena
+    /**
+     * @brief Returns the size of each page in the arena
+     */
     uint32_t get_page_capacity() const
     {
         return page_capacity;
@@ -254,4 +344,4 @@ private:
     std::vector<size_t> free_indices;
 };
 
-} // namespace ncore
+} // namespace nc

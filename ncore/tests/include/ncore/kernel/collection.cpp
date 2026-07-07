@@ -51,7 +51,7 @@ TEST_CASE( "PagedObjectPool acquire and release basics", "[PagedObjectPool][Acqu
 
     SECTION( "Acquired pointer is non-null and holds constructed value" )
     {
-        ncore::PagedObjectPool<int> pool( 4 );
+        nc::PagedObjectPool<int> pool( 4 );
         int* a = pool.acquire( 42 );
         REQUIRE( a != nullptr );
         REQUIRE( *a == 42 );
@@ -60,7 +60,7 @@ TEST_CASE( "PagedObjectPool acquire and release basics", "[PagedObjectPool][Acqu
 
     SECTION( "active_count tracks live objects exactly" )
     {
-        ncore::PagedObjectPool<int> pool( 4 );
+        nc::PagedObjectPool<int> pool( 4 );
         int* a = pool.acquire( 1 );
         int* b = pool.acquire( 2 );
         int* c = pool.acquire( 3 );
@@ -76,7 +76,7 @@ TEST_CASE( "PagedObjectPool acquire and release basics", "[PagedObjectPool][Acqu
 
     SECTION( "All acquired pointers are distinct" )
     {
-        ncore::PagedObjectPool<int> pool( 4 );
+        nc::PagedObjectPool<int> pool( 4 );
         int* a = pool.acquire( 1 );
         int* b = pool.acquire( 2 );
         int* c = pool.acquire( 3 );
@@ -105,7 +105,7 @@ TEST_CASE( "PagedObjectPool reuses released slots", "[PagedObjectPool][FreeList]
 
     SECTION( "Released slots are reused in LIFO order" )
     {
-        ncore::PagedObjectPool<int> pool( 4 );
+        nc::PagedObjectPool<int> pool( 4 );
         int* a = pool.acquire( 1 );
         int* b = pool.acquire( 2 );
         int* c = pool.acquire( 3 );
@@ -133,7 +133,7 @@ TEST_CASE( "PagedObjectPool reuses released slots", "[PagedObjectPool][FreeList]
 
     SECTION( "Reused slot holds newly constructed value, not old one" )
     {
-        ncore::PagedObjectPool<int> pool( 2 );
+        nc::PagedObjectPool<int> pool( 2 );
         int* a = pool.acquire( 99 );
         pool.release( a );
 
@@ -145,7 +145,7 @@ TEST_CASE( "PagedObjectPool reuses released slots", "[PagedObjectPool][FreeList]
 
     SECTION( "Free list survives multiple acquire/release cycles" )
     {
-        ncore::PagedObjectPool<int> pool( 4 );
+        nc::PagedObjectPool<int> pool( 4 );
         std::vector<int*> ptrs;
 
         // First wave
@@ -176,7 +176,7 @@ TEST_CASE( "PagedObjectPool grows pages on demand", "[PagedObjectPool][Growth]" 
 
     SECTION( "Exceeding page capacity allocates a new page" )
     {
-        ncore::PagedObjectPool<int> pool( 2 );
+        nc::PagedObjectPool<int> pool( 2 );
         int* a = pool.acquire( 1 );
         int* b = pool.acquire( 2 );
         REQUIRE( pool.get_page_count() == 1 );
@@ -194,7 +194,7 @@ TEST_CASE( "PagedObjectPool grows pages on demand", "[PagedObjectPool][Growth]" 
 
     SECTION( "Pointers remain stable after page growth" )
     {
-        ncore::PagedObjectPool<int> pool( 2 );
+        nc::PagedObjectPool<int> pool( 2 );
         int* a = pool.acquire( 1 );
         int* b = pool.acquire( 2 );
 
@@ -214,7 +214,7 @@ TEST_CASE( "PagedObjectPool grows pages on demand", "[PagedObjectPool][Growth]" 
 
     SECTION( "Free list slots are preferred over new page allocation" )
     {
-        ncore::PagedObjectPool<int> pool( 2 );
+        nc::PagedObjectPool<int> pool( 2 );
         int* a = pool.acquire( 1 );
         int* b = pool.acquire( 2 );
         pool.release( a );
@@ -242,7 +242,7 @@ TEST_CASE( "PagedObjectPool manages object lifetimes correctly", "[PagedObjectPo
 
     SECTION( "Constructor is called on acquire" )
     {
-        ncore::PagedObjectPool<Tracked> pool( 4 );
+        nc::PagedObjectPool<Tracked> pool( 4 );
         Tracked* t = pool.acquire( 1 );
         REQUIRE( LiveCount::value() == 1 );
         REQUIRE( t->value == 1 );
@@ -251,7 +251,7 @@ TEST_CASE( "PagedObjectPool manages object lifetimes correctly", "[PagedObjectPo
 
     SECTION( "Destructor is called on release" )
     {
-        ncore::PagedObjectPool<Tracked> pool( 4 );
+        nc::PagedObjectPool<Tracked> pool( 4 );
         Tracked* t = pool.acquire( 1 );
         REQUIRE( LiveCount::value() == 1 );
         pool.release( t );
@@ -260,7 +260,7 @@ TEST_CASE( "PagedObjectPool manages object lifetimes correctly", "[PagedObjectPo
 
     SECTION( "Constructor and destructor fire exactly once per acquire/release" )
     {
-        ncore::PagedObjectPool<Tracked> pool( 4 );
+        nc::PagedObjectPool<Tracked> pool( 4 );
         std::vector<Tracked*> live;
 
         for (int i = 0; i < 8; ++i)
@@ -276,7 +276,7 @@ TEST_CASE( "PagedObjectPool manages object lifetimes correctly", "[PagedObjectPo
 
     SECTION( "Reused slot calls destructor then constructor in correct order" )
     {
-        ncore::PagedObjectPool<Tracked> pool( 2 );
+        nc::PagedObjectPool<Tracked> pool( 2 );
         Tracked* a = pool.acquire( 10 );
         pool.release( a ); // destructor fires: LiveCount = 0
         REQUIRE( LiveCount::value() == 0 );
@@ -298,7 +298,7 @@ TEST_CASE( "PagedObjectPool preserves alignment for over-aligned types", "[Paged
 
     SECTION( "Acquired pointers satisfy alignof requirement" )
     {
-        ncore::PagedObjectPool<SIMDVec> pool( 8 );
+        nc::PagedObjectPool<SIMDVec> pool( 8 );
 
         for (int i = 0; i < 20; ++i) {
             SIMDVec* ptr = pool.acquire( static_cast<float>( i ) );
@@ -313,7 +313,7 @@ TEST_CASE( "PagedObjectPool preserves alignment for over-aligned types", "[Paged
 
     SECTION( "Alignment is preserved for reused free list slots" )
     {
-        ncore::PagedObjectPool<SIMDVec> pool( 4 );
+        nc::PagedObjectPool<SIMDVec> pool( 4 );
         SIMDVec* a = pool.acquire( 1.f );
         pool.release( a );
 
@@ -334,7 +334,7 @@ TEST_CASE( "PagedObjectPool handles invalid release gracefully", "[PagedObjectPo
 
     SECTION( "Releasing a pointer not belonging to the pool is a no-op" )
     {
-        ncore::PagedObjectPool<int> pool( 2 );
+        nc::PagedObjectPool<int> pool( 2 );
         int* a = pool.acquire( 1 );
         REQUIRE( pool.get_active_count() == 1 );
 
@@ -348,7 +348,7 @@ TEST_CASE( "PagedObjectPool handles invalid release gracefully", "[PagedObjectPo
 
     SECTION( "Releasing nullptr is a no-op" )
     {
-        ncore::PagedObjectPool<int> pool( 2 );
+        nc::PagedObjectPool<int> pool( 2 );
         int* a = pool.acquire( 1 );
         pool.release( nullptr );
         REQUIRE( pool.get_active_count() == 1 );
@@ -362,7 +362,7 @@ TEST_CASE( "PagedObjectPool free list remains consistent under stress", "[PagedO
 
     SECTION( "Interleaved acquire and release keeps active count correct" )
     {
-        ncore::PagedObjectPool<int64_t> pool( 4 );
+        nc::PagedObjectPool<int64_t> pool( 4 );
 
         int64_t* a = pool.acquire( 1 );
         int64_t* b = pool.acquire( 2 );
@@ -389,7 +389,7 @@ TEST_CASE( "PagedObjectPool free list remains consistent under stress", "[PagedO
 
     SECTION( "Alternating single acquire/release never grows beyond one page" )
     {
-        ncore::PagedObjectPool<int64_t> pool( 4 );
+        nc::PagedObjectPool<int64_t> pool( 4 );
 
         for (int i = 0; i < 100; ++i) {
             int64_t* p = pool.acquire( i );
@@ -405,7 +405,7 @@ TEST_CASE( "PagedObjectPool free list remains consistent under stress", "[PagedO
 
     SECTION( "Release all then reacquire all reuses exact same pointers" )
     {
-        ncore::PagedObjectPool<int64_t> pool( 4 );
+        nc::PagedObjectPool<int64_t> pool( 4 );
         std::vector<int64_t*> first_wave;
 
         for (int i = 0; i < 4; ++i)
@@ -435,7 +435,7 @@ TEST_CASE( "PagedObjectPool free list remains consistent under stress", "[PagedO
 
     SECTION( "Partial release then grow then release all" )
     {
-        ncore::PagedObjectPool<int64_t> pool( 4 );
+        nc::PagedObjectPool<int64_t> pool( 4 );
 
         int64_t* a = pool.acquire( 1 );
         int64_t* b = pool.acquire( 2 );

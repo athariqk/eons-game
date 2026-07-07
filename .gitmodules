@@ -13,3 +13,9 @@
 [submodule "ncore/external/catch2"]
 	path = ncore/external/catch2
 	url = https://github.com/catchorg/Catch2/
+[submodule "ncore/external/diligent-core"]
+	path = ncore/external/diligent-core
+	url = https://github.com/DiligentGraphics/DiligentCore.git
+[submodule "ncore/external/mimalloc"]
+	path = ncore/external/mimalloc
+	url = https://github.com/microsoft/mimalloc

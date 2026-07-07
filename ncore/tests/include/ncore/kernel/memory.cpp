@@ -14,7 +14,7 @@
 // Convenience: allocate raw slot and placement-new in one call.
 // Mirrors what a real manager (ObjectPool, ECS) would do on top of the arena.
 template<typename T, typename... Args>
-T* arena_new( ncore::PagedAllocator<T>& arena, Args&&... args )
+T* arena_new( nc::PagedAllocator<T>& arena, Args&&... args )
 {
     T* slot = arena.alloc();
     return new ( slot ) T( std::forward<Args>( args )... );
@@ -53,7 +53,7 @@ TEST_CASE( "PagedAllocator guarantees 100% pointer stability", "[PagedAllocator]
         "TOTAL_ENTITIES must be a multiple of PAGE_SIZE for exact page-count assertions."
     );
 
-    ncore::PagedAllocator<Entity> arena( PAGE_SIZE );
+    nc::PagedAllocator<Entity> arena( PAGE_SIZE );
 
     std::vector<Entity*> tracker;
     tracker.reserve( TOTAL_ENTITIES );
@@ -153,7 +153,7 @@ TEST_CASE( "PagedAllocator caller controls object lifecycles", "[PagedAllocator]
 
     SECTION( "Constructor fires only when caller placement-news into the slot" )
     {
-        ncore::PagedAllocator<LifecycleTracker> arena( 10 );
+        nc::PagedAllocator<LifecycleTracker> arena( 10 );
 
         // Raw alloc — no construction yet
         LifecycleTracker* slot = arena.alloc();
@@ -171,7 +171,7 @@ TEST_CASE( "PagedAllocator caller controls object lifecycles", "[PagedAllocator]
     SECTION( "Arena destruction does NOT call destructors — caller must" )
     {
         {
-            ncore::PagedAllocator<LifecycleTracker> arena( 10 );
+            nc::PagedAllocator<LifecycleTracker> arena( 10 );
             std::vector<LifecycleTracker*> live;
 
             for (int i = 0; i < 25; ++i)
@@ -195,7 +195,7 @@ TEST_CASE( "PagedAllocator caller controls object lifecycles", "[PagedAllocator]
         // to call destructors, LiveCount stays non-zero after the arena is gone.
         // In production this would be a resource leak.
         {
-            ncore::PagedAllocator<LifecycleTracker> arena( 10 );
+            nc::PagedAllocator<LifecycleTracker> arena( 10 );
             for (int i = 0; i < 5; ++i)
                 arena_new( arena );
 
@@ -215,7 +215,7 @@ TEST_CASE( "PagedAllocator caller controls object lifecycles", "[PagedAllocator]
 
     SECTION( "Incomplete final page: destructor count is exact" )
     {
-        ncore::PagedAllocator<LifecycleTracker> arena( 10 );
+        nc::PagedAllocator<LifecycleTracker> arena( 10 );
         std::vector<LifecycleTracker*> live;
 
         // 23 objects across 3 pages (10 + 10 + 3)
@@ -249,7 +249,7 @@ TEST_CASE( "PagedAllocator respects hardware memory alignment", "[PagedAllocator
 
     SECTION( "Returned pointers are correctly aligned for SIMD operations" )
     {
-        ncore::PagedAllocator<HeavyMathVector> arena( 8 );
+        nc::PagedAllocator<HeavyMathVector> arena( 8 );
 
         for (int i = 0; i < 20; ++i) {
             HeavyMathVector* ptr = arena.alloc();
@@ -270,7 +270,7 @@ TEST_CASE( "PagedAllocator respects hardware memory alignment", "[PagedAllocator
     SECTION( "Alignment is preserved across page boundaries" )
     {
         // Page size 3 (rounds up to 4 via bit_ceil): crosses pages frequently
-        ncore::PagedAllocator<HeavyMathVector> arena( 3 );
+        nc::PagedAllocator<HeavyMathVector> arena( 3 );
 
         for (int i = 0; i < 12; ++i) {
             HeavyMathVector* ptr = arena.alloc();
@@ -291,7 +291,7 @@ TEST_CASE( "PagedAllocator handles extreme edge cases", "[PagedAllocator][EdgeCa
 
     SECTION( "Page size of 1 allocates a new page per object" )
     {
-        ncore::PagedAllocator<int> arena( 1 );
+        nc::PagedAllocator<int> arena( 1 );
 
         int* a = arena.alloc();
         new ( a ) int( 10 );
@@ -318,7 +318,7 @@ TEST_CASE( "PagedAllocator handles extreme edge cases", "[PagedAllocator][EdgeCa
 
     SECTION( "Single allocation fills and saturates a one-element page" )
     {
-        ncore::PagedAllocator<int> arena( 1 );
+        nc::PagedAllocator<int> arena( 1 );
         int* only = arena.alloc();
         new ( only ) int( 42 );
 
@@ -330,7 +330,7 @@ TEST_CASE( "PagedAllocator handles extreme edge cases", "[PagedAllocator][EdgeCa
 
     SECTION( "reset() clears size but pages remain allocated and reusable" )
     {
-        ncore::PagedAllocator<int> arena( 4 );
+        nc::PagedAllocator<int> arena( 4 );
 
         int* first = arena.alloc();
         new ( first ) int( 99 );
@@ -354,7 +354,7 @@ TEST_CASE( "PagedAllocator handles extreme edge cases", "[PagedAllocator][EdgeCa
 // ---------------------------------------------------------------------------
 
 template<typename T>
-size_t get_total_memory_footprint( ncore::PagedAllocator<T>& arena )
+size_t get_total_memory_footprint( nc::PagedAllocator<T>& arena )
 {
     size_t page_memory   = arena.get_page_count() * arena.get_page_capacity() * sizeof( T );
     size_t vector_memory = arena.get_page_count() * sizeof( T* );
@@ -363,7 +363,7 @@ size_t get_total_memory_footprint( ncore::PagedAllocator<T>& arena )
 }
 
 template<typename T>
-size_t get_wasted_memory( ncore::PagedAllocator<T>& arena )
+size_t get_wasted_memory( nc::PagedAllocator<T>& arena )
 {
     return get_total_memory_footprint( arena ) - arena.get_size() * sizeof( T );
 }
@@ -427,7 +427,7 @@ TEST_CASE( "Memory footprint PagedAllocator vs std vector", "[Memory][Footprint]
         REQUIRE( vec_total_ram >= vec_useful_ram );
         size_t vec_wasted = vec_total_ram - vec_useful_ram;
 
-        ncore::PagedAllocator<Transform> arena( 1024 );
+        nc::PagedAllocator<Transform> arena( 1024 );
         for (size_t i = 0; i < ALLOC_COUNT; ++i)
             arena.alloc();
 
@@ -443,7 +443,7 @@ TEST_CASE( "Memory footprint PagedAllocator vs std vector", "[Memory][Footprint]
     SECTION( "PagedAllocator footprint scales linearly with page count" )
     {
         constexpr size_t PAGE_CAP = 128;
-        ncore::PagedAllocator<Transform> arena( PAGE_CAP );
+        nc::PagedAllocator<Transform> arena( PAGE_CAP );
 
         for (size_t i = 0; i < PAGE_CAP * 4; ++i)
             arena.alloc();
@@ -483,7 +483,7 @@ TEST_CASE( "Benchmark PagedAllocator vs std vector", "[PagedAllocator][Benchmark
 
     BENCHMARK( "PagedAllocator (page size 4096)" )
     {
-        ncore::PagedAllocator<Transform> arena( 4096 );
+        nc::PagedAllocator<Transform> arena( 4096 );
         for (size_t i = 0; i < ALLOC_COUNT; ++i)
             arena.alloc();
         return arena.get_size();

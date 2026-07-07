@@ -9,7 +9,7 @@ struct FoodComponent {
 
     float cur_energy;
     bool caught = false;
-    ncore::Vec2 eater_pos;
+    nc::Vec2 eater_pos;
 
     NSTRUCT(
         FoodComponent, NC_F( FoodComponent, cur_energy ) NC_F( FoodComponent, caught ) NC_F( FoodComponent, eater_pos )

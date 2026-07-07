@@ -1,3 +1,8 @@
+// Copyright (C) 2026 Ahmad Ghalib Athariq <alib.athariq@gmail.com>
+// This file is subject to the license terms in the LICENSE file
+// found in the top-level directory of this distribution.
+// File: umbrella file for NCORE's reflection system
+
 #pragma once
 
 #include <cstddef>
@@ -15,11 +20,11 @@
 // Inspired by Arvid Gerstmann's metareflect
 // https://github.com/Leandros/metareflect
 
-namespace ncore::rfl {
+namespace nc::rfl {
 
 //------------------------------------------------------------------------------
 
-struct TypeId {
+struct NCORE_API TypeId {
     size_t value;
 
     bool operator==( TypeId o ) const
@@ -75,7 +80,7 @@ constexpr TypeId type_id() noexcept
 
 //------------------------------------------------------------------------------
 
-enum class PropertyFlags : uint16_t {
+enum class NCORE_API PropertyFlags : uint16_t {
     None         = 0,
     Serializable = 1 << 0,
     Editable     = 1 << 1,
@@ -123,7 +128,7 @@ constexpr PropertyFlags clear_flag( PropertyFlags f, PropertyFlags bit ) noexcep
 
 //------------------------------------------------------------------------------
 
-enum class FieldCategory : uint8_t {
+enum class NCORE_API FieldCategory : uint8_t {
     Scalar,
     String,
     Container,
@@ -134,7 +139,7 @@ enum class FieldCategory : uint8_t {
 
 //------------------------------------------------------------------------------
 
-struct Qualifier {
+struct NCORE_API Qualifier {
     unsigned array_length : 30;
     unsigned is_pointer   : 1;
     unsigned is_array     : 1;
@@ -165,7 +170,7 @@ struct NCORE_API TypeInfo {
 
 //------------------------------------------------------------------------------
 
-struct ContainerOps {
+struct NCORE_API ContainerOps {
     size_t ( *size )( const void* );
     void* ( *at )( void*, size_t );
     void ( *insert_default )( void* );
@@ -176,9 +181,9 @@ struct ContainerOps {
 
 //------------------------------------------------------------------------------
 
-struct FieldInfo {
+struct NCORE_API FieldInfo {
     std::string_view name;
-    TypeInfo* type;
+    TypeId type_id;
     size_t width;
     size_t offset;
     PropertyFlags flags;
@@ -187,6 +192,8 @@ struct FieldInfo {
 
     static constexpr unsigned FLAGS_SERIALIZED = 0x1;
     static constexpr unsigned FLAGS_CSTRING    = 0x2;
+
+    const TypeInfo* get_type() const;
 
     template<typename T>
     T get_as( void* instance ) const noexcept
@@ -234,7 +241,7 @@ struct FieldInfo {
 
 //------------------------------------------------------------------------------
 
-struct EnumElement {
+struct NCORE_API EnumElement {
     std::string_view name;
     int64_t value;
 };
@@ -314,17 +321,17 @@ struct NCORE_API RecordInfo : public TypeInfo {
     }
 
     virtual void visit(
-        void const* instance, RecordVisitor* visitor, PropertyFlags filter = static_cast<PropertyFlags>( 0xFFFF ),
+        const void* instance, RecordVisitor* visitor, PropertyFlags filter = static_cast<PropertyFlags>( 0xFFFF ),
         unsigned depth = 0
     ) const noexcept;
 
     virtual void visit_field(
-        void const* ptr, const FieldInfo* field, RecordVisitor* visitor, PropertyFlags filter, int depth,
+        const void* ptr, const FieldInfo* field, RecordVisitor* visitor, PropertyFlags filter, int depth,
         int array_elem = -1
     ) const noexcept;
 
     virtual void visit_array(
-        void const* ptr, const FieldInfo* field, RecordVisitor* visitor, PropertyFlags filter, unsigned depth
+        const void* ptr, const FieldInfo* field, RecordVisitor* visitor, PropertyFlags filter, unsigned depth
     ) const noexcept;
 };
 
@@ -350,7 +357,7 @@ public:
         static const bool registered = [] {
             info._next     = type_list_head;
             type_list_head = &info;
-            // NC_LOG_TRACE("registered type '{}' with ID '{}'", info.name, info.id.value);
+            NC_LOG_DEBUG( "registered type '{}' with ID '{}'", info.name, info.id.value );
             return true;
         }();
         ( void ) registered;
@@ -376,7 +383,7 @@ public:
         for (auto* c = type_list_head; c; c = c->_next)
             if (c->id == id)
                 return c;
-        NC_LOG_WARN( "type with ID '{}' not in the registry, probably not reflected?", id.value );
+        NC_LOG_WARN( "Registry: type ID '{}' not found, has it been reflected?", id.value );
         return nullptr;
     }
 
@@ -385,7 +392,7 @@ public:
         for (auto* c = type_list_head; c; c = c->_next)
             if (name == c->name)
                 return c;
-        NC_LOG_WARN( "type with name '{}' not in the registry, probably not reflected?", name );
+        NC_LOG_WARN( "Registry: type name '{}' not found, has it been reflected?", name );
         return nullptr;
     }
 
@@ -395,7 +402,7 @@ public:
         if (!t)
             return nullptr;
         if (!t->is_record()) {
-            NC_LOG_WARN( "type '{}' is registered but is not a record", t->name );
+            NC_LOG_WARN( "Regsitry: type '{}' is found but is not a record type", t->name );
             return nullptr;
         }
         return static_cast<const RecordInfo*>( t );
@@ -442,7 +449,7 @@ public:
     template<typename T>
     static const TypeInfo& get() noexcept
     {
-        NC_ASSERT( is_registered<T>(), "type is not found in the registry" );
+        NC_ASSERT( is_registered<T>(), "Type is not found in the registry" );
         return get( detail::type_id<T>() );
     }
 
@@ -463,15 +470,15 @@ public:
     static const RecordInfo& get_record() noexcept
     {
         const RecordInfo* c = find_record<T>();
-        NC_ASSERT( c, "record type is not found in the registry" );
+        NC_ASSERT( c, "Record type is not found in the registry" );
         return *c;
     }
 
-private:
-    static bool register_primitive_types();
-    inline static bool _registered = register_primitive_types();
+    static void register_primitive_types();
 
-    inline static TypeInfo* type_list_head = nullptr;
+private:
+    static TypeInfo* type_list_head;
+    static bool primitive_types_registered;
 };
 
 namespace detail {
@@ -515,7 +522,7 @@ struct NCORE_API RecordVisitor {
 //------------------------------------------------------------------------------
 
 template<typename VecT>
-struct VectorClass : public RecordInfo {
+struct NCORE_API VectorClass : public RecordInfo {
     VectorClass( const char* n, TypeId i, size_t sz, size_t align ) : RecordInfo( n, i, sz, align ) {}
 
     void
@@ -544,7 +551,7 @@ struct VectorClass : public RecordInfo {
 
 //------------------------------------------------------------------------------
 
-struct StringClass : public RecordInfo {
+struct NCORE_API StringClass : public RecordInfo {
     StringClass( const char* n, TypeId i, size_t sz, size_t align ) : RecordInfo( n, i, sz, align ) {}
 
     void
@@ -561,14 +568,14 @@ struct StringClass : public RecordInfo {
     }
 };
 
-} // namespace ncore::rfl
+} // namespace nc::rfl
 
 //------------------------------------------------------------------------------
 
 namespace std {
 template<>
-struct hash<ncore::rfl::TypeId> {
-    size_t operator()( ncore::rfl::TypeId id ) const noexcept
+struct hash<nc::rfl::TypeId> {
+    size_t operator()( nc::rfl::TypeId id ) const noexcept
     {
         return id.value;
     }
@@ -580,67 +587,65 @@ struct hash<ncore::rfl::TypeId> {
 // TODO: may be better to use attributes after all
 
 #define NC_FIELD_IMPL( T, m, flg, q )                                                                                  \
-    ::ncore::rfl::FieldInfo{                                                                                           \
+    ::nc::rfl::FieldInfo{                                                                                              \
         #m,                                                                                                            \
-        const_cast<::ncore::rfl::TypeInfo*>( ::ncore::rfl::Registry::find<decltype( ( ( T* ) 0 )->m )>() ),            \
+        ::nc::rfl::detail::type_id<decltype( ( ( T* ) 0 )->m )>(),                                                     \
         sizeof( ( ( T* ) 0 )->m ),                                                                                     \
         offsetof( T, m ),                                                                                              \
         flg,                                                                                                           \
-        ::ncore::rfl::detail::category_of<decltype( ( ( T* ) 0 )->m )>(),                                              \
+        ::nc::rfl::detail::category_of<decltype( ( ( T* ) 0 )->m )>(),                                                 \
         q,                                                                                                             \
     },
 
 #define NC_F( T, m )                                                                                                   \
     NC_FIELD_IMPL(                                                                                                     \
-        T, m, ( ::ncore::rfl::PropertyFlags::Serializable | ::ncore::rfl::PropertyFlags::Editable ),                   \
-        ::ncore::rfl::Qualifier{}                                                                                      \
+        T, m, ( ::nc::rfl::PropertyFlags::Serializable | ::nc::rfl::PropertyFlags::Editable ), ::nc::rfl::Qualifier{}  \
     )
 
 #define NC_FR( T, m )                                                                                                  \
     NC_FIELD_IMPL(                                                                                                     \
         T, m,                                                                                                          \
-        ( ::ncore::rfl::PropertyFlags::Serializable | ::ncore::rfl::PropertyFlags::Editable |                          \
-          ::ncore::rfl::PropertyFlags::ReadOnly ),                                                                     \
-        ::ncore::rfl::Qualifier{}                                                                                      \
+        ( ::nc::rfl::PropertyFlags::Serializable | ::nc::rfl::PropertyFlags::Editable |                                \
+          ::nc::rfl::PropertyFlags::ReadOnly ),                                                                        \
+        ::nc::rfl::Qualifier{}                                                                                         \
     )
 
-#define NC_FH( T, m ) NC_FIELD_IMPL( T, m, ::ncore::rfl::PropertyFlags::Serializable, ::ncore::rfl::Qualifier{} )
+#define NC_FH( T, m ) NC_FIELD_IMPL( T, m, ::nc::rfl::PropertyFlags::Serializable, ::nc::rfl::Qualifier{} )
 
 //------------------------------------------------------------------------------
 
 #define NSTRUCT( T, ... )                                                                                              \
-    static ::ncore::rfl::RecordInfo& _nc_info_##T()                                                                    \
+    inline static ::nc::rfl::RecordInfo& nc_info_##T()                                                                 \
     {                                                                                                                  \
-        static ::ncore::rfl::FieldInfo _nc_flds_##T[] = { __VA_ARGS__ };                                               \
-        static ::ncore::rfl::RecordInfo& ci           = []() -> ::ncore::rfl::RecordInfo& {                            \
-            auto& c        = ::ncore::rfl::Registry::emplace<::ncore::rfl::RecordInfo, T>( #T );                       \
-            c.fields_begin = _nc_flds_##T;                                                                             \
-            c.fields_end   = _nc_flds_##T + ( sizeof( _nc_flds_##T ) / sizeof( ::ncore::rfl::FieldInfo ) );            \
+        static ::nc::rfl::FieldInfo nc_flds_##T[] = { __VA_ARGS__ };                                                   \
+        static ::nc::rfl::RecordInfo& ci          = []() -> ::nc::rfl::RecordInfo& {                                   \
+            auto& c        = ::nc::rfl::Registry::emplace<::nc::rfl::RecordInfo, T>( #T );                             \
+            c.fields_begin = nc_flds_##T;                                                                              \
+            c.fields_end   = nc_flds_##T + ( sizeof( nc_flds_##T ) / sizeof( ::nc::rfl::FieldInfo ) );                 \
             return c;                                                                                                  \
         }();                                                                                                           \
         return ci;                                                                                                     \
     }                                                                                                                  \
-    inline static const int _nc_trig_##T = ( _nc_info_##T(), 0 );
+    inline static const int nc_trig_##T = ( nc_info_##T(), 0 );
 
 //------------------------------------------------------------------------------
 
 #define NENUM_ELEMENT( EnumT, element )                                                                                \
-    ::ncore::rfl::EnumElement                                                                                          \
+    ::nc::rfl::EnumElement                                                                                             \
     {                                                                                                                  \
         #element, static_cast<int64_t>( EnumT::element )                                                               \
     }
 
 #define NENUM( T, ... )                                                                                                \
-    static ::ncore::rfl::EnumInfo& _nc_enum_info_##T()                                                                 \
+    inline static ::nc::rfl::EnumInfo& nc_enum_info_##T()                                                              \
     {                                                                                                                  \
-        static ::ncore::rfl::EnumElement _nc_enum_elems_##T[] = { __VA_ARGS__ };                                       \
-        static ::ncore::rfl::EnumInfo& ei                     = []() -> ::ncore::rfl::EnumInfo& {                      \
-            auto& e          = ::ncore::rfl::Registry::emplace<::ncore::rfl::EnumInfo, T>( #T );                       \
-            e.elements_begin = _nc_enum_elems_##T;                                                                     \
-            e.elements_end =                                                                                           \
-                _nc_enum_elems_##T + ( sizeof( _nc_enum_elems_##T ) / sizeof( ::ncore::rfl::EnumElement ) );           \
+        static ::nc::rfl::EnumElement nc_enum_elems_##T[] = { __VA_ARGS__ };                                           \
+        static ::nc::rfl::EnumInfo& ei                    = []() -> ::nc::rfl::EnumInfo& {                             \
+            auto& e          = ::nc::rfl::Registry::emplace<::nc::rfl::EnumInfo, T>( #T );                             \
+            e.elements_begin = nc_enum_elems_##T;                                                                      \
+            e.elements_end   = nc_enum_elems_##T + ( sizeof( nc_enum_elems_##T ) / sizeof( ::nc::rfl::EnumElement ) ); \
             return e;                                                                                                  \
         }();                                                                                                           \
         return ei;                                                                                                     \
     }                                                                                                                  \
-    inline static const int _nc_trig_enum_##T = ( _nc_enum_info_##T(), 0 );
+    inline static const int nc_trig_enum_##T = ( nc_enum_info_##T(), 0 );

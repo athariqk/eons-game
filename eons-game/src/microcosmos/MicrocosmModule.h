@@ -1,10 +1,10 @@
 #pragma once
 
-#include <ncore/modules/ecs/ecs_module.h>
+#include <ncore/runtime/ecs_feature.h>
 
-class MicrocosmModule : public ncore::EcsFeature {
-    NCLASS( MicrocosmModule, ncore::EcsFeature )
+class MicrocosmModule : public nc::EcsFeature {
+    NCLASS( MicrocosmModule, nc::EcsFeature )
 
 public:
-    void build( ncore::EcsWorld& world ) override;
+    void build( nc::EcsWorld& world ) override;
 };

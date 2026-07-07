@@ -4,18 +4,17 @@
 
 #include "camera.h"
 
-namespace ncore {
+namespace nc {
 
 //! \brief Defines the screen rectangle where rendering occurs
 class NCORE_API Viewport {
 public:
     Viewport( float ppm );
     Viewport( Vec4 rect );
-    ~Viewport();
 
     // Set/Get viewport rectangle
     void set_rect( Vec4 rect );
-    void set_position( float x, float y );
+    void set_position( float X, float Y );
     void set_size( float width, float height );
 
     Vec4 get_rect() const
@@ -24,7 +23,7 @@ public:
     }
     Vec2 get_position() const
     {
-        return Vec2( view_rect.x, view_rect.y );
+        return Vec2( view_rect.X, view_rect.Y );
     }
     Vec2 get_size() const
     {
@@ -32,7 +31,7 @@ public:
     }
     Vec2 get_center() const
     {
-        return Vec2( view_rect.x + view_rect.w * 0.5f, view_rect.y + view_rect.h * 0.5f );
+        return Vec2( view_rect.X + view_rect.w * 0.5f, view_rect.Y + view_rect.h * 0.5f );
     }
 
     Vec2 world_to_screen( const Vec2& worldPos ) const;
@@ -73,4 +72,4 @@ private:
     Camera camera;
 };
 
-} // namespace ncore
+} // namespace nc

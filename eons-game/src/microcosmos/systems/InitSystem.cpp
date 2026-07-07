@@ -1,13 +1,13 @@
 #include "InitSystem.h"
 
-#include <ncore/modules/ecs/ecs_world.h>
+#include <ncore/runtime/ecs_world.h>
 #include <ncore/utils/log.h>
 
 #include <microcosmos/OrganismFactory.h>
 #include <microcosmos/SpeciesRegistry.h>
 #include <microcosmos/components/SpeciesComponent.h>
 
-// void InitSystem::on_init(ncore::EcsWorld &world) {
+// void InitSystem::on_init(nc::EcsWorld &world) {
 //     if (has_run_)
 //         return;
 //     has_run_ = true;

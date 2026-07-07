@@ -1,3 +1,8 @@
+// Copyright (C) 2026 Ahmad Ghalib Athariq <alib.athariq@gmail.com>
+// This file is subject to the license terms in the LICENSE file
+// found in the top-level directory of this distribution.
+// File: non-templated data structure types
+
 #pragma once
 
 #include <format>
@@ -5,16 +10,16 @@
 
 #include <ncore/kernel/types.h>
 
-namespace ncore {
+namespace nc {
 
 /**
  * @brief A two-dimensional floating-point vector
  */
 struct NCORE_API Vec2 {
-    float x, y;
+    float X, Y;
 
     Vec2();
-    Vec2( float x, float y );
+    Vec2( float X, float Y );
 
     Vec2 add( const Vec2& vec ) const;
     Vec2 subtract( const Vec2& vec ) const;
@@ -60,17 +65,17 @@ struct NCORE_API Vec2 {
 
     std::string to_string() const
     {
-        return std::format( "Vec2D<x={},y={}>", x, y );
+        return std::format( "Vec2D<X={},Y={}>", X, Y );
     }
 
-    NSTRUCT( Vec2, NC_F( Vec2, x ) NC_F( Vec2, y ) );
+    NSTRUCT( Vec2, NC_F( Vec2, X ) NC_F( Vec2, Y ) );
 };
 
-struct Vec4 : Vec2 {
+struct NCORE_API Vec4 : Vec2 {
     float w, h;
 
     Vec4() : Vec2(), w( 0 ), h( 0 ) {}
-    Vec4( float x, float y, float w, float h ) : Vec2( x, y ), w( w ), h( h ) {}
+    Vec4( float X, float Y, float w, float h ) : Vec2( X, Y ), w( w ), h( h ) {}
 
     bool is_zero() const
     {
@@ -80,7 +85,7 @@ struct Vec4 : Vec2 {
     NSTRUCT( Vec4, NC_F( Vec4, w ) NC_F( Vec4, h ) );
 };
 
-struct Color {
+struct NCORE_API Color {
     Color() {}
     Color( uint8_t r, uint8_t g, uint8_t b, uint8_t a ) : r( r ), g( g ), b( b ), a( a ) {}
 
@@ -102,6 +107,13 @@ struct Color {
     NSTRUCT( Color, NC_F( Color, r ) NC_F( Color, g ) NC_F( Color, b ) NC_F( Color, a ) );
 };
 
-using BytesBuffer = std::vector<uint8_t>;
+/**
+ * @brief Vertex format for the 2D rendering pipeline.
+ */
+struct NCORE_API Vertex2D {
+    float X, Y;
+    float u, v;
+    uint32_t color;
+};
 
-} // namespace ncore
+} // namespace nc

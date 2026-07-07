@@ -1,55 +1,39 @@
 # NCORE engine vendored libraries
 
-option(NC_USE_PREBUILT "Skip rebuilding heavy dependencies (SDL/Box2D/Flecs)"
-       OFF)
-set(NC_PREBUILT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/prebuilt/${CMAKE_BUILD_TYPE}")
+# Disable all warnings for every buildsystem target at or below this directory.
+# Called after all vendored subdirectories have been added so their targets
+# exist. `-w`/`/w` is appended LAST to each target's options, overriding the
+# lib's own /W2/-Wall/-Werror (which appear earlier in the command line).
+function(nc_silence_targets dir)
+  get_directory_property(_subs DIRECTORY ${dir} SUBDIRECTORIES)
+  foreach(_s ${_subs})
+    nc_silence_targets(${_s})
+  endforeach()
+  get_directory_property(_targets DIRECTORY ${dir} BUILDSYSTEM_TARGETS)
+  foreach(_t ${_targets})
+    get_target_property(_type ${_t} TYPE)
+    if(_type STREQUAL "INTERFACE_LIBRARY" OR _type STREQUAL "UTILITY")
+      continue()
+    endif()
+    get_target_property(_imported ${_t} IMPORTED)
+    if(_imported)
+      continue()
+    endif()
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+      target_compile_options(${_t} PRIVATE -w)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+      target_compile_options(${_t} PRIVATE /w)
+    endif()
+  endforeach()
+endfunction()
 
-# define IMPORTED targets from prebuilt binaries
-macro(_add_prebuilt_sdl)
-  if(NOT EXISTS "${NC_PREBUILT_DIR}/SDL3.dll")
-    message(
-      FATAL_ERROR "Prebuilt SDL3 not found at ${NC_PREBUILT_DIR}/SDL3.dll")
-  endif()
-  add_library(SDL3::SDL3 SHARED IMPORTED)
-  set_target_properties(
-    SDL3::SDL3
-    PROPERTIES IMPORTED_LOCATION "${NC_PREBUILT_DIR}/SDL3.dll"
-               IMPORTED_IMPLIB "${NC_PREBUILT_DIR}/SDL3.lib"
-               INTERFACE_INCLUDE_DIRECTORIES
-               "${CMAKE_CURRENT_SOURCE_DIR}/sdl/include")
-  add_library(SDL3::Headers INTERFACE IMPORTED)
-  set_target_properties(
-    SDL3::Headers PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                             "${CMAKE_CURRENT_SOURCE_DIR}/sdl/include")
-endmacro()
-
-macro(_add_prebuilt_box2d)
-  if(NOT EXISTS "${NC_PREBUILT_DIR}/box2d${CMAKE_DEBUG_POSTFIX}.lib")
-    message(
-      FATAL_ERROR "Prebuilt Box2D not found at ${NC_PREBUILT_DIR}/box2d.lib")
-  endif()
-  add_library(box2d::box2d STATIC IMPORTED)
-  set_target_properties(
-    box2d::box2d
-    PROPERTIES IMPORTED_LOCATION
-               "${NC_PREBUILT_DIR}/box2d${CMAKE_DEBUG_POSTFIX}.lib"
-               INTERFACE_INCLUDE_DIRECTORIES
-               "${CMAKE_CURRENT_SOURCE_DIR}/box2d/include")
-endmacro()
-
-macro(_add_prebuilt_flecs)
-  if(NOT EXISTS "${NC_PREBUILT_DIR}/flecs.dll")
-    message(
-      FATAL_ERROR "Prebuilt Flecs not found at ${NC_PREBUILT_DIR}/flecs.dll")
-  endif()
-  add_library(flecs::flecs SHARED IMPORTED)
-  set_target_properties(
-    flecs::flecs
-    PROPERTIES IMPORTED_LOCATION "${NC_PREBUILT_DIR}/flecs.dll"
-               IMPORTED_IMPLIB "${NC_PREBUILT_DIR}/flecs.lib"
-               INTERFACE_INCLUDE_DIRECTORIES
-               "${CMAKE_CURRENT_SOURCE_DIR}/flecs/include")
-endmacro()
+# mimalloc dep
+add_subdirectory(mimalloc SYSTEM)
+set(MI_SECURE ON CACHE BOOL "" FORCE)
+set(MI_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(MI_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(MI_BUILD_OBJECT OFF CACHE BOOL "" FORCE)
+set(MI_OVERRIDE OFF CACHE BOOL "" FORCE)
 
 # ImGui
 add_library(
@@ -65,13 +49,13 @@ add_library(
   imgui/imstb_truetype.h
   imgui/misc/cpp/imgui_stdlib.cpp
   $<$<CONFIG:Debug>:imgui/imgui_demo.cpp>)
-target_include_directories(ImGui PUBLIC imgui)
+target_include_directories(ImGui SYSTEM PUBLIC imgui)
 target_compile_features(ImGui PRIVATE cxx_std_17)
 set_target_properties(ImGui PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # inifile-cpp
 add_library(inifile-cpp INTERFACE inifile-cpp/inicpp.h)
-target_include_directories(inifile-cpp INTERFACE inifile-cpp)
+target_include_directories(inifile-cpp SYSTEM INTERFACE inifile-cpp)
 
 # dont build SDL tests and SDL as shared lib
 set(SDL_TEST_LIBRARY
@@ -89,19 +73,52 @@ set(FLECS_SHARED
     OFF
     CACHE BOOL "" FORCE)
 
-if(NC_USE_PREBUILT)
-  message(STATUS "Prebuilt vendor mode, using binaries from ${NC_PREBUILT_DIR}")
-  _add_prebuilt_sdl()
-  _add_prebuilt_box2d()
-  _add_prebuilt_flecs()
-else()
-  add_subdirectory(box2d)
-  add_subdirectory(sdl)
-  add_subdirectory(flecs)
-endif()
+add_subdirectory(box2d SYSTEM)
+add_subdirectory(sdl SYSTEM)
+add_subdirectory(flecs SYSTEM)
 
-target_link_libraries(ncore PRIVATE ImGui box2d::box2d SDL3::SDL3-static
-                                    inifile-cpp flecs::flecs_static)
+add_subdirectory(diligent-core SYSTEM)
+
+# minimal DiligentCore build
+set(DILIGENT_BUILD_TESTS
+    OFF
+    CACHE BOOL "" FORCE)
+set(DILIGENT_NO_FORMAT_VALIDATION
+    ON
+    CACHE BOOL "" FORCE)
+set(DILIGENT_NO_METAL
+    ON
+    CACHE BOOL "" FORCE)
+set(DILIGENT_NO_WEBGPU
+    ON
+    CACHE BOOL "" FORCE)
+set(DILIGENT_NO_DIRECT3D11
+    ON
+    CACHE BOOL "" FORCE)
+set(DILIGENT_NO_DIRECT3D12
+    ON
+    CACHE BOOL "" FORCE)
+set(DILIGENT_NO_OPENGL
+    ON
+    CACHE BOOL "" FORCE)
+
+target_link_libraries(
+  ncore
+  PRIVATE mimalloc-static
+		  ImGui
+          box2d::box2d
+          SDL3::SDL3-static
+          inifile-cpp
+          flecs::flecs_static
+		  Diligent-Common
+          Diligent-GraphicsEngineVk-static
+          Diligent-GraphicsEngineVkInterface
+          Diligent-GraphicsTools
+		  Diligent-GraphicsAccessories)
 
 # tests
-add_subdirectory(catch2 EXCLUDE_FROM_ALL)
+add_subdirectory(catch2 SYSTEM EXCLUDE_FROM_ALL)
+
+# Silence warnings from all vendored targets defined above. Must run after
+# every add_subdirectory so all targets exist.
+nc_silence_targets(${CMAKE_CURRENT_SOURCE_DIR})

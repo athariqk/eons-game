@@ -4,12 +4,12 @@
 
 #include "pch.h"
 
-class EonsApplication : public ncore::Application {
+class EonsApplication : public nc::Application {
 public:
     EonsApplication() :
         Application(
             { "Eons",
-              ncore::AppVersion{
+              nc::AppVersion{
                   .Major      = GAME_VERSION_MAJOR,
                   .Minor      = GAME_VERSION_MINOR,
                   .Patch      = GAME_VERSION_PATCH,
@@ -19,15 +19,17 @@ public:
         )
     {}
 
-    void on_world_init( ncore::IGameWorld& world ) override
+    void on_world_init( nc::IGameWorld& world ) override
     {
-        auto& scene = static_cast<ncore::Scene&>( world );
+        auto& scene = static_cast<nc::Scene&>( world );
         scene.get_root_node()->create_child( "Player" );
     }
 };
 
 int main( int argc, char* argv[] )
 {
+    ( void ) argc;
+    ( void ) argv;
     EonsApplication app;
     app.init();
     app.run();
