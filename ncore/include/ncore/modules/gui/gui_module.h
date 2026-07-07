@@ -7,11 +7,11 @@ namespace nc {
 class Event;
 
 /**
- * @brief IImGuiModule provides base functionality for immediate-mode GUI
- * implementations.
+ * @brief IGuiModule provides base functionality for GUI display/layout
+ * (immediate-mode or retained-mode is an implementation detail).
  */
-class IImGuiModule : public IModule {
-    NCLASS( IImGuiModule, IModule )
+class IGuiModule : public IModule {
+    NCLASS( IGuiModule, IModule )
 
 public:
     struct IMGuiLayer {

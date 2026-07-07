@@ -16,7 +16,7 @@ namespace nc {
 class IGameWorld;
 class EventBus;
 class ConfFile;
-class IImGuiModule;
+class IGuiModule;
 class IWindowModule;
 class GraphicsModule;
 
@@ -106,7 +106,7 @@ protected:
     EventBus* events       = nullptr;
     IWindowModule* windows = nullptr;
     GraphicsModule* gfx    = nullptr;
-    IImGuiModule* imgui    = nullptr;
+    IGuiModule* imgui    = nullptr;
 };
 
 } // namespace nc

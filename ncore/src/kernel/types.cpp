@@ -6,6 +6,7 @@ namespace nc::rfl {
 
 bool Registry::primitive_types_registered = false;
 TypeInfo* Registry::type_list_head        = nullptr;
+int Registry::rtti_hits_                  = 0;
 
 // ======================================================================
 // ClassRegistry

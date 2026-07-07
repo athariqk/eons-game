@@ -29,7 +29,7 @@ public:
     void set_render_size( Vec2 size );
     Vec2 get_surface_size() const;
 
-    RID upload_texture( const Image& image );
+    RID upload_image( const Image& image );
     RID upload_pipeline( const Material& material );
     RID upload_mesh( const Mesh& mesh );
     void destroy_resource( RID rid );

@@ -2,7 +2,7 @@
 
 namespace nc {
 
-void IImGuiModule::update()
+void IGuiModule::update()
 {
     begin_frame();
     for (const auto& layer : layers) {
@@ -11,7 +11,7 @@ void IImGuiModule::update()
     render_frame();
 }
 
-void IImGuiModule::add_layer( const std::string& layer_name, int order, std::function<void()> callback )
+void IGuiModule::add_layer( const std::string& layer_name, int order, std::function<void()> callback )
 {
     layers.push_back( { layer_name, order, callback } );
 

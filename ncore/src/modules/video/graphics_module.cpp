@@ -63,7 +63,7 @@ Vec2 GraphicsModule::get_surface_size() const
     return renderer->get_surface_size();
 }
 
-RID GraphicsModule::upload_texture( const Image& image )
+RID GraphicsModule::upload_image( const Image& image )
 {
     return renderer->create_texture(
         static_cast<uint32_t>( image.get_width() ), static_cast<uint32_t>( image.get_height() ),

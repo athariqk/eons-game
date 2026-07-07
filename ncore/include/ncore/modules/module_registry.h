@@ -26,11 +26,10 @@ public:
      * @brief Resolves the concrete module object of the given type.
      *
      * Type argument can be either the exact type or any types in
-     * IModule's inheritance hierarchy.
+     * IModule's inheritance hierarchy. Resolved modules are cached
+     * to avoid future RTTI hits.
      *
      * TODO: add docs explaining implementation details and caveats
-     *
-     * TODO: cache resolved types?
      *
      * @return The **first** matching instance if multiple modules are
      * found, or nullptr if no matching module is found.
@@ -40,14 +39,23 @@ public:
     {
         rfl::TypeId target = rfl::Registry::get_type_id<T>();
 
-        for (auto& [id, svc] : modules) {
-            if (id == target)
-                return static_cast<T*>( svc.get() );
+        auto it = cache_by_id.find( target );
+        if (it != cache_by_id.end()) {
+            return static_cast<T*>( it->second );
         }
 
-        for (auto& [id, svc] : modules) {
-            if (svc->is_a( target ))
-                return static_cast<T*>( svc.get() );
+        for (auto& [id, m] : modules) {
+            if (id == target) {
+                cache_by_id[target] = m.get();
+                return static_cast<T*>( m.get() );
+            }
+        }
+
+        for (auto& [id, m] : modules) {
+            if (m->is_a( target )) {
+                cache_by_id[target] = m.get();
+                return static_cast<T*>( m.get() );
+            }
         }
 
         auto class_name = rfl::Registry::get<T>().name;
@@ -57,13 +65,20 @@ public:
     /**
      * @brief Registers a module instance of the given type with
      * the provided constructor arguments.
+     *
+     * NOTE: modules are ordered by insertion. This is an important
+     * property for cross-module dependency and in-order initialization
+     * if using init_all().
      */
     template<std::derived_from<IModule> T, typename... Args>
     T* provide( Args&&... args )
     {
+        cache_by_id.clear();
+        cache_by_name.clear();
+
         rfl::TypeId id = rfl::Registry::get_type_id<T>();
 
-        for (auto& [existing_id, svc] : modules)
+        for (auto& [existing_id, m] : modules)
             NC_ASSERT( existing_id != id, "Module already registered" );
 
         auto instance = std::make_unique<T>( std::forward<Args>( args )... );
@@ -74,17 +89,26 @@ public:
 
     IModule* resolve_by_name( std::string_view name )
     {
-        for (auto& [id, svc] : modules)
-            if (svc->get_class_name() == name)
-                return svc.get();
+        auto it = cache_by_name.find( name );
+        if (it != cache_by_name.end()) {
+            return it->second;
+        }
+
+        for (auto& [id, m] : modules) {
+            if (m->get_class_name() == name) {
+                cache_by_name[name] = m.get();
+                return m.get();
+            }
+        }
+
         NC_ASSERT_RETVAL( false, nullptr, std::format( "Module '{}' could not be resolved", name ).c_str() );
     }
 
     Error init_all()
     {
-        for (auto& [_, module] : modules) {
-            NC_LOG_DEBUG( "Initializing module: {}", module->get_class_name() );
-            if (module->init() != Error::OK)
+        for (auto& [_, m] : modules) {
+            NC_LOG_DEBUG( "Initializing module: {}", m->get_class_name() );
+            if (m->init() != Error::OK)
                 return Error::FAIL;
         }
         return Error::OK;
@@ -95,9 +119,9 @@ public:
      */
     void cleanup_all()
     {
-        for (auto& [_, module] : modules) {
-            NC_LOG_DEBUG( "Finalizing module: {}", module->get_class_name() );
-            module->finalize();
+        for (auto& [_, m] : modules) {
+            NC_LOG_DEBUG( "Finalizing module: {}", m->get_class_name() );
+            m->finalize();
         }
     }
 
@@ -107,6 +131,8 @@ public:
     void clear()
     {
         modules.clear();
+        cache_by_id.clear();
+        cache_by_name.clear();
     }
 
     auto view()
@@ -117,6 +143,8 @@ public:
 private:
     using ModuleEntry = std::pair<rfl::TypeId, std::unique_ptr<IModule>>;
     Vector<ModuleEntry> modules;
+    std::unordered_map<rfl::TypeId, IModule*> cache_by_id;
+    std::unordered_map<std::string_view, IModule*> cache_by_name;
 };
 
 } // namespace nc

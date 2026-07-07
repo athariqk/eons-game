@@ -380,18 +380,24 @@ public:
 
     static const TypeInfo* find( TypeId id ) noexcept
     {
-        for (auto* c = type_list_head; c; c = c->_next)
+        for (auto* c = type_list_head; c; c = c->_next) {
+            rtti_hits_++;
             if (c->id == id)
                 return c;
+        }
+
         NC_LOG_WARN( "Registry: type ID '{}' not found, has it been reflected?", id.value );
         return nullptr;
     }
 
     static const TypeInfo* find( std::string_view name ) noexcept
     {
-        for (auto* c = type_list_head; c; c = c->_next)
+        for (auto* c = type_list_head; c; c = c->_next) {
+            rtti_hits_++;
             if (name == c->name)
                 return c;
+        }
+
         NC_LOG_WARN( "Registry: type name '{}' not found, has it been reflected?", name );
         return nullptr;
     }
@@ -453,6 +459,9 @@ public:
         return get( detail::type_id<T>() );
     }
 
+    /**
+     * @return The hashed id of the type.
+     */
     template<typename T>
     static const TypeId get_type_id() noexcept
     {
@@ -476,9 +485,15 @@ public:
 
     static void register_primitive_types();
 
+    static int get_rtti_hits()
+    {
+        return rtti_hits_;
+    }
+
 private:
     static TypeInfo* type_list_head;
     static bool primitive_types_registered;
+    static int rtti_hits_;
 };
 
 namespace detail {

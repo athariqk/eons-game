@@ -14,7 +14,7 @@ void EcsGraphicsFeature::build( EcsWorld& world )
         .in( EcsSystemPhase::PreUpdate )
         .iter( []( EcsIter& iter ) {
             iter.world().get_modules().resolve<GraphicsModule>()->begin_frame();
-            iter.world().get_modules().resolve<IImGuiModule>()->begin_frame();
+            iter.world().get_modules().resolve<IGuiModule>()->begin_frame();
         } );
 
     world.create_system( "EcsGraphicsFeature::Render::Debug" ).in( EcsSystemPhase::Update ).iter( []( EcsIter& iter ) {
@@ -27,7 +27,7 @@ void EcsGraphicsFeature::build( EcsWorld& world )
     world.create_system( "EcsGraphicsFeature::Render::Present" )
         .in( EcsSystemPhase::PostUpdate )
         .iter( []( EcsIter& iter ) {
-            iter.world().get_modules().resolve<IImGuiModule>()->render_frame();
+            iter.world().get_modules().resolve<IGuiModule>()->render_frame();
             iter.world().get_modules().resolve<GraphicsModule>()->end_frame();
         } );
 }

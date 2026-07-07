@@ -102,7 +102,7 @@ void DearImGuiImpl::render_frame()
         switch (tex->Status) {
             case ImTextureStatus_WantCreate: {
                 Image image( tex->Width, tex->Height, tex->GetPixels() );
-                RID rid = gfx->upload_texture( image );
+                RID rid = gfx->upload_image( image );
                 tex->SetTexID( reinterpret_cast<ImTextureID>( static_cast<uintptr_t>( rid.value ) ) );
                 tex->BackendUserData = reinterpret_cast<void*>( static_cast<uintptr_t>( rid.value ) );
                 tex->SetStatus( ImTextureStatus_OK );
@@ -128,7 +128,7 @@ void DearImGuiImpl::render_frame()
                 RID old_rid( reinterpret_cast<uintptr_t>( tex->BackendUserData ) );
                 gfx->destroy_resource( old_rid );
                 Image image( tex->Width, tex->Height, tex->GetPixels() );
-                RID new_rid = gfx->upload_texture( image );
+                RID new_rid = gfx->upload_image( image );
                 tex->SetTexID( reinterpret_cast<ImTextureID>( static_cast<uintptr_t>( new_rid.value ) ) );
                 tex->BackendUserData = reinterpret_cast<void*>( static_cast<uintptr_t>( new_rid.value ) );
                 tex->SetStatus( ImTextureStatus_OK );

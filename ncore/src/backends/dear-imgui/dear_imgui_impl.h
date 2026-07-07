@@ -10,7 +10,7 @@ namespace nc {
 class GraphicsModule;
 class IWindowModule;
 
-class DearImGuiImpl : public IImGuiModule {
+class DearImGuiImpl : public IGuiModule {
 public:
     DearImGuiImpl( GraphicsModule* gfx, IWindowModule* windows );
     ~DearImGuiImpl() override;
