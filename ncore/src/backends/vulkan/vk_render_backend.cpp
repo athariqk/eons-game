@@ -307,7 +307,7 @@ void VkRenderBackend::batch_2d_flush()
     batch2d->flush( constants_2d, surf_size );
 }
 
-void* VkRenderBackend::get_native_texture_view( RID rid ) const
+void* VkRenderBackend::get_native_texture_view( RID rid )
 {
     if (auto* t = texture_cache.get( rid )) {
         return ( *t )->GetDefaultView( Diligent::TEXTURE_VIEW_SHADER_RESOURCE );

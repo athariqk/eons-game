@@ -198,11 +198,13 @@ void Application::poll_events()
             continue;
 
         imgui->process_event( event.get() );
+
         // TODO: make this more proper
         if (gfx && event->get_type() == EventType::WINDOW_RESIZE) {
             auto e = static_cast<WindowResizeEvent*>( event.get() );
             gfx->set_render_size( Vec2( static_cast<float>( e->width ), static_cast<float>( e->height ) ) );
         }
+
         events->enqueue( std::move( event ) );
     }
 }
@@ -223,7 +225,6 @@ void Application::register_modules( ConfFile& cfg_file )
         abort(); // TODO: handle this more gracefully
     }
 
-    // Event bus
     events = modules.provide<EventBus>();
 
     // Set up resource management

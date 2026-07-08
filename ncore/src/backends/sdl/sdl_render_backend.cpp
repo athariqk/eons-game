@@ -93,7 +93,7 @@ void SDLRenderBackend::batch_push_indexed(
 
 void SDLRenderBackend::batch_2d_flush() {}
 
-void* SDLRenderBackend::get_native_texture_view( RID rid ) const
+void* SDLRenderBackend::get_native_texture_view( RID rid )
 {
     return nullptr;
 }

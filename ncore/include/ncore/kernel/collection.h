@@ -56,20 +56,7 @@ public:
 
     ~PagedPool()
     {
-        // collect all pointers to the already freed slots
-        // so we don't call the destructor on them again
-        std::set<void*> freed;
-        while (free_list) {
-            freed.insert( static_cast<void*>( free_list ) );
-            free_list = free_list->next;
-        }
-        for (uint32_t i = 0; i < arena.get_size(); i++) {
-            Slot* slot = arena.get( i );
-            if (slot && !freed.contains( static_cast<void*>( slot ) )) {
-                T* obj = reinterpret_cast<T*>( slot );
-                obj->~T();
-            }
-        }
+        release_all();
     }
 
     template<typename... Args>
@@ -102,6 +89,26 @@ public:
         free_list      = node;
 
         --active_count;
+    }
+
+    void release_all()
+    {
+        // collect all pointers to the already freed slots
+        // so we don't call the destructor on them again
+        std::set<void*> freed;
+        while (free_list) {
+            freed.insert( static_cast<void*>( free_list ) );
+            free_list = free_list->next;
+        }
+        for (uint32_t i = 0; i < arena.get_size(); i++) {
+            Slot* slot = arena.get( i );
+            if (slot && !freed.contains( static_cast<void*>( slot ) )) {
+                T* obj = reinterpret_cast<T*>( slot );
+                obj->~T();
+            }
+        }
+        arena.reset();
+        free_list = nullptr;
     }
 
     uint32_t get_active_count() const
@@ -143,20 +150,7 @@ public:
 
     ~PagedResourcePool()
     {
-        // first, collect all the already freed slots (ones that are in the free list)
-        std::vector<bool> freed( arena.get_size(), false );
-        for (uint32_t i = free_list_head; i != UINT32_MAX;) {
-            Slot* s  = arena.get( i );
-            freed[i] = true;
-            i        = s->next_free;
-        }
-        // then, call the destructor of all the slots excluding freed
-        for (uint32_t i = 0; i < arena.get_size(); i++) {
-            if (!freed[i]) {
-                T* obj = reinterpret_cast<T*>( &arena.get( i )->data );
-                obj->~T();
-            }
-        }
+        release_all();
     }
 
     template<typename... Args>
@@ -194,11 +188,6 @@ public:
         return reinterpret_cast<T*>( &slot->data );
     }
 
-    T* get( RID handle ) const
-    {
-        return const_cast<PagedResourcePool*>( this )->get( handle );
-    }
-
     void release( RID handle )
     {
         if (!handle.is_valid())
@@ -215,6 +204,26 @@ public:
         slot->generation++;
         slot->next_free = free_list_head;
         free_list_head  = index;
+    }
+
+    void release_all()
+    {
+        // first, collect all the already freed slots (ones that are in the free list)
+        std::vector<bool> freed( arena.get_size(), false );
+        for (uint32_t i = free_list_head; i != UINT32_MAX;) {
+            Slot* s  = arena.get( i );
+            freed[i] = true;
+            i        = s->next_free;
+        }
+        // then, call the destructor of all the slots excluding freed
+        for (uint32_t i = 0; i < arena.get_size(); i++) {
+            if (!freed[i]) {
+                T* obj = reinterpret_cast<T*>( &arena.get( i )->data );
+                obj->~T();
+            }
+        }
+        arena.reset();
+        free_list_head = UINT32_MAX;
     }
 
     size_t get_size() const

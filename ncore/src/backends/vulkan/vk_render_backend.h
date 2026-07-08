@@ -55,7 +55,7 @@ public:
     ) override;
     void batch_2d_flush() override;
 
-    void* get_native_texture_view( RID rid ) const override;
+    void* get_native_texture_view( RID rid ) override;
     void* get_native_device() const override;
 
 private:

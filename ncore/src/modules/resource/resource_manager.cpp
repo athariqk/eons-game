@@ -78,11 +78,13 @@ RID ResourceManager::load_resource( const std::string_view path )
 
     resource->filepath = path_str;
 
-    RID rid            = next_rid++;
-    storage[rid]       = resource;
-    path_map[path_str] = rid;
+    auto handle = storage.acquire();
+    if (auto pooled = storage.get( handle ))
+        *pooled = std::move( resource );
 
-    return rid;
+    path_map[path_str] = handle;
+
+    return handle;
 }
 
 void ResourceManager::unload_resource( RID rid )
@@ -90,20 +92,19 @@ void ResourceManager::unload_resource( RID rid )
     if (!rid.is_valid())
         return;
 
-    auto it = storage.find( rid );
-    if (it == storage.end())
+    auto entry = storage.get( rid );
+    if (!entry)
         return;
 
-    auto& resource = it->second;
-    if (!resource->filepath.empty())
-        path_map.erase( resource->filepath );
+    if (!(*entry)->filepath.empty())
+        path_map.erase( ( *entry )->filepath );
 
-    storage.erase( it );
+    storage.release( rid );
 }
 
 void ResourceManager::unload_all()
 {
-    storage.clear();
+    storage.release_all();
     path_map.clear();
 }
 

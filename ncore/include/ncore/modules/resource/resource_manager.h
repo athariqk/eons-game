@@ -48,22 +48,21 @@ public:
     }
 
     template<typename T>
-    T* get_resource( RID rid )
+    Ref<T> get_resource( RID rid )
     {
-        auto it = storage.find( rid );
-        if (it == storage.end())
+        auto entry = storage.get( rid );
+        if (!entry)
             return nullptr;
 
-        IResource* res = it->second.get();
-        if (!res->template is_a<T>())
+        if (!( *entry )->is_a<T>())
             return nullptr;
 
-        return static_cast<T*>( res );
+        return *entry;
     }
 
     size_t get_resource_count() const
     {
-        return storage.size();
+        return storage.get_size();
     }
 
 private:
@@ -71,9 +70,7 @@ private:
     std::array<std::unique_ptr<IResourceImporter>, MAX_IMPORTERS> importers;
 
     UnorderedMap<std::string, RID> path_map;
-    UnorderedMap<RID, Ref<IResource>> storage;
-
-    RID next_rid = RID( 1 );
+    PagedResourcePool<Ref<IResource>> storage;
 };
 
 } // namespace nc

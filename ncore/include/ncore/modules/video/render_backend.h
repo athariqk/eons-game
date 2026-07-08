@@ -38,8 +38,8 @@ public:
     )                             = 0;
     virtual void batch_2d_flush() = 0;
 
-    virtual void* get_native_texture_view( RID rid ) const = 0;
-    virtual void* get_native_device() const                = 0;
+    virtual void* get_native_texture_view( RID rid ) = 0;
+    virtual void* get_native_device() const          = 0;
 };
 
 } // namespace nc
