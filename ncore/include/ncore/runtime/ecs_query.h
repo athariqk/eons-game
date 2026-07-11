@@ -15,6 +15,7 @@ namespace nc {
 
 class EcsWorld;
 class EcsQueryBuilder;
+class ModuleRegistry;
 
 /**
  * @brief A lightweight, non-owning handle to a query owned by an EcsWorld.
@@ -49,46 +50,88 @@ private:
 //------------------------------------------------------------------------------
 
 /**
- * @brief EcsIter represents the current iteration state of a query.
+ * @brief QueryContext represents the current iteration state of a query.
  *
- TODO: this feels too tied to Flecs' table-based storage
+ * TODO: this feels too tied to Flecs' table-based storage
  */
-class NCORE_API EcsIter {
+class NCORE_API QueryContext {
 public:
+    explicit QueryContext( void* iter );
+
     double delta_time() const;         // The global delta time
     float delta_time_internal() const; // System's own delta time
     int32_t count() const;             // The entity count being iterated
     EcsEntityId entity( int32_t row ) const;
     EcsWorld& world() const;
+    ModuleRegistry& modules() const; // Helper access to the engine modules
+    EcsEntityId event();
 
     /**
      * @brief Typed component access. Component indices are 0-based in the order
      * terms were added to the builder.
      */
     template<typename T>
-    T* get_component( int32_t column )
+    T* get_component( int32_t component_idx )
     {
-        auto& info = rtti::Registry::get<T>();
-        return static_cast<T*>( get_component_( column, info.size, info.alignment ) );
+        static const auto& info = rtti::TypeRegistry::get<T>();
+        return static_cast<T*>( get_component_( component_idx, info.size, info.alignment ) );
     }
 
     /**
      * @brief Gets a single element from a typed component at a given row.
      */
     template<typename T>
-    T& get_component( int32_t column, int32_t row )
+    T& get_component( int32_t component_idx, int32_t row )
     {
-        return get_component<T>( column )[row];
+        return get_component<T>( component_idx )[row];
+    }
+
+    /**
+     * @brief Typed component access by type. Scans the iterator's field IDs
+     * to find the matching term index. Preferred over the index-based overload
+     * as it is immune to term reordering.
+     */
+    template<typename T>
+    T* get_component()
+    {
+        static const auto& info = rtti::TypeRegistry::get<T>();
+        int32_t idx             = resolve_term_index_( info );
+        NC_ASSERT( idx >= 0, "Component not found in query terms" );
+        return static_cast<T*>( get_component_( idx, info.size, info.alignment ) );
+    }
+
+    /**
+     * @brief Convenience overload: type-based lookup with row access.
+     */
+    template<typename T>
+    T& get_component( int32_t row )
+    {
+        return get_component<T>()[row];
+    }
+
+    /**
+     * @brief Typed access to pair component data by pair type.
+     */
+    template<typename First, typename Second>
+    First* get_pair()
+    {
+        static const auto& first_info  = rtti::TypeRegistry::get<First>();
+        static const auto& second_info = rtti::TypeRegistry::get<Second>();
+        int32_t idx                    = resolve_pair_index_( first_info, second_info );
+        NC_ASSERT( idx >= 0, "Pair component not found in query terms" );
+        return static_cast<First*>( get_component_( idx, first_info.size, first_info.alignment ) );
     }
 
 private:
     friend class EcsSystemBuilder;
+    friend class EcsObserverBuilder;
     friend class EcsQuery;
 
     // iterator impl details
-    explicit EcsIter( void* iter );
     void set_iter_( void* iter );
     void* get_component_( int32_t column, size_t size, size_t alignment ) const;
+    int32_t resolve_term_index_( const rtti::TypeInfo& info ) const;
+    int32_t resolve_pair_index_( const rtti::TypeInfo& first, const rtti::TypeInfo& second ) const;
     void* it_ = nullptr;
 };
 
@@ -105,7 +148,7 @@ public:
 
     bool operator!=( std::nullptr_t ) const;
     Iterator& operator++();
-    EcsIter& operator*();
+    QueryContext& operator*();
 
 private:
     friend class EcsQuery;
@@ -115,7 +158,7 @@ private:
     void* world_ = nullptr;
     void* query_ = nullptr;
     void* iter_  = nullptr;
-    EcsIter wrapper_{ nullptr };
+    QueryContext wrapper_{ nullptr };
     bool done_ = true;
 };
 
@@ -139,7 +182,7 @@ public:
     template<typename First, typename Second>
     EcsQueryBuilder& with_pair()
     {
-        add_term_pair_impl( rtti::Registry::find<First>(), rtti::Registry::find<Second>(), 0 );
+        add_term_pair_impl( rtti::TypeRegistry::find<First>(), rtti::TypeRegistry::find<Second>(), 0 );
         return *this;
     }
 
@@ -150,8 +193,25 @@ public:
         return *this;
     }
 
+    /**
+     * @brief Match on all components with read/write.
+     */
     EcsQueryBuilder& all();
+
+    /**
+     * @brief Match on all components with read-only.
+     */
     EcsQueryBuilder& all_read();
+
+    /**
+     * @brief Set up traversal on the last added term (default: ChildOf).
+     */
+    EcsQueryBuilder& up();
+
+    /**
+     * @brief Match the last term on self (default, explicit for clarity).
+     */
+    EcsQueryBuilder& self();
 
     /**
      * @brief Set the optional query DSL expression.
@@ -170,11 +230,12 @@ public:
 
 private:
     friend class EcsSystemBuilder;
+    friend class EcsObserverBuilder;
 
     template<typename T>
     void add_term_( uint8_t inout )
     {
-        add_term_impl( rtti::Registry::find<T>(), inout );
+        add_term_impl( rtti::TypeRegistry::find<T>(), inout );
     }
     void add_term_impl( const rtti::TypeInfo* type, uint8_t inout );
     void add_term_pair_impl( const rtti::TypeInfo* first_type, const rtti::TypeInfo* sec_type, uint8_t inout );

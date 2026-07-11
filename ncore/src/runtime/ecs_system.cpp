@@ -1,5 +1,4 @@
 #include <flecs.h>
-#include <flecs/addons/pipeline.h>
 #include <flecs/addons/system.h>
 
 #include <ncore/runtime/ecs_system.h>
@@ -44,29 +43,50 @@ EcsSystemBuilder& EcsSystemBuilder::order( int32_t priority )
     return *this;
 }
 
+EcsEntityId EcsSystemBuilder::run( RunCallback callback )
+{
+    return init_system_( EcsCallbackKind::Run, reinterpret_cast<void*>( callback ) );
+}
+
+EcsEntityId EcsSystemBuilder::each( EachCallback callback )
+{
+    return init_system_( EcsCallbackKind::Each, reinterpret_cast<void*>( callback ) );
+}
+
 // just so the compiler can see the defs for Impl
 struct EcsQueryBuilder::Impl : public detail::FlecsQueryBuilder {};
 
-EcsEntityId EcsSystemBuilder::init_system_( SystemKind kind, void* p_callback )
+struct SystemOrder {
+    int32_t value = 0;
+    NSTRUCT( SystemOrder, NC_F( SystemOrder, value ) )
+};
+
+static void handle_iter_callback( ecs_iter_t* it )
 {
-    auto* world = static_cast<ecs_world_t*>( world_.get_native_handle_() );
+    auto fn = reinterpret_cast<RunCallback>( it->ctx );
+    QueryContext wrap( it );
+    fn( wrap );
+}
+
+static void handle_each_callback( ecs_iter_t* it )
+{
+    auto fn = reinterpret_cast<EachCallback>( it->ctx );
+    QueryContext wrap( it );
+    for (int32_t row = 0; row < wrap.count(); row++) {
+        fn( wrap, wrap.entity( row ) );
+    }
+}
+
+EcsEntityId EcsSystemBuilder::init_system_( EcsCallbackKind kind, void* p_callback )
+{
+    auto world = static_cast<ecs_world_t*>( world_.get_native_handle() );
 
     // pick matching callback
     ecs_iter_action_t callback = nullptr;
-    if (kind == SystemKind::Iter) {
-        callback = []( ecs_iter_t* it ) {
-            auto fn = reinterpret_cast<IterCallback>( it->param );
-            EcsIter wrap( it );
-            fn( wrap );
-        };
+    if (kind == EcsCallbackKind::Run) {
+        callback = handle_iter_callback;
     } else {
-        callback = []( ecs_iter_t* it ) {
-            auto fn = reinterpret_cast<EachCallback>( it->param );
-            EcsIter wrap( it );
-            for (int32_t row = 0; row < wrap.count(); row++) {
-                fn( wrap, static_cast<EcsEntityId>( row ) );
-            }
-        };
+        callback = handle_each_callback;
     }
 
     // build system descriptor
@@ -83,23 +103,62 @@ EcsEntityId EcsSystemBuilder::init_system_( SystemKind kind, void* p_callback )
     ecs_entity_t id = ecs_system_init( world, &sdesc );
     NC_ASSERT( id != 0, "Failed to register ECS system" );
 
-    // TODO: apply ordering once custom pipelines are implemented
-    ( void ) pImpl->order_;
+    if (pImpl->order_ != 0) {
+        int32_t order_val = pImpl->order_;
+        auto validate     = world_.create_entity( name ).with<SystemOrder>( order_val ).build();
+        NC_ASSERT( validate == id, "EcsEntityBuilder produces non-matching entity id" );
+    }
 
     pImpl->built_    = true;
     qb_.pImpl->built = true; // mark the query builder as built too to silence warning
-    NC_LOG_TRACE_C( log::ECS, "Registered system (entity {})", id );
     return static_cast<EcsEntityId>( id );
 }
 
-EcsEntityId EcsSystemBuilder::iter( IterCallback callback )
+//------------------------------------------------------------------------------
+// EcsObserverBuilder
+//------------------------------------------------------------------------------
+
+nc::EcsObserverBuilder::EcsObserverBuilder( EcsWorld& world, std::string p_name ) :
+    world_( world ), name( std::move( p_name ) ), qb_( world, name + "_qb" )
+{}
+
+EcsObserverBuilder::~EcsObserverBuilder() {}
+
+EcsEntityId EcsObserverBuilder::run( RunCallback callback )
 {
-    return init_system_( SystemKind::Iter, reinterpret_cast<void*>( callback ) );
+    return init_observer_( EcsCallbackKind::Run, reinterpret_cast<void*>( callback ) );
 }
 
-EcsEntityId EcsSystemBuilder::each( EachCallback callback )
+EcsEntityId EcsObserverBuilder::each( EachCallback callback )
 {
-    return init_system_( SystemKind::Each, reinterpret_cast<void*>( callback ) );
+    return init_observer_( EcsCallbackKind::Each, reinterpret_cast<void*>( callback ) );
+}
+
+EcsEntityId EcsObserverBuilder::init_observer_( EcsCallbackKind kind, void* p_callback )
+{
+    NC_ASSERT( events.size() <= 8, "Number of events exceeds the maximum allowed (8)" );
+
+    auto world = static_cast<ecs_world_t*>( world_.get_native_handle() );
+
+    // pick matching callback
+    ecs_iter_action_t callback = nullptr;
+    if (kind == EcsCallbackKind::Run) {
+        callback = handle_iter_callback;
+    } else {
+        callback = handle_each_callback;
+    }
+
+    ecs_observer_desc_t desc{};
+    desc.query = qb_.pImpl->get_as_descriptor(); // copy query terms from query builder
+    for (size_t i = 0; i < events.size(); i++) {
+        desc.events[i] = events[i];
+    }
+    desc.callback = callback;
+    desc.ctx      = p_callback;
+
+    qb_.pImpl->built = true; // mark the query builder as built to silence warning
+
+    return ecs_observer_init( world, &desc );
 }
 
 } // namespace nc

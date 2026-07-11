@@ -1,19 +1,19 @@
-#include "vk_render_backend.h"
+#include "vk_render_device.h"
 
 #include <BasicMath.hpp>
 #include <BasicTypes.h>
 #include <DebugOutput.h>
-#include <EngineFactoryVk.h>
 #include <EngineMemory.h>
 #include <GraphicsAccessories.hpp>
 #include <GraphicsTypes.h>
 #include <format>
 #include <iterator>
 
-#include <ncore/modules/video/window_module.h>
+#include <ncore/utils/assert.h>
 #include <ncore/utils/log.h>
 
 #include "vk_global_shaders.h"
+#include "vk_render_surface.h"
 
 namespace nc {
 
@@ -38,89 +38,38 @@ static void DILIGENT_CALL_TYPE DebugMessageCallbackVk(
     }
 }
 
-VkRenderBackend::VkRenderBackend( IWindowModule* p_windows ) : windows( p_windows ) {}
-
-VkRenderBackend::~VkRenderBackend() {}
-
-Error VkRenderBackend::init()
+VkRenderDevice::VkRenderDevice()
 {
     Diligent::SetRawAllocator( &allocator );
 
-    Diligent::IEngineFactoryVk* factory = Diligent::LoadAndGetEngineFactoryVk();
-    factory->SetMessageCallback( DebugMessageCallbackVk );
+    engine_factory = Diligent::LoadAndGetEngineFactoryVk();
+    engine_factory->SetMessageCallback( DebugMessageCallbackVk );
 
-    auto vk_version = factory->GetVulkanVersion();
+    auto vk_version = engine_factory->GetVulkanVersion();
     NC_LOG_INFO_C( log::GRAPHICS, "Vulkan version: {}.{}", vk_version.Major, vk_version.Minor );
 
     Diligent::EngineVkCreateInfo engine_ci;
-    factory->CreateDeviceAndContextsVk( engine_ci, &render_device, &device_ctx );
+    engine_factory->CreateDeviceAndContextsVk( engine_ci, &render_device, &device_ctx );
+    NC_ASSERT( render_device && device_ctx, "Failed to create Vulkan device and contexts" );
 
-    Diligent::NativeWindow window;
-#if defined( _WIN32 )
-    window.hWnd = windows->get_native_handle( windows->get_main_window_id() );
-#else
-    NC_ASSERT( false, "Native handle retrieval not implemented for this platform" );
-#endif
-
-    Diligent::SwapChainDesc swap_chain_desc;
-    swap_chain_desc.IsPrimary = true;
-    factory->CreateSwapChainVk( render_device, device_ctx, swap_chain_desc, window, &swap_chain );
-
-    factory->CreateDefaultShaderSourceStreamFactory( nullptr, &shader_src_factory );
+    engine_factory->CreateDefaultShaderSourceStreamFactory( nullptr, &shader_src_factory );
 
     create_2d_pipeline_state_();
-
-    return Error::OK;
 }
 
-void VkRenderBackend::finalize() {}
-
-void VkRenderBackend::begin_frame()
+VkRenderDevice::~VkRenderDevice()
 {
-    batch2d = std::make_unique<BatchRenderer2D>( render_device, device_ctx, pso_2d, srb_2d, texture_var_2d );
+    batch2d.reset();
+}
 
-    Diligent::ITextureView* rtv = swap_chain->GetCurrentBackBufferRTV();
-    Diligent::ITextureView* dsv = swap_chain->GetDepthBufferDSV();
-    device_ctx->SetRenderTargets( 1, &rtv, dsv, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION );
-
-    device_ctx->ClearRenderTarget( rtv, clear_color, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION );
-    device_ctx->ClearDepthStencil(
-        dsv, Diligent::CLEAR_DEPTH_FLAG, 1.f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION
+std::unique_ptr<IRenderSurface> VkRenderDevice::create_surface( void* native_handle, Vec2 size )
+{
+    return std::make_unique<VkRenderSurface>(
+        native_handle, size, engine_factory.RawPtr(), render_device.RawPtr(), device_ctx.RawPtr()
     );
 }
 
-void VkRenderBackend::end_frame()
-{
-    batch2d.reset();
-    swap_chain->Present( static_cast<Diligent::Uint32>( vsync_enabled ) );
-}
-
-void VkRenderBackend::set_clear_color( Color color )
-{
-    clear_color[0] = color.r / 255.0f;
-    clear_color[1] = color.g / 255.0f;
-    clear_color[2] = color.b / 255.0f;
-    clear_color[3] = color.a / 255.0f;
-}
-
-void VkRenderBackend::set_vsync( bool enabled )
-{
-    vsync_enabled = enabled;
-}
-
-void VkRenderBackend::set_render_size( Vec2 size )
-{
-    if (swap_chain)
-        swap_chain->Resize( static_cast<Diligent::Uint32>( size.X ), static_cast<Diligent::Uint32>( size.Y ) );
-}
-
-Vec2 VkRenderBackend::get_surface_size() const
-{
-    auto& desc = swap_chain->GetDesc();
-    return Vec2( static_cast<float>( desc.Width ), static_cast<float>( desc.Height ) );
-}
-
-RID VkRenderBackend::create_texture( uint32_t w, uint32_t h, const void* pixels )
+RID VkRenderDevice::create_texture( uint32_t w, uint32_t h, const void* pixels )
 {
     RID handle = texture_cache.acquire();
 
@@ -140,13 +89,14 @@ RID VkRenderBackend::create_texture( uint32_t w, uint32_t h, const void* pixels 
     render_device->CreateTexture( desc, &init, &texture );
 
     auto* entry = texture_cache.get( handle );
-    if (entry)
+    if (entry) {
         *entry = std::move( texture );
+    }
 
     return handle;
 }
 
-RID VkRenderBackend::create_pipeline( std::string_view vs_spirv, std::string_view ps_spirv )
+RID VkRenderDevice::create_pipeline( std::string_view vs_spirv, std::string_view ps_spirv )
 {
     RID handle = pipeline_cache.acquire();
 
@@ -217,7 +167,7 @@ RID VkRenderBackend::create_pipeline( std::string_view vs_spirv, std::string_vie
     return handle;
 }
 
-RID VkRenderBackend::create_buffer( BufferType type, size_t size, const void* data, bool dynamic )
+RID VkRenderDevice::create_buffer( BufferType type, size_t size, const void* data, bool dynamic )
 {
     RID handle = buffer_cache.acquire();
 
@@ -237,21 +187,23 @@ RID VkRenderBackend::create_buffer( BufferType type, size_t size, const void* da
             break;
     }
 
-    if (dynamic)
+    if (dynamic) {
         desc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
+    }
 
     Diligent::BufferData init_data{ data, static_cast<Diligent::Uint32>( size ) };
     DiligentRef<Diligent::IBuffer> buffer;
     render_device->CreateBuffer( desc, data ? &init_data : nullptr, &buffer );
 
     auto* entry = buffer_cache.get( handle );
-    if (entry)
+    if (entry) {
         *entry = std::move( buffer );
+    }
 
     return handle;
 }
 
-void VkRenderBackend::destroy_resource( RID rid )
+void VkRenderDevice::destroy_resource( RID rid )
 {
     if (texture_cache.get( rid )) {
         texture_cache.release( rid );
@@ -267,31 +219,34 @@ void VkRenderBackend::destroy_resource( RID rid )
     }
 }
 
-void VkRenderBackend::batch_push_quad( RID texture, Vec4 dest, Vec4 src, Color tint )
+void VkRenderDevice::batch_push_quad( RID texture, Vec4 dest, Vec4 src, Color tint )
 {
-    if (!batch2d || !texture.is_valid())
+    if (!batch2d || !texture.is_valid()) {
         return;
+    }
     void* native = get_native_texture_view( texture );
     batch2d->push_quad( native ? native : white_tex_view, dest, src, tint );
 }
 
-void VkRenderBackend::batch_push_indexed(
+void VkRenderDevice::batch_push_indexed(
     const void* vertices, uint32_t vertex_count, const uint16_t* indices, uint32_t index_count, RID texture,
     Vec4 clip_rect
 )
 {
-    if (!batch2d)
+    if (!batch2d) {
         return;
+    }
     void* native = texture.is_valid() ? get_native_texture_view( texture ) : white_tex_view;
     batch2d->push_indexed( vertices, vertex_count, indices, index_count, native, clip_rect );
 }
 
-void VkRenderBackend::batch_2d_flush()
+void VkRenderDevice::batch_2d_flush( IRenderSurface& target )
 {
-    if (!batch2d)
+    if (!batch2d) {
         return;
+    }
 
-    auto surf_size = get_surface_size();
+    auto surf_size = target.get_surface_size();
 
     Diligent::Viewport vp;
     vp.TopLeftX = 0.0f;
@@ -307,7 +262,7 @@ void VkRenderBackend::batch_2d_flush()
     batch2d->flush( constants_2d, surf_size );
 }
 
-void* VkRenderBackend::get_native_texture_view( RID rid )
+void* VkRenderDevice::get_native_texture_view( RID rid )
 {
     if (auto* t = texture_cache.get( rid )) {
         return ( *t )->GetDefaultView( Diligent::TEXTURE_VIEW_SHADER_RESOURCE );
@@ -315,12 +270,12 @@ void* VkRenderBackend::get_native_texture_view( RID rid )
     return nullptr;
 }
 
-void* VkRenderBackend::get_native_device() const
+void* VkRenderDevice::get_native_device() const
 {
     return render_device.RawPtr();
 }
 
-void VkRenderBackend::create_2d_pipeline_state_()
+void VkRenderDevice::create_2d_pipeline_state_()
 {
     DiligentRef<Diligent::IShader> vs_2d;
     {
@@ -411,23 +366,15 @@ void VkRenderBackend::create_2d_pipeline_state_()
     pso_2d->CreateShaderResourceBinding( &srb_2d, true );
     texture_var_2d = srb_2d->GetVariableByName( Diligent::SHADER_TYPE_PIXEL, "Texture" );
 
-    // 1x1 white texture
+    // 1x1 white texture (shared, registered in the texture cache so it has a RID)
     {
         const uint32_t white = 0xFFFFFFFF;
-        Diligent::TextureDesc desc;
-        desc.Name      = "2D White Texture";
-        desc.Type      = Diligent::RESOURCE_DIM_TEX_2D;
-        desc.Width     = 1;
-        desc.Height    = 1;
-        desc.Format    = Diligent::TEX_FORMAT_RGBA8_UNORM;
-        desc.Usage     = Diligent::USAGE_DEFAULT;
-        desc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
-
-        Diligent::TextureSubResData mip{ &white, sizeof( white ) };
-        Diligent::TextureData init{ &mip, 1 };
-        render_device->CreateTexture( desc, &init, &white_texture );
-        white_tex_view = white_texture->GetDefaultView( Diligent::TEXTURE_VIEW_SHADER_RESOURCE );
+        white_texture_rid    = create_texture( 1, 1, &white );
+        white_tex_view       = static_cast<Diligent::ITextureView*>( get_native_texture_view( white_texture_rid ) );
     }
+
+    // Shared 2D batch renderer (created once, reused across all frames/surfaces)
+    batch2d = std::make_unique<BatchRenderer2D>( render_device, device_ctx, pso_2d, srb_2d, texture_var_2d );
 }
 
 } // namespace nc

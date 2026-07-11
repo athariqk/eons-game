@@ -1,22 +1,16 @@
 // Copyright (C) 2026 Ahmad Ghalib Athariq <alib.athariq@gmail.com>
 // This file is subject to the license terms in the LICENSE file
 // found in the top-level directory of this distribution.
+// TODO: we need to decouple this class from SDL
 
-#include <array>
 #include <chrono>
-#include <format>
 #include <memory>
 #include <sstream>
 
+#include <SDL3/SDL_events.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_stdinc.h>
 #include <backends/box2d/box2d_physics_impl.h>
-#include <backends/dear-imgui/dear_imgui_impl.h>
-#include <backends/sdl/sdl_audio_loader.h>
-#include <backends/sdl/sdl_image_loader.h>
-#include <backends/sdl/sdl_type_helpers.h>
-#include <backends/sdl/sdl_window_impl.h>
-#include <backends/vulkan/vk_render_backend.h>
 
 #include <ncore/application.h>
 #include <ncore/game_world.h>
@@ -24,11 +18,11 @@
 #include <ncore/kernel/types.h>
 #include <ncore/modules/audio/audio_module.h>
 #include <ncore/modules/events/event_bus.h>
+#include <ncore/modules/input/input_module.h>
 #include <ncore/modules/module_registry.h>
 #include <ncore/modules/resource/resource_manager.h>
 #include <ncore/modules/video/graphics_module.h>
-#include <ncore/modules/video/viewport.h>
-#include <ncore/runtime/ecs_runtime.h>
+#include <ncore/modules/video/video_module.h>
 #include <ncore/scene/scene.h>
 #include <ncore/utils/config.h>
 #include <ncore/utils/log.h>
@@ -52,19 +46,6 @@ struct Log {
 
 #pragma GCC diagnostic pop
 
-struct Window {
-    int SizeWidth   = 800;
-    int SizeHeight  = 800;
-    bool Fullscreen = false;
-    NSTRUCT( Window, NC_F( Window, SizeWidth ) NC_F( Window, SizeHeight ) NC_F( Window, Fullscreen ) )
-};
-
-struct Render {
-    bool VSync           = true;
-    float PixelsPerMeter = 32.0f;
-    NSTRUCT( Render, NC_F( Render, VSync ) NC_F( Render, PixelsPerMeter ) )
-};
-
 } // namespace cfg
 
 Application::Application( const AppDesc& desc ) : app_desc( desc ) {}
@@ -76,7 +57,7 @@ Application::~Application()
 
 void Application::init()
 {
-    rtti::Registry::register_primitive_types();
+    rtti::TypeRegistry::initialize();
 
     auto cfg_file = ConfFile( app_desc.ConfigFile );
     auto log_cfg  = cfg_file.read<cfg::Log>();
@@ -98,24 +79,14 @@ void Application::init()
         }
     }
 
-    register_modules( cfg_file );
-    modules.init_all();
+    register_modules();
+    modules.init_all( cfg_file );
 
     g_world = create_world();
     g_world->on_init();
     on_world_init( *g_world );
 
     NC_LOG_TRACE( "Application initialized" );
-}
-
-static void update_window_title(
-    IWindowModule* window, RID main_win, const std::string& base_title, char* window_attrs, double fps,
-    double delta_time
-)
-{
-    std::snprintf( window_attrs, 64, "FPS: %.2f - Delta: %.6f", fps, delta_time );
-    const std::string full_title = std::format( "{} - {}", base_title, window_attrs );
-    window->set_title( main_win, full_title );
 }
 
 static void throttle_framerate( std::chrono::steady_clock::time_point& cur_time, double target_frame_time )
@@ -136,16 +107,8 @@ void Application::run()
     constexpr double TARGET_FPS        = 120.0;
     constexpr double TARGET_FRAME_TIME = 1.0 / TARGET_FPS;
 
-    auto last_time            = std::chrono::high_resolution_clock::now();
-    auto last_fps_update_time = std::chrono::high_resolution_clock::now();
-
-    int frame_count    = 0;
+    auto last_time     = std::chrono::high_resolution_clock::now();
     double accumulator = 0.0;
-
-    std::array<char, 64> window_attrs;
-
-    auto main_win = windows->get_main_window_id();
-    NC_ASSERT_RET( main_win.is_valid(), "Main window is not valid" );
 
     is_running = true;
     while (is_running) {
@@ -158,8 +121,7 @@ void Application::run()
 
         accumulator += delta_time;
 
-        events->flush();
-        poll_events();
+        process_events();
 
         while (accumulator >= FIXED_DT) {
             if (g_world->on_fixed_update( FIXED_DT )) {
@@ -173,47 +135,24 @@ void Application::run()
             break;
         }
 
-        double elapsed = std::chrono::duration<double>( cur_time - last_fps_update_time ).count();
-        if (elapsed >= 1.0) {
-            double fps           = frame_count / elapsed;
-            frame_count          = 0;
-            last_fps_update_time = cur_time;
-            update_window_title( windows, main_win, app_desc.Name, window_attrs.data(), fps, delta_time );
-        }
-
         throttle_framerate( cur_time, TARGET_FRAME_TIME );
-
-        frame_count++;
     }
 
     is_running = false;
 }
 
-void Application::poll_events()
+void Application::process_events()
 {
-    SDL_Event sdl_event;
-    while (SDL_PollEvent( &sdl_event )) {
-        auto event = SDLTypeHelpers::map_from_sdl( sdl_event );
-        if (!event)
-            continue;
+    SDL_PumpEvents();
 
-        imgui->process_event( event.get() );
-
-        // TODO: make this more proper
-        if (gfx && event->get_type() == EventType::WINDOW_RESIZE) {
-            auto e = static_cast<WindowResizeEvent*>( event.get() );
-            gfx->set_render_size( Vec2( static_cast<float>( e->width ), static_cast<float>( e->height ) ) );
-        }
-
-        events->enqueue( std::move( event ) );
+    SDL_Event quit_event;
+    while (SDL_PeepEvents( &quit_event, 1, SDL_GETEVENT, SDL_EVENT_QUIT, SDL_EVENT_QUIT ) > 0) {
+        g_world->request_quit();
     }
 }
 
-void Application::register_modules( ConfFile& cfg_file )
+void Application::register_modules()
 {
-    auto window_cfg = cfg_file.read<cfg::Window>();
-    auto render_cfg = cfg_file.read<cfg::Render>();
-
     SDL_SetMemoryFunctions(
         []( size_t size ) -> void* { return memalloc( size ); },
         []( size_t nmemb, size_t size ) -> void* { return memcalloc( nmemb, size ); },
@@ -225,32 +164,13 @@ void Application::register_modules( ConfFile& cfg_file )
         abort(); // TODO: handle this more gracefully
     }
 
-    events = modules.provide<EventBus>();
-
-    // Set up resource management
-    auto resources = modules.provide<ResourceManager>();
-    resources->register_importer<SDLAudioLoader>();
-    resources->register_importer<SDLImageLoader>();
-
-    windows = modules.provide<SDLWindowImpl>();
-    // main window is created here
-    windows->create_window(
-        app_desc.Name, Vec2( static_cast<float>( window_cfg.SizeWidth ), static_cast<float>( window_cfg.SizeHeight ) ),
-        window_cfg.Fullscreen
-    );
-    // set the pixels per meter for the main window's viewport
-    windows->get_viewport()->set_pixels_per_meter(
-        render_cfg.PixelsPerMeter
-    ); // TODO: properly implement viewport later
-
-    auto renderer = std::make_unique<VkRenderBackend>( windows );
-    gfx           = modules.provide<GraphicsModule>( std::move( renderer ) );
-    gfx->set_vsync( render_cfg.VSync );
-
+    events    = modules.provide<EventBus>();
+    input     = modules.provide<InputModule>();
+    resources = modules.provide<ResourceManager>();
+    video     = modules.provide<VideoModule>();
+    gfx       = modules.provide<GraphicsModule>();
     modules.provide<Box2DPhysicsImpl>();
     modules.provide<AudioModule>();
-
-    imgui = modules.provide<DearImGuiImpl>( gfx, windows );
 }
 
 void Application::unregister_modules()
@@ -261,17 +181,19 @@ void Application::unregister_modules()
 
 std::unique_ptr<IGameWorld> Application::create_world()
 {
-    auto scene = std::make_unique<Scene>( modules );
-    scene->get_ecs().load_feature<EcsRuntimeFeature>();
-    return scene;
+    return std::make_unique<Scene>( app_desc, modules );
 }
+
+void Application::on_world_init( IGameWorld& world ) {}
 
 void Application::finish()
 {
+    NC_LOG_TRACE( "Application teardown" );
     g_world->on_finish();
+    g_world.reset();
     modules.cleanup_all();
     unregister_modules();
-    NC_LOG_TRACE( "Application finished" );
+    rtti::TypeRegistry::shutdown();
 }
 
 } // namespace nc

@@ -93,7 +93,7 @@ EcsEntityBuilder& EcsEntityBuilder::alias( std::string_view alias )
 
 EcsEntityId EcsEntityBuilder::build()
 {
-    auto* world = static_cast<ecs_world_t*>( pImpl->world.get_native_handle_() );
+    auto world = static_cast<ecs_world_t*>( pImpl->world.get_native_handle() );
 
     // create bare entity
     ecs_entity_desc_t desc{};

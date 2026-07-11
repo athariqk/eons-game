@@ -29,7 +29,7 @@ public:
     template<typename T>
     bool is_a() const
     {
-        return is_a( rtti::Registry::get_type_id<T>() );
+        return is_a( rtti::TypeRegistry::get_type_id<T>() );
     }
 };
 
@@ -43,19 +43,20 @@ public:                                                                         
     }                                                                                                                  \
     ::nc::rtti::TypeId get_type_id() const override                                                                    \
     {                                                                                                                  \
-        return ::nc::rtti::Registry::get_type_id<class_name>();                                                        \
+        return ::nc::rtti::TypeRegistry::get_type_id<class_name>();                                                        \
     }                                                                                                                  \
     const ::nc::rtti::RecordInfo& get_class_info() const override                                                      \
     {                                                                                                                  \
-        return static_cast<const ::nc::rtti::RecordInfo&>( ::nc::rtti::Registry::get<class_name>() );                  \
+        return static_cast<const ::nc::rtti::RecordInfo&>( ::nc::rtti::TypeRegistry::get<class_name>() );                  \
     }                                                                                                                  \
                                                                                                                        \
 private:                                                                                                               \
-    inline static auto nc_object_init_##class_name() -> ::nc::rtti::RecordInfo&                                        \
+    inline static auto nc_object_init_##class_name() -> ::nc::rtti::TRecordInfo<class_name>&                           \
     {                                                                                                                  \
-        ::nc::rtti::RecordInfo& ci_##class_name = []() -> ::nc::rtti::RecordInfo& {                                    \
-            auto& c     = ::nc::rtti::Registry::emplace<::nc::rtti::RecordInfo, class_name>( #class_name );            \
-            c.parent_id = ::nc::rtti::Registry::get_type_id<parent_class>();                                           \
+        ::nc::rtti::TRecordInfo<class_name>& ci_##class_name = []() -> ::nc::rtti::TRecordInfo<class_name>& {          \
+            auto& c =                                                                                                  \
+                ::nc::rtti::TypeRegistry::register_type<::nc::rtti::TRecordInfo<class_name>, class_name>( #class_name );   \
+            c.parent_id = ::nc::rtti::TypeRegistry::get_type_id<parent_class>();                                           \
             return c;                                                                                                  \
         }();                                                                                                           \
         return ci_##class_name;                                                                                        \

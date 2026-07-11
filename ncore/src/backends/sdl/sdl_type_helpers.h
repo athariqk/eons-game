@@ -3,56 +3,54 @@
 #pragma GCC diagnostic ignored "-Wswitch-enum"
 #pragma GCC diagnostic ignored "-Wcovered-switch-default"
 
-#include <memory>
-
 #include <SDL3/SDL_events.h>
 
-#include <ncore/modules/events/input_event.h>
+#include <ncore/modules/input/input_event.h>
 #include <ncore/modules/video/window_types.h>
 
 namespace nc {
 
 struct SDLTypeHelpers {
-    static KeyboardEvent::Key MapSDLKeyToKey( SDL_Scancode scancode )
+    static Key MapSDLKeyToKey( SDL_Scancode scancode )
     {
         switch (scancode) {
             case SDL_SCANCODE_W:
-                return KeyboardEvent::Key::W;
+                return Key::W;
             case SDL_SCANCODE_A:
-                return KeyboardEvent::Key::A;
+                return Key::A;
             case SDL_SCANCODE_S:
-                return KeyboardEvent::Key::S;
+                return Key::S;
             case SDL_SCANCODE_D:
-                return KeyboardEvent::Key::D;
+                return Key::D;
             case SDL_SCANCODE_UP:
-                return KeyboardEvent::Key::UP;
+                return Key::UP;
             case SDL_SCANCODE_DOWN:
-                return KeyboardEvent::Key::DOWN;
+                return Key::DOWN;
             case SDL_SCANCODE_LEFT:
-                return KeyboardEvent::Key::LEFT;
+                return Key::LEFT;
             case SDL_SCANCODE_RIGHT:
-                return KeyboardEvent::Key::RIGHT;
+                return Key::RIGHT;
             case SDL_SCANCODE_SPACE:
-                return KeyboardEvent::Key::SPACE;
+                return Key::SPACE;
             case SDL_SCANCODE_RETURN:
-                return KeyboardEvent::Key::ENTER;
+                return Key::ENTER;
             case SDL_SCANCODE_ESCAPE:
-                return KeyboardEvent::Key::ESC;
+                return Key::ESC;
             case SDL_SCANCODE_LSHIFT:
             case SDL_SCANCODE_RSHIFT:
-                return KeyboardEvent::Key::SHIFT;
+                return Key::SHIFT;
             case SDL_SCANCODE_LCTRL:
             case SDL_SCANCODE_RCTRL:
-                return KeyboardEvent::Key::CTRL;
+                return Key::CTRL;
             case SDL_SCANCODE_LALT:
             case SDL_SCANCODE_RALT:
-                return KeyboardEvent::Key::ALT;
+                return Key::ALT;
             case SDL_SCANCODE_TAB:
-                return KeyboardEvent::Key::TAB;
+                return Key::TAB;
             case SDL_SCANCODE_BACKSPACE:
-                return KeyboardEvent::Key::BKSP;
+                return Key::BKSP;
             default:
-                return KeyboardEvent::Key::UNKNOWN;
+                return Key::UNKNOWN;
         }
     }
 
@@ -84,42 +82,42 @@ struct SDLTypeHelpers {
         }
     }
 
-    static SDL_Scancode KeyToScancode( KeyboardEvent::Key key )
+    static SDL_Scancode KeyToScancode( Key key )
     {
         switch (key) {
-            case KeyboardEvent::Key::W:
+            case Key::W:
                 return SDL_SCANCODE_W;
-            case KeyboardEvent::Key::A:
+            case Key::A:
                 return SDL_SCANCODE_A;
-            case KeyboardEvent::Key::S:
+            case Key::S:
                 return SDL_SCANCODE_S;
-            case KeyboardEvent::Key::D:
+            case Key::D:
                 return SDL_SCANCODE_D;
-            case KeyboardEvent::Key::UP:
+            case Key::UP:
                 return SDL_SCANCODE_UP;
-            case KeyboardEvent::Key::DOWN:
+            case Key::DOWN:
                 return SDL_SCANCODE_DOWN;
-            case KeyboardEvent::Key::LEFT:
+            case Key::LEFT:
                 return SDL_SCANCODE_LEFT;
-            case KeyboardEvent::Key::RIGHT:
+            case Key::RIGHT:
                 return SDL_SCANCODE_RIGHT;
-            case KeyboardEvent::Key::SPACE:
+            case Key::SPACE:
                 return SDL_SCANCODE_SPACE;
-            case KeyboardEvent::Key::ENTER:
+            case Key::ENTER:
                 return SDL_SCANCODE_RETURN;
-            case KeyboardEvent::Key::ESC:
+            case Key::ESC:
                 return SDL_SCANCODE_ESCAPE;
-            case KeyboardEvent::Key::SHIFT:
+            case Key::SHIFT:
                 return SDL_SCANCODE_LSHIFT;
-            case KeyboardEvent::Key::CTRL:
+            case Key::CTRL:
                 return SDL_SCANCODE_LCTRL;
-            case KeyboardEvent::Key::ALT:
+            case Key::ALT:
                 return SDL_SCANCODE_LALT;
-            case KeyboardEvent::Key::TAB:
+            case Key::TAB:
                 return SDL_SCANCODE_TAB;
-            case KeyboardEvent::Key::BKSP:
+            case Key::BKSP:
                 return SDL_SCANCODE_BACKSPACE;
-            case KeyboardEvent::Key::UNKNOWN:
+            case Key::UNKNOWN:
             default:
                 return SDL_SCANCODE_UNKNOWN;
         }
@@ -138,161 +136,6 @@ struct SDLTypeHelpers {
             default:
                 return 0;
         }
-    }
-
-    static Ref<BaseEvent> map_from_sdl( SDL_Event& event )
-    {
-        switch (event.type) {
-            case SDL_EVENT_QUIT:
-                // TODO: what should be the appropriate event mapping here?
-                break;
-            case SDL_EVENT_WINDOW_CLOSE_REQUESTED: {
-                return Ref<WindowCloseEvent>::create( event.window.windowID ).as<BaseEvent>();
-            }
-            case SDL_EVENT_WINDOW_RESIZED:
-                return Ref<WindowResizeEvent>::create( event.window.windowID, event.window.data1, event.window.data2 )
-                    .as<BaseEvent>();
-            case SDL_EVENT_WINDOW_MOUSE_ENTER:
-                return Ref<WindowMouseEnterEvent>::create( event.window.windowID ).as<BaseEvent>();
-            case SDL_EVENT_WINDOW_MOUSE_LEAVE:
-                return Ref<WindowMouseLeaveEvent>::create( event.window.windowID ).as<BaseEvent>();
-            case SDL_EVENT_WINDOW_FOCUS_GAINED:
-                return Ref<WindowFocusEvent>::create( event.window.windowID, true ).as<BaseEvent>();
-            case SDL_EVENT_WINDOW_FOCUS_LOST:
-                return Ref<WindowFocusEvent>::create( event.window.windowID, false ).as<BaseEvent>();
-            case SDL_EVENT_MOUSE_BUTTON_DOWN:
-            case SDL_EVENT_MOUSE_BUTTON_UP: {
-                auto action    = MapSDLEventTypeToAction( event.type );
-                auto btn       = MapSDLButtonToButtonIndex( event.button.button );
-                auto mouse_pos = Vec2( event.button.x, event.button.y );
-                return Ref<MouseButtonEvent>::create( event.window.windowID, action, btn, mouse_pos ).as<BaseEvent>();
-            }
-            case SDL_EVENT_MOUSE_MOTION: {
-                auto mouse_pos = Vec2( event.motion.x, event.motion.y );
-                auto delta     = Vec2( event.motion.xrel, event.motion.yrel );
-                auto state     = event.motion.state;
-                return Ref<MouseMotionEvent>::create( event.window.windowID, mouse_pos, delta, state ).as<BaseEvent>();
-            }
-            case SDL_EVENT_MOUSE_WHEEL:
-                return Ref<MouseWheelEvent>::create( event.window.windowID, event.wheel.x, event.wheel.y ).as<BaseEvent>();
-            case SDL_EVENT_KEY_DOWN:
-            case SDL_EVENT_KEY_UP: {
-                auto key = MapSDLKeyToKey( event.key.scancode );
-                if (key != KeyboardEvent::Key::UNKNOWN) {
-                    auto action = MapSDLEventTypeToAction( event.type );
-                    return Ref<KeyboardEvent>::create( event.window.windowID, action, key, event.key.repeat )
-                        .as<BaseEvent>();
-                }
-                break;
-            }
-            case SDL_EVENT_TEXT_INPUT:
-                return Ref<TextInputEvent>::create( event.window.windowID, std::string( event.text.text ) ).as<BaseEvent>();
-            default:
-                break;
-        }
-        NC_LOG_ERROR_C( log::EVENTS, "Received unhandled SDL event type: {}", event.type );
-        return nullptr;
-    }
-
-    static SDL_Event map_to_sdl( const WindowEvent* event )
-    {
-        SDL_Event sdl{};
-
-        switch (event->get_type()) {
-            case EventType::KEYBOARD: {
-                auto key_ev      = static_cast<const KeyboardEvent*>( event );
-                sdl.type         = key_ev->action == ButtonAction::PRESS ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
-                sdl.key.scancode = KeyToScancode( key_ev->key );
-                sdl.key.key      = 0;
-                sdl.key.repeat   = key_ev->repeat;
-                sdl.key.windowID = static_cast<SDL_WindowID>( event->window_id );
-                break;
-            }
-
-            case EventType::MOUSE_BUTTON: {
-                auto mb_ev = static_cast<const MouseButtonEvent*>( event );
-                sdl.type =
-                    mb_ev->action == ButtonAction::PRESS ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
-                sdl.button.button   = BtnToSDL( mb_ev->button );
-                sdl.button.x        = mb_ev->position.X;
-                sdl.button.y        = mb_ev->position.Y;
-                sdl.button.windowID = static_cast<SDL_WindowID>( event->window_id );
-                break;
-            }
-
-            case EventType::MOUSE_MOTION: {
-                auto mm_ev          = static_cast<const MouseMotionEvent*>( event );
-                sdl.type            = SDL_EVENT_MOUSE_MOTION;
-                sdl.motion.x        = mm_ev->position.X;
-                sdl.motion.y        = mm_ev->position.Y;
-                sdl.motion.xrel     = mm_ev->delta.X;
-                sdl.motion.yrel     = mm_ev->delta.Y;
-                sdl.motion.state    = mm_ev->buttonState;
-                sdl.motion.windowID = static_cast<SDL_WindowID>( event->window_id );
-                break;
-            }
-
-            case EventType::MOUSE_WHEEL: {
-                auto mw_ev         = static_cast<const MouseWheelEvent*>( event );
-                sdl.type           = SDL_EVENT_MOUSE_WHEEL;
-                sdl.wheel.x        = mw_ev->scroll_x;
-                sdl.wheel.y        = mw_ev->scroll_y;
-                sdl.wheel.windowID = static_cast<SDL_WindowID>( event->window_id );
-                break;
-            }
-
-            case EventType::TEXT_INPUT: {
-                auto ti_ev        = static_cast<const TextInputEvent*>( event );
-                sdl.type          = SDL_EVENT_TEXT_INPUT;
-                sdl.text.text     = ti_ev->text.c_str();
-                sdl.text.windowID = static_cast<SDL_WindowID>( event->window_id );
-                break;
-            }
-
-            case EventType::WINDOW_RESIZE: {
-                auto wr_ev          = static_cast<const WindowResizeEvent*>( event );
-                sdl.type            = SDL_EVENT_WINDOW_RESIZED;
-                sdl.window.data1    = wr_ev->width;
-                sdl.window.data2    = wr_ev->height;
-                sdl.window.windowID = static_cast<SDL_WindowID>( event->window_id );
-                break;
-            }
-
-            case EventType::WINDOW_CLOSE: {
-                sdl.type            = SDL_EVENT_WINDOW_CLOSE_REQUESTED;
-                sdl.window.windowID = static_cast<SDL_WindowID>( event->window_id );
-                break;
-            }
-
-            case EventType::WINDOW_FOCUS: {
-                auto wf_ev          = static_cast<const WindowFocusEvent*>( event );
-                sdl.type            = wf_ev->focused ? SDL_EVENT_WINDOW_FOCUS_GAINED : SDL_EVENT_WINDOW_FOCUS_LOST;
-                sdl.window.windowID = static_cast<SDL_WindowID>( event->window_id );
-                break;
-            }
-
-            case EventType::WINDOW_MOUSE_ENTER: {
-                sdl.type            = SDL_EVENT_WINDOW_MOUSE_ENTER;
-                sdl.window.windowID = static_cast<SDL_WindowID>( event->window_id );
-                break;
-            }
-            case EventType::WINDOW_MOUSE_LEAVE: {
-                sdl.type            = SDL_EVENT_WINDOW_MOUSE_LEAVE;
-                sdl.window.windowID = static_cast<SDL_WindowID>( event->window_id );
-                break;
-            }
-
-            case EventType::UNKNOWN:
-            case EventType::WORLD_CHANGE_REQUEST:
-            case EventType::WORLD_CHANGE_COMPLETE:
-            default: {
-                sdl.type            = SDL_EVENT_FIRST;
-                sdl.window.windowID = static_cast<SDL_WindowID>( event->window_id );
-                break;
-            }
-        }
-
-        return sdl;
     }
 
     static CursorType from_sdl_sys_cursor( SDL_SystemCursor sdl_cursor )

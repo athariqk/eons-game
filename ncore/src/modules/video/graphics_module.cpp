@@ -2,70 +2,123 @@
 #include <cmath>
 #include <numbers>
 
+#include <backends/vulkan/vk_render_device.h>
+
 #include <ncore/modules/video/graphics_module.h>
 #include <ncore/modules/video/resources/image.h>
 #include <ncore/modules/video/resources/material.h>
 #include <ncore/modules/video/resources/mesh.h>
 #include <ncore/modules/video/resources/shader.h>
+#include <ncore/utils/config.h>
+#include <ncore/utils/log.h>
 
 namespace nc {
 
-GraphicsModule::GraphicsModule( std::unique_ptr<IRenderBackend> backend ) : renderer( std::move( backend ) ) {}
-
-Error GraphicsModule::init()
+Error GraphicsModule::init( ConfFile& cfg_file )
 {
-    auto err = renderer->init();
-    if (err != Error::OK)
-        return err;
-    white_texture = create_white_texture_();
+    settings = cfg_file.read<RenderSettings>();
+
+    // TODO: dont hardcode this
+    device = std::make_unique<VkRenderDevice>();
+
+    if (!device) {
+        NC_LOG_ERROR_C( log::GRAPHICS, "No render device provided" );
+        return Error::FAIL;
+    }
+
+    white_texture = device->get_white_texture();
     return Error::OK;
 }
 
 void GraphicsModule::finalize()
 {
-    renderer->finalize();
+    surfaces.clear();
 }
 
-RID GraphicsModule::create_white_texture_()
+RID GraphicsModule::create_surface( void* native_whnd, Vec2 surface_size )
 {
-    const uint32_t white = 0xFFFFFFFF;
-    return renderer->create_texture( 1, 1, &white );
+    if (!native_whnd) {
+        NC_LOG_ERROR_C( log::GRAPHICS, "No native window handle supplied for new render surface" );
+        return RID();
+    }
+
+    RID rid( surfaces.size() + 1 );
+    surfaces[rid] = device->create_surface( native_whnd, surface_size );
+    NC_LOG_TRACE_C( log::GRAPHICS, "Assigned RID {} to a new render surface", rid.value );
+    return rid;
 }
 
-void GraphicsModule::begin_frame()
+void GraphicsModule::destroy_surface( RID surface_rid )
 {
-    renderer->begin_frame();
+    NC_LOG_TRACE_C( log::GRAPHICS, "Destroying render surface (RID: {})", surface_rid.value );
+    surfaces.erase( surface_rid );
 }
 
-void GraphicsModule::end_frame()
+IRenderSurface* GraphicsModule::get_surface( RID surface_rid ) const
 {
-    renderer->batch_2d_flush();
-    renderer->end_frame();
+    if (!surface_rid.is_valid()) {
+        NC_LOG_WARN_C( log::GRAPHICS, "Invalid surface RID" );
+        return nullptr;
+    }
+
+    auto surface = surfaces.find( surface_rid );
+    if (surface == surfaces.end()) {
+        NC_LOG_WARN_C( log::GRAPHICS, "Render surface (RID: {}) was not found", surface_rid.value );
+        return nullptr;
+    }
+
+    return surface->second.get();
 }
 
-void GraphicsModule::set_clear_color( Color color )
+void GraphicsModule::begin_frame( RID surface_rid )
 {
-    renderer->set_clear_color( color );
+    if (auto* surf = get_surface( surface_rid )) {
+        surf->begin_frame();
+    }
 }
 
-void GraphicsModule::set_vsync( bool enabled )
+void GraphicsModule::end_frame( RID surface_rid )
 {
-    renderer->set_vsync( enabled );
+    auto* surf = get_surface( surface_rid );
+    if (!surf) {
+        return;
+    }
+    device->batch_2d_flush( *surf );
+    surf->end_frame();
 }
 
-void GraphicsModule::set_render_size( Vec2 size )
+void GraphicsModule::set_clear_color( RID surface_rid, Color color )
 {
-    renderer->set_render_size( size );
+    if (auto* surf = get_surface( surface_rid )) {
+        surf->set_clear_color( color );
+    }
 }
 
-Vec2 GraphicsModule::get_surface_size() const
+void GraphicsModule::set_vsync( RID surface_rid, bool enabled )
 {
-    return renderer->get_surface_size();
+    if (auto* surf = get_surface( surface_rid )) {
+        surf->set_vsync( enabled );
+    }
+}
+
+void GraphicsModule::set_render_size( RID surface_rid, Vec2 size )
+{
+    if (auto* surf = get_surface( surface_rid )) {
+        surf->set_render_size( size );
+    }
+}
+
+Vec2 GraphicsModule::get_surface_size( RID surface_rid ) const
+{
+    if (auto* surf = get_surface( surface_rid )) {
+        return surf->get_surface_size();
+    }
+    return Vec2( 0, 0 );
 }
 
 RID GraphicsModule::upload_image( const Image& image )
 {
-    return renderer->create_texture(
+    return device->create_texture(
         static_cast<uint32_t>( image.get_width() ), static_cast<uint32_t>( image.get_height() ),
         image.get_pixels().data()
     );
@@ -77,18 +130,21 @@ RID GraphicsModule::upload_pipeline( const Material& material )
 
     for (auto& shader : material.get_shaders()) {
         auto src = shader.get_source();
-        if (src.empty())
+        if (src.empty()) {
             continue;
-        if (vs_spirv.empty())
+        }
+        if (vs_spirv.empty()) {
             vs_spirv = src;
-        else if (ps_spirv.empty())
+        } else if (ps_spirv.empty()) {
             ps_spirv = src;
+        }
     }
 
-    if (vs_spirv.empty() || ps_spirv.empty())
+    if (vs_spirv.empty() || ps_spirv.empty()) {
         return RID();
+    }
 
-    return renderer->create_pipeline( vs_spirv, ps_spirv );
+    return device->create_pipeline( vs_spirv, ps_spirv );
 }
 
 RID GraphicsModule::upload_mesh( const Mesh& mesh )
@@ -96,11 +152,12 @@ RID GraphicsModule::upload_mesh( const Mesh& mesh )
     auto vertices = mesh.get_vertices();
     auto indices  = mesh.get_indices();
 
-    if (vertices.empty() || indices.empty())
+    if (vertices.empty() || indices.empty()) {
         return RID();
+    }
 
-    RID vb = renderer->create_buffer( BufferType::Vertex, vertices.size(), vertices.data(), false );
-    RID ib = renderer->create_buffer( BufferType::Index, indices.size(), indices.data(), false );
+    RID vb = device->create_buffer( BufferType::Vertex, vertices.size(), vertices.data(), false );
+    RID ib = device->create_buffer( BufferType::Index, indices.size(), indices.data(), false );
     ( void ) ib;
 
     // TODO: finish this
@@ -110,12 +167,12 @@ RID GraphicsModule::upload_mesh( const Mesh& mesh )
 
 void GraphicsModule::destroy_resource( RID rid )
 {
-    renderer->destroy_resource( rid );
+    device->destroy_resource( rid );
 }
 
 void GraphicsModule::fill_rect( Vec4 rect, Color color )
 {
-    renderer->batch_push_quad( white_texture, rect, Vec4( 0, 0, 1, 1 ), color );
+    device->batch_push_quad( white_texture, rect, Vec4( 0, 0, 1, 1 ), color );
 }
 
 void GraphicsModule::draw_rect( Vec4 rect, Color color, float thickness )
@@ -124,10 +181,10 @@ void GraphicsModule::draw_rect( Vec4 rect, Color color, float thickness )
     float x2 = rect.X + rect.w, y2 = rect.Y + rect.h;
     float t = thickness;
 
-    renderer->batch_push_quad( white_texture, Vec4( x1, y1, x2 - x1, t ), Vec4(), color );
-    renderer->batch_push_quad( white_texture, Vec4( x1, y2 - t, x2 - x1, t ), Vec4(), color );
-    renderer->batch_push_quad( white_texture, Vec4( x1, y1, t, y2 - y1 ), Vec4(), color );
-    renderer->batch_push_quad( white_texture, Vec4( x2 - t, y1, t, y2 - y1 ), Vec4(), color );
+    device->batch_push_quad( white_texture, Vec4( x1, y1, x2 - x1, t ), Vec4(), color );
+    device->batch_push_quad( white_texture, Vec4( x1, y2 - t, x2 - x1, t ), Vec4(), color );
+    device->batch_push_quad( white_texture, Vec4( x1, y1, t, y2 - y1 ), Vec4(), color );
+    device->batch_push_quad( white_texture, Vec4( x2 - t, y1, t, y2 - y1 ), Vec4(), color );
 }
 
 void GraphicsModule::draw_line( Vec2 from, Vec2 to, Color color, float thickness )
@@ -135,8 +192,9 @@ void GraphicsModule::draw_line( Vec2 from, Vec2 to, Color color, float thickness
     float dx  = to.X - from.X;
     float dy  = to.Y - from.Y;
     float len = std::sqrt( dx * dx + dy * dy );
-    if (len < 0.001f)
+    if (len < 0.001f) {
         return;
+    }
 
     float nx = -dy / len * thickness * 0.5f;
     float ny = dx / len * thickness * 0.5f;
@@ -157,19 +215,19 @@ void GraphicsModule::draw_line( Vec2 from, Vec2 to, Color color, float thickness
 
     std::vector<uint16_t> indices = { 0, 1, 2, 0, 2, 3 };
 
-    renderer->batch_push_indexed(
+    device->batch_push_indexed(
         verts.data(), 4, indices.data(), static_cast<uint32_t>( indices.size() ), white_texture, Vec4()
     );
 }
 
 void GraphicsModule::draw_point( Vec2 pos, Color color )
 {
-    renderer->batch_push_quad( white_texture, Vec4( pos.X, pos.Y, 1.0f, 1.0f ), Vec4(), color );
+    device->batch_push_quad( white_texture, Vec4( pos.X, pos.Y, 1.0f, 1.0f ), Vec4(), color );
 }
 
 void GraphicsModule::draw_textured_quad( RID texture, Vec4 dest, Vec4 src, Color tint )
 {
-    renderer->batch_push_quad( texture, dest, src, tint );
+    device->batch_push_quad( texture, dest, src, tint );
 }
 
 void GraphicsModule::draw_indexed(
@@ -177,17 +235,17 @@ void GraphicsModule::draw_indexed(
     Vec4 clip_rect
 )
 {
-    renderer->batch_push_indexed( vertices, vertex_count, indices, index_count, texture, clip_rect );
+    device->batch_push_indexed( vertices, vertex_count, indices, index_count, texture, clip_rect );
 }
 
 void* GraphicsModule::get_native_device() const
 {
-    return renderer->get_native_device();
+    return device->get_native_device();
 }
 
 void* GraphicsModule::get_native_handle( RID rid ) const
 {
-    return renderer->get_native_texture_view( rid );
+    return device->get_native_texture_view( rid );
 }
 
 void GraphicsModule::draw_circle( float x, float y, int radius, Color color, bool filled, bool edge )
@@ -229,10 +287,12 @@ void GraphicsModule::draw_convex_polygon_filled( const Vec2* vertices, int count
 {
     float minY = vertices[0].Y, maxY = vertices[0].Y;
     for (int i = 1; i < count; i++) {
-        if (vertices[i].Y < minY)
+        if (vertices[i].Y < minY) {
             minY = vertices[i].Y;
-        if (vertices[i].Y > maxY)
+        }
+        if (vertices[i].Y > maxY) {
             maxY = vertices[i].Y;
+        }
     }
 
     int yMin = static_cast<int>( minY );
@@ -247,10 +307,12 @@ void GraphicsModule::draw_convex_polygon_filled( const Vec2* vertices, int count
             if (( y1 <= yf && y2 > yf ) || ( y2 <= yf && y1 > yf )) {
                 float t = ( yf - y1 ) / ( y2 - y1 );
                 float X = vertices[j].X + t * ( vertices[i].X - vertices[j].X );
-                if (X < rowStart)
+                if (X < rowStart) {
                     rowStart = X;
-                if (X > rowEnd)
+                }
+                if (X > rowEnd) {
                     rowEnd = X;
+                }
             }
         }
 

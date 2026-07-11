@@ -37,7 +37,7 @@ public:
     template<std::derived_from<IModule> T>
     T* resolve()
     {
-        rtti::TypeId target = rtti::Registry::get_type_id<T>();
+        rtti::TypeId target = rtti::TypeRegistry::get_type_id<T>();
 
         auto it = cache_by_id.find( target );
         if (it != cache_by_id.end()) {
@@ -58,7 +58,7 @@ public:
             }
         }
 
-        auto class_name = rtti::Registry::get<T>().name;
+        auto class_name = rtti::TypeRegistry::get<T>().name;
         NC_ASSERT_RETVAL( false, nullptr, std::format( "Module '{}' could not be resolved", class_name ).c_str() );
     }
 
@@ -76,7 +76,7 @@ public:
         cache_by_id.clear();
         cache_by_name.clear();
 
-        rtti::TypeId id = rtti::Registry::get_type_id<T>();
+        rtti::TypeId id = rtti::TypeRegistry::get_type_id<T>();
 
         for (auto& [existing_id, m] : modules)
             NC_ASSERT( existing_id != id, "Module already registered" );
@@ -104,12 +104,14 @@ public:
         NC_ASSERT_RETVAL( false, nullptr, std::format( "Module '{}' could not be resolved", name ).c_str() );
     }
 
-    Error init_all()
+    Error init_all( ConfFile& cfg_file )
     {
         for (auto& [_, m] : modules) {
             NC_LOG_DEBUG( "Initializing module: {}", m->get_class_name() );
-            if (m->init() != Error::OK)
+            if (m->init( cfg_file ) != Error::OK) {
+                NC_LOG_ERROR( "{} - module init FAIL", m->get_class_name() );
                 return Error::FAIL;
+            }
         }
         return Error::OK;
     }

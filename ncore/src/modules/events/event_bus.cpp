@@ -4,7 +4,7 @@
 
 namespace nc {
 
-Error EventBus::init()
+Error EventBus::init( ConfFile& cfg_file )
 {
     return Error::OK;
 }

@@ -31,10 +31,21 @@ public:
     EcsEntityBuilder( const EcsEntityBuilder& )            = delete;
     EcsEntityBuilder& operator=( const EcsEntityBuilder& ) = delete;
 
+    template<class T>
+    EcsEntityBuilder& with( const T& value )
+    {
+        auto* type = rtti::TypeRegistry::find<T>();
+        NC_ASSERT( type, "component type not reflected via NSTRUCT" );
+        std::vector<uint8_t> data( sizeof( T ) );
+        std::memcpy( data.data(), &value, sizeof( T ) );
+        add_component_( type, std::move( data ) );
+        return *this;
+    }
+
     template<typename T, typename... Args>
     EcsEntityBuilder& with( Args&&... args )
     {
-        auto* type = rtti::Registry::find<T>();
+        auto* type = rtti::TypeRegistry::find<T>();
         NC_ASSERT( type, "component type not reflected via NSTRUCT" );
         std::vector<uint8_t> data( sizeof( T ) );
         T value{ std::forward<Args>( args )... };
@@ -46,8 +57,8 @@ public:
     template<typename First, typename Second, typename... Args>
     EcsEntityBuilder& with_pair( Args&&... args )
     {
-        auto* f_type = rtti::Registry::find<First>();
-        auto* s_type = rtti::Registry::find<Second>();
+        auto* f_type = rtti::TypeRegistry::find<First>();
+        auto* s_type = rtti::TypeRegistry::find<Second>();
         NC_ASSERT( f_type, "pair first type not reflected via NSTRUCT" );
         NC_ASSERT( s_type, "pair second type not reflected via NSTRUCT" );
         std::vector<uint8_t> data( sizeof( First ) );
@@ -60,8 +71,8 @@ public:
     template<typename First, typename Second>
     EcsEntityBuilder& add_pair()
     {
-        auto* f_type = rtti::Registry::find<First>();
-        auto* s_type = rtti::Registry::find<Second>();
+        auto* f_type = rtti::TypeRegistry::find<First>();
+        auto* s_type = rtti::TypeRegistry::find<Second>();
         NC_ASSERT( f_type, "pair first type not reflected via NSTRUCT" );
         NC_ASSERT( s_type, "pair second type not reflected via NSTRUCT" );
         add_pair_tag_( f_type, s_type );

@@ -16,6 +16,8 @@
 #include <ncore/utils/assert.h>
 #include <ncore/utils/log.h>
 
+#include "collection.h"
+
 // Core reflection types.
 // Inspired by Arvid Gerstmann's metareflect
 // https://github.com/Leandros/metareflect
@@ -45,7 +47,23 @@ struct NCORE_API TypeId {
     }
 };
 
+} // namespace nc::rtti
+
 //------------------------------------------------------------------------------
+
+namespace std {
+template<>
+struct hash<nc::rtti::TypeId> {
+    size_t operator()( nc::rtti::TypeId id ) const noexcept
+    {
+        return id.value;
+    }
+};
+} // namespace std
+
+//------------------------------------------------------------------------------
+
+namespace nc::rtti {
 
 namespace detail {
 
@@ -166,17 +184,6 @@ struct NCORE_API TypeInfo {
     {
         return false;
     }
-};
-
-//------------------------------------------------------------------------------
-
-struct NCORE_API ContainerOps {
-    size_t ( *size )( const void* );
-    void* ( *at )( void*, size_t );
-    void ( *insert_default )( void* );
-    void ( *erase_at )( void*, size_t );
-    void ( *clear )( void* );
-    TypeId value_type_id;
 };
 
 //------------------------------------------------------------------------------
@@ -333,6 +340,48 @@ struct NCORE_API RecordInfo : public TypeInfo {
     virtual void visit_array(
         const void* ptr, const FieldInfo* field, RecordVisitor* visitor, PropertyFlags filter, unsigned depth
     ) const noexcept;
+
+    virtual void construct( void* instance ) const           = 0;
+    virtual void destruct( void* instance ) const            = 0;
+    virtual void clone( const void* src, void* dst ) const   = 0;
+    virtual void replace( const void* src, void* dst ) const = 0;
+};
+
+template<typename T>
+struct TRecordInfo : public RecordInfo {
+    TRecordInfo( const char* name, TypeId t_id, size_t size, size_t align ) : RecordInfo( name, t_id, size, align ) {}
+
+    void construct( void* instance ) const override
+    {
+        if constexpr (std::is_default_constructible_v<T> && !std::is_abstract_v<T>)
+            new ( instance ) T();
+    }
+
+    void destruct( void* instance ) const override
+    {
+        if constexpr (std::is_destructible_v<T>)
+            static_cast<T*>( instance )->~T();
+    }
+
+    void clone( const void* src, void* dst ) const override
+    {
+        if constexpr (std::is_copy_assignable_v<T>)
+            *static_cast<T*>( dst ) = *static_cast<const T*>( src );
+    }
+
+    void replace( const void* src, void* dst ) const override
+    {
+        const T* src_obj = static_cast<const T*>( src );
+        T* dst_obj       = static_cast<T*>( dst );
+
+        if constexpr (std::is_move_assignable_v<T> && !std::is_const_v<std::remove_reference_t<decltype( *src_obj )>>) {
+            *dst_obj = std::move( *src_obj );
+        } else if constexpr (std::is_copy_assignable_v<T>) {
+            clone( src, dst );
+        } else {
+            // static_assert( false, "Component T must be copy or move assignable" );
+        }
+    }
 };
 
 //------------------------------------------------------------------------------
@@ -341,19 +390,34 @@ struct NCORE_API RecordInfo : public TypeInfo {
  * @brief A global registry of reflected types and classes.
  * Equivalent to Godot's ClassDB.
  */
-class NCORE_API Registry {
+class NCORE_API TypeRegistry {
 public:
+    TypeRegistry( const TypeRegistry& )            = delete;
+    TypeRegistry& operator=( const TypeRegistry& ) = delete;
+
+    TypeRegistry( TypeRegistry&& )            = delete;
+    TypeRegistry& operator=( TypeRegistry&& ) = delete;
+
+    static TypeRegistry& get_instance()
+    {
+        static TypeRegistry instance;
+        return instance;
+    }
+
+    static void initialize();
+    static void shutdown();
+
     /**
      * @brief Registers a TypeInfo subclass for a given type T.
      *
      * @param TI The TypeInfo subclass to construct (e.g. RecordInfo, EnumInfo, etc).
      * @param T The actual type to reflect.
-     * @param Extra Extra arguments forwarded to the TypeInfo class/subclass constructor.
+     * @param TArgs Arguments forwarded to the TypeInfo class/subclass constructor.
      */
-    template<std::derived_from<TypeInfo> TI, typename T, typename... Extra>
-    static TI& emplace( const char* name, Extra&&... extra ) noexcept
+    template<std::derived_from<TypeInfo> TI, typename T, typename... TArgs>
+    static TI& register_type( const char* name, TArgs&&... extra ) noexcept
     {
-        static TI info( name, detail::type_id<T>(), sizeof( T ), alignof( T ), std::forward<Extra>( extra )... );
+        static TI info( name, detail::type_id<T>(), sizeof( T ), alignof( T ), std::forward<TArgs>( extra )... );
         static const bool registered = [] {
             info._next     = type_list_head;
             type_list_head = &info;
@@ -371,22 +435,31 @@ public:
      * @param name The name to register the primitive type under (e.g. "int", "float", etc).
      */
     template<typename T>
-    static TypeInfo& emplace( const char* name ) noexcept
+    static TypeInfo& register_type( const char* name ) noexcept
     {
-        return emplace<TypeInfo, T>( name );
+        return register_type<TypeInfo, T>( name );
     }
 
     // TODO: add register_class<T>() helper method
 
     static const TypeInfo* find( TypeId id ) noexcept
     {
-        for (auto* c = type_list_head; c; c = c->_next) {
+        auto& map = get_instance().type_cache;
+        auto it   = map.find( id );
+        if (it != map.end()) {
             rtti_hits_++;
-            if (c->id == id)
-                return c;
+            return it->second;
         }
 
-        NC_LOG_WARN( "Registry: type ID '{}' not found, has it been reflected?", id.value );
+        for (auto* c = type_list_head; c; c = c->_next) {
+            rtti_hits_++;
+            if (c->id == id) {
+                map[id] = c;
+                return c;
+            }
+        }
+
+        NC_LOG_WARN( "TypeRegistry: type ID '{}' not found, has it been reflected?", id.value );
         return nullptr;
     }
 
@@ -398,7 +471,7 @@ public:
                 return c;
         }
 
-        NC_LOG_WARN( "Registry: type name '{}' not found, has it been reflected?", name );
+        NC_LOG_WARN( "TypeRegistry: type name '{}' not found, has it been reflected?", name );
         return nullptr;
     }
 
@@ -483,17 +556,18 @@ public:
         return *c;
     }
 
-    static void register_primitive_types();
-
     static int get_rtti_hits()
     {
         return rtti_hits_;
     }
 
 private:
+    TypeRegistry();
+
     static TypeInfo* type_list_head;
-    static bool primitive_types_registered;
     static int rtti_hits_;
+
+    UnorderedMap<TypeId, TypeInfo*> type_cache;
 };
 
 namespace detail {
@@ -537,8 +611,8 @@ struct NCORE_API RecordVisitor {
 //------------------------------------------------------------------------------
 
 template<typename VecT>
-struct NCORE_API VectorClass : public RecordInfo {
-    VectorClass( const char* n, TypeId i, size_t sz, size_t align ) : RecordInfo( n, i, sz, align ) {}
+struct NCORE_API VectorClass : public TRecordInfo<VecT> {
+    VectorClass( const char* n, TypeId i, size_t sz, size_t align ) : TRecordInfo<VecT>( n, i, sz, align ) {}
 
     void
     visit( void const* instance, RecordVisitor* visitor, PropertyFlags filter, unsigned depth ) const noexcept override
@@ -549,7 +623,7 @@ struct NCORE_API VectorClass : public RecordInfo {
         }
 
         auto* vec       = static_cast<const VecT*>( instance );
-        auto* elem_type = Registry::find<typename VecT::value_type>();
+        auto* elem_type = TypeRegistry::find<typename VecT::value_type>();
 
         visitor->array_begin( elem_type, static_cast<int>( depth ), static_cast<int>( vec->size() ) );
         size_t idx = 0;
@@ -566,8 +640,8 @@ struct NCORE_API VectorClass : public RecordInfo {
 
 //------------------------------------------------------------------------------
 
-struct NCORE_API StringClass : public RecordInfo {
-    StringClass( const char* n, TypeId i, size_t sz, size_t align ) : RecordInfo( n, i, sz, align ) {}
+struct NCORE_API StringClass : public TRecordInfo<std::string> {
+    StringClass( const char* n, TypeId i, size_t sz, size_t align ) : TRecordInfo( n, i, sz, align ) {}
 
     void
     visit( void const* instance, RecordVisitor* visitor, PropertyFlags filter, unsigned depth ) const noexcept override
@@ -584,18 +658,6 @@ struct NCORE_API StringClass : public RecordInfo {
 };
 
 } // namespace nc::rtti
-
-//------------------------------------------------------------------------------
-
-namespace std {
-template<>
-struct hash<nc::rtti::TypeId> {
-    size_t operator()( nc::rtti::TypeId id ) const noexcept
-    {
-        return id.value;
-    }
-};
-} // namespace std
 
 //------------------------------------------------------------------------------
 
@@ -631,11 +693,11 @@ struct hash<nc::rtti::TypeId> {
 //------------------------------------------------------------------------------
 
 #define NSTRUCT( T, ... )                                                                                              \
-    inline static ::nc::rtti::RecordInfo& nc_info_##T()                                                                \
+    inline static ::nc::rtti::TRecordInfo<T>& nc_info_##T()                                                            \
     {                                                                                                                  \
         static ::nc::rtti::FieldInfo nc_flds_##T[] = { __VA_ARGS__ };                                                  \
-        static ::nc::rtti::RecordInfo& ci          = []() -> ::nc::rtti::RecordInfo& {                                 \
-            auto& c        = ::nc::rtti::Registry::emplace<::nc::rtti::RecordInfo, T>( #T );                           \
+        static ::nc::rtti::TRecordInfo<T>& ci      = []() -> ::nc::rtti::TRecordInfo<T>& {                             \
+            auto& c        = ::nc::rtti::TypeRegistry::register_type<::nc::rtti::TRecordInfo<T>, T>( #T );                 \
             c.fields_begin = nc_flds_##T;                                                                              \
             c.fields_end   = nc_flds_##T + ( sizeof( nc_flds_##T ) / sizeof( ::nc::rtti::FieldInfo ) );                \
             return c;                                                                                                  \
@@ -657,7 +719,7 @@ struct hash<nc::rtti::TypeId> {
     {                                                                                                                   \
         static ::nc::rtti::EnumElement nc_enum_elems_##T[] = { __VA_ARGS__ };                                           \
         static ::nc::rtti::EnumInfo& ei                    = []() -> ::nc::rtti::EnumInfo& {                            \
-            auto& e          = ::nc::rtti::Registry::emplace<::nc::rtti::EnumInfo, T>( #T );                            \
+            auto& e          = ::nc::rtti::TypeRegistry::register_type<::nc::rtti::EnumInfo, T>( #T );                      \
             e.elements_begin = nc_enum_elems_##T;                                                                       \
             e.elements_end   = nc_enum_elems_##T + ( sizeof( nc_enum_elems_##T ) / sizeof( ::nc::rtti::EnumElement ) ); \
             return e;                                                                                                   \

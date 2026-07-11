@@ -4,8 +4,8 @@
 
 namespace nc {
 
-class EcsGraphicsFeature : public EcsFeature {
-    NCLASS( EcsGraphicsFeature, EcsFeature )
+class EcsInputsFeature : public EcsFeature {
+    NCLASS( EcsInputsFeature, EcsFeature )
 
 public:
     void build( EcsWorld& world ) override;

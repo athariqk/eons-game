@@ -89,7 +89,7 @@ static void OnB2DrawPoint( b2Vec2 p, float size, b2HexColor color, void* ctx )
     wrapper->draw_point( Vec2( p.x, p.y ), size, static_cast<uint32_t>( color ), wrapper->context );
 }
 
-Error Box2DPhysicsImpl::init()
+Error Box2DPhysicsImpl::init( ConfFile& cfg_file )
 {
     if (b2World_IsValid( world_id ))
         return Error::FAIL;

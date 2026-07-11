@@ -1,5 +1,6 @@
 #include <flecs.h>
 
+#include <ncore/game_world.h>
 #include <ncore/runtime/ecs_query.h>
 #include <ncore/runtime/ecs_world.h>
 #include <ncore/utils/assert.h>
@@ -23,51 +24,91 @@ EcsQuery::Iterator EcsQuery::begin()
 }
 
 //------------------------------------------------------------------------------
-// EcsIter
+// QueryContext
 //------------------------------------------------------------------------------
 
-EcsIter::EcsIter( void* iter ) : it_( iter ) {}
+QueryContext::QueryContext( void* iter ) : it_( iter ) {}
 
-void EcsIter::set_iter_( void* iter )
+void QueryContext::set_iter_( void* iter )
 {
     it_ = iter;
 }
 
-double EcsIter::delta_time() const
+double QueryContext::delta_time() const
 {
     auto* it = static_cast<ecs_iter_t*>( it_ );
     return static_cast<double>( it->delta_time );
 }
 
-float EcsIter::delta_time_internal() const
+float QueryContext::delta_time_internal() const
 {
     auto* it = static_cast<ecs_iter_t*>( it_ );
     return it->delta_system_time;
 }
 
-int32_t EcsIter::count() const
+int32_t QueryContext::count() const
 {
     auto* it = static_cast<ecs_iter_t*>( it_ );
     return static_cast<int32_t>( it->count );
 }
 
-EcsEntityId EcsIter::entity( int32_t row ) const
+EcsEntityId QueryContext::entity( int32_t row ) const
 {
     auto* it = static_cast<ecs_iter_t*>( it_ );
     return static_cast<EcsEntityId>( it->entities[row] );
 }
 
-EcsWorld& EcsIter::world() const
+EcsWorld& QueryContext::world() const
 {
     auto* it = static_cast<ecs_iter_t*>( it_ );
     return *static_cast<EcsWorld*>( ecs_get_binding_ctx( it->world ) );
 }
 
-void* EcsIter::get_component_( int32_t column, size_t size, size_t alignment ) const
+ModuleRegistry& QueryContext::modules() const
+{
+    auto* it = static_cast<ecs_iter_t*>( it_ );
+    return static_cast<EcsWorld*>( ecs_get_binding_ctx( it->world ) )->get_parent().get_modules();
+}
+
+EcsEntityId QueryContext::event()
+{
+    auto* it = static_cast<ecs_iter_t*>( it_ );
+    return it->event;
+}
+
+void* QueryContext::get_component_( int32_t column, size_t size, size_t alignment ) const
 {
     ( void ) alignment;
     auto* it = static_cast<ecs_iter_t*>( it_ );
     return ecs_field_w_size( it, size, static_cast<int8_t>( column ) );
+}
+
+int32_t QueryContext::resolve_term_index_( const rtti::TypeInfo& info ) const
+{
+    auto* it               = static_cast<ecs_iter_t*>( it_ );
+    auto* world            = static_cast<EcsWorld*>( ecs_get_binding_ctx( it->world ) );
+    EcsComponentId comp_id = world->register_component_type( &info );
+    for (int8_t i = 0; i < it->field_count; i++) {
+        if (it->ids[i] == static_cast<ecs_id_t>( comp_id )) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int32_t QueryContext::resolve_pair_index_( const rtti::TypeInfo& first, const rtti::TypeInfo& second ) const
+{
+    auto* it                 = static_cast<ecs_iter_t*>( it_ );
+    auto* world              = static_cast<EcsWorld*>( ecs_get_binding_ctx( it->world ) );
+    EcsComponentId first_id  = world->register_component_type( &first );
+    EcsComponentId second_id = world->register_component_type( &second );
+    ecs_id_t pair_id         = ecs_make_pair( first_id, second_id );
+    for (int8_t i = 0; i < it->field_count; i++) {
+        if (it->ids[i] == pair_id) {
+            return i;
+        }
+    }
+    return -1;
 }
 
 //------------------------------------------------------------------------------
@@ -131,7 +172,7 @@ EcsQuery::Iterator& EcsQuery::Iterator::operator++()
     return *this;
 }
 
-EcsIter& EcsQuery::Iterator::operator*()
+QueryContext& EcsQuery::Iterator::operator*()
 {
     return wrapper_;
 }
@@ -158,7 +199,7 @@ EcsQueryBuilder::~EcsQueryBuilder()
 
 void EcsQueryBuilder::add_term_impl( const rtti::TypeInfo* type, uint8_t inout )
 {
-    NC_ASSERT( type, "Component type not registered in rtti::Registry" );
+    NC_ASSERT( type, "Component type not registered in rtti::TypeRegistry" );
     EcsComponentId comp_id = pImpl->world.register_component_type( type );
 
     ecs_term_t term{};
@@ -196,6 +237,23 @@ EcsQueryBuilder& EcsQueryBuilder::all_read()
     term.id    = EcsWildcard;
     term.inout = EcsIn;
     pImpl->terms.push_back( term );
+    return *this;
+}
+
+EcsQueryBuilder& EcsQueryBuilder::up()
+{
+    if (!pImpl->terms.empty()) {
+        pImpl->terms.back().src.id |= EcsUp;
+        pImpl->terms.back().trav = EcsChildOf;
+    }
+    return *this;
+}
+
+EcsQueryBuilder& EcsQueryBuilder::self()
+{
+    if (!pImpl->terms.empty()) {
+        pImpl->terms.back().src.id |= EcsSelf;
+    }
     return *this;
 }
 

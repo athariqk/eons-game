@@ -38,6 +38,8 @@ inline ecs_entity_t map_phase( EcsSystemPhase p )
     switch (p) {
         case EcsSystemPhase::Init:
             return EcsOnStart;
+        case EcsSystemPhase::PreFrame:
+            return EcsPreFrame;
         case EcsSystemPhase::PreUpdate:
             return EcsPreUpdate;
         case EcsSystemPhase::Update:
@@ -46,6 +48,8 @@ inline ecs_entity_t map_phase( EcsSystemPhase p )
             return EcsPostUpdate;
         case EcsSystemPhase::FixedUpdate:
             return EcsOnUpdate; // TODO: custom pipeline
+        case EcsSystemPhase::PostFrame:
+            return EcsPostFrame;
         default:
             NC_ASSERT( false, "Unknown system phase" );
             return 0;

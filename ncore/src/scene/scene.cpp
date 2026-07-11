@@ -1,25 +1,18 @@
-#include <ncore/modules/events/event_bus.h>
 #include <ncore/modules/module_registry.h>
+#include <ncore/runtime/components/ecs_time.h>
+#include <ncore/runtime/ecs_base_features.h>
 #include <ncore/scene/node.h>
 #include <ncore/scene/scene.h>
 
 namespace nc {
 
-Scene::Scene( ModuleRegistry& p_modules ) : IGameWorld( p_modules ), ecs_world( p_modules ) {}
+Scene::Scene( AppDesc& p_app_desc, ModuleRegistry& p_modules ) : IGameWorld( p_app_desc, p_modules ), ecs_world( *this )
+{}
 
 void Scene::on_init()
 {
-    auto events = get_modules().resolve<EventBus>();
-
-    events->subscribe<WindowCloseEvent>( [this]( WindowCloseEvent& ) {
-        wants_to_quit = true;
-        NC_LOG_TRACE( "Window close event received, requesting exit..." );
-    } );
-
-    events->subscribe<WindowResizeEvent>( []( WindowResizeEvent& e ) {
-        NC_LOG_TRACE( "Window resolution changed: {}x{}", e.width, e.height );
-    } );
-
+    ecs_world.emplace_singleton<EcsTime>();
+    ecs_world.load_feature<EcsBaseFeatures>( app_desc );
     ensure_root_node_exists_();
 }
 
@@ -37,7 +30,7 @@ bool Scene::on_variable_update( double p_delta )
 
 void Scene::on_finish()
 {
-    NC_LOG_TRACE_C( log::ECS, "World finished" );
+    NC_LOG_TRACE_C( log::ECS, "Scene teardown" );
 }
 
 Node* Scene::get_root_node()

@@ -17,7 +17,7 @@ AudioModule::AudioModule() : pImpl( std::make_unique<Impl>() ) {}
 
 AudioModule::~AudioModule() = default;
 
-Error AudioModule::init()
+Error AudioModule::init( ConfFile& cfg_file )
 {
     return Error::OK;
 }

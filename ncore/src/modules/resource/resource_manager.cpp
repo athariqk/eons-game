@@ -4,6 +4,9 @@
 
 #include <algorithm>
 
+#include <backends/sdl/sdl_audio_loader.h>
+#include <backends/sdl/sdl_image_loader.h>
+
 #include <ncore/modules/resource/resource.h>
 #include <ncore/modules/resource/resource_importer.h>
 #include <ncore/modules/resource/resource_manager.h>
@@ -17,8 +20,10 @@ ResourceManager::ResourceManager()
         importer.reset();
 }
 
-Error ResourceManager::init()
+Error ResourceManager::init( ConfFile& cfg_file )
 {
+    register_importer<SDLAudioLoader>();
+    register_importer<SDLImageLoader>();
     return Error::OK;
 }
 
@@ -96,7 +101,7 @@ void ResourceManager::unload_resource( RID rid )
     if (!entry)
         return;
 
-    if (!(*entry)->filepath.empty())
+    if (!( *entry )->filepath.empty())
         path_map.erase( ( *entry )->filepath );
 
     storage.release( rid );

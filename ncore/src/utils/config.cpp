@@ -36,16 +36,16 @@ void ConfFile::read_into( const rtti::RecordInfo& type_info, void* result )
             continue;
         }
         auto field_ptr = field.get_void_ptr( result );
-        if (field.type_id == rtti::Registry::get_type_id<bool>()) {
+        if (field.type_id == rtti::TypeRegistry::get_type_id<bool>()) {
             ini::Convert<bool> c;
             c.decode( it->second, *static_cast<bool*>( field_ptr ) );
-        } else if (field.type_id == rtti::Registry::get_type_id<int>()) {
+        } else if (field.type_id == rtti::TypeRegistry::get_type_id<int>()) {
             ini::Convert<int> c;
             c.decode( it->second, *static_cast<int*>( field_ptr ) );
-        } else if (field.type_id == rtti::Registry::get_type_id<float>()) {
+        } else if (field.type_id == rtti::TypeRegistry::get_type_id<float>()) {
             ini::Convert<float> c;
             c.decode( it->second, *static_cast<float*>( field_ptr ) );
-        } else if (field.type_id == rtti::Registry::get_type_id<std::string>()) {
+        } else if (field.type_id == rtti::TypeRegistry::get_type_id<std::string>()) {
             *static_cast<std::string*>( field_ptr ) = it->second;
         }
     }

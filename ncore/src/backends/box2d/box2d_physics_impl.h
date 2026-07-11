@@ -13,7 +13,7 @@ class Box2DPhysicsImpl : public IPhysicsModule {
     NCLASS( Box2DPhysicsImpl, IPhysicsModule )
 
 public:
-    Error init() override;
+    Error init( ConfFile& cfg_file ) override;
     void step() const override;
     void finalize() override;
 

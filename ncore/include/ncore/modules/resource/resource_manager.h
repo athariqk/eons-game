@@ -13,11 +13,10 @@
 #include <ncore/kernel/object.h>
 #include <ncore/kernel/rid.h>
 #include <ncore/modules/module.h>
+#include <ncore/modules/resource/resource.h>
+#include <ncore/modules/resource/resource_importer.h>
 
 namespace nc {
-
-class IResource;
-class IResourceImporter;
 
 /**
  * @brief ResourceManager handles resource loading.
@@ -32,7 +31,7 @@ class ResourceManager : public IModule {
 public:
     ResourceManager();
 
-    Error init() override;
+    Error init( ConfFile& cfg_file ) override;
     void finalize() override;
 
     void register_importer( std::unique_ptr<IResourceImporter>&& importer );

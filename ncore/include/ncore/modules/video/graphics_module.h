@@ -2,10 +2,12 @@
 
 #include <memory>
 
+#include <ncore/kernel/collection.h>
 #include <ncore/kernel/rid.h>
 #include <ncore/kernel/structures.h>
 #include <ncore/modules/module.h>
-#include <ncore/modules/video/render_backend.h>
+#include <ncore/modules/video/render_device.h>
+#include <ncore/modules/video/render_surface.h>
 
 namespace nc {
 
@@ -13,21 +15,33 @@ class Image;
 class Material;
 class Mesh;
 
-class GraphicsModule : public IModule {
+class NCORE_API GraphicsModule : public IModule {
     NCLASS( GraphicsModule, IModule )
 
 public:
-    explicit GraphicsModule( std::unique_ptr<IRenderBackend> backend );
+    struct NCORE_API RenderSettings {
+        bool VSync = true;
+        NSTRUCT( RenderSettings, NC_F( RenderSettings, VSync ) )
+    };
 
-    Error init() override;
+    const RenderSettings& get_settings() const
+    {
+        return settings;
+    }
+
+    Error init( ConfFile& cfg_file ) override;
     void finalize() override;
 
-    void begin_frame();
-    void end_frame();
-    void set_clear_color( Color color );
-    void set_vsync( bool enabled );
-    void set_render_size( Vec2 size );
-    Vec2 get_surface_size() const;
+    RID create_surface( void* native_whnd, Vec2 surface_size );
+    void destroy_surface( RID surface_rid );
+    IRenderSurface* get_surface( RID surface_rid ) const;
+
+    void begin_frame( RID surface_rid );
+    void end_frame( RID surface_rid );
+    void set_clear_color( RID surface_rid, Color color );
+    void set_vsync( RID surface_rid, bool enabled );
+    void set_render_size( RID surface_rid, Vec2 size );
+    Vec2 get_surface_size( RID surface_rid ) const;
 
     RID upload_image( const Image& image );
     RID upload_pipeline( const Material& material );
@@ -52,9 +66,9 @@ public:
     void* get_native_handle( RID rid ) const;
 
 private:
-    RID create_white_texture_();
-
-    std::unique_ptr<IRenderBackend> renderer;
+    RenderSettings settings;
+    std::unique_ptr<IRenderDevice> device;
+    UnorderedMap<RID, std::unique_ptr<IRenderSurface>> surfaces;
     RID white_texture;
 };
 

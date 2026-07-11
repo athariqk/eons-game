@@ -4,9 +4,9 @@
 
 #include "pch.h"
 
-class EonsApplication : public nc::Application {
+class EonsGame : public nc::Application {
 public:
-    EonsApplication() :
+    EonsGame() :
         Application(
             { "Eons",
               nc::AppVersion{
@@ -21,6 +21,7 @@ public:
 
     void on_world_init( nc::IGameWorld& world ) override
     {
+        Application::on_world_init( world );
         auto& scene = static_cast<nc::Scene&>( world );
         scene.get_root_node()->create_child( "Player" );
     }
@@ -30,9 +31,9 @@ int main( int argc, char* argv[] )
 {
     ( void ) argc;
     ( void ) argv;
-    EonsApplication app;
-    app.init();
-    app.run();
-    app.finish();
+    EonsGame game;
+    game.init();
+    game.run();
+    game.finish();
     return 0;
 }

@@ -1,24 +1,24 @@
 #pragma once
 
 #include <DeviceContext.h>
+#include <EngineFactoryVk.h>
 #include <PipelineState.h>
 #include <RefCntAutoPtr.hpp>
 #include <RenderDevice.h>
-#include <SwapChain.h>
 #include <Texture.h>
 
 #include <ncore/kernel/collection.h>
-#include <ncore/modules/video/render_backend.h>
+#include <ncore/modules/video/render_device.h>
 
 #include "batch_renderer_2d.h"
 #include "diligent_allocator.h"
 
 namespace nc {
 
-class IWindowModule;
+class VkRenderSurface;
 
-class VkRenderBackend : public IRenderBackend {
-    NCLASS( VkRenderBackend, IRenderBackend )
+class VkRenderDevice : public IRenderDevice {
+    NCLASS( VkRenderDevice, IRenderDevice )
 
     template<typename T>
     using DiligentRef = Diligent::RefCntAutoPtr<T>;
@@ -30,18 +30,10 @@ class VkRenderBackend : public IRenderBackend {
     };
 
 public:
-    explicit VkRenderBackend( IWindowModule* windows );
-    ~VkRenderBackend() override;
+    VkRenderDevice();
+    ~VkRenderDevice() override;
 
-    Error init() override;
-    void finalize() override;
-
-    void begin_frame() override;
-    void end_frame() override;
-    void set_clear_color( Color color ) override;
-    void set_vsync( bool enabled ) override;
-    void set_render_size( Vec2 size ) override;
-    Vec2 get_surface_size() const override;
+    std::unique_ptr<IRenderSurface> create_surface( void* native_whnd, Vec2 size ) override;
 
     RID create_texture( uint32_t w, uint32_t h, const void* pixels ) override;
     RID create_pipeline( std::string_view vs_spirv, std::string_view ps_spirv ) override;
@@ -53,20 +45,24 @@ public:
         const void* vertices, uint32_t vertex_count, const uint16_t* indices, uint32_t index_count, RID texture,
         Vec4 clip_rect
     ) override;
-    void batch_2d_flush() override;
+    void batch_2d_flush( IRenderSurface& target ) override;
 
     void* get_native_texture_view( RID rid ) override;
     void* get_native_device() const override;
+
+    RID get_white_texture() const override
+    {
+        return white_texture_rid;
+    }
 
 private:
     void create_2d_pipeline_state_();
 
     NcoreDiligentAllocator allocator;
 
-    IWindowModule* windows;
+    DiligentRef<Diligent::IEngineFactoryVk> engine_factory;
     DiligentRef<Diligent::IRenderDevice> render_device;
     DiligentRef<Diligent::IDeviceContext> device_ctx;
-    DiligentRef<Diligent::ISwapChain> swap_chain;
     DiligentRef<Diligent::IShaderSourceInputStreamFactory> shader_src_factory;
 
     PagedResourcePool<DiligentRef<Diligent::ITexture>> texture_cache;
@@ -77,13 +73,12 @@ private:
     DiligentRef<Diligent::IShaderResourceBinding> srb_2d;
     Diligent::IShaderResourceVariable* texture_var_2d = nullptr;
     DiligentRef<Diligent::IBuffer> constants_2d;
+
     DiligentRef<Diligent::ITexture> white_texture;
     Diligent::ITextureView* white_tex_view = nullptr;
+    RID white_texture_rid;
 
     std::unique_ptr<BatchRenderer2D> batch2d;
-
-    float clear_color[4] = { 0.35f, 0.35f, 0.35f, 1.0f };
-    bool vsync_enabled   = true;
 };
 
 } // namespace nc

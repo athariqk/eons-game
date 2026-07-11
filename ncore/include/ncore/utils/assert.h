@@ -15,6 +15,7 @@ NCORE_API void handle_assert( const char* expr, const char* msg, const char* fil
 }
 
 #ifdef NC_DEBUG
+
 #define NC_ASSERT( expr, msg )                                                                                         \
     do {                                                                                                               \
         if (!( expr )) {                                                                                               \
@@ -41,15 +42,18 @@ NCORE_API void handle_assert( const char* expr, const char* msg, const char* fil
         }                                                                                                              \
     } while (0)
 
-#define NC_ASSERT_NULL( ptr )                                                                                          \
+#define NC_ASSERT_NULL_MSG( ptr, msg )                                                                                 \
     do {                                                                                                               \
         if (ptr == nullptr) {                                                                                          \
-            nc::log::handle_assert( #ptr, "pointer to object is null", __FILE__, __LINE__ );                           \
+            nc::log::handle_assert( #ptr, msg, __FILE__, __LINE__ );                                                   \
             NC_DEBUGBREAK();                                                                                           \
         }                                                                                                              \
     } while (0)
+
+#define NC_ASSERT_NULL( ptr ) NC_ASSERT_NULL_MSG( ptr, "pointer to object is null" )
 
 #else
+
 #define NC_ASSERT( expr, msg )                                                                                         \
     do {                                                                                                               \
         if (!( expr )) {                                                                                               \
@@ -77,8 +81,9 @@ NCORE_API void handle_assert( const char* expr, const char* msg, const char* fil
 #define NC_ASSERT_NULL( ptr )                                                                                          \
     do {                                                                                                               \
         if (ptr == nullptr) {                                                                                          \
-            nc::log::handle_assert( #ptr, "pointer to object is null", __FILE__, __LINE__ );                           \
+            nc::log::handle_assert( #ptr, "pointer is null reference", __FILE__, __LINE__ );                           \
             std::abort();                                                                                              \
         }                                                                                                              \
     } while (0)
+
 #endif

@@ -14,11 +14,13 @@
 namespace nc {
 
 class IGameWorld;
+class ResourceManager;
 class EventBus;
 class ConfFile;
 class IGuiModule;
-class IWindowModule;
+class VideoModule;
 class GraphicsModule;
+class InputModule;
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
@@ -68,13 +70,13 @@ public:
     virtual void run();
     virtual void finish();
 
-    virtual void poll_events();
+    virtual void process_events();
 
     /**
      * @brief Registers the IModules used by the application.
      * This can be overridden to register custom modules.
      */
-    virtual void register_modules( ConfFile& cfg_file );
+    virtual void register_modules();
 
     /**
      * @brief Called once when the application is being destroyed.
@@ -86,14 +88,14 @@ public:
      * By default, this creates a new Scene with the default ECS
      * runtime features.
      *
-     * See: EcsRuntimeFeature
+     * See: EcsBaseFeatures
      */
     virtual std::unique_ptr<IGameWorld> create_world();
 
     /**
      * @brief Called once after the world is initialized.
      */
-    virtual void on_world_init( IGameWorld& world ) {}
+    virtual void on_world_init( IGameWorld& world );
 
 protected:
     AppDesc app_desc;
@@ -103,10 +105,12 @@ protected:
     double delta_time = 0.0;
     std::unique_ptr<IGameWorld> g_world;
 
-    EventBus* events       = nullptr;
-    IWindowModule* windows = nullptr;
-    GraphicsModule* gfx    = nullptr;
-    IGuiModule* imgui      = nullptr;
+    ResourceManager* resources = nullptr;
+    EventBus* events           = nullptr;
+    VideoModule* video         = nullptr;
+    GraphicsModule* gfx        = nullptr;
+    IGuiModule* imgui          = nullptr;
+    InputModule* input         = nullptr;
 };
 
 } // namespace nc

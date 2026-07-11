@@ -2,6 +2,10 @@
 
 namespace nc {
 
+enum class WindowFlag : uint8_t {
+    RESIZABLE = 1 << 0
+};
+
 enum class CursorType : uint8_t {
     DEFAULT = 0,
     TEXT,

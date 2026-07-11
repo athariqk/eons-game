@@ -11,7 +11,7 @@ namespace nc {
 
 /**
  * @brief EventBus is an implementation of the event bus pattern
- * for publishing and subscribing to Events.
+ * for publishing and subscribing to instances of Event.
  *
  * Usage:
  *   // Subscribe
@@ -30,7 +30,7 @@ public:
     EventBus( const EventBus& )            = delete;
     EventBus& operator=( const EventBus& ) = delete;
 
-    Error init() override;
+    Error init( ConfFile& cfg_file ) override;
     void finalize() override;
 
     /**
@@ -48,7 +48,7 @@ public:
     {
         size_t index = next_subscription_id++;
         auto wrapper = [callback]( BaseEvent& event ) { callback( static_cast<T&>( event ) ); };
-        subscribers[rtti::Registry::get_type_id<T>()].emplace_back( index, wrapper );
+        subscribers[rtti::TypeRegistry::get_type_id<T>()].emplace_back( index, wrapper );
         return index;
     }
 

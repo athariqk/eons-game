@@ -18,9 +18,9 @@
 #include <ncore/runtime/components/ecs_rigidbody.h>
 #include <ncore/runtime/components/ecs_sprite.h>
 #include <ncore/runtime/components/ecs_transform.h>
+#include <ncore/runtime/ecs_base_features.h>
 #include <ncore/runtime/ecs_entity.h>
 #include <ncore/runtime/ecs_feature.h>
-#include <ncore/runtime/ecs_runtime.h>
 #include <ncore/runtime/ecs_system.h>
 #include <ncore/runtime/ecs_world.h>
 #include <ncore/scene/node.h>

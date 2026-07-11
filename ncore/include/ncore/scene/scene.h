@@ -7,6 +7,7 @@
 
 namespace nc {
 
+struct AppDesc;
 class Viewport;
 class ModuleRegistry;
 class Node;
@@ -30,7 +31,7 @@ class NCORE_API Scene : public IGameWorld {
     static constexpr EcsEntityId ROOT_PARENT_ID = 0xABCDEF123FFFFF;
 
 public:
-    Scene( ModuleRegistry& modules );
+    Scene( AppDesc& p_app_desc, ModuleRegistry& p_modules );
 
     Scene( const Scene& )            = delete;
     Scene& operator=( const Scene& ) = delete;
@@ -71,8 +72,7 @@ private:
     EcsWorld ecs_world;
     Viewport* viewport = nullptr;
     NodePool node_pool;
-    Node* root_node    = nullptr;
-    bool wants_to_quit = false;
+    Node* root_node = nullptr;
 };
 
 } // namespace nc

@@ -36,7 +36,7 @@ public:
     T read()
     {
         T result{};
-        auto* type_info = rtti::Registry::find_record<T>();
+        auto* type_info = rtti::TypeRegistry::find_record<T>();
         if (type_info) {
             read_into( *type_info, &result );
         }

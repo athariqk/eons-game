@@ -4,49 +4,57 @@
 
 namespace nc::rtti {
 
-bool Registry::primitive_types_registered = false;
-TypeInfo* Registry::type_list_head        = nullptr;
-int Registry::rtti_hits_                  = 0;
-
 // ======================================================================
-// ClassRegistry
+// TypeRegistry
 // ======================================================================
 
-const TypeInfo& Registry::get( TypeId id ) noexcept
+TypeInfo* TypeRegistry::type_list_head = nullptr;
+int TypeRegistry::rtti_hits_           = 0;
+
+TypeRegistry::TypeRegistry() = default;
+
+const TypeInfo& TypeRegistry::get( TypeId id ) noexcept
 {
     auto* p = find( id );
     NC_ASSERT( p != nullptr, "Type not registered" );
     return *p;
 }
 
-const TypeInfo& Registry::get( std::string_view name ) noexcept
+const TypeInfo& TypeRegistry::get( std::string_view name ) noexcept
 {
     auto* p = find( name );
     NC_ASSERT( p != nullptr, "Type not registered" );
     return *p;
 }
 
-void Registry::register_primitive_types()
+void TypeRegistry::initialize()
 {
-    if (primitive_types_registered)
-        return;
-
-    Registry::emplace<bool>( "bool" );
-    Registry::emplace<int32_t>( "int32_t" );
-    Registry::emplace<uint32_t>( "uint32_t" );
-    Registry::emplace<int64_t>( "int64_t" );
-    Registry::emplace<uint64_t>( "uint64_t" );
-    Registry::emplace<float>( "float" );
-    Registry::emplace<double>( "double" );
-    Registry::emplace<size_t>( "size_t" );
-    Registry::emplace<uint8_t>( "uint8_t" );
-    Registry::emplace<StringClass, std::string>( "std::string" );
-    Registry::emplace<VectorClass<std::vector<int>>, std::vector<int>>( "std::vector<int>" );
+    TypeRegistry::register_type<bool>( "bool" );
+    TypeRegistry::register_type<int32_t>( "int32_t" );
+    TypeRegistry::register_type<uint32_t>( "uint32_t" );
+    TypeRegistry::register_type<int64_t>( "int64_t" );
+    TypeRegistry::register_type<uint64_t>( "uint64_t" );
+    TypeRegistry::register_type<float>( "float" );
+    TypeRegistry::register_type<double>( "double" );
+    TypeRegistry::register_type<size_t>( "size_t" );
+    TypeRegistry::register_type<uint8_t>( "uint8_t" );
+    TypeRegistry::register_type<StringClass, std::string>( "std::string" );
+    TypeRegistry::register_type<VectorClass<std::vector<int>>, std::vector<int>>( "std::vector<int>" );
 
     // TODO: should this be here?
-    Registry::emplace<RecordInfo, nc::NcObject>( "NcObject" );
+    TypeRegistry::register_type<TRecordInfo<nc::NcObject>, nc::NcObject>( "NcObject" );
 
-    primitive_types_registered = true;
+    for (auto* c = type_list_head; c; c = c->_next) {
+        get_instance().type_cache[c->id] = c;
+    }
+
+	NC_LOG_TRACE( "TypeRegistry initialized" );
+}
+
+void TypeRegistry::shutdown()
+{
+    get_instance().type_cache.clear();
+    NC_LOG_TRACE( "TypeRegistry shutdown" );
 }
 
 // ======================================================================
@@ -55,7 +63,7 @@ void Registry::register_primitive_types()
 
 const TypeInfo* FieldInfo::get_type() const
 {
-    return Registry::find( type_id );
+    return TypeRegistry::find( type_id );
 }
 
 // ======================================================================
