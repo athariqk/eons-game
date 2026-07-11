@@ -19,7 +19,7 @@ public:
     int get_frequency() const;
     int get_bits_per_sample() const;
 
-    size_t get_size_bytes() override;
+    size_t get_size_bytes() const override;
 
 private:
     BytesBuffer data;

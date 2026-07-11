@@ -78,7 +78,7 @@ void EcsDebugFeature::build( EcsWorld& world )
             auto window = ctx.get_component<EcsWindow>();
 
             if (time.accumulator >= 0.5) {
-                update_window_title( state.video, window->window_id, app_desc.Name, time.fps, ctx.delta_time() );
+                update_window_title( state.video, window->id, app_desc.Name, time.fps, ctx.delta_time() );
             }
         } );
 }

@@ -6,10 +6,13 @@
 
 #include <ncore/kernel/collection.h>
 #include <ncore/kernel/structures.h>
+#include <ncore/modules/video/resources/image.h>
 #include <ncore/modules/video/video_module.h>
 #include <ncore/modules/video/viewport.h>
 #include <ncore/utils/config.h>
 #include <ncore/utils/log.h>
+
+#include <assets/global_res.h>
 
 namespace nc {
 
@@ -17,6 +20,7 @@ struct VideoModule::Impl {
     UnorderedMap<uint32_t, std::unique_ptr<Viewport>> viewports;
     UnorderedMap<CursorType, SDL_Cursor*> mouse_cursors;
     Vector<uint32_t> window_ids;
+    Ref<Image> default_app_icon;
 
     SDL_Window* get_sdl_window( uint32_t id )
     {
@@ -53,6 +57,10 @@ Error VideoModule::init( ConfFile& cfg_file )
         pImpl->mouse_cursors[cursor_type] =
             cursor_type == CursorType::DEFAULT ? SDL_GetDefaultCursor() : SDL_CreateSystemCursor( sdl_sys_cursor );
     }
+
+    pImpl->default_app_icon = Ref<Image>::create(
+        GlobalRes::NCORE_APP_ICON_WIDTH, GlobalRes::NCORE_APP_ICON_HEIGHT, GlobalRes::NCORE_APP_ICON_RGB32
+    );
 
     return Error::OK;
 }
@@ -96,7 +104,21 @@ uint32_t VideoModule::create_window( uint8_t flags )
 
     pImpl->window_ids.push_back( id );
 
+    // default icon
+    set_window_icon( id, *pImpl->default_app_icon );
+
     return static_cast<uint32_t>( id );
+}
+
+void VideoModule::set_window_parent( uint32_t window_id, uint32_t parent ) const
+{
+    auto window     = pImpl->get_sdl_window( window_id );
+    auto parent_win = pImpl->get_sdl_window( parent );
+    if (!SDL_SetWindowParent( window, parent_win )) {
+        NC_LOG_ERROR_C(
+            log::GRAPHICS, "Failed to set parent for window {} to {}: {}", window_id, parent, SDL_GetError()
+        );
+    }
 }
 
 void VideoModule::set_window_position( uint32_t window_id, Vec2 position ) const
@@ -147,8 +169,20 @@ void VideoModule::set_window_resolution( uint32_t window_id, Vec2 resolution )
     }
 }
 
-void VideoModule::set_window_icon( uint32_t window_id, const Image& image ) const {
-    // TODO
+void VideoModule::set_window_icon( uint32_t window_id, const Image& image ) const
+{
+    auto window = pImpl->get_sdl_window( window_id );
+    auto size   = image.get_size_bytes();
+    auto src    = image.get_pixels();
+    auto dst    = memalloc( size );
+    std::memcpy( dst, src.data(), size );
+    auto surf = SDL_CreateSurfaceFrom(
+        image.get_width(), image.get_height(), SDL_PIXELFORMAT_RGBA32, dst, image.get_width() * 4
+    );
+    if (SDL_SetWindowIcon( window, surf )) {
+        NC_LOG_ERROR_C( log::GRAPHICS, "Failed to set icon for window {}: {}", window_id, SDL_GetError() );
+    }
+    memfree( dst );
 }
 
 void VideoModule::set_window_title( uint32_t window_id, const std::string& title ) const

@@ -12,8 +12,9 @@
 #include <ncore/utils/assert.h>
 #include <ncore/utils/log.h>
 
-#include "vk_global_shaders.h"
 #include "vk_render_surface.h"
+
+#include <assets/global_res.h>
 
 namespace nc {
 
@@ -281,8 +282,8 @@ void VkRenderDevice::create_2d_pipeline_state_()
     {
         Diligent::ShaderCreateInfo shader_ci;
         shader_ci.Desc         = { "2D Vertex Shader", Diligent::SHADER_TYPE_VERTEX, true };
-        shader_ci.ByteCode     = GlobalShaders::SPRITE_VERTEX_SPIRV;
-        shader_ci.ByteCodeSize = sizeof( GlobalShaders::SPRITE_VERTEX_SPIRV );
+        shader_ci.ByteCode     = GlobalRes::SPRITE_VERTEX_SPIRV;
+        shader_ci.ByteCodeSize = sizeof( GlobalRes::SPRITE_VERTEX_SPIRV );
         shader_ci.Source       = nullptr;
         render_device->CreateShader( shader_ci, &vs_2d );
     }
@@ -294,11 +295,11 @@ void VkRenderDevice::create_2d_pipeline_state_()
         const bool srgb = Diligent::GetTextureFormatAttribs( Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB ).ComponentType ==
                           Diligent::COMPONENT_TYPE_UNORM_SRGB;
         if (srgb) {
-            shader_ci.ByteCode     = GlobalShaders::SPRITE_FRAGMENT_GAMMA_SPIRV;
-            shader_ci.ByteCodeSize = sizeof( GlobalShaders::SPRITE_FRAGMENT_GAMMA_SPIRV );
+            shader_ci.ByteCode     = GlobalRes::SPRITE_FRAGMENT_GAMMA_SPIRV;
+            shader_ci.ByteCodeSize = sizeof( GlobalRes::SPRITE_FRAGMENT_GAMMA_SPIRV );
         } else {
-            shader_ci.ByteCode     = GlobalShaders::SPRITE_FRAGMENT_SPIRV;
-            shader_ci.ByteCodeSize = sizeof( GlobalShaders::SPRITE_FRAGMENT_SPIRV );
+            shader_ci.ByteCode     = GlobalRes::SPRITE_FRAGMENT_SPIRV;
+            shader_ci.ByteCodeSize = sizeof( GlobalRes::SPRITE_FRAGMENT_SPIRV );
         }
         render_device->CreateShader( shader_ci, &ps_2d );
     }

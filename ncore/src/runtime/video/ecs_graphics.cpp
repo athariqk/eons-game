@@ -1,7 +1,6 @@
 #include "ecs_graphics.h"
 
 #include <ncore/application.h>
-#include <ncore/game_world.h>
 #include <ncore/modules/module_registry.h>
 #include <ncore/modules/video/graphics_module.h>
 #include <ncore/modules/video/video_module.h>
@@ -62,15 +61,15 @@ void EcsGraphicsFeature::build( EcsWorld& world )
             auto& mods = ctx.world().get_singleton<GraphicsModules>();
             auto& desc = ctx.world().get_singleton<AppDesc>();
 
-            if (win->window_id == UINT32_MAX) {
-                win->window_id = mods.video->create_window();
-                mods.video->set_window_fullscreen( win->window_id, win->fullscreen );
-                mods.video->set_window_resolution( win->window_id, win->resolution );
-                mods.video->set_window_centered( win->window_id );
+            if (win->id == UINT32_MAX) {
+                win->id = mods.video->create_window();
+                mods.video->set_window_fullscreen( win->id, win->fullscreen );
+                mods.video->set_window_resolution( win->id, win->resolution );
+                mods.video->set_window_centered( win->id );
             }
 
-            mods.video->set_window_title( win->window_id, desc.Name );
-            mods.video->set_window_visible( win->window_id, win->visible );
+            mods.video->set_window_title( win->id, desc.Name );
+            mods.video->set_window_visible( win->id, win->visible );
         } );
 
     world.create_observer( "EcsGraphicsFeature::ConfigureSurfaces" )
@@ -84,8 +83,7 @@ void EcsGraphicsFeature::build( EcsWorld& world )
             auto& mods = ctx.world().get_singleton<GraphicsModules>();
 
             if (!rd->surface.is_valid()) {
-                rd->surface =
-                    mods.gfx->create_surface( mods.video->get_native_whnd( win->window_id ), win->resolution );
+                rd->surface = mods.gfx->create_surface( mods.video->get_native_whnd( win->id ), win->resolution );
                 mods.gfx->set_vsync( rd->surface, win->vsync );
             }
         } );
@@ -106,7 +104,7 @@ void EcsGraphicsFeature::build( EcsWorld& world )
         .each( []( QueryContext& ctx, EcsEntityId ) {
             auto win   = ctx.get_component<EcsWindow>();
             auto& mods = ctx.world().get_singleton<GraphicsModules>();
-            mods.video->pop_window( win->window_id );
+            mods.video->pop_window( win->id );
         } );
 
     world.create_system( "EcsGraphicsFeature::PumpEvents" )
@@ -150,7 +148,7 @@ void EcsGraphicsFeature::build( EcsWorld& world )
 
             for (const auto& ev : mods.video->window_events()) {
                 if (auto close = std::get_if<WindowCloseEvent>( &ev )) {
-                    if (close->window_id == win->window_id) {
+                    if (close->window_id == win->id) {
                         ctx.world().destroy_entity( id );
                     }
                 }

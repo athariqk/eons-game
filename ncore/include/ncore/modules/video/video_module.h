@@ -49,6 +49,7 @@ public:
     }
 
     uint32_t create_window( uint8_t flags = DEFAULT_WINDOW_FLAGS );
+    void set_window_parent( uint32_t window_id, uint32_t parent ) const;
 
     void set_window_position( uint32_t window_id, Vec2 position ) const;
     void set_window_centered( uint32_t window_id ) const;

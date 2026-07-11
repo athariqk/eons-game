@@ -29,6 +29,7 @@ target_sources(
           "modules/input/input_module.cpp"
           "modules/resource/resource.cpp"
           "modules/resource/resource_manager.cpp"
+		  "assets/global_res.h"
           "modules/video/resources/image.cpp"
           "modules/video/resources/material.cpp"
           "modules/video/resources/mesh.cpp"
@@ -50,7 +51,7 @@ target_sources(
           "backends/vulkan/vk_render_surface.cpp"
           "backends/vulkan/batch_renderer_2d.h"
           "backends/vulkan/batch_renderer_2d.cpp"
-          "backends/vulkan/vk_global_shaders.h"
+          
           "scene/scene.cpp"
           "scene/node.cpp"
           "utils/logger/log_api.cpp"

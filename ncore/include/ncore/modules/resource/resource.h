@@ -33,12 +33,12 @@ public:
         return ResourceFormatID();
     }
 
-    virtual uint32_t get_version()
+    virtual uint32_t get_version() const
     {
         return 1;
     }
 
-    virtual size_t get_size_bytes()
+    virtual size_t get_size_bytes() const
     {
         return 0;
     }

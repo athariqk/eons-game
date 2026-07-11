@@ -19,7 +19,8 @@
 namespace nc {
 
 /**
- * @brief ResourceManager handles resource loading.
+ * @brief ResourceManager handles resource loading from disk
+ * (and seems to be only just that at the moment...).
  *
  * TODO: asynchronous I/O, streaming, asset compilation
  */

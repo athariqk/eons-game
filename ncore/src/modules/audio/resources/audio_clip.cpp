@@ -39,7 +39,7 @@ int AudioClip::get_bits_per_sample() const
     return bits_per_sample;
 }
 
-size_t AudioClip::get_size_bytes()
+size_t AudioClip::get_size_bytes() const
 {
     return data.size();
 }
