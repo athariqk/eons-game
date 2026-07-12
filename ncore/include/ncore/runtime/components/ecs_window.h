@@ -7,7 +7,8 @@
 namespace nc {
 
 struct NCORE_API EcsWindow {
-    uint32_t id = UINT32_MAX; // The window ID, from VideoModule
+    uint32_t id            = UINT32_MAX; // The window ID, from VideoModule
+    std::string_view title = "NCORE Engine";
     Vec2 resolution{};
     bool fullscreen        = false;
     bool visible           = false;
@@ -15,16 +16,17 @@ struct NCORE_API EcsWindow {
     float pixels_per_meter = 0;
 
     NSTRUCT(
-        EcsWindow, NC_F( EcsWindow, id ) NC_F( EcsWindow, resolution ) NC_F( EcsWindow, fullscreen )
-                       NC_F( EcsWindow, visible ) NC_F( EcsWindow, vsync ) NC_F( EcsWindow, pixels_per_meter )
+        EcsWindow,
+        NC_F( EcsWindow, id ) NC_F( EcsWindow, title ) NC_F( EcsWindow, resolution ) NC_F( EcsWindow, fullscreen )
+            NC_F( EcsWindow, visible ) NC_F( EcsWindow, vsync ) NC_F( EcsWindow, pixels_per_meter )
     )
 };
 
-struct NCORE_API EcsTargetSurface {
+struct NCORE_API EcsRenderSurface {
     RID surface{};
     bool vsync = false;
 
-    NSTRUCT( EcsTargetSurface, NC_F( EcsTargetSurface, surface ) NC_F( EcsTargetSurface, vsync ) )
+    NSTRUCT( EcsRenderSurface, NC_F( EcsRenderSurface, surface ) NC_F( EcsRenderSurface, vsync ) )
 };
 
 #pragma clang diagnostic push

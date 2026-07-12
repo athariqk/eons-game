@@ -26,13 +26,15 @@ void EcsGraphicsFeature::build( EcsWorld& world )
         .with<GraphicsModules>()
         .in( EcsSystemPhase::Init )
         .run( []( QueryContext& ctx ) {
-            auto mods   = ctx.get_component<GraphicsModules>();
-            mods->video = ctx.modules().resolve<VideoModule>();
-            mods->gfx   = ctx.modules().resolve<GraphicsModule>();
+            auto app_desc = ctx.get_component<AppDesc>();
+            auto mods     = ctx.get_component<GraphicsModules>();
+            mods->video   = ctx.modules().resolve<VideoModule>();
+            mods->gfx     = ctx.modules().resolve<GraphicsModule>();
 
             auto window_eid = ctx.world()
                                   .create_entity( "PrimaryWindow" )
                                   .with<EcsWindow>( EcsWindow{
+                                      .title            = app_desc->Name,
                                       .resolution       = Vec2( 1280.0f, 720.0f ),
                                       .fullscreen       = mods->video->get_settings().Fullscreen,
                                       .visible          = true,
@@ -44,22 +46,16 @@ void EcsGraphicsFeature::build( EcsWorld& world )
 
             ctx.world()
                 .create_entity()
-                .with<EcsTargetSurface>( EcsTargetSurface{ .vsync = mods->gfx->get_settings().VSync } )
+                .with<EcsRenderSurface>( EcsRenderSurface{ .vsync = mods->gfx->get_settings().VSync } )
                 .child_of( window_eid )
-                .build();
-
-            ctx.world()
-                .create_entity( "SecondaryWindow" )
-                .with<EcsWindow>( EcsWindow{ .resolution = Vec2( 300.0f, 400.0f ), .visible = true } )
                 .build();
         } );
 
     world.create_observer( "EcsGraphicsFeature::ConfigureWindows" )
         .on<EcsWindow>( EcsCoreEvent::OnSet )
-        .each( []( QueryContext& ctx, EcsEntityId ) {
+        .each( []( QueryContext& ctx, EcsEntityId entity_id ) {
             auto win   = ctx.get_component<EcsWindow>();
             auto& mods = ctx.world().get_singleton<GraphicsModules>();
-            auto& desc = ctx.world().get_singleton<AppDesc>();
 
             if (win->id == UINT32_MAX) {
                 win->id = mods.video->create_window();
@@ -68,17 +64,17 @@ void EcsGraphicsFeature::build( EcsWorld& world )
                 mods.video->set_window_centered( win->id );
             }
 
-            mods.video->set_window_title( win->id, desc.Name );
+            mods.video->set_window_title( win->id, win->title );
             mods.video->set_window_visible( win->id, win->visible );
         } );
 
     world.create_observer( "EcsGraphicsFeature::ConfigureSurfaces" )
-        .with<EcsTargetSurface>()
+        .with<EcsRenderSurface>()
         .with<EcsWindow>()
         .up()
         .event( EcsCoreEvent::OnAdd )
         .each( []( QueryContext& ctx, EcsEntityId ) {
-            auto rd    = ctx.get_component<EcsTargetSurface>();
+            auto rd    = ctx.get_component<EcsRenderSurface>();
             auto win   = ctx.get_component<EcsWindow>();
             auto& mods = ctx.world().get_singleton<GraphicsModules>();
 
@@ -89,9 +85,9 @@ void EcsGraphicsFeature::build( EcsWorld& world )
         } );
 
     world.create_observer( "EcsGraphicsFeature::DestroySurfaces" )
-        .on<EcsTargetSurface>( EcsCoreEvent::OnRemove )
+        .on<EcsRenderSurface>( EcsCoreEvent::OnRemove )
         .each( []( QueryContext& ctx, EcsEntityId ) {
-            auto rd    = ctx.get_component<EcsTargetSurface>();
+            auto rd    = ctx.get_component<EcsRenderSurface>();
             auto& mods = ctx.world().get_singleton<GraphicsModules>();
             if (rd->surface.is_valid()) {
                 mods.gfx->destroy_surface( rd->surface );
@@ -116,10 +112,10 @@ void EcsGraphicsFeature::build( EcsWorld& world )
         } );
 
     world.create_system( "EcsGraphicsFeature::PrepareFrame" )
-        .with<EcsTargetSurface>()
+        .with<EcsRenderSurface>()
         .in( EcsSystemPhase::PreFrame )
         .each( []( QueryContext& ctx, EcsEntityId ) {
-            auto rd    = ctx.get_component<EcsTargetSurface>();
+            auto rd    = ctx.get_component<EcsRenderSurface>();
             auto& mods = ctx.world().get_singleton<GraphicsModules>();
 
             if (rd->surface.is_valid())
@@ -127,11 +123,11 @@ void EcsGraphicsFeature::build( EcsWorld& world )
         } );
 
     world.create_system( "EcsGraphicsFeature::EndFrame" )
-        .with<EcsTargetSurface>()
+        .with<EcsRenderSurface>()
         .in( EcsSystemPhase::PostFrame )
         .order( 10 )
         .each( []( QueryContext& ctx, EcsEntityId ) {
-            auto rd    = ctx.get_component<EcsTargetSurface>();
+            auto rd    = ctx.get_component<EcsRenderSurface>();
             auto& mods = ctx.world().get_singleton<GraphicsModules>();
 
             if (rd->surface.is_valid())
@@ -143,10 +139,11 @@ void EcsGraphicsFeature::build( EcsWorld& world )
         .in( EcsSystemPhase::PostFrame )
         .order( 100 )
         .each( []( QueryContext& ctx, EcsEntityId id ) {
-            auto win   = ctx.get_component<EcsWindow>();
-            auto& mods = ctx.world().get_singleton<GraphicsModules>();
+            auto win    = ctx.get_component<EcsWindow>();
+            auto& mods  = ctx.world().get_singleton<GraphicsModules>();
+            auto events = mods.video->window_events();
 
-            for (const auto& ev : mods.video->window_events()) {
+            for (const auto& ev : events) {
                 if (auto close = std::get_if<WindowCloseEvent>( &ev )) {
                     if (close->window_id == win->id) {
                         ctx.world().destroy_entity( id );

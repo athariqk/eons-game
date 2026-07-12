@@ -203,11 +203,11 @@ static void handle_move_hook( void* dst_ptr, void* src_ptr, int32_t count, const
 EcsEntityId EcsWorld::register_component_type( const rtti::TypeInfo* type )
 {
     auto it = pImpl->comp_id_map.find( type );
-    if (it != pImpl->comp_id_map.end())
-        return static_cast<EcsComponentId>( it->second ); // returns existing
+    if (it != pImpl->comp_id_map.end()) {
+        return static_cast<EcsComponentId>( it->second );
+    }
 
     // auto-register
-
     ecs_type_hooks_t hooks{};
     if (type->is_record()) {
         hooks.ctor = handle_ctor_hook;

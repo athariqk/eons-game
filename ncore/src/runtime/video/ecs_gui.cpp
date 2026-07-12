@@ -217,9 +217,9 @@ void EcsGuiFeature::build( EcsWorld& world )
 
     world.create_system( "EcsGuiFeature::PrepareFrame" )
         .in( EcsSystemPhase::PreFrame )
-        .with<EcsTargetSurface>()
+        .with<EcsRenderSurface>()
         .run( []( QueryContext& ctx ) {
-            auto rd         = ctx.get_component<EcsTargetSurface>();
+            auto rd         = ctx.get_component<EcsRenderSurface>();
             auto& state     = ctx.world().get_singleton<ImGuiState>();
 
             ImGuiIO& io      = ImGui::GetIO();
@@ -232,7 +232,7 @@ void EcsGuiFeature::build( EcsWorld& world )
 
     world.create_system( "EcsGuiFeature::EndFrame" )
         .in( EcsSystemPhase::PostFrame )
-        .with<EcsTargetSurface>()
+        .with<EcsRenderSurface>()
         .run( []( QueryContext& ctx ) {
             auto& state = ctx.world().get_singleton<ImGuiState>();
 

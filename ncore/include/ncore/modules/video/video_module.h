@@ -60,7 +60,7 @@ public:
     void set_window_resolution( uint32_t window_id, Vec2 resolution );
 
     void set_window_icon( uint32_t window_id, const Image& image ) const;
-    void set_window_title( uint32_t window_id, const std::string& title ) const;
+    void set_window_title( uint32_t window_id, std::string_view title ) const;
 
     void set_window_fullscreen( uint32_t window_id, bool fullscreen );
 

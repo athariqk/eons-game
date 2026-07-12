@@ -32,6 +32,8 @@ QueryContext::QueryContext( void* iter ) : it_( iter ) {}
 void QueryContext::set_iter_( void* iter )
 {
     it_ = iter;
+    term_cache_.clear();
+    pair_cache_.clear();
 }
 
 double QueryContext::delta_time() const
@@ -80,24 +82,46 @@ void* QueryContext::get_component_( int32_t column, size_t size, size_t alignmen
 {
     ( void ) alignment;
     auto* it = static_cast<ecs_iter_t*>( it_ );
-    return ecs_field_w_size( it, size, static_cast<int8_t>( column ) );
+    auto* base = ecs_field_w_size( it, size, static_cast<int8_t>( column ) );
+    return reinterpret_cast<char*>( base ) + size * current_row_;
 }
 
 int32_t QueryContext::resolve_term_index_( const rtti::TypeInfo& info ) const
 {
+    auto cached = term_cache_.find( &info );
+    if (cached != term_cache_.end()) {
+        return cached->second;
+    }
+
     auto* it               = static_cast<ecs_iter_t*>( it_ );
     auto* world            = static_cast<EcsWorld*>( ecs_get_binding_ctx( it->world ) );
     EcsComponentId comp_id = world->register_component_type( &info );
     for (int8_t i = 0; i < it->field_count; i++) {
         if (it->ids[i] == static_cast<ecs_id_t>( comp_id )) {
+            term_cache_.emplace( &info, i );
             return i;
         }
     }
+
+    std::string ids_str;
+    for (int8_t i = 0; i < it->field_count; i++) {
+        if (i)
+            ids_str += ", ";
+        ids_str += std::to_string( it->ids[i] );
+    }
+    NC_LOG_TRACE_C( log::ECS, "resolve_term_index_: '{}' MISS — comp_id={} it->ids=[{}]", info.name, comp_id, ids_str );
+
     return -1;
 }
 
 int32_t QueryContext::resolve_pair_index_( const rtti::TypeInfo& first, const rtti::TypeInfo& second ) const
 {
+    auto key    = std::pair{ &first, &second };
+    auto cached = pair_cache_.find( key );
+    if (cached != pair_cache_.end()) {
+        return cached->second;
+    }
+
     auto* it                 = static_cast<ecs_iter_t*>( it_ );
     auto* world              = static_cast<EcsWorld*>( ecs_get_binding_ctx( it->world ) );
     EcsComponentId first_id  = world->register_component_type( &first );
@@ -105,9 +129,11 @@ int32_t QueryContext::resolve_pair_index_( const rtti::TypeInfo& first, const rt
     ecs_id_t pair_id         = ecs_make_pair( first_id, second_id );
     for (int8_t i = 0; i < it->field_count; i++) {
         if (it->ids[i] == pair_id) {
+            pair_cache_.emplace( key, i );
             return i;
         }
     }
+
     return -1;
 }
 

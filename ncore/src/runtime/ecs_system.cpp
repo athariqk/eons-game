@@ -73,6 +73,7 @@ static void handle_each_callback( ecs_iter_t* it )
     auto fn = reinterpret_cast<EachCallback>( it->ctx );
     QueryContext wrap( it );
     for (int32_t row = 0; row < wrap.count(); row++) {
+        wrap.set_row( row );
         fn( wrap, wrap.entity( row ) );
     }
 }

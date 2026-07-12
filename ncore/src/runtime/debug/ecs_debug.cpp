@@ -1,8 +1,8 @@
 #include "ecs_debug.h"
 
+#include <flecs.h>
 #include <imgui.h>
 
-#include <ncore/application.h>
 #include <ncore/modules/module_registry.h>
 #include <ncore/modules/video/video_module.h>
 #include <ncore/runtime/components/ecs_time.h>
@@ -11,11 +11,12 @@
 
 namespace nc {
 
-static void
-update_window_title( VideoModule* video, uint32_t wid, const std::string& base_title, double fps, double delta_time )
+static void update_window_title( VideoModule* video, EcsEntityId eid, EcsWindow* window, double fps, double delta_time )
 {
-    const std::string full_title = std::format( "{} - FPS: {:.2f} - Delta: {:.6f}", base_title, fps, delta_time );
-    video->set_window_title( wid, full_title );
+    const std::string full_title = std::format(
+        "{} (DEBUG) - EID {} - WID {} - FPS: {:.2f} - Delta: {:.6f}", window->title, eid, window->id, fps, delta_time
+    );
+    video->set_window_title( window->id, full_title );
 }
 
 struct DebugState {
@@ -38,7 +39,7 @@ void EcsDebugFeature::build( EcsWorld& world )
         } );
 
     world.create_system( "EcsDebugFeature::StatsUpdater" )
-        .with<EcsTargetSurface>()
+        .with<EcsRenderSurface>()
         .in( EcsSystemPhase::Update )
         .run( []( QueryContext& ctx ) {
             auto& time = ctx.world().get_singleton<EcsTime>();
@@ -62,23 +63,28 @@ void EcsDebugFeature::build( EcsWorld& world )
                 ctx.world().get_entity_count( true )
             );
 
+            if (ImGui::Button( "Spawn Window", ImVec2( 100.0f, 20.0f ) )) {
+                ctx.world()
+                    .create_entity()
+                    .with<EcsWindow>( EcsWindow{ .resolution = Vec2( 300, 300 ), .visible = true } )
+                    .build();
+            }
+
             ImGui::End();
         } );
 
     // TODO: refactor this to use Timers
     world.create_system( "EcsDebugFeature::TitleBarUpdater" )
         .with<EcsWindow>()
-        .with<EcsMainWindow>()
         .in( EcsSystemPhase::PostFrame )
-        .each( []( QueryContext& ctx, EcsEntityId ) {
-            auto& app_desc = ctx.world().get_singleton<AppDesc>();
-            auto& state    = ctx.world().get_singleton<DebugState>();
-            auto& time     = ctx.world().get_singleton<EcsTime>();
+        .each( []( QueryContext& ctx, EcsEntityId id ) {
+            auto& state = ctx.world().get_singleton<DebugState>();
+            auto& time  = ctx.world().get_singleton<EcsTime>();
 
             auto window = ctx.get_component<EcsWindow>();
 
             if (time.accumulator >= 0.5) {
-                update_window_title( state.video, window->id, app_desc.Name, time.fps, ctx.delta_time() );
+                update_window_title( state.video, id, window, time.fps, ctx.delta_time() );
             }
         } );
 }

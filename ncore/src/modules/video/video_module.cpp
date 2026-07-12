@@ -179,16 +179,16 @@ void VideoModule::set_window_icon( uint32_t window_id, const Image& image ) cons
     auto surf = SDL_CreateSurfaceFrom(
         image.get_width(), image.get_height(), SDL_PIXELFORMAT_RGBA32, dst, image.get_width() * 4
     );
-    if (SDL_SetWindowIcon( window, surf )) {
+    if (!SDL_SetWindowIcon( window, surf )) {
         NC_LOG_ERROR_C( log::GRAPHICS, "Failed to set icon for window {}: {}", window_id, SDL_GetError() );
     }
     memfree( dst );
 }
 
-void VideoModule::set_window_title( uint32_t window_id, const std::string& title ) const
+void VideoModule::set_window_title( uint32_t window_id, std::string_view title ) const
 {
     auto window = pImpl->get_sdl_window( window_id );
-    if (!SDL_SetWindowTitle( window, title.c_str() )) {
+    if (!SDL_SetWindowTitle( window, title.data() )) {
         NC_LOG_ERROR_C( log::GRAPHICS, "Failed to set title for window {}: {}", window_id, SDL_GetError() );
     }
 }
