@@ -1,3 +1,5 @@
+#include <filesystem>
+
 #include <utils/logger/sink.h>
 
 namespace nc::log {
@@ -69,7 +71,12 @@ void FileSink::rotate()
 
 void FileSink::open()
 {
+    std::filesystem::path filepath( m_path );
+    std::filesystem::create_directories( filepath.parent_path() );
     m_file.open( m_path, std::ios::app );
+    if (m_file.fail()) {
+        NC_LOG_WARN( "FileSink failed to open file on path: {}", m_path );
+    }
     m_bytes_written = m_file.tellp();
 }
 
