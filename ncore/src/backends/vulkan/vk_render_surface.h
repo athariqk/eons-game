@@ -5,7 +5,6 @@
 #include <RefCntAutoPtr.hpp>
 #include <RenderDevice.h>
 #include <SwapChain.h>
-#include <Texture.h>
 
 #include <ncore/modules/video/render_surface.h>
 
@@ -13,9 +12,6 @@ namespace nc {
 
 class VkRenderSurface : public IRenderSurface {
     NCLASS( VkRenderSurface, IRenderSurface )
-
-    template<typename T>
-    using DiligentRef = Diligent::RefCntAutoPtr<T>;
 
 public:
     VkRenderSurface(
@@ -41,7 +37,7 @@ public:
     }
 
 private:
-    DiligentRef<Diligent::ISwapChain> swap_chain;
+    Diligent::RefCntAutoPtr<Diligent::ISwapChain> swap_chain;
     Diligent::IDeviceContext* device_ctx;
 
     float clear_color[4] = { 0.35f, 0.35f, 0.35f, 1.0f };

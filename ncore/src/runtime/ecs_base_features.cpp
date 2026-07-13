@@ -28,7 +28,7 @@ void EcsBaseFeatures::build( EcsWorld& world )
             time->frame_count++;
             time->accumulator += ctx.delta_time();
             if (time->accumulator >= 1.0) {
-                time->fps = static_cast<double>( time->frame_count ) / time->accumulator;
+                time->fps         = static_cast<double>( time->frame_count ) / time->accumulator;
                 time->frame_count = 0;
                 time->accumulator = 0.0;
             }

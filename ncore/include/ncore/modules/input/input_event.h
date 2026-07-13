@@ -72,12 +72,6 @@ struct TextInputEvent {
     char text[32];
 };
 
-using InputEvent = std::variant<
-    MouseButtonEvent,
-    MouseMotionEvent,
-    MouseWheelEvent,
-    KeyEvent,
-    TextInputEvent
->;
+using InputEvent = std::variant<MouseButtonEvent, MouseMotionEvent, MouseWheelEvent, KeyEvent, TextInputEvent>;
 
 } // namespace nc

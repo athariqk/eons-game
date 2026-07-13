@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ncore/kernel/object.h>
+#include <ncore/kernel/reference.h>
 #include <ncore/kernel/structures.h>
 
 namespace nc {
@@ -9,8 +9,8 @@ namespace nc {
  * @brief IRenderSurface owns a single swap chain and drives
  * presentation for that resource.
  */
-class IRenderSurface : public NcObject {
-    NCLASS( IRenderSurface, NcObject )
+class IRenderSurface : public RefCounted {
+    NCLASS( IRenderSurface, RefCounted )
 
 public:
     virtual void begin_frame()                  = 0;

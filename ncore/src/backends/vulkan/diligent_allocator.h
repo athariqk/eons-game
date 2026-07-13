@@ -7,7 +7,12 @@
 namespace nc {
 
 struct NcoreDiligentAllocator : public Diligent::IMemoryAllocator {
-    virtual ~NcoreDiligentAllocator() = default;
+    NcoreDiligentAllocator()                                     = default;
+    NcoreDiligentAllocator( const NcoreDiligentAllocator& )     = delete;
+    NcoreDiligentAllocator& operator=( const NcoreDiligentAllocator& ) = delete;
+    NcoreDiligentAllocator( NcoreDiligentAllocator&& )          = default;
+    NcoreDiligentAllocator& operator=( NcoreDiligentAllocator&& ) = default;
+    virtual ~NcoreDiligentAllocator()                           = default;
 
     void* Allocate(
         size_t Size, const Diligent::Char* /*dbgDescription*/, const char* /*dbgFileName*/,

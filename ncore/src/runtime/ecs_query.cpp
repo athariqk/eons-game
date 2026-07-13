@@ -81,7 +81,7 @@ EcsEntityId QueryContext::event()
 void* QueryContext::get_component_( int32_t column, size_t size, size_t alignment ) const
 {
     ( void ) alignment;
-    auto* it = static_cast<ecs_iter_t*>( it_ );
+    auto* it   = static_cast<ecs_iter_t*>( it_ );
     auto* base = ecs_field_w_size( it, size, static_cast<int8_t>( column ) );
     return reinterpret_cast<char*>( base ) + size * current_row_;
 }

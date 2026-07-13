@@ -2,7 +2,7 @@
 #include <cmath>
 #include <numbers>
 
-#include <backends/vulkan/vk_render_device.h>
+#include <backends/vulkan/vk_renderer.h>
 
 #include <ncore/modules/video/graphics_module.h>
 #include <ncore/modules/video/resources/image.h>
@@ -19,14 +19,14 @@ Error GraphicsModule::init( ConfFile& cfg_file )
     settings = cfg_file.read<RenderSettings>();
 
     // TODO: dont hardcode this
-    device = std::make_unique<VkRenderDevice>();
+    renderer = std::make_unique<VkRenderer>();
 
-    if (!device) {
-        NC_LOG_ERROR_C( log::GRAPHICS, "No render device provided" );
+    if (!renderer) {
+        NC_LOG_ERROR_C( log::GRAPHICS, "No render renderer provided" );
         return Error::FAIL;
     }
 
-    white_texture = device->get_white_texture();
+    white_texture = renderer->get_white_texture();
     return Error::OK;
 }
 
@@ -43,7 +43,7 @@ RID GraphicsModule::create_surface( void* native_whnd, Vec2 surface_size )
     }
 
     RID rid( surfaces.size() + 1 );
-    surfaces[rid] = device->create_surface( native_whnd, surface_size );
+    surfaces[rid] = renderer->create_surface( native_whnd, surface_size );
     NC_LOG_TRACE_C( log::GRAPHICS, "Assigned RID {} to a new render surface", rid.value );
     return rid;
 }
@@ -54,7 +54,7 @@ void GraphicsModule::destroy_surface( RID surface_rid )
     surfaces.erase( surface_rid );
 }
 
-IRenderSurface* GraphicsModule::get_surface( RID surface_rid ) const
+const IRenderSurface* GraphicsModule::get_surface( RID surface_rid ) const
 {
     if (!surface_rid.is_valid()) {
         NC_LOG_WARN_C( log::GRAPHICS, "Invalid surface RID" );
@@ -72,38 +72,39 @@ IRenderSurface* GraphicsModule::get_surface( RID surface_rid ) const
 
 void GraphicsModule::begin_frame( RID surface_rid )
 {
-    if (auto* surf = get_surface( surface_rid )) {
+    if (auto* surf = const_cast<IRenderSurface*>( get_surface( surface_rid ) )) {
         surf->begin_frame();
     }
 }
 
 void GraphicsModule::end_frame( RID surface_rid )
 {
-    auto* surf = get_surface( surface_rid );
+    auto* surf = const_cast<IRenderSurface*>( get_surface( surface_rid ) );
     if (!surf) {
         return;
     }
-    device->batch_2d_flush( *surf );
+    renderer->render_2d( *surf );
+    renderer->render_3d( *surf );
     surf->end_frame();
 }
 
 void GraphicsModule::set_clear_color( RID surface_rid, Color color )
 {
-    if (auto* surf = get_surface( surface_rid )) {
+    if (auto* surf = const_cast<IRenderSurface*>( get_surface( surface_rid ) )) {
         surf->set_clear_color( color );
     }
 }
 
 void GraphicsModule::set_vsync( RID surface_rid, bool enabled )
 {
-    if (auto* surf = get_surface( surface_rid )) {
+    if (auto* surf = const_cast<IRenderSurface*>( get_surface( surface_rid ) )) {
         surf->set_vsync( enabled );
     }
 }
 
 void GraphicsModule::set_render_size( RID surface_rid, Vec2 size )
 {
-    if (auto* surf = get_surface( surface_rid )) {
+    if (auto* surf = const_cast<IRenderSurface*>( get_surface( surface_rid ) )) {
         surf->set_render_size( size );
     }
 }
@@ -118,7 +119,7 @@ Vec2 GraphicsModule::get_surface_size( RID surface_rid ) const
 
 RID GraphicsModule::upload_image( const Image& image )
 {
-    return device->create_texture(
+    return renderer->create_texture(
         static_cast<uint32_t>( image.get_width() ), static_cast<uint32_t>( image.get_height() ),
         image.get_pixels().data()
     );
@@ -144,7 +145,10 @@ RID GraphicsModule::upload_pipeline( const Material& material )
         return RID();
     }
 
-    return device->create_pipeline( vs_spirv, ps_spirv );
+    IRenderer::PipelineDesc desc{};
+    desc.vs_spirv = vs_spirv;
+    desc.ps_spirv = ps_spirv;
+    return renderer->create_pipeline( desc );
 }
 
 RID GraphicsModule::upload_mesh( const Mesh& mesh )
@@ -156,8 +160,24 @@ RID GraphicsModule::upload_mesh( const Mesh& mesh )
         return RID();
     }
 
-    RID vb = device->create_buffer( BufferType::Vertex, vertices.size(), vertices.data(), false );
-    RID ib = device->create_buffer( BufferType::Index, indices.size(), indices.data(), false );
+    RID vb = renderer->create_buffer(
+        IRenderer::BufferDesc{
+            .debug_name = "Dummy Mesh VB",
+            .type       = IRenderer::BufferType::Vertex,
+            .size       = vertices.size(),
+            .data       = vertices.data(),
+            .dynamic    = false
+        }
+    );
+    RID ib = renderer->create_buffer(
+        IRenderer::BufferDesc{
+            .debug_name = "Dummy Mesh IB",
+            .type       = IRenderer::BufferType::Index,
+            .size       = indices.size(),
+            .data       = indices.data(),
+            .dynamic    = false
+        }
+    );
     ( void ) ib;
 
     // TODO: finish this
@@ -167,12 +187,12 @@ RID GraphicsModule::upload_mesh( const Mesh& mesh )
 
 void GraphicsModule::destroy_resource( RID rid )
 {
-    device->destroy_resource( rid );
+    renderer->destroy_resource( rid );
 }
 
 void GraphicsModule::fill_rect( Vec4 rect, Color color )
 {
-    device->batch_push_quad( white_texture, rect, Vec4( 0, 0, 1, 1 ), color );
+    renderer->batch_push_quad( white_texture, rect, Vec4( 0, 0, 1, 1 ), color );
 }
 
 void GraphicsModule::draw_rect( Vec4 rect, Color color, float thickness )
@@ -181,10 +201,10 @@ void GraphicsModule::draw_rect( Vec4 rect, Color color, float thickness )
     float x2 = rect.X + rect.w, y2 = rect.Y + rect.h;
     float t = thickness;
 
-    device->batch_push_quad( white_texture, Vec4( x1, y1, x2 - x1, t ), Vec4(), color );
-    device->batch_push_quad( white_texture, Vec4( x1, y2 - t, x2 - x1, t ), Vec4(), color );
-    device->batch_push_quad( white_texture, Vec4( x1, y1, t, y2 - y1 ), Vec4(), color );
-    device->batch_push_quad( white_texture, Vec4( x2 - t, y1, t, y2 - y1 ), Vec4(), color );
+    renderer->batch_push_quad( white_texture, Vec4( x1, y1, x2 - x1, t ), Vec4(), color );
+    renderer->batch_push_quad( white_texture, Vec4( x1, y2 - t, x2 - x1, t ), Vec4(), color );
+    renderer->batch_push_quad( white_texture, Vec4( x1, y1, t, y2 - y1 ), Vec4(), color );
+    renderer->batch_push_quad( white_texture, Vec4( x2 - t, y1, t, y2 - y1 ), Vec4(), color );
 }
 
 void GraphicsModule::draw_line( Vec2 from, Vec2 to, Color color, float thickness )
@@ -215,19 +235,19 @@ void GraphicsModule::draw_line( Vec2 from, Vec2 to, Color color, float thickness
 
     std::vector<uint16_t> indices = { 0, 1, 2, 0, 2, 3 };
 
-    device->batch_push_indexed(
+    renderer->batch_push_indexed(
         verts.data(), 4, indices.data(), static_cast<uint32_t>( indices.size() ), white_texture, Vec4()
     );
 }
 
 void GraphicsModule::draw_point( Vec2 pos, Color color )
 {
-    device->batch_push_quad( white_texture, Vec4( pos.X, pos.Y, 1.0f, 1.0f ), Vec4(), color );
+    renderer->batch_push_quad( white_texture, Vec4( pos.X, pos.Y, 1.0f, 1.0f ), Vec4(), color );
 }
 
 void GraphicsModule::draw_textured_quad( RID texture, Vec4 dest, Vec4 src, Color tint )
 {
-    device->batch_push_quad( texture, dest, src, tint );
+    renderer->batch_push_quad( texture, dest, src, tint );
 }
 
 void GraphicsModule::draw_indexed(
@@ -235,17 +255,17 @@ void GraphicsModule::draw_indexed(
     Vec4 clip_rect
 )
 {
-    device->batch_push_indexed( vertices, vertex_count, indices, index_count, texture, clip_rect );
+    renderer->batch_push_indexed( vertices, vertex_count, indices, index_count, texture, clip_rect );
 }
 
-void* GraphicsModule::get_native_device() const
+void* GraphicsModule::get_native_renderer() const
 {
-    return device->get_native_device();
+    return renderer->get_native_handle();
 }
 
 void* GraphicsModule::get_native_handle( RID rid ) const
 {
-    return device->get_native_texture_view( rid );
+    return renderer->get_native_texture_view( rid );
 }
 
 void GraphicsModule::draw_circle( float x, float y, int radius, Color color, bool filled, bool edge )

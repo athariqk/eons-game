@@ -19,7 +19,7 @@ class ConfFile;
  * what I need, then I may need to create a new one.
  *
  * This is very inspired by Godot's server classes concept.
- * 
+ *
  * I think it SHOULD not own state, instead our runtime
  * ECS layer shall be the driver.
  *

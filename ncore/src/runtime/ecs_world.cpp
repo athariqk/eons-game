@@ -320,10 +320,7 @@ EcsEntityId EcsWorld::create_entity_impl_( const std::string& name )
 
 EcsComponentId EcsWorld::set_component_( EcsEntityId eid, const rtti::TypeInfo* type, const void* data )
 {
-    // auto ent_name = ecs_get_name( pImpl->world, eid );
-    // ecs_trace(
-    //     "setting component value of %s to entity (name: %s, ID %d)", type->name, ent_name ? ent_name : "n/a", eid
-    //);
+    ecs_trace( "setting component value of %s to an entity (ID %d)", type->name, eid );
 
     EcsComponentId registered_comp_id = register_component_type( type );
 

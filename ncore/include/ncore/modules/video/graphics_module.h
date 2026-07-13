@@ -6,8 +6,8 @@
 #include <ncore/kernel/rid.h>
 #include <ncore/kernel/structures.h>
 #include <ncore/modules/module.h>
-#include <ncore/modules/video/render_device.h>
 #include <ncore/modules/video/render_surface.h>
+#include <ncore/modules/video/renderer.h>
 
 namespace nc {
 
@@ -34,7 +34,7 @@ public:
 
     RID create_surface( void* native_whnd, Vec2 surface_size );
     void destroy_surface( RID surface_rid );
-    IRenderSurface* get_surface( RID surface_rid ) const;
+    const IRenderSurface* get_surface( RID surface_rid ) const;
 
     void begin_frame( RID surface_rid );
     void end_frame( RID surface_rid );
@@ -62,13 +62,13 @@ public:
         Vec4 clip_rect
     );
 
-    void* get_native_device() const;
+    void* get_native_renderer() const;
     void* get_native_handle( RID rid ) const;
 
 private:
     RenderSettings settings;
-    std::unique_ptr<IRenderDevice> device;
-    UnorderedMap<RID, std::unique_ptr<IRenderSurface>> surfaces;
+    std::unique_ptr<IRenderer> renderer;
+    UnorderedMap<RID, Ref<IRenderSurface>> surfaces;
     RID white_texture;
 };
 

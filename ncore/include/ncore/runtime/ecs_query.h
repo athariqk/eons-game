@@ -1,9 +1,9 @@
 #pragma once
 
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <string>
-#include <map>
 #include <unordered_map>
 
 #include <ncore/kernel/types.h>
@@ -65,7 +65,10 @@ public:
     int32_t count() const;             // The entity count being iterated
     EcsEntityId entity( int32_t row ) const;
     EcsWorld& world() const;
-    void set_row( int32_t row ) { current_row_ = row; }
+    void set_row( int32_t row )
+    {
+        current_row_ = row;
+    }
     ModuleRegistry& modules() const; // Helper access to the engine modules
     EcsEntityId event();
 
@@ -135,7 +138,7 @@ private:
     void* get_component_( int32_t column, size_t size, size_t alignment ) const;
     int32_t resolve_term_index_( const rtti::TypeInfo& info ) const;
     int32_t resolve_pair_index_( const rtti::TypeInfo& first, const rtti::TypeInfo& second ) const;
-    void* it_ = nullptr;
+    void* it_            = nullptr;
     int32_t current_row_ = 0;
 
     // cache resolved term/pair indices per (table batch) to avoid redundant

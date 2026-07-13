@@ -63,6 +63,15 @@ struct NCORE_API Vec2 {
 
     bool is_zero() const;
 
+    bool operator==( const Vec2& other ) const
+    {
+        return X == other.X && Y == other.Y;
+    }
+    bool operator!=( const Vec2& other ) const
+    {
+        return !( *this == other );
+    }
+
     std::string to_string() const
     {
         return std::format( "Vec2D<X={},Y={}>", X, Y );
@@ -80,6 +89,15 @@ struct NCORE_API Vec4 : Vec2 {
     bool is_zero() const
     {
         return Vec2::is_zero() && w == 0 && h == 0;
+    }
+
+    bool operator==( const Vec4& other ) const
+    {
+        return Vec2::operator==( other ) && w == other.w && h == other.h;
+    }
+    bool operator!=( const Vec4& other ) const
+    {
+        return !( *this == other );
     }
 
     NSTRUCT( Vec4, NC_F( Vec4, w ) NC_F( Vec4, h ) );
@@ -103,6 +121,15 @@ struct NCORE_API Color {
     uint8_t g = 0;
     uint8_t b = 0;
     uint8_t a = 0;
+
+    bool operator==( const Color& other ) const
+    {
+        return r == other.r && g == other.g && b == other.b && a == other.a;
+    }
+    bool operator!=( const Color& other ) const
+    {
+        return !( *this == other );
+    }
 
     NSTRUCT( Color, NC_F( Color, r ) NC_F( Color, g ) NC_F( Color, b ) NC_F( Color, a ) );
 };

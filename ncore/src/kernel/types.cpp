@@ -48,7 +48,7 @@ void TypeRegistry::initialize()
         get_instance().type_cache[c->id] = c;
     }
 
-	NC_LOG_TRACE( "TypeRegistry initialized" );
+    NC_LOG_TRACE( "TypeRegistry initialized" );
 }
 
 void TypeRegistry::shutdown()

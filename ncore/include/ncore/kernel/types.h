@@ -697,7 +697,7 @@ struct NCORE_API StringClass : public TRecordInfo<std::string> {
     {                                                                                                                  \
         static ::nc::rtti::FieldInfo nc_flds_##T[] = { __VA_ARGS__ };                                                  \
         static ::nc::rtti::TRecordInfo<T>& ci      = []() -> ::nc::rtti::TRecordInfo<T>& {                             \
-            auto& c        = ::nc::rtti::TypeRegistry::register_type<::nc::rtti::TRecordInfo<T>, T>( #T );                 \
+            auto& c        = ::nc::rtti::TypeRegistry::register_type<::nc::rtti::TRecordInfo<T>, T>( #T );             \
             c.fields_begin = nc_flds_##T;                                                                              \
             c.fields_end   = nc_flds_##T + ( sizeof( nc_flds_##T ) / sizeof( ::nc::rtti::FieldInfo ) );                \
             return c;                                                                                                  \
@@ -719,7 +719,7 @@ struct NCORE_API StringClass : public TRecordInfo<std::string> {
     {                                                                                                                   \
         static ::nc::rtti::EnumElement nc_enum_elems_##T[] = { __VA_ARGS__ };                                           \
         static ::nc::rtti::EnumInfo& ei                    = []() -> ::nc::rtti::EnumInfo& {                            \
-            auto& e          = ::nc::rtti::TypeRegistry::register_type<::nc::rtti::EnumInfo, T>( #T );                      \
+            auto& e          = ::nc::rtti::TypeRegistry::register_type<::nc::rtti::EnumInfo, T>( #T );                  \
             e.elements_begin = nc_enum_elems_##T;                                                                       \
             e.elements_end   = nc_enum_elems_##T + ( sizeof( nc_enum_elems_##T ) / sizeof( ::nc::rtti::EnumElement ) ); \
             return e;                                                                                                   \

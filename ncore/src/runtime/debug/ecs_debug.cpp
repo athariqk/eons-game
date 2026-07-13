@@ -1,6 +1,5 @@
 #include "ecs_debug.h"
 
-#include <flecs.h>
 #include <imgui.h>
 
 #include <ncore/modules/module_registry.h>

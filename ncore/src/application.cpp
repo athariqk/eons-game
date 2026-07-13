@@ -79,10 +79,6 @@ void Application::init()
         }
     }
 
-#if defined( NC_DEBUG )
-    app_desc.Name += " (DEBUG)";
-#endif
-
     register_modules();
     modules.init_all( cfg_file );
 

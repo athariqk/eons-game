@@ -28,12 +28,7 @@ struct WindowMouseLeaveEvent {
     uint32_t window_id;
 };
 
-using WindowEvent = std::variant<
-    WindowCloseEvent,
-    WindowResizeEvent,
-    WindowFocusEvent,
-    WindowMouseEnterEvent,
-    WindowMouseLeaveEvent
->;
+using WindowEvent =
+    std::variant<WindowCloseEvent, WindowResizeEvent, WindowFocusEvent, WindowMouseEnterEvent, WindowMouseLeaveEvent>;
 
 } // namespace nc

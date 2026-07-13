@@ -219,8 +219,8 @@ void EcsGuiFeature::build( EcsWorld& world )
         .in( EcsSystemPhase::PreFrame )
         .with<EcsRenderSurface>()
         .run( []( QueryContext& ctx ) {
-            auto rd         = ctx.get_component<EcsRenderSurface>();
-            auto& state     = ctx.world().get_singleton<ImGuiState>();
+            auto rd     = ctx.get_component<EcsRenderSurface>();
+            auto& state = ctx.world().get_singleton<ImGuiState>();
 
             ImGuiIO& io      = ImGui::GetIO();
             auto size        = state.gfx->get_surface_size( rd->surface );
