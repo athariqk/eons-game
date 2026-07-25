@@ -238,7 +238,7 @@ struct PipelineResourceDesc {
     std::string name;
     ShaderType stage           = ShaderType::MULTIPLE;
     ResourceType resource_type = ResourceType::CONSTANT_BUFFER;
-    ResourceVarType var_type   = ResourceVarType::MUTABLE;
+    ResourceVarType var_type   = ResourceVarType::DYNAMIC;
     ResourceFlags flags        = ResourceFlags::NONE;
     uint32_t array_size        = 1;
 };

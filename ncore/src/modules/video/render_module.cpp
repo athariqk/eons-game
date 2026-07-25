@@ -80,6 +80,7 @@ RID RenderModule::create_texture_2d( const Image& image )
             .debug_name  = image.filepath,
             .format      = TextureFormat::RGBA8_UNORM_SRGB,
             .dimension   = ResourceDimension::DIM_2D,
+            .usage       = ResourceUsage::DYNAMIC,
             .access_mask = ResourceAccessFlags::WRITE,
             .width       = image.get_width(),
             .height      = image.get_height(),
@@ -157,7 +158,7 @@ void RenderModule::frame_end()
         ensure_canvas_ib_( static_cast<uint32_t>( item.indices.size() ) );
 
         ctx.rhi->buffer_update( canvas_vb, item.verts.data(), item.verts.size() * sizeof( Vertex2D ) );
-        ctx.rhi->buffer_update( canvas_ib, item.indices.data(), item.indices.size() * sizeof( uint32_t ) );
+        ctx.rhi->buffer_update( canvas_ib, item.indices.data(), item.indices.size() * sizeof( uint16_t ) );
 
         Material* mat = ctx.storage.get_material( item.material );
         NC_ASSERT_NULL( mat );
@@ -260,13 +261,13 @@ void RenderModule::ensure_canvas_vb_( uint32_t needed )
 
 void RenderModule::ensure_canvas_ib_( uint32_t needed )
 {
-    size_t required = needed * sizeof( uint32_t );
-    if (required <= canvas_ib_size * sizeof( uint32_t ))
+    size_t required = needed * sizeof( uint16_t );
+    if (required <= canvas_ib_size * sizeof( uint16_t ))
         return;
 
     uint32_t new_capacity = std::max( canvas_ib_size * 2, needed );
     BufferDesc desc;
-    desc.size        = new_capacity * sizeof( uint32_t );
+    desc.size        = new_capacity * sizeof( uint16_t );
     desc.usage       = ResourceUsage::DYNAMIC;
     desc.access_mask = ResourceAccessFlags::WRITE;
     desc.bind_mask   = ResourceBindFlags::INDEX_BUFFER;

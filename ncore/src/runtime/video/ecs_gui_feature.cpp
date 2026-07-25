@@ -112,10 +112,21 @@ void EcsGuiFeature::build( EcsWorld& world )
 
         IMGUI_CHECKVERSION();
         state.imgui_ctx = ImGui::CreateContext();
-        ImGui::StyleColorsClassic();
+        ImGui::StyleColorsDark();
+        auto& Colors = ImGui::GetStyle().Colors;
+        for (int i = 0; i < ImGuiCol_COUNT; ++i) {
+            ImVec4& Col{ Colors[i] };
+            Col.x = Col.x > 0 ? std::pow( Col.x, 0.5f ) : 0;
+            Col.y = Col.y > 0 ? std::pow( Col.y, 0.5f ) : 0;
+            Col.z = Col.z > 0 ? std::pow( Col.z, 0.5f ) : 0;
+            Col.w = Col.w > 0 ? std::pow( Col.w, 0.5f ) : 0;
+        }
+        Colors[ImGuiCol_WindowBg].w = 0.75f;
+        Colors[ImGuiCol_PlotLines]  = { 1.00f, 1.00f, 1.00f, 1.00f };
 
         ImGuiIO& imgui_io = ImGui::GetIO();
-        imgui_io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset | ImGuiBackendFlags_RendererHasTextures;
+        imgui_io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors | ImGuiBackendFlags_RendererHasVtxOffset |
+                                 ImGuiBackendFlags_RendererHasTextures;
 
         for (int i = 0; i < ImGuiMouseCursor_COUNT; i++) {
             auto imgui_cursor              = static_cast<ImGuiMouseCursor>( i );
@@ -167,7 +178,8 @@ void EcsGuiFeature::build( EcsWorld& world )
             auto gfx   = ctx.world().get_singleton<GraphicsModules>();
             auto state = ctx.world().get_singleton<ImGuiState>();
 
-            ImGuiIO& io = ImGui::GetIO();
+            ImGuiIO& io  = ImGui::GetIO();
+            io.DeltaTime = static_cast<float>( ctx.delta_time() );
 
             for (const auto& ev : state->input->input_events()) {
                 std::visit(

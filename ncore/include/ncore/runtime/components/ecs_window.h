@@ -23,13 +23,13 @@ struct NCAPI EcsWindow {
 };
 
 struct NCAPI EcsSwapChainRef {
-    RID swap_chain{};
+    RID swapchain{};
     Vec2 size{};
     bool vsync = false;
 
     NSTRUCT(
         EcsSwapChainRef,
-        NC_F( EcsSwapChainRef, swap_chain ) NC_F( EcsSwapChainRef, size ) NC_F( EcsSwapChainRef, vsync )
+        NC_F( EcsSwapChainRef, swapchain ) NC_F( EcsSwapChainRef, size ) NC_F( EcsSwapChainRef, vsync )
     )
 };
 

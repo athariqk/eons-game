@@ -63,6 +63,9 @@ void EcsDebugFeature::build( EcsWorld& world )
                     .build();
             }
 
+            static bool pOpen = false;
+            ImGui::ShowDemoWindow( &pOpen );
+
             ImGui::End();
         } );
 

@@ -140,6 +140,9 @@ public:
         return *this;
     }
 
+    /**
+     * @brief Set up traversal on the last added term (default: ChildOf).
+     */
     EcsObserverBuilder& up()
     {
         qb_.up();

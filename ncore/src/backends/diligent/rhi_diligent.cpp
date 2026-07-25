@@ -192,7 +192,15 @@ void DiligentRHI::swapchain_set_size( RID sc, Vec2 size )
 {
     auto entry = swapchains.get( sc );
     NC_ASSERT_NULL( entry );
-    ( *entry )->Resize( static_cast<Diligent::Uint32>( size.X ), static_cast<Diligent::Uint32>( size.Y ) );
+    auto& desc      = ( *entry )->GetDesc();
+    auto new_width  = static_cast<Diligent::Uint32>( size.X );
+    auto new_height = static_cast<Diligent::Uint32>( size.Y );
+    if (desc.Width != new_width && desc.Height != new_height) {
+        ( *entry )->Resize( new_width, new_height );
+        NC_LOG_DEBUG_C(
+            log::GRAPHICS, "Swapchain RID={} size is different, setting to {}x{}", sc.value, new_width, new_height
+        );
+    }
 }
 
 void DiligentRHI::swapchain_present( RID sc, bool sync_interval )

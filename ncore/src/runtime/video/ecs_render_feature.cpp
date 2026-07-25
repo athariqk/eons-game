@@ -15,6 +15,7 @@ void EcsRenderFeature::build( EcsWorld& world )
     world.create_system( "EcsRenderFeature::PrepareFrame" )
         .with<EcsSwapChainRef>()
         .in( EcsSystemPhase::PRE_FRAME )
+        .order( 10 )
         .each( []( QueryContext& ctx, EcsEntityId ) {
             auto sc  = ctx.get_component<EcsSwapChainRef>();
             auto gfx = ctx.world().get_singleton<GraphicsModules>();

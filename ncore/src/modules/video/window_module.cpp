@@ -90,7 +90,7 @@ uint32_t WindowModule::window_create( uint8_t flags )
     auto window = SDL_CreateWindow( nullptr, 0, 0, sdl_flags | SDL_WINDOW_HIDDEN );
     auto id     = SDL_GetWindowID( window );
     if (window) {
-        NC_LOG_TRACE_C( log::GRAPHICS, "New SDL window, ID: {}", id );
+        NC_LOG_DEBUG_C( log::GRAPHICS, "New SDL window, ID: {}", id );
     } else {
         NC_LOG_ERROR_C( log::GRAPHICS, "SDL window creation failed!" );
         return uint32_t();
@@ -197,7 +197,7 @@ void WindowModule::window_set_fullscreen( uint32_t window_id, bool fullscreen )
 
 bool WindowModule::window_pop( uint32_t window_id )
 {
-    NC_LOG_TRACE_C( log::GRAPHICS, "Destroying SDL window, ID: {}", window_id );
+    NC_LOG_DEBUG_C( log::GRAPHICS, "Destroying SDL window, ID: {}", window_id );
     auto window = pImpl->get_sdl_window( window_id );
     if (!window) {
         return false;

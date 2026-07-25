@@ -73,10 +73,10 @@ void EcsWindowFeature::build( EcsWorld& world )
             auto win = ctx.get_component<EcsWindow>();
             auto gfx = ctx.world().get_singleton<GraphicsModules>();
 
-            if (!rd->swap_chain.is_valid()) {
-                rd->swap_chain =
-                    gfx->renderer->swapchain_create( gfx->window->get_native_whnd( win->id ), win->resolution );
-                rd->size = win->resolution;
+            if (!rd->swapchain.is_valid()) {
+                auto whnd     = gfx->window->get_native_whnd( win->id );
+                rd->swapchain = gfx->renderer->swapchain_create( whnd, win->resolution );
+                rd->size      = win->resolution;
             }
         } );
 
@@ -85,9 +85,9 @@ void EcsWindowFeature::build( EcsWorld& world )
         .each( []( QueryContext& ctx, EcsEntityId ) {
             auto rd  = ctx.get_component<EcsSwapChainRef>();
             auto gfx = ctx.world().get_singleton<GraphicsModules>();
-            if (rd->swap_chain.is_valid()) {
-                gfx->renderer->swapchain_destroy( rd->swap_chain );
-                rd->swap_chain = {};
+            if (rd->swapchain.is_valid()) {
+                gfx->renderer->swapchain_destroy( rd->swapchain );
+                rd->swapchain = {};
             }
         } );
 
@@ -107,7 +107,32 @@ void EcsWindowFeature::build( EcsWorld& world )
             gfx->window->pump_events();
         } );
 
-    world.create_system( "EcsWindowFeature::ProcessWindowEvents" )
+    world.create_system( "EcsWindowFeature::ResizeSwapChains" )
+        .with<EcsSwapChainRef>()
+        .with<EcsWindow>()
+        .up()
+        .in( EcsSystemPhase::PRE_FRAME )
+        .order( 5 )
+        .each( []( QueryContext& ctx, EcsEntityId ) {
+            auto win    = ctx.get_component<EcsWindow>();
+            auto sc     = ctx.get_component<EcsSwapChainRef>();
+            auto gfx    = ctx.world().get_singleton<GraphicsModules>();
+            auto events = gfx->window->window_events();
+
+            for (const auto& ev : events) {
+                if (auto resize = std::get_if<WindowResizeEvent>( &ev )) {
+                    if (resize->window_id == win->id) {
+                        sc->size = Vec2( static_cast<float>( resize->width ), static_cast<float>( resize->height ) );
+                        NC_LOG_DEBUG_C(
+                            log::GRAPHICS, "WindowResizeEvent: window_id={} size={}", win->id, sc->size.to_string()
+                        );
+                        gfx->renderer->swapchain_set_size( sc->swapchain, sc->size );
+                    }
+                }
+            }
+        } );
+
+    world.create_system( "EcsWindowFeature::CloseWindows" )
         .with<EcsWindow>()
         .in( EcsSystemPhase::POST_FRAME )
         .order( 100 )
