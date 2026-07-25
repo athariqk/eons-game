@@ -1,3 +1,8 @@
+#include <ncore/game_world.h>
+#include <ncore/modules/io/resource_manager.h>
+#include <ncore/modules/module_registry.h>
+#include <ncore/modules/video/render_module.h>
+#include <ncore/modules/video/window_module.h>
 #include <ncore/runtime/components/ecs_time.h>
 #include <ncore/runtime/components/ecs_transform.h>
 #include <ncore/runtime/ecs_base_features.h>
@@ -8,8 +13,9 @@
 #include "debug/ecs_debug.h"
 #include "input/ecs_inputs.h"
 #include "physics/ecs_physics.h"
-#include "video/ecs_graphics.h"
-#include "video/ecs_gui.h"
+#include "video/ecs_gui_feature.h"
+#include "video/ecs_render_feature.h"
+#include "video/ecs_window_feature.h"
 
 namespace nc {
 
@@ -18,10 +24,21 @@ void EcsBaseFeatures::build( EcsWorld& world )
     world.set_singleton<AppDesc>( app_desc );
 
     world.emplace_singleton<EcsTime>();
+    world.emplace_singleton<IoModules>();
+    world.emplace_singleton<GraphicsModules>();
 
-    world.create_system( "EcsBaseFeature::Time::TrackFPS" )
+    world.create_system( "EcsBaseFeatures::Init" ).in( EcsSystemPhase::INIT ).run( []( QueryContext& ctx ) {
+        auto gfx      = ctx.world().get_singleton<GraphicsModules>();
+        gfx->window   = ctx.modules().resolve<WindowModule>();
+        gfx->renderer = ctx.modules().resolve<RenderModule>();
+
+        auto io       = ctx.world().get_singleton<IoModules>();
+        io->resources = ctx.modules().resolve<ResourceManager>();
+    } );
+
+    world.create_system( "EcsBaseFeatures::TrackFPS" )
         .with<EcsTime>()
-        .in( EcsSystemPhase::PreFrame )
+        .in( EcsSystemPhase::PRE_FRAME )
         .run( []( QueryContext& ctx ) {
             auto time = ctx.get_component<EcsTime>();
             time->ticks++;
@@ -35,17 +52,18 @@ void EcsBaseFeatures::build( EcsWorld& world )
         } );
 
     world.load_feature<EcsAudioFeature>();
-    world.load_feature<EcsGraphicsFeature>();
-    world.load_feature<EcsGuiFeature>();
-    world.load_feature<EcsPhysicsFeature>();
     world.load_feature<EcsInputsFeature>();
+    world.load_feature<EcsWindowFeature>();
+    world.load_feature<EcsPhysicsFeature>();
+    world.load_feature<EcsGuiFeature>();
+    world.load_feature<EcsRenderFeature>();
 
 #ifdef NC_DEBUG
     world.load_feature<EcsDebugFeature>();
 #endif
 
-    world.create_system( "EcsBaseFeature::TransformPropagator" )
-        .in( EcsSystemPhase::Update )
+    world.create_system( "EcsBaseFeatures::TransformPropagator" )
+        .in( EcsSystemPhase::UPDATE )
         .with<EcsTransform>()
         .each( []( QueryContext& ctx, EcsEntityId eid ) {
             auto transform = ctx.get_component<EcsTransform>();

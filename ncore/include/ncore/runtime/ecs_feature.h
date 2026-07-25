@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ncore/kernel/object.h>
+#include <ncore/core/object.h>
 
 namespace nc {
 
@@ -13,7 +13,7 @@ class EcsWorld;
  * TODO: I wonder if we can make this just be a serialized composition of EcsWorld...
  * Imagine Godot's scene or Unity's prefabs
  */
-class NCORE_API EcsFeature : public NcObject {
+class NCAPI EcsFeature : public NcObject {
     NCLASS( EcsFeature, NcObject )
 
 public:

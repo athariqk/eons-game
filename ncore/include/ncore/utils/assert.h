@@ -11,7 +11,7 @@
 #endif
 
 namespace nc::log {
-NCORE_API void handle_assert( const char* expr, const char* msg, const char* file, int line );
+NCAPI void handle_assert( const char* expr, const char* msg, const char* file, int line );
 }
 
 #ifdef NC_DEBUG

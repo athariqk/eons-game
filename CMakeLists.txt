@@ -33,6 +33,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   add_compile_options(-Wno-unknown-argument -Wno-c++98-compat
                       -Wno-c++98-compat-pedantic)
+  set(CMAKE_CXX_FLAGS_DEBUG "/MDd /Zi /Ob0 /Od")
 endif()
 
 if(MINGW)
@@ -52,3 +53,22 @@ endforeach()
 
 add_subdirectory(ncore)
 add_subdirectory(eons-game)
+
+# --- Install rules ---
+install(
+  TARGETS ncore
+  RUNTIME DESTINATION .
+  ARCHIVE DESTINATION .
+  LIBRARY DESTINATION .)
+install(
+  FILES $<TARGET_PDB_FILE:ncore>
+  DESTINATION .
+  OPTIONAL)
+
+install(TARGETS eons-game RUNTIME DESTINATION .)
+install(
+  FILES $<TARGET_PDB_FILE:eons-game>
+  DESTINATION .
+  OPTIONAL)
+install(FILES eons-game/eons.ini DESTINATION .)
+install(DIRECTORY eons-game/assets/ DESTINATION assets)

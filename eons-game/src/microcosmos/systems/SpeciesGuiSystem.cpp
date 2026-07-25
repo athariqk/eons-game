@@ -1,6 +1,6 @@
 #include "SpeciesGuiSystem.h"
 
-#include <ncore/modules/video/graphics_module.h>
+#include <ncore/modules/video/render_module.h>
 #include <ncore/runtime/ecs_world.h>
 // #include <ncore/runtime/ecs_input_system.h>
 

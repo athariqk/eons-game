@@ -44,7 +44,7 @@ inline constexpr const char* GUI      = "GUI";
 inline constexpr const char* PHYSICS  = "PYS";
 inline constexpr const char* IO       = "IO";
 
-NCORE_API void
+NCAPI void
 log_message( const char* channel, int level, const char* file, const char* func, int line, const char* message );
 
 } // namespace nc::log

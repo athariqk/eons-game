@@ -1,3 +1,4 @@
+#include <backends/flecs/flecs_helpers.h>
 #include <flecs.h>
 
 #include <ncore/game_world.h>
@@ -5,8 +6,6 @@
 #include <ncore/runtime/ecs_world.h>
 #include <ncore/utils/assert.h>
 #include <ncore/utils/log.h>
-
-#include "flecs_helpers.h"
 
 namespace nc {
 

@@ -1,6 +1,6 @@
 #include "sdl_image_loader.h"
 
-#include <ncore/modules/video/resources/image.h>
+#include <ncore/resources/image.h>
 #include <ncore/utils/log.h>
 
 namespace nc {

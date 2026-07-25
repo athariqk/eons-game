@@ -6,7 +6,7 @@
 #include <string>
 #include <unordered_map>
 
-#include <ncore/kernel/types.h>
+#include <ncore/core/types.h>
 #include <ncore/runtime/ecs_entity.h>
 
 namespace nc {
@@ -24,9 +24,9 @@ class ModuleRegistry;
  *
  * This is cached and supports range-for iteration.
  */
-class NCORE_API EcsQuery {
+class NCAPI EcsQuery {
 public:
-    class NCORE_API Iterator;
+    class NCAPI Iterator;
 
     EcsQuery() = default;
 
@@ -56,7 +56,7 @@ private:
  *
  * TODO: this feels too tied to Flecs' table-based storage
  */
-class NCORE_API QueryContext {
+class NCAPI QueryContext {
 public:
     explicit QueryContext( void* iter );
 
@@ -176,7 +176,7 @@ private:
 
 //------------------------------------------------------------------------------
 
-class NCORE_API EcsQueryBuilder {
+class NCAPI EcsQueryBuilder {
 public:
     EcsQueryBuilder( EcsWorld& world, std::string name );
     ~EcsQueryBuilder();

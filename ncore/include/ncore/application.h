@@ -7,7 +7,7 @@
 #include <memory>
 #include <string>
 
-#include <ncore/kernel/types.h>
+#include <ncore/core/types.h>
 
 #include "modules/module_registry.h"
 
@@ -18,17 +18,14 @@ class ResourceManager;
 class EventBus;
 class ConfFile;
 class IGuiModule;
-class VideoModule;
-class GraphicsModule;
+class WindowModule;
+class RenderModule;
 class InputModule;
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Winvalid-offsetof"
 
 /**
  * @brief A semantic version representation for the application.
  */
-struct NCORE_API AppVersion {
+struct NCAPI AppVersion {
     int Major = 0;
     int Minor = 0;
     int Patch = 0;
@@ -42,14 +39,12 @@ struct NCORE_API AppVersion {
 /**
  * @brief AppDesc can be used to initialize an app with the given specification.
  */
-struct NCORE_API AppDesc {
+struct NCAPI AppDesc {
     std::string Name;
     AppVersion Version;
     std::string ConfigFile;
     NSTRUCT( AppDesc, NC_F( AppDesc, Name ) NC_F( AppDesc, Version ) NC_F( AppDesc, ConfigFile ) )
 };
-
-#pragma GCC diagnostic pop
 
 /**
  * @brief The entry point for applications.
@@ -58,7 +53,7 @@ struct NCORE_API AppDesc {
  * OS event polling, and cleanup. You may override this to
  * implement custom main loop behavior.
  */
-class NCORE_API Application {
+class NCAPI Application {
 public:
     Application( const AppDesc& desc );
     virtual ~Application();
@@ -107,8 +102,8 @@ protected:
 
     ResourceManager* resources = nullptr;
     EventBus* events           = nullptr;
-    VideoModule* video         = nullptr;
-    GraphicsModule* gfx        = nullptr;
+    WindowModule* window       = nullptr;
+    RenderModule* renderer     = nullptr;
     IGuiModule* imgui          = nullptr;
     InputModule* input         = nullptr;
 };

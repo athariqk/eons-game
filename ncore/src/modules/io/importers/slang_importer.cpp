@@ -1,0 +1,30 @@
+#include "slang_importer.h"
+
+#include <sstream>
+
+#include <ncore/resources/shader.h>
+#include <ncore/utils/log.h>
+
+namespace nc {
+
+Ref<IResource> SlangImporter::import( std::string_view path )
+{
+    auto slang = compiler.compile( ShaderCompileDesc{ .filepath = path } );
+    if (!slang.diagnostics.empty()) {
+        NC_LOG_DEBUG_C( log::IO, "{}", slang.diagnostics );
+    }
+    if (!slang.ok) {
+        NC_LOG_ERROR_C( log::IO, "Shader compilation FAILED" );
+        return nullptr;
+    }
+
+    auto shaders = Ref<CompositeShader>::create();
+    for (auto& program : slang.programs) {
+        auto shader = Ref<Shader>::create( program );
+        shaders->set_shader( program.stage, shader );
+    }
+
+    return shaders;
+}
+
+} // namespace nc

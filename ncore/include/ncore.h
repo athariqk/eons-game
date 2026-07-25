@@ -6,20 +6,20 @@
 
 #ifdef WIN32
 #ifdef ncore_EXPORTS
-#define NCORE_API __declspec( dllexport )
+#define NCAPI __declspec( dllexport )
 #else
-#define NCORE_API __declspec( dllimport )
+#define NCAPI __declspec( dllimport )
 #endif
 
 #else
-#define NCORE_API __attribute__( ( visibility( "default" ) ) )
+#define NCAPI __attribute__( ( visibility( "default" ) ) )
 #endif // WIN32
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-NCORE_API void ncore_init();
+NCAPI void ncore_init();
 
 #ifdef __cplusplus
 }

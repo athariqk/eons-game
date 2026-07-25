@@ -2,7 +2,7 @@
 
 #include <functional>
 
-#include <ncore/kernel/collection.h>
+#include <ncore/core/collection.h>
 #include <ncore/modules/module.h>
 
 #include "events.h"
@@ -22,7 +22,7 @@ namespace nc {
  *   // Publish
  *   events.publish(CollisionEvent(entityA, entityB));
  */
-class NCORE_API EventBus : public IModule {
+class NCAPI EventBus : public IModule {
     NCLASS( EventBus, IModule )
 
 public:
@@ -31,7 +31,7 @@ public:
     EventBus& operator=( const EventBus& ) = delete;
 
     Error init( ConfFile& cfg_file ) override;
-    void finalize() override;
+    void shutdown() override;
 
     /**
      * @brief Subscribe to an event type

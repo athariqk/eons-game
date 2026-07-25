@@ -4,7 +4,7 @@
 #include <concepts>
 #include <memory>
 
-#include <ncore/kernel/types.h>
+#include <ncore/core/types.h>
 #include <ncore/utils/log.h>
 
 #include "ecs_entity.h"
@@ -23,7 +23,7 @@ class IGameWorld;
 /**
  * @brief EcsWorld is an implementation of an archetype-based ECS architecture.
  */
-class NCORE_API EcsWorld : public NcObject {
+class NCAPI EcsWorld : public NcObject {
     NCLASS( EcsWorld, NcObject )
 
 public:
@@ -97,14 +97,23 @@ public:
     }
 
     /**
-     * @brief Return a singleton component of type T owned by EcsWorld.
+     * @brief Return a read-only singleton component of type T owned by EcsWorld.
      */
     template<class T>
-    const T& get_singleton() const
+    const T* get_singleton() const
     {
         auto result = get_component_ro_( INVALID_ENTITY_ID, rtti::TypeRegistry::find<T>() );
-        NC_ASSERT_NULL( result );
-        return *static_cast<const T*>( result );
+        return static_cast<const T*>( result );
+    }
+
+    /**
+     * @brief Return a read-write singleton component of type T owned by EcsWorld.
+     */
+    template<class T>
+    T* get_singleton()
+    {
+        auto result = get_component_( INVALID_ENTITY_ID, rtti::TypeRegistry::find<T>() );
+        return static_cast<T*>( result );
     }
 
     /**

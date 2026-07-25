@@ -7,7 +7,7 @@
 #include <string_view>
 #include <vector>
 
-#include <ncore/kernel/types.h>
+#include <ncore/core/types.h>
 #include <ncore/utils/assert.h>
 
 namespace nc {
@@ -23,7 +23,7 @@ class EcsWorld;
 // EcsEntityBuilder
 //------------------------------------------------------------------------------
 
-class NCORE_API EcsEntityBuilder {
+class NCAPI EcsEntityBuilder {
 public:
     EcsEntityBuilder( EcsWorld& world, const std::string& name );
     ~EcsEntityBuilder();

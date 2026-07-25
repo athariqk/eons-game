@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include <ncore/kernel/types.h>
+#include <ncore/core/types.h>
 
 enum class BehaviourState {
     IDLING     = 0,

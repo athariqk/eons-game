@@ -1,18 +1,18 @@
 #pragma once
 
-#include <ncore/kernel/collection.h>
-#include <ncore/kernel/object.h>
+#include <ncore/core/collection.h>
+#include <ncore/core/object.h>
 #include <ncore/runtime/ecs_entity.h>
 
 namespace nc {
 
 class EcsWorld;
 
-class NCORE_API Component : public NcObject {
+class NCAPI Component : public NcObject {
     NCLASS( Component, NcObject )
 };
 
-class NCORE_API Node : public NcObject {
+class NCAPI Node : public NcObject {
     NCLASS( Node, NcObject )
 
 public:

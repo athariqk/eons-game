@@ -2,8 +2,8 @@
 
 #include <SDL3/SDL_audio.h>
 
-#include <ncore/kernel/collection.h>
-#include <ncore/modules/audio/resources/audio_clip.h>
+#include <ncore/core/collection.h>
+#include <ncore/resources/audio_clip.h>
 #include <ncore/utils/log.h>
 
 namespace nc {

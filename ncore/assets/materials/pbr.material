@@ -1,0 +1,11 @@
+[header]
+debug_name = "Physically Based Rendering"
+
+[shaders]
+composite = "assets/shaders/pbr.slang"
+
+[raster]
+cull_mode   = "None"
+depth_test  = false
+depth_write = false
+blend       = "AlphaBlend"

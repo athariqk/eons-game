@@ -13,16 +13,16 @@
 #include <backends/box2d/box2d_physics_impl.h>
 
 #include <ncore/application.h>
+#include <ncore/core/memory.h>
+#include <ncore/core/types.h>
 #include <ncore/game_world.h>
-#include <ncore/kernel/memory.h>
-#include <ncore/kernel/types.h>
 #include <ncore/modules/audio/audio_module.h>
 #include <ncore/modules/events/event_bus.h>
 #include <ncore/modules/input/input_module.h>
+#include <ncore/modules/io/resource_manager.h>
 #include <ncore/modules/module_registry.h>
-#include <ncore/modules/resource/resource_manager.h>
-#include <ncore/modules/video/graphics_module.h>
-#include <ncore/modules/video/video_module.h>
+#include <ncore/modules/video/render_module.h>
+#include <ncore/modules/video/window_module.h>
 #include <ncore/scene/scene.h>
 #include <ncore/utils/config.h>
 #include <ncore/utils/log.h>
@@ -34,17 +34,12 @@ namespace nc {
 
 namespace cfg {
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Winvalid-offsetof"
-
 struct Log {
     int Level            = 0;
     std::string FilePath = "logs/engine.log";
     std::string Overrides;
     NSTRUCT( Log, NC_F( Log, Level ) NC_F( Log, FilePath ) NC_F( Log, Overrides ) )
 };
-
-#pragma GCC diagnostic pop
 
 } // namespace cfg
 
@@ -167,8 +162,8 @@ void Application::register_modules()
     events    = modules.provide<EventBus>();
     input     = modules.provide<InputModule>();
     resources = modules.provide<ResourceManager>();
-    video     = modules.provide<VideoModule>();
-    gfx       = modules.provide<GraphicsModule>();
+    window    = modules.provide<WindowModule>();
+    renderer  = modules.provide<RenderModule>();
     modules.provide<Box2DPhysicsImpl>();
     modules.provide<AudioModule>();
 }

@@ -2,9 +2,9 @@
 
 #include <stdint.h>
 
-#include <ncore/kernel/random.h>
-#include <ncore/kernel/structures.h>
-#include <ncore/kernel/types.h>
+#include <ncore/core/random.h>
+#include <ncore/core/structures.h>
+#include <ncore/core/types.h>
 
 struct Genes {
 public:

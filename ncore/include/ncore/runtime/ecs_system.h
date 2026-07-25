@@ -4,32 +4,24 @@
 #include <memory>
 #include <string>
 
-#include <ncore/kernel/types.h>
+#include <ncore/core/types.h>
 #include <ncore/runtime/ecs_query.h>
 
 namespace nc {
 
-// Currently, we mostly just have wrappers for Flecs C API.
-// Just something that we can build upon in the future
-// from a standardized base.
-
 class EcsWorld;
 
-/**
- * @brief Defines which pipeline phase a system runs in.
- */
 enum class EcsSystemPhase {
-    Init,
-    PreFrame,
-    PreUpdate,
-    FixedUpdate,
-    Update,
-    PostUpdate,
-    PostFrame
+    INIT,
+    PRE_FRAME,
+    PRE_UPDATE,
+    FIXED_UPDATE,
+    UPDATE,
+    POST_UPDATE,
+    POST_FRAME
 };
 
 namespace EcsCoreEvent {
-// Magic numbers are an implementation detail
 const EcsEntityId OnAdd          = 300;
 const EcsEntityId OnRemove       = 301;
 const EcsEntityId OnSet          = 302;
@@ -40,25 +32,20 @@ const EcsEntityId OnTableDelete  = 306;
 } // namespace EcsCoreEvent
 
 enum class EcsCallbackKind {
-    Run,
-    Each
+    RUN,
+    EACH
 };
 
 using RunCallback  = void ( * )( QueryContext& );
 using EachCallback = void ( * )( QueryContext&, EcsEntityId );
 
-/**
- * @brief EcsSystemBuilder is fluent API for registering EcsWorld-bound systems.
- */
-class NCORE_API EcsSystemBuilder {
+class NCAPI EcsSystemBuilder {
 public:
     EcsSystemBuilder( EcsWorld& world, std::string name );
     ~EcsSystemBuilder();
 
     EcsSystemBuilder( const EcsSystemBuilder& )            = delete;
     EcsSystemBuilder& operator=( const EcsSystemBuilder& ) = delete;
-
-    // query builder forwarded functions
 
     template<typename... Comps>
     EcsSystemBuilder& with()
@@ -105,28 +92,12 @@ public:
         return *this;
     }
 
-    // system specific functions
-
-    /**
-     * @brief Sets which pipeline phase the system shall run in.
-     */
     EcsSystemBuilder& in( EcsSystemPhase phase );
 
-    /**
-     * @brief Sets the execution order of the system within the pipeline phase.
-     */
     EcsSystemBuilder& order( int32_t priority );
 
-    /**
-     * @brief Finalise and register the system with the given per-entity-group callback.
-     * @return The entity handle of the created system.
-     */
     EcsEntityId run( RunCallback callback );
 
-    /**
-     * @brief Finalise and register the system with the given per-entity callback.
-     * @return The entity handle of the created system.
-     */
     EcsEntityId each( EachCallback callback );
 
 private:
@@ -140,7 +111,7 @@ private:
     std::unique_ptr<Impl> pImpl;
 };
 
-class NCORE_API EcsObserverBuilder {
+class NCAPI EcsObserverBuilder {
 public:
     EcsObserverBuilder( EcsWorld& world, std::string name );
     ~EcsObserverBuilder();
@@ -156,9 +127,6 @@ public:
         return *this;
     }
 
-    /**
-     * @brief Add query terms without setting the event.
-     */
     template<typename... Comps>
     EcsObserverBuilder& with()
     {
@@ -166,9 +134,6 @@ public:
         return *this;
     }
 
-    /**
-     * @brief Set the event(s) this observer listens on (separate from terms).
-     */
     EcsObserverBuilder& event( EcsEntityId evt )
     {
         events.push_back( evt );

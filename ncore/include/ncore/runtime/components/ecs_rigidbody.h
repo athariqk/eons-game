@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ncore/kernel/structures.h>
+#include <ncore/core/structures.h>
 
 namespace nc {
 

@@ -9,7 +9,7 @@ Error EventBus::init( ConfFile& cfg_file )
     return Error::OK;
 }
 
-void EventBus::finalize()
+void EventBus::shutdown()
 {
     clear();
 }

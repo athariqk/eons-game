@@ -1,29 +1,29 @@
 #pragma once
 
-#include <ncore/kernel/structures.h>
+#include <ncore/core/structures.h>
 
 namespace nc {
 
 enum class ShapeType {
-    Box,
-    Circle,
-    Capsule,
-    Polygon
+    BOX,
+    CIRCLE,
+    CAPSULE,
+    POLYGON
 };
 enum class BodyType {
-    Static,
-    Dynamic,
-    Kinematic
+    STATIC,
+    DYNAMIC,
+    KINEMATIC
 };
 
 struct PhysicsShape {
-    ShapeType type = ShapeType::Box;
+    ShapeType type = ShapeType::BOX;
     float density  = 1.0f;
     float friction = 0.5f;
 };
 
 struct PhysicsBody {
-    BodyType type = BodyType::Dynamic;
+    BodyType type = BodyType::DYNAMIC;
     Vec2 initial_pos;
     float mass           = 1.0f;
     float linear_damping = 0.5f;

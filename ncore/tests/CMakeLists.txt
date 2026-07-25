@@ -1,6 +1,6 @@
 set(KERNEL_TESTS
-    include/ncore/kernel/memory.cpp include/ncore/kernel/collection.cpp
-    include/ncore/kernel/reference.cpp)
+    include/ncore/core/memory.cpp include/ncore/core/collection.cpp
+    include/ncore/core/reference.cpp)
 
 add_executable(ncore_test main.cpp ${KERNEL_TESTS})
 

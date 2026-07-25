@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+	<Type Name="nc::RID">
+		<DisplayString>({value})</DisplayString>
+		<Expand>
+			<Item Name="value">value</Item>
+		</Expand>
+	</Type>
+	<Type Name="nc::ResourceFormatID">
+		<DisplayString>({id})</DisplayString>
+	</Type>
+	<Type Name="nc::Ref&lt;*&gt;">
+		<DisplayString>{obj}</DisplayString>
+		<Expand>
+			<Item Name="ptr">obj</Item>
+		</Expand>
+	</Type>
+	<Type Name="nc::Vec2">
+		<DisplayString>({X}, {Y})</DisplayString>
+		<Expand>
+			<Item Name="X">X</Item>
+			<Item Name="Y">Y</Item>
+		</Expand>
+	</Type>
+	<Type Name="nc::Vec4">
+		<DisplayString>({X}, {Y}, {W}, {H})</DisplayString>
+		<Expand>
+			<Item Name="X">X</Item>
+			<Item Name="Y">Y</Item>
+			<Item Name="W">W</Item>
+			<Item Name="H">H</Item>
+		</Expand>
+	</Type>
+	<Type Name="nc::Color">
+		<DisplayString>(r={r}, g={g}, b={b}, a={a})</DisplayString>
+		<Expand>
+			<Item Name="r">r</Item>
+			<Item Name="g">g</Item>
+			<Item Name="b">b</Item>
+			<Item Name="a">a</Item>
+		</Expand>
+	</Type>
+	<Type Name="nc::Vertex2D">
+		<DisplayString>(pos={x}, {y} uv={u}, {v})</DisplayString>
+		<Expand>
+			<Item Name="pos">nc::Vec2{x, y}</Item>
+			<Item Name="uv">nc::Vec2{u, v}</Item>
+			<Item Name="color">color</Item>
+		</Expand>
+	</Type>
+	<Type Name="nc::Vertex3D">
+		<DisplayString>(pos={px}, {py}, {pz})</DisplayString>
+		<Expand>
+			<Item Name="pos">nc::Vec2{px, py}</Item>
+			<Item Name="normal">nc::Vec2{nx, ny}</Item>
+			<Item Name="tangent">nc::Vec2{tx, ty}</Item>
+			<Item Name="uv">nc::Vec2{u, v}</Item>
+			<Item Name="uv2">nc::Vec2{u2, v2}</Item>
+			<Item Name="color">color</Item>
+		</Expand>
+	</Type>
+	<Type Name="nc::SkinnedVertex3D">
+		<DisplayString>(pos={px}, {py}, {pz})</DisplayString>
+		<Expand>
+			<Item Name="pos">nc::Vec2{px, py}</Item>
+			<Item Name="normal">nc::Vec2{nx, ny}</Item>
+			<Item Name="tangent">nc::Vec2{tx, ty}</Item>
+			<Item Name="uv">nc::Vec2{u, v}</Item>
+			<Item Name="uv2">nc::Vec2{u2, v2}</Item>
+			<Item Name="color">color</Item>
+			<ArrayItems>
+				<Size>4</Size>
+				<ValuePointer>weights</ValuePointer>
+			</ArrayItems>
+		</Expand>
+	</Type>
+	<Type Name="nc::Vector&lt;*&gt;">
+		<DisplayString>{*(std::vector&lt;$T1&gt;*)this}</DisplayString>
+		<Expand>
+			<ExpandedItem>*(std::vector&lt;$T1&gt;*)this</ExpandedItem>
+		</Expand>
+	</Type>
+
+	<Type Name="nc::HashMap&lt;*,*&gt;">
+		<DisplayString>{*(std::unordered_map&lt;$T1,$T2&gt;*)this}</DisplayString>
+		<Expand>
+			<ExpandedItem>*(std::unordered_map&lt;$T1,$T2&gt;*)this</ExpandedItem>
+		</Expand>
+	</Type>
+
+	<Type Name="nc::Array&lt;*,*&gt;">
+		<DisplayString>{*(std::array&lt;$T1,$S&gt;*)this}</DisplayString>
+		<Expand>
+			<ExpandedItem>*(std::array&lt;$T1,$S&gt;*)this</ExpandedItem>
+		</Expand>
+	</Type>
+	<Type Name="nc::RendererStorage::PSOFlags">
+		<DisplayString>({(__int64)$e})</DisplayString>
+		<Expand>
+			<Item Name="cull">((__int64)$e) &amp; 0x3</Item>
+			<Item Name="depth_test">((($__int64)$e &amp; 0x4) != 0) ? "ON" : "OFF"</Item>
+			<Item Name="depth_write">((($__int64)$e &amp; 0x8) != 0) ? "ON" : "OFF"</Item>
+			<Item Name="blend">(((__int64)$e) &gt;&gt; 4) &amp; 0xF</Item>
+			<Item Name="scissor">((($__int64)$e &amp; 0x8000000) != 0) ? "ON" : "OFF"</Item>
+		</Expand>
+	</Type>
+	<Type Name="nc::RendererStorage::PSOKey">
+		<DisplayString>{debug_name}</DisplayString>
+		<Expand>
+			<Item Name="flags">flags</Item>
+			<Item Name="vs">vs</Item>
+			<Item Name="ps">ps</Item>
+			<Item Name="vertex_layout">vertex_layout</Item>
+			<Item Name="resource_signatures">resource_signatures</Item>
+			<Item Name="debug_name">debug_name</Item>
+		</Expand>
+	</Type>
+	<Type Name="nc::Material">
+		<DisplayString>Material PSO=({pso})</DisplayString>
+		<Expand>
+			<Item Name="pso">pso</Item>
+			<Item Name="resource_signatures">resource_signatures</Item>
+			<Item Name="srbs">srbs</Item>
+			<Item Name="sampler">sampler</Item>
+			<Item Name="constant_buffer">constant_buffer</Item>
+			<Item Name="texture_slots">texture_slots</Item>
+		</Expand>
+	</Type>
+	<Type Name="nc::TextureSlot">
+		<DisplayString>({name}, srb={srb_index})</DisplayString>
+	</Type>
+	<Type Name="nc::VertexLayoutElement">
+		<DisplayString>loc={location} type={type} slot={buffer_slot}</DisplayString>
+		<Expand>
+			<Item Name="location">location</Item>
+			<Item Name="type">type</Item>
+			<Item Name="buffer_slot">buffer_slot</Item>
+			<Item Name="stride">stride</Item>
+			<Item Name="relative_offset">relative_offset</Item>
+			<Item Name="normalized">normalized</Item>
+			<Item Name="hlsl_semantic">hlsl_semantic</Item>
+		</Expand>
+	</Type>
+	<Type Name="nc::RendererContext">
+		<DisplayString>RendererContext rhi={rhi}</DisplayString>
+		<Expand>
+			<Item Name="rhi">rhi</Item>
+			<Item Name="canvas_vb">canvas_vb</Item>
+			<Item Name="canvas_ib">canvas_ib</Item>
+			<Item Name="canvas_vb_size">canvas_vb_size</Item>
+			<Item Name="canvas_ib_size">canvas_ib_size</Item>
+			<Item Name="canvas_verts">canvas_verts</Item>
+			<Item Name="canvas_indices">canvas_indices</Item>
+			<Item Name="canvas_material">canvas_material</Item>
+			<Item Name="canvas_clip">canvas_clip</Item>
+		</Expand>
+	</Type>
+	<Type Name="nc::ShaderParamInfo">
+		<DisplayString>({name}, type={resource_type})</DisplayString>
+		<Expand>
+			<Item Name="name">name</Item>
+			<Item Name="semantic_name">semantic_name</Item>
+			<Item Name="resource_type">resource_type</Item>
+			<Item Name="value_type">value_type</Item>
+			<Item Name="binding_idx">binding_idx</Item>
+			<Item Name="binding_space">binding_space</Item>
+			<Item Name="location">location</Item>
+			<Item Name="fields">fields</Item>
+		</Expand>
+	</Type>
+	<Type Name="nc::ShaderParamField">
+		<DisplayString>({name}, type={type}, offset={offset})</DisplayString>
+	</Type>
+	<Type Name="nc::Geometry&lt;*&gt;">
+		<DisplayString>{{ vertices size={vertices} indices size={indices} }}</DisplayString>
+		<Expand>
+			<Item Name="vertices">vertices</Item>
+			<Item Name="indices">indices</Item>
+			<Item Name="topology">topology</Item>
+		</Expand>
+	</Type>
+	<Type Name="nc::ResourceManager">
+		<DisplayString>ResourceManager importers={num_importers}</DisplayString>
+		<Expand>
+			<Item Name="num_importers">num_importers</Item>
+			<Item Name="path_map">path_map</Item>
+		</Expand>
+	</Type>
+	<Type Name="nc::MaterialTemplate">
+		<DisplayString>{debug_name}</DisplayString>
+		<Expand>
+			<Item Name="debug_name">debug_name</Item>
+			<Item Name="vs">vs</Item>
+			<Item Name="ps">ps</Item>
+			<Item Name="cull_mode">cull_mode</Item>
+			<Item Name="depth_test">depth_test</Item>
+			<Item Name="depth_write">depth_write</Item>
+			<Item Name="blend">blend</Item>
+			<Item Name="multisample_state">multisample_state</Item>
+			<Item Name="params">params</Item>
+			<Item Name="textures">textures</Item>
+		</Expand>
+	</Type>
+	<Type Name="nc::MultisampleStateDesc">
+		<DisplayString>MSAA count={count} quality={quality}</DisplayString>
+	</Type>
+	<Type Name="nc::ResourceSignatureDesc">
+		<DisplayString>{name} (set={set})</DisplayString>
+		<Expand>
+			<Item Name="name">name</Item>
+			<Item Name="set">set</Item>
+			<Item Name="resources">resources</Item>
+		</Expand>
+	</Type>
+	<Type Name="nc::PipelineResourceDesc">
+		<DisplayString>{name} type={resource_type}</DisplayString>
+		<Expand>
+			<Item Name="name">name</Item>
+			<Item Name="resource_type">resource_type</Item>
+			<Item Name="stage">stage</Item>
+			<Item Name="array_size">array_size</Item>
+		</Expand>
+	</Type>
+</AutoVisualizer>

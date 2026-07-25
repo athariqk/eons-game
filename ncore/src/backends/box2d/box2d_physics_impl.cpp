@@ -118,7 +118,7 @@ void Box2DPhysicsImpl::step() const
     b2World_Step( world_id, time_step, sub_step_count );
 }
 
-void Box2DPhysicsImpl::finalize()
+void Box2DPhysicsImpl::shutdown()
 {
     NC_ASSERT_RET( b2World_IsValid( world_id ), "Physics world is not initialized" );
     b2DestroyWorld( world_id );

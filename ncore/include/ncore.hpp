@@ -5,16 +5,16 @@
 #pragma once
 
 #include <ncore/application.h>
+#include <ncore/core/errors.h>
+#include <ncore/core/object.h>
+#include <ncore/core/random.h>
+#include <ncore/core/rid.h>
+#include <ncore/core/structures.h>
+#include <ncore/core/types.h>
 #include <ncore/game_world.h>
-#include <ncore/kernel/errors.h>
-#include <ncore/kernel/object.h>
-#include <ncore/kernel/random.h>
-#include <ncore/kernel/rid.h>
-#include <ncore/kernel/structures.h>
-#include <ncore/kernel/types.h>
 #include <ncore/modules/module.h>
 #include <ncore/modules/module_registry.h>
-#include <ncore/modules/video/graphics_module.h>
+#include <ncore/modules/video/render_module.h>
 #include <ncore/runtime/components/ecs_rigidbody.h>
 #include <ncore/runtime/components/ecs_sprite.h>
 #include <ncore/runtime/components/ecs_transform.h>

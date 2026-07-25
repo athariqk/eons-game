@@ -1,6 +1,6 @@
-#include <ncore/kernel/collection.h>
+#include <ncore/core/collection.h>
 #include <ncore/modules/audio/audio_module.h>
-#include <ncore/modules/audio/resources/audio_clip.h>
+#include <ncore/resources/audio_clip.h>
 
 namespace nc {
 
@@ -10,7 +10,7 @@ struct AudioModule::Impl {
         int length;
         SDL_AudioStream* stream;
     };
-    PagedResourcePool<SoundEntry> sounds;
+    ResourcePool<SoundEntry> sounds;
 };
 
 AudioModule::AudioModule() : pImpl( std::make_unique<Impl>() ) {}
@@ -22,7 +22,7 @@ Error AudioModule::init( ConfFile& cfg_file )
     return Error::OK;
 }
 
-void AudioModule::finalize() {}
+void AudioModule::shutdown() {}
 
 RID AudioModule::create_stream( const AudioClip& p_clip )
 {

@@ -22,6 +22,10 @@ if(ENABLE_PCH)
   target_precompile_headers(ncore PRIVATE "pch.h")
 endif()
 
+if(MSVC)
+  target_sources(ncore PRIVATE "${CMAKE_SOURCE_DIR}/ncore/ncore.natvis")
+endif()
+
 # todo: add this back later set_property(TARGET ncore PROPERTY UNITY_BUILD ON)
 # set_property(TARGET ncore PROPERTY UNITY_BUILD_MODE BATCH)
 
@@ -53,6 +57,7 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
             -Wno-global-constructors
             -Wno-unsafe-buffer-usage
             -Wno-switch-default
+            -Wno-invalid-offsetof
             -fsanitize=undefined
             -fsanitize-trap)
 endif()
@@ -69,6 +74,35 @@ add_subdirectory(external)
 add_subdirectory(include)
 add_subdirectory(src)
 add_subdirectory(tests EXCLUDE_FROM_ALL)
+
+# Copy runtime DLLs alongside ncore target in the build tree
+if(NOT NCORE_STATIC_DEPS)
+  add_custom_command(
+    TARGET ncore
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:SDL3::SDL3-shared>" "$<TARGET_FILE_DIR:ncore>"
+    COMMAND
+      ${CMAKE_COMMAND} -E copy_if_different
+      "$<TARGET_FILE:Diligent-GraphicsEngineVk-shared>"
+      "$<TARGET_FILE_DIR:ncore>"
+    COMMENT "Copying runtime DLLs (SDL3, Diligent)")
+  if(SLANG_RUNTIME)
+    add_custom_command(
+      TARGET ncore
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different "${SLANG_RUNTIME}"
+              "$<TARGET_FILE_DIR:ncore>")
+  endif()
+
+  add_custom_command(
+    TARGET ncore
+    POST_BUILD
+    COMMAND
+      ${CMAKE_COMMAND} -E copy_directory_if_different
+      "${CMAKE_CURRENT_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:ncore>/assets"
+    COMMENT "Copying engine assets to output directory")
+endif()
 
 # DiligentCore dlls copy_required_dlls(ncore)
 

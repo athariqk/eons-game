@@ -1,7 +1,7 @@
 #pragma once
 
-#include <ncore/kernel/structures.h>
-#include <ncore/kernel/types.h>
+#include <ncore/core/structures.h>
+#include <ncore/core/types.h>
 
 struct FoodComponent {
     FoodComponent() : cur_energy( 0.0f ) {}

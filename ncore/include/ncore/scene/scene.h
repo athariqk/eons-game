@@ -1,14 +1,13 @@
 #pragma once
 
+#include <ncore/core/collection.h>
 #include <ncore/game_world.h>
-#include <ncore/kernel/collection.h>
 #include <ncore/runtime/ecs_world.h>
 #include <ncore/scene/node.h>
 
 namespace nc {
 
 struct AppDesc;
-class Viewport;
 class ModuleRegistry;
 class Node;
 
@@ -24,7 +23,7 @@ class Node;
  * a pure ECS runtime and may not be easily approachable to most game developers.
  * Therefore, with this we can at least make game authoring a little bit easier.
  */
-class NCORE_API Scene : public IGameWorld {
+class NCAPI Scene : public IGameWorld {
     NCLASS( Scene, IGameWorld )
 
     using NodePool                              = PagedPool<Node>;
@@ -49,15 +48,6 @@ public:
         return ecs_world;
     }
 
-    void set_viewport( Viewport* vp )
-    {
-        viewport = vp;
-    }
-    Viewport* get_viewport() const
-    {
-        return viewport;
-    }
-
     /**
      * @brief This creates a new root if current one doesn't exist.
      */
@@ -70,7 +60,6 @@ private:
     friend class Node;
 
     EcsWorld ecs_world;
-    Viewport* viewport = nullptr;
     NodePool node_pool;
     Node* root_node = nullptr;
 };

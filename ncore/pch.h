@@ -41,10 +41,10 @@
 #include <inicpp.h>
 
 // === Engine core ===
-#include <ncore/kernel/errors.h>
-#include <ncore/kernel/random.h>
-#include <ncore/kernel/structures.h>
-#include <ncore/kernel/types.h>
+#include <ncore/core/errors.h>
+#include <ncore/core/random.h>
+#include <ncore/core/structures.h>
+#include <ncore/core/types.h>
 
 // === Utilities ==
 #include <ncore/utils/assert.h>

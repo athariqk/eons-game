@@ -2,7 +2,7 @@
 
 #include <span>
 
-#include <ncore/kernel/collection.h>
+#include <ncore/core/collection.h>
 #include <ncore/modules/input/input_event.h>
 #include <ncore/modules/module.h>
 
@@ -11,14 +11,14 @@ namespace nc {
 /**
  * @brief InputModule owns mouse, keyboard, and text input events.
  */
-class NCORE_API InputModule : public IModule {
+class NCAPI InputModule : public IModule {
     NCLASS( InputModule, IModule )
 
 public:
     InputModule() = default;
 
     Error init( ConfFile& cfg_file ) override;
-    void finalize() override;
+    void shutdown() override;
 
     /**
      * @brief Updates the internal event queue.

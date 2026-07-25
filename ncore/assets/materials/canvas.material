@@ -1,0 +1,17 @@
+[header]
+debug_name = 2D Canvas
+
+[shaders]
+composite = shaders/canvas.slang
+
+[raster]
+cull_mode = None
+depth_test = false
+depth_write = false
+blend = AlphaPremultiplied
+
+[multisample]
+count = 1
+
+[vertex]
+layout = Vertex2D

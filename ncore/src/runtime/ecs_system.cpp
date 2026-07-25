@@ -1,3 +1,4 @@
+#include <backends/flecs/flecs_helpers.h>
 #include <flecs.h>
 #include <flecs/addons/system.h>
 
@@ -6,8 +7,6 @@
 #include <ncore/utils/assert.h>
 #include <ncore/utils/log.h>
 
-#include "flecs_helpers.h"
-
 namespace nc {
 
 //------------------------------------------------------------------------------
@@ -15,7 +14,7 @@ namespace nc {
 //------------------------------------------------------------------------------
 
 struct EcsSystemBuilder::Impl {
-    EcsSystemPhase phase_ = EcsSystemPhase::Update;
+    EcsSystemPhase phase_ = EcsSystemPhase::UPDATE;
     int32_t order_        = 0;
     bool built_           = false;
 };
@@ -45,12 +44,12 @@ EcsSystemBuilder& EcsSystemBuilder::order( int32_t priority )
 
 EcsEntityId EcsSystemBuilder::run( RunCallback callback )
 {
-    return init_system_( EcsCallbackKind::Run, reinterpret_cast<void*>( callback ) );
+    return init_system_( EcsCallbackKind::RUN, reinterpret_cast<void*>( callback ) );
 }
 
 EcsEntityId EcsSystemBuilder::each( EachCallback callback )
 {
-    return init_system_( EcsCallbackKind::Each, reinterpret_cast<void*>( callback ) );
+    return init_system_( EcsCallbackKind::EACH, reinterpret_cast<void*>( callback ) );
 }
 
 // just so the compiler can see the defs for Impl
@@ -84,7 +83,7 @@ EcsEntityId EcsSystemBuilder::init_system_( EcsCallbackKind kind, void* p_callba
 
     // pick matching callback
     ecs_iter_action_t callback = nullptr;
-    if (kind == EcsCallbackKind::Run) {
+    if (kind == EcsCallbackKind::RUN) {
         callback = handle_iter_callback;
     } else {
         callback = handle_each_callback;
@@ -127,12 +126,12 @@ EcsObserverBuilder::~EcsObserverBuilder() {}
 
 EcsEntityId EcsObserverBuilder::run( RunCallback callback )
 {
-    return init_observer_( EcsCallbackKind::Run, reinterpret_cast<void*>( callback ) );
+    return init_observer_( EcsCallbackKind::RUN, reinterpret_cast<void*>( callback ) );
 }
 
 EcsEntityId EcsObserverBuilder::each( EachCallback callback )
 {
-    return init_observer_( EcsCallbackKind::Each, reinterpret_cast<void*>( callback ) );
+    return init_observer_( EcsCallbackKind::EACH, reinterpret_cast<void*>( callback ) );
 }
 
 EcsEntityId EcsObserverBuilder::init_observer_( EcsCallbackKind kind, void* p_callback )
@@ -143,7 +142,7 @@ EcsEntityId EcsObserverBuilder::init_observer_( EcsCallbackKind kind, void* p_ca
 
     // pick matching callback
     ecs_iter_action_t callback = nullptr;
-    if (kind == EcsCallbackKind::Run) {
+    if (kind == EcsCallbackKind::RUN) {
         callback = handle_iter_callback;
     } else {
         callback = handle_each_callback;

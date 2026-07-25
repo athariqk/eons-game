@@ -9,9 +9,9 @@ namespace nc {
 
 void EcsInputsFeature::build( EcsWorld& world )
 {
-    world.create_system( "EcsInputsFeature::PumpEvents" ).in( EcsSystemPhase::PreUpdate ).run( []( QueryContext& ctx ) {
-        ctx.modules().resolve<InputModule>()->pump_events();
-    } );
+    world.create_system( "EcsInputsFeature::PumpEvents" )
+        .in( EcsSystemPhase::PRE_UPDATE )
+        .run( []( QueryContext& ctx ) { ctx.modules().resolve<InputModule>()->pump_events(); } );
 }
 
 } // namespace nc

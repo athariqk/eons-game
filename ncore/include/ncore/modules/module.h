@@ -1,7 +1,7 @@
 #pragma once
 
-#include <ncore/kernel/errors.h>
-#include <ncore/kernel/object.h>
+#include <ncore/core/errors.h>
+#include <ncore/core/object.h>
 
 namespace nc {
 
@@ -26,15 +26,15 @@ class ConfFile;
  * There is so much alot to unpack regarding architecture and design of this relating
  * to the whole engine. TODO: write more about this so i don't forget
  */
-class NCORE_API IModule : public NcObject {
+class NCAPI IModule : public NcObject {
     NCLASS( IModule, NcObject )
 
 public:
     virtual Error init( ConfFile& cfg_file ) = 0;
-    virtual void finalize()                  = 0;
+    virtual void shutdown()                  = 0;
 };
 
-class NCORE_API NullModule : public IModule {
+class NCAPI NullModule : public IModule {
     NCLASS( NullModule, IModule )
 
 public:
@@ -42,7 +42,7 @@ public:
     {
         return Error::OK;
     }
-    void finalize() override {}
+    void shutdown() override {}
 };
 
 } // namespace nc

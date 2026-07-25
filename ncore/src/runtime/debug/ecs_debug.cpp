@@ -3,52 +3,46 @@
 #include <imgui.h>
 
 #include <ncore/modules/module_registry.h>
-#include <ncore/modules/video/video_module.h>
+#include <ncore/modules/video/render_module.h>
+#include <ncore/modules/video/window_module.h>
 #include <ncore/runtime/components/ecs_time.h>
 #include <ncore/runtime/components/ecs_window.h>
+#include <ncore/runtime/ecs_base_features.h>
 #include <ncore/runtime/ecs_world.h>
 
 namespace nc {
 
-static void update_window_title( VideoModule* video, EcsEntityId eid, EcsWindow* window, double fps, double delta_time )
+static void
+update_window_title( WindowModule* window, EcsEntityId eid, EcsWindow* window_instance, double fps, double delta_time )
 {
     const std::string full_title = std::format(
-        "{} (DEBUG) - EID {} - WID {} - FPS: {:.2f} - Delta: {:.6f}", window->title, eid, window->id, fps, delta_time
+        "{} (DEBUG) - EID {} - WID {} - FPS: {:.2f} - Delta: {:.6f}", window_instance->title, eid, window_instance->id,
+        fps, delta_time
     );
-    video->set_window_title( window->id, full_title );
+    window->window_set_title( window_instance->id, full_title );
 }
 
 struct DebugState {
     std::array<char, 64> window_attrs;
-    VideoModule* video = nullptr;
-
-    NSTRUCT( DebugState, NC_F( DebugState, window_attrs ) NC_F( DebugState, video ) )
+    NSTRUCT( DebugState, NC_F( DebugState, window_attrs ) )
 };
 
 void EcsDebugFeature::build( EcsWorld& world )
 {
     world.emplace_singleton<DebugState>();
 
-    world.create_system( "EcsDebugFeature::Init" )
-        .with<DebugState>()
-        .in( EcsSystemPhase::Init )
-        .run( []( QueryContext& ctx ) {
-            auto state   = ctx.get_component<DebugState>();
-            state->video = ctx.modules().resolve<VideoModule>();
-        } );
-
     world.create_system( "EcsDebugFeature::StatsUpdater" )
-        .with<EcsRenderSurface>()
-        .in( EcsSystemPhase::Update )
+        .with<EcsSwapChainRef>()
+        .in( EcsSystemPhase::UPDATE )
         .run( []( QueryContext& ctx ) {
-            auto& time = ctx.world().get_singleton<EcsTime>();
+            auto time = ctx.world().get_singleton<EcsTime>();
 
             ImGui::Begin( "Debug" );
 
             ImGui::SeparatorText( "Time" );
-            ImGui::Text( "Ticks: %u", time.ticks );
-            ImGui::Text( "FPS: %f", time.fps );
-            ImGui::Text( "Frame count: %d", time.frame_count );
+            ImGui::Text( "Ticks: %u", time->ticks );
+            ImGui::Text( "FPS: %f", time->fps );
+            ImGui::Text( "Frame count: %d", time->frame_count );
 
             ImGui::SeparatorText( "RTTI" );
             ImGui::Text( "Hits: %d", rtti::TypeRegistry::get_rtti_hits() );
@@ -72,18 +66,25 @@ void EcsDebugFeature::build( EcsWorld& world )
             ImGui::End();
         } );
 
+#if !defined( NC_DIST )
+    world.create_system( "EcsDebugFeature::HotReload" ).in( EcsSystemPhase::UPDATE ).run( []( QueryContext& ctx ) {
+        if (ImGui::IsKeyPressed( ImGuiKey_F5 )) {
+            NC_LOG_INFO_C( log::GRAPHICS, "Hot-reloading" );
+        }
+    } );
+#endif
+
     // TODO: refactor this to use Timers
     world.create_system( "EcsDebugFeature::TitleBarUpdater" )
         .with<EcsWindow>()
-        .in( EcsSystemPhase::PostFrame )
+        .in( EcsSystemPhase::POST_FRAME )
         .each( []( QueryContext& ctx, EcsEntityId id ) {
-            auto& state = ctx.world().get_singleton<DebugState>();
-            auto& time  = ctx.world().get_singleton<EcsTime>();
+            auto gfx  = ctx.world().get_singleton<GraphicsModules>();
+            auto time = ctx.world().get_singleton<EcsTime>();
 
             auto window = ctx.get_component<EcsWindow>();
-
-            if (time.accumulator >= 0.5) {
-                update_window_title( state.video, id, window, time.fps, ctx.delta_time() );
+            if (time->accumulator >= 0.5) {
+                update_window_title( gfx->window, id, window, time->fps, ctx.delta_time() );
             }
         } );
 }

@@ -5,8 +5,8 @@
 #include <ranges>
 #include <vector>
 
-#include <ncore/kernel/collection.h>
-#include <ncore/kernel/types.h>
+#include <ncore/core/collection.h>
+#include <ncore/core/types.h>
 #include <ncore/modules/module.h>
 #include <ncore/utils/assert.h>
 
@@ -16,7 +16,7 @@ namespace nc {
  * @brief ModuleRegistry implements the service locator pattern for
  * managing "singleton" IModule classes.
  */
-class NCORE_API ModuleRegistry {
+class NCAPI ModuleRegistry {
 public:
     ModuleRegistry()                                   = default;
     ModuleRegistry( const ModuleRegistry& )            = delete;
@@ -123,7 +123,7 @@ public:
     {
         for (auto& [_, m] : modules) {
             NC_LOG_DEBUG( "Finalizing module: {}", m->get_class_name() );
-            m->finalize();
+            m->shutdown();
         }
     }
 

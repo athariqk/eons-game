@@ -1,17 +1,15 @@
 #pragma once
 
-#include <ncore/kernel/rid.h>
-#include <ncore/kernel/structures.h>
+#include <ncore/core/rid.h>
+#include <ncore/core/structures.h>
 
 namespace nc {
 
-struct EcsSprite {
-    EcsSprite() = default;
-    EcsSprite( std::string p_filepath ) : filepath( std::move( p_filepath ) ) {}
-    std::string filepath;
-    Vec4 rect{};
-    RID res;
+struct NCAPI EcsSpriteRenderer {
+    Vec4 rect{ 0, 0, 1, 1 };
     float angle = 0;
+
+    NSTRUCT( EcsSpriteRenderer, NC_F( EcsSpriteRenderer, rect ) NC_F( EcsSpriteRenderer, angle ) )
 };
 
 struct EcsCircleDraw {

@@ -38,7 +38,7 @@ public:
 private:
     Logger();
 
-    Level global_level = Level::Trace;
+    Level global_level = Level::TRACE;
     std::vector<std::shared_ptr<Sink>> global_sinks{};
     std::unordered_map<std::string, std::shared_ptr<LogChannel>> channels{};
 };

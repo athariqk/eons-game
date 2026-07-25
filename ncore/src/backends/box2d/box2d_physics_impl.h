@@ -4,7 +4,7 @@
 #include <box2d/id.h>
 #include <box2d/types.h>
 
-#include <ncore/kernel/structures.h>
+#include <ncore/core/structures.h>
 #include <ncore/modules/physics/physics_module.h>
 
 namespace nc {
@@ -15,7 +15,7 @@ class Box2DPhysicsImpl : public IPhysicsModule {
 public:
     Error init( ConfFile& cfg_file ) override;
     void step() const override;
-    void finalize() override;
+    void shutdown() override;
 
     RID create_shape( ShapeType type ) override;
 

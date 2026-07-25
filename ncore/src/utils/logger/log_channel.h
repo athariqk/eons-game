@@ -36,7 +36,7 @@ public:
 
 private:
     std::string name;
-    Level level = Level::Trace;
+    Level level = Level::TRACE;
     std::vector<std::shared_ptr<Sink>> sinks{};
 };
 

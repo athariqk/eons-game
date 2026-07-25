@@ -4,7 +4,7 @@
 
 namespace nc {
 
-struct NCORE_API EcsTime {
+struct NCAPI EcsTime {
     uint32_t ticks     = 0;
     int frame_count    = 0;
     double fps         = 0;

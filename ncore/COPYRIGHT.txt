@@ -27,8 +27,8 @@ Copyright: 2015 Fabian Meyer
 License: Expat
 
 Files:
-	include/ncore/kernel/types.h
-	src/kernel/types.cpp
+	include/ncore/core/types.h
+	src/core/types.cpp
 Comment: Metareflect
 Copyright: 2018 Arvid Gerstmann
 License: Expat

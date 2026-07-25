@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <variant>
 
-#include <ncore/kernel/structures.h>
+#include <ncore/core/structures.h>
 
 namespace nc {
 
@@ -37,7 +37,8 @@ enum class Key : uint8_t {
     CTRL,
     ALT,
     TAB,
-    BKSP
+    BKSP,
+    F5
 };
 
 struct MouseButtonEvent {

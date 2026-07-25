@@ -18,7 +18,7 @@ public:
     ~AudioModule() override;
 
     Error init( ConfFile& cfg_file ) override;
-    void finalize() override;
+    void shutdown() override;
 
     RID create_stream( const AudioClip& p_clip );
     void play_sound( RID stream_rid );

@@ -6,6 +6,20 @@
 namespace nc {
 
 struct AppDesc;
+class WindowModule;
+class RenderModule;
+class ResourceManager;
+
+struct NCAPI GraphicsModules {
+    WindowModule* window   = nullptr;
+    RenderModule* renderer = nullptr;
+    NSTRUCT( GraphicsModules, NC_F( GraphicsModules, window ) NC_F( GraphicsModules, renderer ) )
+};
+
+struct NCAPI IoModules {
+    ResourceManager* resources;
+    NSTRUCT( IoModules, NC_F( IoModules, resources ) )
+};
 
 /**
  * @brief EcsBaseFeatures is the default feature bundle which
@@ -16,7 +30,7 @@ struct AppDesc;
  * You may bypass this altogether and just load whichever
  * features you need via Scene.get_ecs().load_feature().
  */
-class NCORE_API EcsBaseFeatures : public EcsFeature {
+class NCAPI EcsBaseFeatures : public EcsFeature {
     NCLASS( EcsBaseFeatures, EcsFeature )
 
 public:

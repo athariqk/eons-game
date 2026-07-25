@@ -60,6 +60,7 @@
 			"displayName": "Windows Debug x64",
 			"inherits": "windows-base",
 			"binaryDir": "${sourceDir}/build/windows-debug",
+			"installDir": "${sourceDir}/install/Debug",
 			"cacheVariables": {
 				"CMAKE_BUILD_TYPE": "Debug"
 			}
@@ -69,6 +70,7 @@
 			"displayName": "Windows Release x64",
 			"inherits": "windows-base",
 			"binaryDir": "${sourceDir}/build/windows-release",
+			"installDir": "${sourceDir}/install/Release",
 			"cacheVariables": {
 				"CMAKE_BUILD_TYPE": "Release"
 			}
@@ -78,8 +80,10 @@
 			"displayName": "Windows Dist x64",
 			"inherits": "windows-base",
 			"binaryDir": "${sourceDir}/build/windows-dist",
+			"installDir": "${sourceDir}/install/Dist",
 			"cacheVariables": {
-				"CMAKE_BUILD_TYPE": "Dist"
+				"CMAKE_BUILD_TYPE": "Dist",
+				"NCORE_STATIC_DEPS": "ON"
 			}
 		},
 		{
@@ -87,6 +91,7 @@
 			"displayName": "Linux Debug x64",
 			"inherits": "linux-base",
 			"binaryDir": "${sourceDir}/build/linux-debug",
+			"installDir": "${sourceDir}/install/Debug",
 			"cacheVariables": {
 				"CMAKE_BUILD_TYPE": "Debug"
 			}
@@ -96,6 +101,7 @@
 			"displayName": "Linux Release x64",
 			"inherits": "linux-base",
 			"binaryDir": "${sourceDir}/build/linux-release",
+			"installDir": "${sourceDir}/install/Release",
 			"cacheVariables": {
 				"CMAKE_BUILD_TYPE": "Release"
 			}

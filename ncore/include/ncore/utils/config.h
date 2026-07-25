@@ -3,7 +3,7 @@
 #include <string>
 #include <unordered_map>
 
-#include <ncore/kernel/types.h>
+#include <ncore/core/types.h>
 
 namespace nc {
 

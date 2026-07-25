@@ -6,7 +6,7 @@
 #include <SDL3/SDL_events.h>
 
 #include <ncore/modules/input/input_event.h>
-#include <ncore/modules/video/window_types.h>
+#include <ncore/modules/video/window/window_types.h>
 
 namespace nc {
 
@@ -49,6 +49,8 @@ struct SDLTypeHelpers {
                 return Key::TAB;
             case SDL_SCANCODE_BACKSPACE:
                 return Key::BKSP;
+            case SDL_SCANCODE_F5:
+                return Key::F5;
             default:
                 return Key::UNKNOWN;
         }

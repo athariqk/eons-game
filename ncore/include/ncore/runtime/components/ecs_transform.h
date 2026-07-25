@@ -1,11 +1,11 @@
 #pragma once
 
-#include <ncore/kernel/structures.h>
-#include <ncore/kernel/types.h>
+#include <ncore/core/structures.h>
+#include <ncore/core/types.h>
 
 namespace nc {
 
-struct NCORE_API EcsTransform {
+struct NCAPI EcsTransform {
     EcsTransform() = default;
     EcsTransform( const Vec2& pos ) : position( pos ) {}
     EcsTransform( const Vec2& pos, float rot ) : position( pos ), angle( rot ) {}
@@ -16,7 +16,7 @@ struct NCORE_API EcsTransform {
     Vec2 dimension{ 0.0f, 0.0f };
     float scale = 1.0f;
 
-    // TODO: remove this to use reflection instead
+    // TODO: remove this to use params instead
     std::string to_string() const
     {
         return std::format(

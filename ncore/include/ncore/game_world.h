@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ncore/kernel/object.h>
+#include <ncore/core/object.h>
 
 namespace nc {
 
@@ -12,7 +12,7 @@ class ModuleRegistry;
  *
  * Derived classes should implement the specific behavior of the game world.
  */
-class NCORE_API IGameWorld : public NcObject {
+class NCAPI IGameWorld : public NcObject {
     NCLASS( IGameWorld, NcObject )
 
 public:

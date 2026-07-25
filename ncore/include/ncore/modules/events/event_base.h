@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ncore/kernel/reference.h>
+#include <ncore/core/reference.h>
 
 namespace nc {
 
@@ -11,7 +11,7 @@ namespace nc {
  * Reserved for future game-level events (animation, physics collisions, etc).
  * OS/window/input events use the per-subsystem polling model (std::variant).
  */
-class NCORE_API BaseEvent : public RefCounted {
+class NCAPI BaseEvent : public RefCounted {
     NCLASS( BaseEvent, RefCounted )
 
 public:

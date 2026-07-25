@@ -1,6 +1,6 @@
 #include "register_types.h"
 
-#include <ncore/kernel/types.h>
+#include <ncore/core/types.h>
 
 void register_primitive_types() {}
 

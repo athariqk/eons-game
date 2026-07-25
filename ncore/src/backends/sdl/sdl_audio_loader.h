@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include <ncore/modules/resource/resource_importer.h>
+#include <ncore/modules/io/resource_importer.h>
 
 namespace nc {
 

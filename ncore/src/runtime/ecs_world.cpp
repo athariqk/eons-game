@@ -4,8 +4,8 @@
 #include <flecs.h>
 #include <flecs/addons/pipeline.h>
 
-#include <ncore/kernel/collection.h>
-#include <ncore/kernel/memory.h>
+#include <ncore/core/collection.h>
+#include <ncore/core/memory.h>
 #include <ncore/runtime/ecs_entity.h>
 #include <ncore/runtime/ecs_world.h>
 #include <ncore/utils/log.h>
@@ -51,9 +51,8 @@ static void init_flecs_os_api()
 
 struct EcsWorld::Impl {
     ecs_world_t* world = nullptr;
-    UnorderedMap<const rtti::TypeInfo*, EcsComponentId> comp_id_map;
-    UnorderedMap<std::string, ecs_query_t*>
-        query_cache; // TODO: is this even necessary? figure out how flecs cache queries
+    HashMap<const rtti::TypeInfo*, EcsComponentId> comp_id_map;
+    HashMap<std::string, ecs_query_t*> query_cache; // TODO: is this even necessary? figure out how flecs cache queries
 
 #if defined( NC_DEBUG )
     ecs_http_server_t* http_svr;

@@ -12,7 +12,7 @@ Error InputModule::init( ConfFile& cfg_file )
     return Error::OK;
 }
 
-void InputModule::finalize()
+void InputModule::shutdown()
 {
     event_queue.clear();
 }
@@ -23,7 +23,6 @@ void InputModule::pump_events()
 
     SDL_Event sdl_events[64];
 
-    // Keyboard range: key down/up, text input, etc.
     int count = SDL_PeepEvents( sdl_events, 64, SDL_GETEVENT, SDL_EVENT_KEY_DOWN, SDL_EVENT_SCREEN_KEYBOARD_HIDDEN );
     for (int i = 0; i < count; ++i) {
         auto& e = sdl_events[i];
@@ -58,7 +57,6 @@ void InputModule::pump_events()
         }
     }
 
-    // Mouse range: motion, button, wheel, etc.
     count = SDL_PeepEvents( sdl_events, 64, SDL_GETEVENT, SDL_EVENT_MOUSE_MOTION, SDL_EVENT_MOUSE_REMOVED );
     for (int i = 0; i < count; ++i) {
         auto& e = sdl_events[i];

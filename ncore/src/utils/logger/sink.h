@@ -28,7 +28,7 @@ protected:
     std::string current_time();
 
 private:
-    Level level = Level::Trace;
+    Level level = Level::TRACE;
 };
 
 class ConsoleSink : public Sink {

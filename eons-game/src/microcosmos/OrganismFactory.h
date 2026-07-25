@@ -1,8 +1,8 @@
 #pragma once
 
-#include <ncore/kernel/random.h>
+#include <ncore/core/random.h>
 #include <ncore/modules/module_registry.h>
-#include <ncore/modules/video/graphics_module.h>
+#include <ncore/modules/video/render_module.h>
 #include <ncore/runtime/ecs_world.h>
 
 #include <microcosmos/SpeciesRegistry.h>

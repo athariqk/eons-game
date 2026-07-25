@@ -1,13 +1,13 @@
 #pragma once
 
-#include <ncore/kernel/rid.h>
-#include <ncore/kernel/structures.h>
-#include <ncore/kernel/types.h>
+#include <ncore/core/rid.h>
+#include <ncore/core/structures.h>
+#include <ncore/core/types.h>
 
 namespace nc {
 
-struct NCORE_API EcsWindow {
-    uint32_t id            = UINT32_MAX; // The window ID, from VideoModule
+struct NCAPI EcsWindow {
+    uint32_t id            = UINT32_MAX; // The window ID, from WindowModule
     std::string_view title = "NCORE Engine";
     Vec2 resolution{};
     bool fullscreen        = false;
@@ -22,16 +22,20 @@ struct NCORE_API EcsWindow {
     )
 };
 
-struct NCORE_API EcsRenderSurface {
-    RID surface{};
+struct NCAPI EcsSwapChainRef {
+    RID swap_chain{};
+    Vec2 size{};
     bool vsync = false;
 
-    NSTRUCT( EcsRenderSurface, NC_F( EcsRenderSurface, surface ) NC_F( EcsRenderSurface, vsync ) )
+    NSTRUCT(
+        EcsSwapChainRef,
+        NC_F( EcsSwapChainRef, swap_chain ) NC_F( EcsSwapChainRef, size ) NC_F( EcsSwapChainRef, vsync )
+    )
 };
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wzero-length-array"
-struct NCORE_API EcsMainWindow {
+struct NCAPI EcsMainWindow {
     NSTRUCT( EcsMainWindow )
 };
 #pragma clang diagnostic pop

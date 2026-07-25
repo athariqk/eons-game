@@ -52,18 +52,21 @@ IncludeCategories:
   # Third-party
   - Regex: '^<(SDL3|box2d|imgui|flecs|inicpp|backends|misc)[/.]'
     Priority: 2
-  # Engine headers
-  - Regex: '^<(ncore|kernel|modules|utils|runtime|scene)[/.]'
+  # Generated engine headers
+  - Regex: '^<(generated)[/.]'
     Priority: 3
+  # Engine headers
+  - Regex: '^<(ncore|kernel|modules|utils|runtime|scene|shaders)[/.]'
+    Priority: 4
   # Game headers
   - Regex: '^<microcosmos[/.]'
-    Priority: 4
+    Priority: 5
   # C++ standard library
   - Regex: '^<[a-z_][a-z_0-9.]*>$'
     Priority: 1
   # Local dir
   - Regex: '^".*'
-    Priority: 5
+    Priority: 6
 SpaceAfterCStyleCast: true
 SpaceAfterTemplateKeyword: false
 SpaceBeforeRangeBasedForLoopColon: true
