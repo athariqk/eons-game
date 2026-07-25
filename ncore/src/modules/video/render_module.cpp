@@ -143,6 +143,8 @@ void RenderModule::frame_end()
 {
     NC_LOG_TRACE_C( log::GRAPHICS, "frame_end: canvas_render_list={}", ctx.canvas_render_list.size() );
 
+	ctx.rhi->begin_queries();
+
     for (auto& item : ctx.canvas_render_list) {
         if (item.verts.empty()) {
             NC_LOG_TRACE_C( log::GRAPHICS, "flush_canvas_: skipped (empty)" );
@@ -193,6 +195,8 @@ void RenderModule::frame_end()
         ctx.rhi->draw_indexed( static_cast<uint32_t>( item.indices.size() ), 0, 0, 1 );
     }
 
+	ctx.rhi->end_queries();
+
     ctx.rhi->swapchain_present( swapchains[0], settings.VSync );
 
     // ctx.rhi->commands_release();
@@ -238,6 +242,11 @@ void RenderModule::canvas_draw_quad( Vec2 pos, Vec2 size, RID material, Vec4 uv_
     uint16_t indices[6] = { 0, 1, 2, 2, 3, 0 };
 
     canvas_draw_triangles( verts, indices, material, clip );
+}
+
+IRHI::Stats RenderModule::get_stats() const
+{
+    return ctx.rhi->get_stats();
 }
 
 void RenderModule::ensure_canvas_vb_( uint32_t needed )

@@ -51,6 +51,143 @@ struct SDLTypeHelpers {
                 return Key::BKSP;
             case SDL_SCANCODE_F5:
                 return Key::F5;
+
+            // Letters
+            case SDL_SCANCODE_B:
+                return Key::B;
+            case SDL_SCANCODE_C:
+                return Key::C;
+            case SDL_SCANCODE_E:
+                return Key::E;
+            case SDL_SCANCODE_F:
+                return Key::F;
+            case SDL_SCANCODE_G:
+                return Key::G;
+            case SDL_SCANCODE_H:
+                return Key::H;
+            case SDL_SCANCODE_I:
+                return Key::I;
+            case SDL_SCANCODE_J:
+                return Key::J;
+            case SDL_SCANCODE_K:
+                return Key::K;
+            case SDL_SCANCODE_L:
+                return Key::L;
+            case SDL_SCANCODE_M:
+                return Key::M;
+            case SDL_SCANCODE_N:
+                return Key::N;
+            case SDL_SCANCODE_O:
+                return Key::O;
+            case SDL_SCANCODE_P:
+                return Key::P;
+            case SDL_SCANCODE_Q:
+                return Key::Q;
+            case SDL_SCANCODE_R:
+                return Key::R;
+            case SDL_SCANCODE_T:
+                return Key::T;
+            case SDL_SCANCODE_U:
+                return Key::U;
+            case SDL_SCANCODE_V:
+                return Key::V;
+            case SDL_SCANCODE_X:
+                return Key::X;
+            case SDL_SCANCODE_Y:
+                return Key::Y;
+            case SDL_SCANCODE_Z:
+                return Key::Z;
+
+            // Numbers
+            case SDL_SCANCODE_0:
+                return Key::_0;
+            case SDL_SCANCODE_1:
+                return Key::_1;
+            case SDL_SCANCODE_2:
+                return Key::_2;
+            case SDL_SCANCODE_3:
+                return Key::_3;
+            case SDL_SCANCODE_4:
+                return Key::_4;
+            case SDL_SCANCODE_5:
+                return Key::_5;
+            case SDL_SCANCODE_6:
+                return Key::_6;
+            case SDL_SCANCODE_7:
+                return Key::_7;
+            case SDL_SCANCODE_8:
+                return Key::_8;
+            case SDL_SCANCODE_9:
+                return Key::_9;
+
+            // Function keys
+            case SDL_SCANCODE_F1:
+                return Key::F1;
+            case SDL_SCANCODE_F2:
+                return Key::F2;
+            case SDL_SCANCODE_F3:
+                return Key::F3;
+            case SDL_SCANCODE_F4:
+                return Key::F4;
+            case SDL_SCANCODE_F6:
+                return Key::F6;
+            case SDL_SCANCODE_F7:
+                return Key::F7;
+            case SDL_SCANCODE_F8:
+                return Key::F8;
+            case SDL_SCANCODE_F9:
+                return Key::F9;
+            case SDL_SCANCODE_F10:
+                return Key::F10;
+            case SDL_SCANCODE_F11:
+                return Key::F11;
+            case SDL_SCANCODE_F12:
+                return Key::F12;
+
+            // Text navigation
+            case SDL_SCANCODE_HOME:
+                return Key::HOME;
+            case SDL_SCANCODE_END:
+                return Key::END;
+            case SDL_SCANCODE_PAGEUP:
+                return Key::PAGEUP;
+            case SDL_SCANCODE_PAGEDOWN:
+                return Key::PAGEDOWN;
+            case SDL_SCANCODE_INSERT:
+                return Key::INSERT;
+            case SDL_SCANCODE_DELETE:
+                return Key::DEL;
+
+            // Punctuation
+            case SDL_SCANCODE_PERIOD:
+                return Key::PERIOD;
+            case SDL_SCANCODE_COMMA:
+                return Key::COMMA;
+            case SDL_SCANCODE_MINUS:
+                return Key::MINUS;
+            case SDL_SCANCODE_EQUALS:
+                return Key::EQUALS;
+            case SDL_SCANCODE_SEMICOLON:
+                return Key::SEMICOLON;
+            case SDL_SCANCODE_APOSTROPHE:
+                return Key::QUOTE;
+            case SDL_SCANCODE_BACKSLASH:
+                return Key::BACKSLASH;
+            case SDL_SCANCODE_SLASH:
+                return Key::SLASH;
+            case SDL_SCANCODE_LEFTBRACKET:
+                return Key::LBRACKET;
+            case SDL_SCANCODE_RIGHTBRACKET:
+                return Key::RBRACKET;
+            case SDL_SCANCODE_GRAVE:
+                return Key::BACKQUOTE;
+
+            // Misc
+            case SDL_SCANCODE_CAPSLOCK:
+                return Key::CAPSLOCK;
+            case SDL_SCANCODE_APPLICATION:
+                return Key::APPS;
+
             default:
                 return Key::UNKNOWN;
         }

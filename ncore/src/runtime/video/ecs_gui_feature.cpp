@@ -1,6 +1,7 @@
 #include "ecs_gui_feature.h"
 
-#include <imgui.h>
+#include <SDL3/SDL.h>
+#include <backends/imgui/imgui_utils.h>
 
 #include <ncore/modules/input/input_event.h>
 #include <ncore/modules/input/input_module.h>
@@ -18,73 +19,6 @@
 #include <ncore/runtime/ecs_world.h>
 
 namespace nc {
-
-inline static CursorType map_cursor_type( ImGuiMouseCursor cursor )
-{
-    switch (cursor) {
-        case ImGuiMouseCursor_Arrow:
-            return CursorType::DEFAULT;
-        case ImGuiMouseCursor_TextInput:
-            return CursorType::TEXT;
-        case ImGuiMouseCursor_ResizeNS:
-            return CursorType::RESIZE_NS;
-        case ImGuiMouseCursor_ResizeEW:
-            return CursorType::RESIZE_EW;
-        case ImGuiMouseCursor_ResizeNESW:
-            return CursorType::RESIZE_NESW;
-        case ImGuiMouseCursor_ResizeNWSE:
-            return CursorType::RESIZE_NWSE;
-        case ImGuiMouseCursor_Hand:
-            return CursorType::POINTER;
-        case ImGuiMouseCursor_Wait:
-            return CursorType::WAIT;
-        default:
-            return CursorType::DEFAULT;
-    }
-}
-
-inline static ImGuiKey KeyToImGuiKey( Key key )
-{
-    switch (key) {
-        case Key::W:
-            return ImGuiKey_W;
-        case Key::A:
-            return ImGuiKey_A;
-        case Key::S:
-            return ImGuiKey_S;
-        case Key::D:
-            return ImGuiKey_D;
-        case Key::UP:
-            return ImGuiKey_UpArrow;
-        case Key::DOWN:
-            return ImGuiKey_DownArrow;
-        case Key::LEFT:
-            return ImGuiKey_LeftArrow;
-        case Key::RIGHT:
-            return ImGuiKey_RightArrow;
-        case Key::SPACE:
-            return ImGuiKey_Space;
-        case Key::ENTER:
-            return ImGuiKey_Enter;
-        case Key::ESC:
-            return ImGuiKey_Escape;
-        case Key::SHIFT:
-            return ImGuiKey_LeftShift;
-        case Key::CTRL:
-            return ImGuiKey_LeftCtrl;
-        case Key::ALT:
-            return ImGuiKey_LeftAlt;
-        case Key::TAB:
-            return ImGuiKey_Tab;
-        case Key::BKSP:
-            return ImGuiKey_Backspace;
-        case Key::F5:
-            return ImGuiKey_F5;
-        case Key::UNKNOWN:
-            return ImGuiKey_None;
-    }
-    return ImGuiKey_None;
-}
 
 struct ImGuiState {
     InputModule* input      = nullptr;
@@ -112,25 +46,18 @@ void EcsGuiFeature::build( EcsWorld& world )
 
         IMGUI_CHECKVERSION();
         state.imgui_ctx = ImGui::CreateContext();
-        ImGui::StyleColorsDark();
-        auto& Colors = ImGui::GetStyle().Colors;
-        for (int i = 0; i < ImGuiCol_COUNT; ++i) {
-            ImVec4& Col{ Colors[i] };
-            Col.x = Col.x > 0 ? std::pow( Col.x, 0.5f ) : 0;
-            Col.y = Col.y > 0 ? std::pow( Col.y, 0.5f ) : 0;
-            Col.z = Col.z > 0 ? std::pow( Col.z, 0.5f ) : 0;
-            Col.w = Col.w > 0 ? std::pow( Col.w, 0.5f ) : 0;
-        }
-        Colors[ImGuiCol_WindowBg].w = 0.75f;
-        Colors[ImGuiCol_PlotLines]  = { 1.00f, 1.00f, 1.00f, 1.00f };
-
+        StyleColorsNcoreDark();
+        StyleSizesNcoreDark();
         ImGuiIO& imgui_io = ImGui::GetIO();
         imgui_io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors | ImGuiBackendFlags_RendererHasVtxOffset |
                                  ImGuiBackendFlags_RendererHasTextures;
+        imgui_io.Fonts->AddFontFromFileTTF( "assets/fonts/SpaceGrotesk-SemiBold.ttf" );
+        imgui_io.Fonts->AddFontFromFileTTF( "assets/fonts/SpaceGrotesk-Regular.ttf" );
+        imgui_io.FontDefault = imgui_io.Fonts->AddFontFromFileTTF( "assets/fonts/SpaceGrotesk-Medium.ttf" );
 
         for (int i = 0; i < ImGuiMouseCursor_COUNT; i++) {
             auto imgui_cursor              = static_cast<ImGuiMouseCursor>( i );
-            auto cursor_type               = map_cursor_type( imgui_cursor );
+            auto cursor_type               = cursor_type_to_imgui_cursor( imgui_cursor );
             state.cursor_map[imgui_cursor] = cursor_type;
         }
 
@@ -206,7 +133,7 @@ void EcsGuiFeature::build( EcsWorld& world )
                         } else if constexpr (std::is_same_v<T, TextInputEvent>) {
                             io.AddInputCharactersUTF8( e.text );
                         } else if constexpr (std::is_same_v<T, KeyEvent>) {
-                            ImGuiKey key = KeyToImGuiKey( e.key );
+                            ImGuiKey key = key_to_imgui_key( e.key );
                             if (key != ImGuiKey_None) {
                                 bool down = e.action == ButtonAction::PRESS;
                                 io.AddKeyEvent( key, down );
@@ -242,6 +169,18 @@ void EcsGuiFeature::build( EcsWorld& world )
             io.DisplaySize.y = size.Y;
 
             ImGui::NewFrame();
+
+            // FIXME: improve this. shouldn't access SDL directly, delegate to InputModule/EcsInputFeature
+            auto gfx = ctx.world().get_singleton<GraphicsModules>();
+            SDL_Window* sdl_window =
+                SDL_GetWindowFromID( static_cast<SDL_WindowID>( gfx->window->get_main_window_id() ) );
+            if (sdl_window) {
+                if (io.WantTextInput) {
+                    SDL_StartTextInput( sdl_window );
+                } else {
+                    SDL_StopTextInput( sdl_window );
+                }
+            }
         } );
 
     world.create_system( "EcsGuiFeature::EndFrame" )

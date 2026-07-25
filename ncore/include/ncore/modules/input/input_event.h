@@ -38,7 +38,81 @@ enum class Key : uint8_t {
     ALT,
     TAB,
     BKSP,
-    F5
+    F5,
+
+    // Letters (missing from WASD)
+    B,
+    C,
+    E,
+    F,
+    G,
+    H,
+    I,
+    J,
+    K,
+    L,
+    M,
+    N,
+    O,
+    P,
+    Q,
+    R,
+    T,
+    U,
+    V,
+    X,
+    Y,
+    Z,
+
+    // Numbers
+    _0,
+    _1,
+    _2,
+    _3,
+    _4,
+    _5,
+    _6,
+    _7,
+    _8,
+    _9,
+
+    // Function keys
+    F1,
+    F2,
+    F3,
+    F4,
+    F6,
+    F7,
+    F8,
+    F9,
+    F10,
+    F11,
+    F12,
+
+    // Text navigation
+    HOME,
+    END,
+    PAGEUP,
+    PAGEDOWN,
+    INSERT,
+    DEL,
+
+    // Punctuation
+    PERIOD,
+    COMMA,
+    MINUS,
+    EQUALS,
+    SEMICOLON,
+    QUOTE,
+    BACKSLASH,
+    SLASH,
+    LBRACKET,
+    RBRACKET,
+    BACKQUOTE,
+
+    // Misc
+    CAPSLOCK,
+    APPS,
 };
 
 struct MouseButtonEvent {

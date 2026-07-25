@@ -66,6 +66,8 @@ public:
         return &ctx;
     }
 
+    IRHI::Stats get_stats() const;
+
 private:
     void ensure_canvas_vb_( uint32_t needed );
     void ensure_canvas_ib_( uint32_t needed );

@@ -101,6 +101,24 @@ public:
 
     virtual void load_pso_cache() = 0;
     virtual void save_pso_cache() = 0;
+
+    struct Stats {
+        uint64_t input_vertices       = 0;
+        uint64_t input_primitives     = 0;
+        uint64_t vs_invocations       = 0;
+        uint64_t gs_invocations       = 0;
+        uint64_t ps_invocations       = 0;
+        uint64_t clipping_invocations = 0;
+        uint64_t clipping_primitives  = 0;
+
+        uint64_t occlusion_samples_passed = 0;
+
+        double gpu_duration_ms = 0.0;
+    };
+
+    virtual void begin_queries()    = 0;
+    virtual void end_queries()      = 0;
+    virtual Stats get_stats() = 0;
 };
 
 } // namespace nc

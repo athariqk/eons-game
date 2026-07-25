@@ -22,3 +22,6 @@
 [submodule "ncore/external/tracy"]
 	path = ncore/external/tracy
 	url = https://github.com/wolfpld/tracy.git
+[submodule "ncore/external/freetype"]
+	path = ncore/external/freetype
+	url = https://github.com/freetype/freetype.git

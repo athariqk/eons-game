@@ -13,6 +13,7 @@ target_sources(
           "backends/diligent/diligent_type_helpers.h"
           "backends/diligent/diligent_type_helpers.cpp"
           "backends/flecs/flecs_helpers.h"
+		  "backends/imgui/imgui_utils.h"
           "backends/sdl/sdl_type_helpers.h"
           "backends/sdl/sdl_render_device.h"
           "backends/sdl/sdl_audio_loader.h"

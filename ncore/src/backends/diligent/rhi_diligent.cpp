@@ -88,6 +88,32 @@ DiligentRHI::DiligentRHI()
 
         NC_ASSERT( device && ctx_gfx, "Failed to create Vulkan device and contexts" );
     }
+
+    const Diligent::DeviceFeatures& Features = device->GetDeviceInfo().Features;
+    if (Features.PipelineStatisticsQueries) {
+        Diligent::QueryDesc queryDesc;
+        queryDesc.Name = "Pipeline statistics query";
+        queryDesc.Type = Diligent::QUERY_TYPE_PIPELINE_STATISTICS;
+        pipeline_stats_query.reset( new Diligent::ScopedQueryHelper{ device, queryDesc, 2 } );
+    }
+
+    if (Features.OcclusionQueries) {
+        Diligent::QueryDesc queryDesc;
+        queryDesc.Name = "Occlusion query";
+        queryDesc.Type = Diligent::QUERY_TYPE_OCCLUSION;
+        occlusion_query.reset( new Diligent::ScopedQueryHelper{ device, queryDesc, 2 } );
+    }
+
+    if (Features.TimestampQueries) {
+        duration_from_timestamps_query.reset( new Diligent::DurationQueryHelper{ device, 2 } );
+    }
+
+    if (Features.DurationQueries) {
+        Diligent::QueryDesc queryDesc;
+        queryDesc.Name = "Duration query";
+        queryDesc.Type = Diligent::QUERY_TYPE_DURATION;
+        duration_query.reset( new Diligent::ScopedQueryHelper{ device, queryDesc, 2 } );
+    }
 }
 
 DiligentRHI::~DiligentRHI()
@@ -854,6 +880,53 @@ void DiligentRHI::draw_indexed(
 
 void DiligentRHI::load_pso_cache() {}
 void DiligentRHI::save_pso_cache() {}
+
+void DiligentRHI::begin_queries()
+{
+    if (pipeline_stats_query)
+        pipeline_stats_query->Begin( get_active_ctx_() );
+    if (occlusion_query)
+        occlusion_query->Begin( get_active_ctx_() );
+    if (duration_from_timestamps_query)
+        duration_from_timestamps_query->Begin( get_active_ctx_() );
+    if (duration_query)
+        duration_query->Begin( get_active_ctx_() );
+}
+
+void DiligentRHI::end_queries()
+{
+    if (duration_from_timestamps_query)
+        duration_from_timestamps_query->End( get_active_ctx_(), duration_from_timestamps );
+    if (duration_query)
+        duration_query->End( get_active_ctx_(), &duration_data, sizeof( duration_data ) );
+    if (occlusion_query)
+        occlusion_query->End( get_active_ctx_(), &occlusion_data, sizeof( occlusion_data ) );
+    if (pipeline_stats_query)
+        pipeline_stats_query->End( get_active_ctx_(), &pipeline_stats_data, sizeof( pipeline_stats_data ) );
+}
+
+IRHI::Stats DiligentRHI::get_stats()
+{
+    Stats stats;
+
+    if (pipeline_stats_query) {
+        stats.input_vertices       = pipeline_stats_data.InputVertices;
+        stats.input_primitives     = pipeline_stats_data.InputPrimitives;
+        stats.vs_invocations       = pipeline_stats_data.VSInvocations;
+        stats.gs_invocations       = pipeline_stats_data.GSInvocations;
+        stats.ps_invocations       = pipeline_stats_data.PSInvocations;
+        stats.clipping_invocations = pipeline_stats_data.ClippingInvocations;
+        stats.clipping_primitives  = pipeline_stats_data.ClippingPrimitives;
+    }
+
+    if (occlusion_query)
+        stats.occlusion_samples_passed = occlusion_data.NumSamples;
+
+    if (duration_from_timestamps_query)
+        stats.gpu_duration_ms = duration_from_timestamps * 1000.0;
+
+    return stats;
+}
 
 // ---------------------------------------------------------------------------
 

@@ -1,11 +1,13 @@
 #pragma once
 
 #include <BasicMath.hpp>
+#include <DurationQueryHelper.hpp>
 #include <EngineFactoryVk.h>
 #include <PipelineState.h>
 #include <RefCntAutoPtr.hpp>
 #include <RenderDevice.h>
 #include <Sampler.h>
+#include <ScopedQueryHelper.hpp>
 #include <Texture.h>
 
 #include <ncore/modules/video/rhi.h>
@@ -81,6 +83,10 @@ public:
     void load_pso_cache() override;
     void save_pso_cache() override;
 
+    void begin_queries() override;
+    void end_queries() override;
+    Stats get_stats() override;
+
 private:
     Diligent::IDeviceContext* get_active_ctx_();
     Diligent::IDeviceContext* get_imm_ctx_();
@@ -108,6 +114,15 @@ private:
     ResourcePool<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> res_bindings;
 
     Diligent::RefCntAutoPtr<Diligent::IVertexPool> vertex_pool;
+
+    std::unique_ptr<Diligent::ScopedQueryHelper> pipeline_stats_query;
+    std::unique_ptr<Diligent::ScopedQueryHelper> occlusion_query;
+    std::unique_ptr<Diligent::ScopedQueryHelper> duration_query;
+    std::unique_ptr<Diligent::DurationQueryHelper> duration_from_timestamps_query;
+    Diligent::QueryDataPipelineStatistics pipeline_stats_data;
+    Diligent::QueryDataOcclusion occlusion_data;
+    Diligent::QueryDataDuration duration_data;
+    double duration_from_timestamps = 0;
 
     GpuQueue active_queue  = GpuQueue::Graphics;
     bool is_deferred       = false;

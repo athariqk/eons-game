@@ -2,6 +2,7 @@
 
 #include <imgui.h>
 
+#include <ncore/game_world.h>
 #include <ncore/modules/module_registry.h>
 #include <ncore/modules/video/render_module.h>
 #include <ncore/modules/video/window_module.h>
@@ -31,11 +32,22 @@ void EcsDebugFeature::build( EcsWorld& world )
 {
     world.emplace_singleton<DebugState>();
 
-    world.create_system( "EcsDebugFeature::StatsUpdater" )
+    world.create_system( "EcsDebugFeature::DebugUI" )
         .with<EcsSwapChainRef>()
         .in( EcsSystemPhase::UPDATE )
         .run( []( QueryContext& ctx ) {
             auto time = ctx.world().get_singleton<EcsTime>();
+            auto gfx  = ctx.world().get_singleton<GraphicsModules>();
+
+            if (ImGui::BeginMainMenuBar()) {
+                if (ImGui::BeginMenu( "File" )) {
+                    if (ImGui::MenuItem( "Quit", "Alt+F4" )) {
+                        ctx.world().get_parent().request_quit();
+                    }
+                    ImGui::EndMenu();
+                }
+                ImGui::EndMainMenuBar();
+            }
 
             ImGui::Begin( "Debug" );
 
@@ -48,7 +60,16 @@ void EcsDebugFeature::build( EcsWorld& world )
             ImGui::Text( "Hits: %d", rtti::TypeRegistry::get_rtti_hits() );
 
             ImGui::SeparatorText( "Rendering" );
-            ImGui::Text( "Stub" );
+            {
+                const auto& stats = gfx->renderer->get_stats();
+                ImGui::Text( "GPU Duration: %.3f ms", stats.gpu_duration_ms );
+                ImGui::Text( "Input Assembler Primitives: %llu", stats.input_primitives );
+                ImGui::Text( "Input Assembler Vertices: %llu", stats.input_vertices );
+                ImGui::Text( "Vertex Shader Invocations: %llu", stats.vs_invocations );
+                ImGui::Text( "Pixel Shader Invocations: %llu", stats.ps_invocations );
+                ImGui::Text( "Clipping Primitives: %llu", stats.clipping_primitives );
+                ImGui::Text( "Clipping Invocations: %llu", stats.clipping_invocations );
+            }
 
             ImGui::SeparatorText( "ECS Debug" );
             ImGui::Text(
@@ -56,15 +77,12 @@ void EcsDebugFeature::build( EcsWorld& world )
                 ctx.world().get_entity_count( true )
             );
 
-            if (ImGui::Button( "Spawn Window", ImVec2( 100.0f, 20.0f ) )) {
+            if (ImGui::Button( "Spawn Window" )) {
                 ctx.world()
                     .create_entity()
                     .with<EcsWindow>( EcsWindow{ .resolution = Vec2( 300, 300 ), .visible = true } )
                     .build();
             }
-
-            static bool pOpen = false;
-            ImGui::ShowDemoWindow( &pOpen );
 
             ImGui::End();
         } );
