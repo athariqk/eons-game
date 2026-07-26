@@ -1,33 +1,23 @@
 #pragma once
 
-#include <ncore/core/structures.h>
 #include <ncore/core/types.h>
+#include <ncore/core/vector.h>
 
 namespace nc {
 
-struct NCAPI EcsTransform {
-    EcsTransform() = default;
-    EcsTransform( const Vec2& pos ) : position( pos ) {}
-    EcsTransform( const Vec2& pos, float rot ) : position( pos ), angle( rot ) {}
-    EcsTransform( const Vec2& pos, float rot, const Vec2& dim ) : position( pos ), angle( rot ), dimension( dim ) {}
-
-    Vec2 position{ 0.0f, 0.0f };
+// TODO: turn into a 2x3 matrix
+struct NCAPI EcsTransform2D {
+    Vec2 position;
+    Vec2 size;
     float angle = 0.0f;
-    Vec2 dimension{ 0.0f, 0.0f };
-    float scale = 1.0f;
 
-    // TODO: remove this to use params instead
-    std::string to_string() const
+    Vec2 get_world_center_point()
     {
-        return std::format(
-            "EcsTransform<position={}, angle={}, dimension={}, scale={}>", position.to_string(), angle,
-            dimension.to_string(), scale
-        );
+        return Vec2( position.x + ( size.x * 0.5f ), position.y + ( size.y * 0.5f ) );
     }
 
     NSTRUCT(
-        EcsTransform, NC_F( EcsTransform, position ) NC_F( EcsTransform, angle ) NC_F( EcsTransform, dimension )
-                          NC_F( EcsTransform, scale )
+        EcsTransform2D, NC_F( EcsTransform2D, position ) NC_F( EcsTransform2D, size ) NC_F( EcsTransform2D, angle )
     )
 };
 

@@ -1,6 +1,12 @@
 #include "ecs_render_feature.h"
 
+#include <ncore/modules/io/resource_manager.h>
 #include <ncore/modules/video/render_module.h>
+#include <ncore/resources/image.h>
+#include <ncore/resources/material_template.h>
+#include <ncore/runtime/components/ecs_material.h>
+#include <ncore/runtime/components/ecs_sprite.h>
+#include <ncore/runtime/components/ecs_transform.h>
 #include <ncore/runtime/components/ecs_window.h>
 #include <ncore/runtime/ecs_base_features.h>
 #include <ncore/runtime/ecs_system.h>
@@ -12,6 +18,16 @@ void EcsRenderFeature::build( EcsWorld& world )
 {
     world.emplace_singleton<RenderState>();
 
+    world.create_system( "EcsRenderFeature::Init" )
+        .with<RenderState>()
+        .in( EcsSystemPhase::INIT )
+        .run( []( QueryContext& ctx ) {
+            auto state           = ctx.get_component<RenderState>();
+            auto gfx             = ctx.world().get_singleton<GraphicsModules>();
+            uint8_t pixels[4]    = { 255, 255, 255, 255 };
+            state->white_texture = gfx->renderer->create_texture_2d( Image( 1, 1, pixels ) );
+        } );
+
     world.create_system( "EcsRenderFeature::PrepareFrame" )
         .with<EcsSwapChainRef>()
         .in( EcsSystemPhase::PRE_FRAME )
@@ -22,6 +38,62 @@ void EcsRenderFeature::build( EcsWorld& world )
             auto rs  = ctx.world().get_singleton<RenderState>();
             gfx->renderer->frame_begin();
             rs->display_size = sc->size;
+        } );
+
+    world.create_observer( "EcsRenderFeature::MaterialInstanceIniter" )
+        .on<EcsMaterialInstance>( EcsCoreEvent::OnAdd ) // TODO: or OnSet?
+        .each( []( QueryContext& ctx, EcsEntityId ) {
+            auto state    = ctx.world().get_singleton<RenderState>();
+            auto gfx      = ctx.world().get_singleton<GraphicsModules>();
+            auto material = ctx.get_component<EcsMaterialInstance>();
+            NC_ASSERT(
+                material->template_ref, "Material template must be set on a new EcsMaterialInstance"
+            ); // TODO: this isnt good
+            if (!material->material.is_valid() && material->template_ref) {
+                material->material = gfx->renderer->material_create( *material->template_ref );
+            }
+            material->textures[0] = state->white_texture; // TODO: custom textures
+            gfx->renderer->material_set_texture( material->material, material->textures[0], 0 );
+        } );
+
+    world.create_system( "EcsRenderFeature::SpriteRenderer" )
+        .with<EcsTransform2D>()
+        .with<EcsMaterialInstance>()
+        .with<EcsSpriteRenderer>()
+        .in( EcsSystemPhase::UPDATE )
+        .each( []( QueryContext& ctx, EcsEntityId ) {
+            auto xform    = ctx.get_component<EcsTransform2D>();
+            auto material = ctx.get_component<EcsMaterialInstance>();
+            auto sprite   = ctx.get_component<EcsSpriteRenderer>();
+            auto gfx      = ctx.world().get_singleton<GraphicsModules>();
+
+            if (material->material.is_valid()) {
+                float r = xform->angle * 0.01745329252f;
+
+                // clang-format off
+				auto c_local = xform->size * 0.5f;
+				Vec2 local_coords[4] = {
+					{ -c_local.x, -c_local.y },
+					{  c_local.x, -c_local.y },
+					{  c_local.x,  c_local.y },
+					{ -c_local.x,  c_local.y }
+				};
+                // clang-format on
+
+                float cs = std::cos( r );
+                float sn = std::sin( r );
+
+                auto c_world = xform->get_world_center_point();
+                Vec2 world_coords[4];
+                for (int i = 0; i < 4; i++) {
+                    const Vec2& p     = local_coords[i];
+                    world_coords[i].x = p.x * cs - p.y * sn;
+                    world_coords[i].y = p.x * sn + p.y * cs;
+                    world_coords[i] += c_world;
+                }
+
+                gfx->renderer->canvas_draw_quad( world_coords, material->material, sprite->tint );
+            }
         } );
 
     world.create_system( "EcsRenderFeature::EndFrame" )

@@ -121,7 +121,7 @@ EcsEntityId EcsEntityBuilder::build()
     }
 
     pImpl->built = true;
-    NC_LOG_TRACE_C( log::ECS, "Built entity '{}' (id {})", pImpl->name, ent );
+    NC_LOG_DEBUG_C( log::ECS, "Built entity '{}' (id {})", pImpl->name, ent );
     return static_cast<EcsEntityId>( ent );
 }
 

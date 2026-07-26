@@ -4,7 +4,7 @@
 #include <box2d/id.h>
 #include <box2d/types.h>
 
-#include <ncore/core/structures.h>
+#include <ncore/core/vector.h>
 #include <ncore/modules/physics/physics_module.h>
 
 namespace nc {

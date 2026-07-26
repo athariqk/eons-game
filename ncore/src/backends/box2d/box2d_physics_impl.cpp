@@ -195,13 +195,13 @@ Vec2 Box2DPhysicsImpl::get_body_velocity( RID body ) const
 void Box2DPhysicsImpl::apply_linear_impulse( RID body, const Vec2& impulse )
 {
     NC_ASSERT_RET( is_body_valid( body ), "Body is invalid" );
-    b2Body_ApplyLinearImpulseToCenter( body_map.at( body ), b2Vec2{ impulse.X, impulse.Y }, true );
+    b2Body_ApplyLinearImpulseToCenter( body_map.at( body ), b2Vec2{ impulse.x, impulse.y }, true );
 }
 
 void Box2DPhysicsImpl::apply_linear_force( RID body, const Vec2& force )
 {
     NC_ASSERT_RET( is_body_valid( body ), "Body is invalid" );
-    b2Body_ApplyForceToCenter( body_map.at( body ), b2Vec2{ force.X, force.Y }, true );
+    b2Body_ApplyForceToCenter( body_map.at( body ), b2Vec2{ force.x, force.y }, true );
 }
 
 void Box2DPhysicsImpl::sync_debug_draw_flags()

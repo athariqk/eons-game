@@ -51,9 +51,9 @@ void EcsGuiFeature::build( EcsWorld& world )
         ImGuiIO& imgui_io = ImGui::GetIO();
         imgui_io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors | ImGuiBackendFlags_RendererHasVtxOffset |
                                  ImGuiBackendFlags_RendererHasTextures;
-        imgui_io.Fonts->AddFontFromFileTTF( "assets/fonts/SpaceGrotesk-SemiBold.ttf" );
-        imgui_io.Fonts->AddFontFromFileTTF( "assets/fonts/SpaceGrotesk-Regular.ttf" );
-        imgui_io.FontDefault = imgui_io.Fonts->AddFontFromFileTTF( "assets/fonts/SpaceGrotesk-Medium.ttf" );
+        imgui_io.Fonts->AddFontFromFileTTF( "assets/engine/fonts/SpaceGrotesk-SemiBold.ttf" );
+        imgui_io.Fonts->AddFontFromFileTTF( "assets/engine/fonts/SpaceGrotesk-Regular.ttf" );
+        imgui_io.FontDefault = imgui_io.Fonts->AddFontFromFileTTF( "assets/engine/fonts/SpaceGrotesk-Medium.ttf" );
 
         for (int i = 0; i < ImGuiMouseCursor_COUNT; i++) {
             auto imgui_cursor              = static_cast<ImGuiMouseCursor>( i );
@@ -63,11 +63,12 @@ void EcsGuiFeature::build( EcsWorld& world )
 
         ImGui::SetCurrentContext( state.imgui_ctx );
 
-        auto tmpl = io->resources->load<MaterialTemplate>( "materials/canvas.material" );
+        auto tmpl = io->resources->load<MaterialTemplate>( "engine/materials/canvas.material" );
         NC_ASSERT_NULL( tmpl );
         auto mat = gfx->renderer->material_create( *tmpl );
 
-        state.material = mat;
+        state.material = mat; // TODO: why are we even storing the mat in the global state when
+                              // we're creating a dedicated entity material down below?
 
         auto state_id = ctx.world().set_singleton<ImGuiState>( state );
 
@@ -114,7 +115,7 @@ void EcsGuiFeature::build( EcsWorld& world )
                         using T = std::decay_t<decltype( e )>;
                         if constexpr (std::is_same_v<T, MouseMotionEvent>) {
                             io.AddMouseSourceEvent( ImGuiMouseSource_Mouse );
-                            io.AddMousePosEvent( e.position.X, e.position.Y );
+                            io.AddMousePosEvent( e.position.x, e.position.y );
                         } else if constexpr (std::is_same_v<T, MouseWheelEvent>) {
                             io.AddMouseSourceEvent( ImGuiMouseSource_Mouse );
                             io.AddMouseWheelEvent( e.scroll_x, e.scroll_y );
@@ -165,8 +166,8 @@ void EcsGuiFeature::build( EcsWorld& world )
                 return;
 
             ImGuiIO& io      = ImGui::GetIO();
-            io.DisplaySize.x = size.X;
-            io.DisplaySize.y = size.Y;
+            io.DisplaySize.x = size.x;
+            io.DisplaySize.y = size.y;
 
             ImGui::NewFrame();
 
@@ -286,7 +287,7 @@ void EcsGuiFeature::build( EcsWorld& world )
 
                     NC_LOG_TRACE_C(
                         log::GRAPHICS, "  canvas_draw_triangles: {} verts, {} idx, clip={:.0f},{:.0f} {:.0f}x{:.0f}",
-                        vert_count, idx_count, clip_rect.X, clip_rect.Y, clip_rect.W, clip_rect.H
+                        vert_count, idx_count, clip_rect.x, clip_rect.y, clip_rect.z, clip_rect.w
                     );
                     gfx->renderer->canvas_draw_triangles(
                         { vtx, vert_count }, { idx, idx_count }, state->material, clip_rect

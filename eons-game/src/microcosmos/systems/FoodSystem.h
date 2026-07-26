@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ncore/core/structures.h>
+#include <ncore/core/vector.h>
 #include <ncore/runtime/ecs_system.h>
 
 // class FoodSystem : public nc::EcsSystem {

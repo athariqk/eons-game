@@ -1,15 +1,16 @@
 #pragma once
 
+#include <ncore/core/color.h>
 #include <ncore/core/rid.h>
-#include <ncore/core/structures.h>
+#include <ncore/core/vector.h>
 
 namespace nc {
 
 struct NCAPI EcsSpriteRenderer {
-    Vec4 rect{ 0, 0, 1, 1 };
-    float angle = 0;
+    RID texture;
+    Color tint{ 255, 255, 255, 255 };
 
-    NSTRUCT( EcsSpriteRenderer, NC_F( EcsSpriteRenderer, rect ) NC_F( EcsSpriteRenderer, angle ) )
+    NSTRUCT( EcsSpriteRenderer, NC_F( EcsSpriteRenderer, texture ) NC_F( EcsSpriteRenderer, tint ) )
 };
 
 struct EcsCircleDraw {

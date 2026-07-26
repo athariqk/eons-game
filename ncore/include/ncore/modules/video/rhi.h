@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ncore/core/color.h>
 #include <ncore/core/object.h>
 
 #include "rhi_types.h"
@@ -116,9 +117,9 @@ public:
         double gpu_duration_ms = 0.0;
     };
 
-    virtual void begin_queries()    = 0;
-    virtual void end_queries()      = 0;
-    virtual Stats get_stats() = 0;
+    virtual void begin_queries() = 0;
+    virtual void end_queries()   = 0;
+    virtual Stats get_stats()    = 0;
 };
 
 } // namespace nc

@@ -100,21 +100,24 @@ void RenderModule::frame_begin()
     ctx.rhi->set_context_state( false );
     // ctx.rhi->set_context_state( true, ctx.rhi_ctx );
     // ctx.rhi->commands_record_begin();
+
+    // TODO: handle multiple swapchains
     auto rtv = ctx.rhi->swapchain_get_view( swapchains[0], TextureViewType::RENDER_TARGET );
     auto dsv = ctx.rhi->swapchain_get_view( swapchains[0], TextureViewType::DEPTH_STENCIL );
+
     NC_LOG_TRACE_C(
-        log::GRAPHICS, "frame_end: rtv={} dsv={}", reinterpret_cast<uintptr_t>( rtv ),
+        log::GRAPHICS, "frame_begin: rtv={} dsv={}", reinterpret_cast<uintptr_t>( rtv ),
         reinterpret_cast<uintptr_t>( dsv )
     );
 
     auto size = ctx.rhi->swapchain_get_size( swapchains[0] );
 
-    ortho_proj[0]  = 2.0f / size.X;
+    ortho_proj[0]  = 2.0f / size.x;
     ortho_proj[1]  = 0.0f;
     ortho_proj[2]  = 0.0f;
     ortho_proj[3]  = 0.0f;
     ortho_proj[4]  = 0.0f;
-    ortho_proj[5]  = -2.0f / size.Y;
+    ortho_proj[5]  = -2.0f / size.y;
     ortho_proj[6]  = 0.0f;
     ortho_proj[7]  = 0.0f;
     ortho_proj[8]  = 0.0f;
@@ -127,11 +130,14 @@ void RenderModule::frame_begin()
     ortho_proj[15] = 1.0f;
 
     IRHI::Viewport vd{};
-    vd.rect.X = 0.0f;
-    vd.rect.Y = 0.0f;
-    vd.rect.W = size.X;
-    vd.rect.H = size.Y;
+    vd.rect.x = 0.0f;
+    vd.rect.y = 0.0f;
+    vd.rect.z = size.x;
+    vd.rect.w = size.y;
     ctx.rhi->render_target_set_viewport( { &vd, 1 } );
+
+    Vec4 full_scissor = Vec4( 0, 0, size.x, size.y );
+    ctx.rhi->render_target_set_scissor_rect( { &full_scissor, 1 } );
 
     const void* rtvs[] = { rtv };
     ctx.rhi->render_target_bind( rtvs, dsv );
@@ -143,7 +149,7 @@ void RenderModule::frame_end()
 {
     NC_LOG_TRACE_C( log::GRAPHICS, "frame_end: canvas_render_list={}", ctx.canvas_render_list.size() );
 
-	ctx.rhi->begin_queries();
+    ctx.rhi->begin_queries();
 
     for (auto& item : ctx.canvas_render_list) {
         if (item.verts.empty()) {
@@ -187,7 +193,7 @@ void RenderModule::frame_end()
                 ctx.rhi->resource_binding_commit( srb );
         }
 
-        if (item.clip.W > 0 && item.clip.H > 0) {
+        if (item.clip.z > 0 && item.clip.w > 0) {
             ctx.rhi->render_target_set_scissor_rect( { &item.clip, 1 } );
         }
 
@@ -195,7 +201,7 @@ void RenderModule::frame_end()
         ctx.rhi->draw_indexed( static_cast<uint32_t>( item.indices.size() ), 0, 0, 1 );
     }
 
-	ctx.rhi->end_queries();
+    ctx.rhi->end_queries();
 
     ctx.rhi->swapchain_present( swapchains[0], settings.VSync );
 
@@ -215,27 +221,22 @@ void RenderModule::canvas_draw_triangles(
     item.indices.assign( indices.begin(), indices.end() );
 }
 
-void RenderModule::canvas_draw_quad( Vec2 pos, Vec2 size, RID material, Vec4 uv_rect, Color tint, Vec4 clip )
+void RenderModule::canvas_draw_quad( Vec2 points[4], RID material, Color tint, Vec4 uv_rect, Vec4 clip )
 {
-    float x0 = pos.X;
-    float y0 = pos.Y;
-    float x1 = pos.X + size.X;
-    float y1 = pos.Y + size.Y;
-
-    float u0 = uv_rect.X;
-    float v0 = uv_rect.Y;
-    float u1 = uv_rect.H;
-    float v1 = uv_rect.W;
+    float u0 = uv_rect.x;
+    float v0 = uv_rect.y;
+    float u1 = uv_rect.w;
+    float v1 = uv_rect.z;
 
     uint32_t c = static_cast<uint32_t>( tint.r ) | ( static_cast<uint32_t>( tint.g ) << 8 ) |
                  ( static_cast<uint32_t>( tint.b ) << 16 ) | ( static_cast<uint32_t>( tint.a ) << 24 );
 
     // clang-format off
     Vertex2D verts[4] = {
-        { x0, y0, u0, v0, c },
-        { x1, y0, u1, v0, c },
-        { x1, y1, u1, v1, c },
-        { x0, y1, u0, v1, c },
+        { points[0].x, points[0].y, u0, v0, c },
+        { points[1].x, points[1].y, u1, v0, c },
+        { points[2].x, points[2].y, u1, v1, c },
+        { points[3].x, points[3].y, u0, v1, c },
     };
     // clang-format on
 

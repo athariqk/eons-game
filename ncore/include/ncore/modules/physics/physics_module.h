@@ -1,7 +1,7 @@
 #pragma once
 
 #include <ncore/core/rid.h>
-#include <ncore/core/structures.h>
+#include <ncore/core/vector.h>
 #include <ncore/modules/module.h>
 
 #include "debug_draw.h"

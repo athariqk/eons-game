@@ -190,8 +190,8 @@ RID DiligentRHI::swapchain_create( const SwapChainDesc& desc )
     ddesc.ColorBufferFormat = DiligentTypeHelpers::translate_tex_format( desc.color_format );
     ddesc.DepthBufferFormat = DiligentTypeHelpers::translate_tex_format( desc.depth_format );
     ddesc.Usage             = static_cast<Diligent::SWAP_CHAIN_USAGE_FLAGS>( desc.usage );
-    ddesc.Width             = static_cast<Diligent::Uint32>( desc.initial_size.X );
-    ddesc.Height            = static_cast<Diligent::Uint32>( desc.initial_size.Y );
+    ddesc.Width             = static_cast<Diligent::Uint32>( desc.initial_size.x );
+    ddesc.Height            = static_cast<Diligent::Uint32>( desc.initial_size.y );
     ddesc.BufferCount       = static_cast<Diligent::Uint32>( desc.buffer_count );
     ddesc.IsPrimary         = static_cast<Diligent::Bool>( desc.is_primary );
     engine_factory->CreateSwapChainVk( device, ctx_gfx, ddesc, native, &out );
@@ -219,8 +219,8 @@ void DiligentRHI::swapchain_set_size( RID sc, Vec2 size )
     auto entry = swapchains.get( sc );
     NC_ASSERT_NULL( entry );
     auto& desc      = ( *entry )->GetDesc();
-    auto new_width  = static_cast<Diligent::Uint32>( size.X );
-    auto new_height = static_cast<Diligent::Uint32>( size.Y );
+    auto new_width  = static_cast<Diligent::Uint32>( size.x );
+    auto new_height = static_cast<Diligent::Uint32>( size.y );
     if (desc.Width != new_width && desc.Height != new_height) {
         ( *entry )->Resize( new_width, new_height );
         NC_LOG_DEBUG_C(
@@ -427,7 +427,7 @@ void DiligentRHI::render_target_set_viewport( std::span<const Viewport> p_viewpo
 {
     Vector<Diligent::Viewport> vps;
     for (auto& vp : p_viewports) {
-        vps.push_back( { vp.rect.X, vp.rect.Y, vp.rect.W, vp.rect.H, vp.min_depth, vp.max_depth } );
+        vps.push_back( { vp.rect.x, vp.rect.y, vp.rect.z, vp.rect.w, vp.min_depth, vp.max_depth } );
     }
     NC_LOG_TRACE_C(
         log::GRAPHICS, "set_viewport: {} viewports (first: {:.0f},{:.0f} {:.0f}x{:.0f})", vps.size(), vps[0].TopLeftX,
@@ -442,8 +442,8 @@ void DiligentRHI::render_target_set_scissor_rect( std::span<const Vec4> p_rects 
     for (auto r : p_rects) {
         rects.push_back(
             Diligent::Rect{
-                static_cast<Diligent::Int32>( r.X ), static_cast<Diligent::Int32>( r.Y ),
-                static_cast<Diligent::Int32>( r.X + r.W ), static_cast<Diligent::Int32>( r.Y + r.H )
+                static_cast<Diligent::Int32>( r.x ), static_cast<Diligent::Int32>( r.y ),
+                static_cast<Diligent::Int32>( r.x + r.z ), static_cast<Diligent::Int32>( r.y + r.w )
             }
         );
     }

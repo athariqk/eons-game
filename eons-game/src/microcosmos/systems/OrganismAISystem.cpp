@@ -22,7 +22,7 @@
 
 //    auto &ai = world.get<OrganismAIComponent>(entity);
 
-//    if (world.has<nc::EcsTransform>(entity))
+//    if (world.has<nc::EcsTransform2D>(entity))
 //        change_state(ai, BehaviourState::IDLING);
 //    else
 //        NC_LOG_ERROR("Organism AI entity missing transform component!");

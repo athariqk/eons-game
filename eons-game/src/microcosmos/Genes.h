@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 #include <ncore/core/random.h>
-#include <ncore/core/structures.h>
+#include <ncore/core/vector.h>
 #include <ncore/core/types.h>
 
 struct Genes {

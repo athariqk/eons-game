@@ -24,7 +24,7 @@ void EcsWindowFeature::build( EcsWorld& world )
             auto io       = ctx.get_component<IoModules>();
             auto gfx      = ctx.get_component<GraphicsModules>();
 
-            gfx->window->set_default_icon( io->resources->load<Image>( "images/default.ico" ) );
+            gfx->window->set_default_icon( io->resources->load<Image>( "engine/images/default.ico" ) );
 
             auto window_eid = ctx.world()
                                   .create_entity( "PrimaryWindow" )
@@ -124,7 +124,8 @@ void EcsWindowFeature::build( EcsWorld& world )
                     if (resize->window_id == win->id) {
                         sc->size = Vec2( static_cast<float>( resize->width ), static_cast<float>( resize->height ) );
                         NC_LOG_DEBUG_C(
-                            log::GRAPHICS, "WindowResizeEvent: window_id={} size={}", win->id, sc->size.to_string()
+                            log::GRAPHICS, "WindowResizeEvent: window_id={} size={}", win->id,
+                            rtti::TypeRegistry::to_string<Vec2>( &sc->size )
                         );
                         gfx->renderer->swapchain_set_size( sc->swapchain, sc->size );
                     }

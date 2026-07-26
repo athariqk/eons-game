@@ -6,7 +6,7 @@
 
 #include <ncore/core/collection.h>
 #include <ncore/core/reference.h>
-#include <ncore/core/structures.h>
+#include <ncore/core/vector.h>
 #include <ncore/modules/video/window_module.h>
 #include <ncore/resources/image.h>
 #include <ncore/utils/config.h>
@@ -119,7 +119,7 @@ void WindowModule::window_set_parent( uint32_t window_id, uint32_t parent ) cons
 void WindowModule::window_set_position( uint32_t window_id, Vec2 position ) const
 {
     auto window = pImpl->get_sdl_window( window_id );
-    if (!SDL_SetWindowPosition( window, static_cast<int>( position.X ), static_cast<int>( position.Y ) )) {
+    if (!SDL_SetWindowPosition( window, static_cast<int>( position.x ), static_cast<int>( position.y ) )) {
         NC_LOG_ERROR_C( log::GRAPHICS, "Failed to set position for window {}: {}", window_id, SDL_GetError() );
     }
 }
@@ -158,7 +158,7 @@ Vec2 WindowModule::window_get_resolution( uint32_t window_id ) const
 void WindowModule::window_set_resolution( uint32_t window_id, Vec2 resolution )
 {
     auto window = pImpl->get_sdl_window( window_id );
-    if (!SDL_SetWindowSize( window, static_cast<int>( resolution.X ), static_cast<int>( resolution.Y ) )) {
+    if (!SDL_SetWindowSize( window, static_cast<int>( resolution.x ), static_cast<int>( resolution.y ) )) {
         NC_LOG_ERROR_C( log::GRAPHICS, "Failed to set resolution for window {}: {}", window_id, SDL_GetError() );
     }
 }

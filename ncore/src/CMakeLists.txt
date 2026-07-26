@@ -3,7 +3,6 @@ target_sources(
   PRIVATE "application.cpp"
           "core/memory.cpp"
           "core/object.cpp"
-          "core/structures.cpp"
           "core/types.cpp"
           "backends/box2d/box2d_physics_impl.h"
           "backends/box2d/box2d_physics_impl.cpp"

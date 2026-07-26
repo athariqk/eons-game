@@ -64,13 +64,13 @@ void EcsBaseFeatures::build( EcsWorld& world )
 
     world.create_system( "EcsBaseFeatures::TransformPropagator" )
         .in( EcsSystemPhase::UPDATE )
-        .with<EcsTransform>()
+        .with<EcsTransform2D>()
         .each( []( QueryContext& ctx, EcsEntityId eid ) {
-            auto transform = ctx.get_component<EcsTransform>();
-            transform->position += Vec2{ 0.1f, 0.0f };
+            auto xform = ctx.get_component<EcsTransform2D>();
+
             NC_LOG_TRACE_C(
                 log::ECS, "Entity: {}, Transform: {}", eid,
-                rtti::TypeRegistry::to_string( transform, rtti::TypeRegistry::get_type_id<EcsTransform>() )
+                rtti::TypeRegistry::to_string( xform, rtti::TypeRegistry::get_type_id<EcsTransform2D>() )
             );
         } );
 

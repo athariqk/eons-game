@@ -491,8 +491,23 @@ public:
     {
         auto t = find( id );
         if (!t)
-            return "<unknown type>";
-        return std::format( "<{}:{}>", t->name, instance );
+            return "UnknownType";
+        if (t->is_record()) {
+            auto c = static_cast<const RecordInfo*>( t );
+            std::string result;
+            result += c->name;
+            result += "(";
+
+            for (std::size_t i = 0; i < c->field_count(); ++i) {
+                if (i != 0)
+                    result += ",";
+                result += std::format( "{}={}", c->fields()[i].name, c->fields()[i].get_void_ptr( instance ) );
+            }
+
+            result += ")";
+            return result;
+        }
+        return std::format( "{}({})", t->name, instance );
     }
 
     static const TypeInfo& get( TypeId id ) noexcept;
@@ -554,6 +569,12 @@ public:
         const RecordInfo* c = find_record<T>();
         NC_ASSERT( c, "Record type is not found in the registry" );
         return *c;
+    }
+
+    template<typename T>
+    static const std::string to_string( void* instance )
+    {
+        return to_string( instance, detail::type_id<T>() );
     }
 
     static int get_rtti_hits()

@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <variant>
 
-#include <ncore/core/structures.h>
+#include <ncore/core/vector.h>
 
 namespace nc {
 

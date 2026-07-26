@@ -3,8 +3,9 @@
 #include <memory>
 
 #include <ncore/core/collection.h>
+#include <ncore/core/color.h>
 #include <ncore/core/rid.h>
-#include <ncore/core/structures.h>
+#include <ncore/core/vector.h>
 #include <ncore/modules/module.h>
 #include <ncore/modules/video/renderer/geometry.h>
 
@@ -53,10 +54,20 @@ public:
     void frame_begin();
     void frame_end();
 
+    /**
+     * @brief Immediate draw an array of indexed vertices.
+     */
     void canvas_draw_triangles(
         std::span<const Vertex2D> verts, std::span<const uint16_t> indices, RID material, Vec4 clip = {}
     );
-    void canvas_draw_quad( Vec2 pos, Vec2 size, RID material, Vec4 uv_rect, Color tint, Vec4 clip = {} );
+
+    /**
+     * @brief Immediate draw a simple 2D rectangle.
+     */
+    void canvas_draw_quad(
+        Vec2 points[4], RID material, Color tint = Color( 255, 255, 255, 255 ),
+        Vec4 uv_rect = Vec4( 0.0f, 0.0f, 1.0f, 1.0f ), Vec4 clip = {}
+    );
 
     /**
      * @brief Return the internal RHI and storage for advanced use.

@@ -70,8 +70,10 @@ RID ResourceManager::load_resource( const std::string_view path )
     }
 
     auto cached = path_map.find( fs_path_str );
-    if (cached != path_map.end())
+    if (cached != path_map.end()) {
+        NC_LOG_DEBUG_C( log::IO, "load_resource: cache HIT, RID={} filepath={}", cached->second.value, cached->first );
         return cached->second;
+    }
 
     NC_LOG_TRACE_C( log::IO, "Importing resource from path: {}", fs_path_str );
 

@@ -9,7 +9,7 @@
 #include <ncore/core/object.h>
 #include <ncore/core/random.h>
 #include <ncore/core/rid.h>
-#include <ncore/core/structures.h>
+#include <ncore/core/vector.h>
 #include <ncore/core/types.h>
 #include <ncore/game_world.h>
 #include <ncore/modules/module.h>

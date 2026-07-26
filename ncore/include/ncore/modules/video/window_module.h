@@ -5,7 +5,7 @@
 
 #include <ncore/core/collection.h>
 #include <ncore/core/reference.h>
-#include <ncore/core/structures.h>
+#include <ncore/core/vector.h>
 #include <ncore/modules/module.h>
 
 #include "window/window_event.h"
