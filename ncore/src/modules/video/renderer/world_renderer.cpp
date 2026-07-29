@@ -19,7 +19,7 @@ WorldRenderer::WorldRenderer()
 }
 
 void WorldRenderer::submit_mesh(
-    RID vertex_buffer, RID index_buffer, uint32_t index_count, RID pso, RID srb, const float model_matrix[16]
+    RID vertex_buffer, RID index_buffer, uint32_t index_count, RID pso, RID srb, const Mat4& /*model_matrix*/
 )
 {
     if (ubo_index >= model_ubo_pool.size())

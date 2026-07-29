@@ -23,15 +23,15 @@ struct ShaderParamInfo {
     uint32_t location          = 0;
     size_t offset              = 0;
     size_t stride              = 0;
-    Vector<ShaderParamField> fields;
+    DynArray<ShaderParamField> fields;
 };
 
-using ShaderParamLayout = Vector<ShaderParamInfo>;
+using ShaderParamLayout = DynArray<ShaderParamInfo>;
 
 struct ShaderDesc {
     ShaderType stage;
     std::string entrypoint;
-    Vector<uint32_t> bytecode;
+    DynArray<uint32_t> bytecode;
     ShaderParamLayout params;
     VertexLayout vert_layout;
 };

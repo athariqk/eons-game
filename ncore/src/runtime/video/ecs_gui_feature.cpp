@@ -74,7 +74,7 @@ void EcsGuiFeature::build( EcsWorld& world )
 
         ctx.world()
             .create_entity( "ImGui_Material" )
-            .with<EcsMaterialInstance>( EcsMaterialInstance{ .template_ref = tmpl, .material = mat, .textures = {} } )
+            .with<EcsMaterialInstance>( EcsMaterialInstance{ .template_resource = tmpl, .material = mat, .textures = {} } )
             .child_of( state_id )
             .build();
     } );
@@ -94,6 +94,11 @@ void EcsGuiFeature::build( EcsWorld& world )
                 tex->SetTexID( ImTextureID_Invalid );
                 tex->SetStatus( ImTextureStatus_Destroyed );
             }
+
+			auto& fonts = ImGui::GetIO().Fonts->Fonts;
+			for (auto font : fonts) {
+                ImGui::GetIO().Fonts->RemoveFont( font );
+			}
 
             if (state->imgui_ctx)
                 ImGui::DestroyContext( state->imgui_ctx );
@@ -214,7 +219,7 @@ void EcsGuiFeature::build( EcsWorld& world )
                 switch (tex->Status) {
                     case ImTextureStatus_WantCreate: {
                         Image image( tex->Width, tex->Height, tex->GetPixels() );
-                        RID rid = gfx->renderer->create_texture_2d( image );
+                        RID rid = gfx->renderer->texture_2d_create( image );
                         tex->SetTexID( reinterpret_cast<ImTextureID>( static_cast<uintptr_t>( rid.value ) ) );
                         tex->BackendUserData = reinterpret_cast<void*>( static_cast<uintptr_t>( rid.value ) );
                         tex->SetStatus( ImTextureStatus_OK );
@@ -232,7 +237,7 @@ void EcsGuiFeature::build( EcsWorld& world )
                         RID old_rid( reinterpret_cast<uintptr_t>( tex->BackendUserData ) );
                         gfx->renderer->destroy_rid( old_rid );
                         Image image( tex->Width, tex->Height, tex->GetPixels() );
-                        RID new_rid = gfx->renderer->create_texture_2d( image );
+                        RID new_rid = gfx->renderer->texture_2d_create( image );
                         tex->SetTexID( reinterpret_cast<ImTextureID>( static_cast<uintptr_t>( new_rid.value ) ) );
                         tex->BackendUserData = reinterpret_cast<void*>( static_cast<uintptr_t>( new_rid.value ) );
                         tex->SetStatus( ImTextureStatus_OK );
@@ -264,7 +269,7 @@ void EcsGuiFeature::build( EcsWorld& world )
                     if (cmd.ElemCount == 0)
                         continue;
 
-                    Vec4 clip_rect = Vec4(
+                    Rect clip_rect = Rect(
                         ( cmd.ClipRect.x - dd->DisplayPos.x ) * dd->FramebufferScale.x,
                         ( cmd.ClipRect.y - dd->DisplayPos.y ) * dd->FramebufferScale.y,
                         ( cmd.ClipRect.z - cmd.ClipRect.x ) * dd->FramebufferScale.x,
@@ -287,7 +292,7 @@ void EcsGuiFeature::build( EcsWorld& world )
 
                     NC_LOG_TRACE_C(
                         log::GRAPHICS, "  canvas_draw_triangles: {} verts, {} idx, clip={:.0f},{:.0f} {:.0f}x{:.0f}",
-                        vert_count, idx_count, clip_rect.x, clip_rect.y, clip_rect.z, clip_rect.w
+                        vert_count, idx_count, clip_rect.x, clip_rect.y, clip_rect.w, clip_rect.h
                     );
                     gfx->renderer->canvas_draw_triangles(
                         { vtx, vert_count }, { idx, idx_count }, state->material, clip_rect

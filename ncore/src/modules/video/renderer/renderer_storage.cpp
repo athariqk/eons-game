@@ -1,10 +1,11 @@
 #include <algorithm>
 #include <cstring>
 
-#include <ncore/modules/video/renderer/geometry.h>
 #include <ncore/modules/video/renderer/renderer_storage.h>
+#include <ncore/modules/video/renderer/vertex_format.h>
 #include <ncore/modules/video/rhi.h>
 #include <ncore/resources/material_template.h>
+#include <ncore/resources/mesh.h>
 #include <ncore/resources/shader.h>
 
 namespace nc {
@@ -50,7 +51,7 @@ bool RendererStorage::PSOKey::operator==( const PSOKey& o ) const
     return true;
 }
 
-RID RendererStorage::get_pipeline_or_create( const PSOKey& key, IRHI* rhi )
+RID RendererStorage::get_pipeline_or_create( const PSOKey& key )
 {
     auto it = pso_cache.find( key );
     if (it != pso_cache.end()) {
@@ -140,13 +141,15 @@ size_t RendererStorage::PSOKeyHasher::operator()( const PSOKey& p ) const
     return h;
 }
 
-RID RendererStorage::material_create( const MaterialTemplate& tmpl, IRHI* rhi )
+// ---------------------------------------------------------------------------
+
+RID RendererStorage::material_create( const MaterialTemplate& tmpl )
 {
     NC_ASSERT_NULL( rhi );
 
     auto sig_descs = build_resource_signatures_( tmpl );
 
-    Vector<RID> sig_rids;
+    DynArray<RID> sig_rids;
     sig_rids.reserve( sig_descs.size() );
     for (auto& desc : sig_descs) {
         sig_rids.push_back( rhi->resource_signature_create( desc ) );
@@ -154,7 +157,7 @@ RID RendererStorage::material_create( const MaterialTemplate& tmpl, IRHI* rhi )
 
     auto key                = get_pso_key_( tmpl );
     key.resource_signatures = sig_rids;
-    RID pso                 = get_pipeline_or_create( key, rhi );
+    RID pso                 = get_pipeline_or_create( key );
 
     RID rid  = materials.acquire();
     auto mat = materials.get( rid );
@@ -169,7 +172,7 @@ RID RendererStorage::material_create( const MaterialTemplate& tmpl, IRHI* rhi )
     }
 
     SamplerDesc sdesc;
-    sdesc.debug_name = tmpl.debug_name + "_sampler";
+    sdesc.debug_name = tmpl.debug_name + "_Sampler";
     sdesc.mag_filter = SamplerFilter::LINEAR;
     sdesc.min_filter = SamplerFilter::LINEAR;
     sdesc.mip_filter = SamplerFilter::LINEAR;
@@ -179,8 +182,8 @@ RID RendererStorage::material_create( const MaterialTemplate& tmpl, IRHI* rhi )
     mat->sampler     = rhi->sampler_create( sdesc );
 
     BufferDesc bdesc;
-    bdesc.debug_name     = tmpl.debug_name + "_constants";
-    bdesc.size           = 64;
+    bdesc.debug_name     = tmpl.debug_name + "_Constants";
+    bdesc.size           = sizeof( ShaderConstants );
     bdesc.usage          = ResourceUsage::DYNAMIC;
     bdesc.access_mask    = ResourceAccessFlags::WRITE;
     bdesc.bind_mask      = ResourceBindFlags::UNIFORM_BUFFER;
@@ -220,14 +223,112 @@ RID RendererStorage::material_create( const MaterialTemplate& tmpl, IRHI* rhi )
     return rid;
 }
 
-Material* RendererStorage::get_material( RID handle )
+void RendererStorage::material_set_texture( RID handle, RID texture, uint32_t slot )
 {
-    return materials.get( handle );
+    NC_ASSERT_NULL( rhi );
+
+    auto mat = get_material_( handle );
+    if (!mat || slot >= mat->texture_slots.size())
+        return;
+
+    auto& ts = mat->texture_slots[slot];
+    if (ts.srb_index < mat->srbs.size() && mat->srbs[ts.srb_index].is_valid())
+        rhi->texture_binding_update( texture, mat->srbs[ts.srb_index], ts.name.c_str() );
+}
+
+void RendererStorage::material_bind( RID handle, const ShaderConstants& constants )
+{
+    NC_ASSERT_NULL( rhi );
+
+    auto mat = get_material_( handle );
+    NC_ASSERT_NULL( mat );
+
+    NC_LOG_TRACE_C(
+        log::GRAPHICS, "material_bind: PSO rid={} CB rid={} SRBs={}", mat->pso.value, mat->constant_buffer.value,
+        mat->srbs.size()
+    );
+
+    rhi->gfx_pipeline_bind( mat->pso );
+
+    rhi->buffer_update( mat->constant_buffer, &constants, sizeof( ShaderConstants ) );
+    NC_LOG_TRACE_C(
+        log::GRAPHICS, "material_bind: CB updated ({} bytes, [{:.4f}, {:.4f}, {:.4f}, {:.4f} ...])",
+        sizeof( constants.ViewMatrix ), constants.ViewMatrix.data()[0], constants.ViewMatrix.data()[1],
+        constants.ViewMatrix.data()[4], constants.ViewMatrix.data()[5]
+    );
+
+    for (auto& srb : mat->srbs) {
+        if (srb.is_valid())
+            rhi->resource_binding_commit( srb );
+    }
 }
 
 void RendererStorage::destroy_materials()
 {
     materials.release_all();
+}
+
+// ---------------------------------------------------------------------------
+
+RID RendererStorage::gpu_mesh_create( const Mesh& mesh )
+{
+    auto rid    = gpu_meshes.acquire();
+    auto result = gpu_meshes.get( rid );
+    NC_ASSERT_NULL( result );
+
+    auto basename = std::string( mesh.get_class_name() ) + "_" + mesh.filepath + "_";
+
+    NC_LOG_DEBUG_C(
+        log::GRAPHICS, "gpu_mesh_create: RID={} vert_count={} idx_count={}", rid.value, mesh.vertex_count(),
+        mesh.index_count()
+    );
+
+    BufferDesc vdesc;
+    vdesc.debug_name   = basename + "VertexBuffer";
+    vdesc.size         = mesh.get_vertices().size();
+    vdesc.usage        = ResourceUsage::IMMUTABLE;
+    vdesc.bind_mask    = ResourceBindFlags::VERTEX_BUFFER;
+    vdesc.initial_data = mesh.get_vertices().data();
+    result->vertices   = rhi->buffer_create( vdesc );
+
+    BufferDesc idesc;
+    idesc.debug_name    = basename + "IndexBuffer";
+    idesc.size          = mesh.get_indices().size_bytes();
+    idesc.usage         = ResourceUsage::IMMUTABLE;
+    idesc.bind_mask     = ResourceBindFlags::INDEX_BUFFER;
+    idesc.initial_data  = mesh.get_indices().data();
+    result->indices     = rhi->buffer_create( idesc );
+    result->index_count = static_cast<uint32_t>( mesh.index_count() );
+
+    return rid;
+}
+
+void RendererStorage::gpu_mesh_bind( RID handle )
+{
+    auto mesh = get_gpu_mesh( handle );
+    rhi->vertex_buffers_bind( { &mesh->vertices, 1 }, 0 );
+    rhi->index_buffer_bind( mesh->indices, 0 );
+}
+
+RendererStorage::GPUMesh* RendererStorage::get_gpu_mesh( RID handle )
+{
+    auto result = gpu_meshes.get( handle );
+    NC_ASSERT_NULL( result );
+    return result;
+}
+
+void RendererStorage::destroy_gpu_meshes()
+{
+    gpu_meshes.release_all();
+}
+
+// ---------------------------------------------------------------------------
+
+RendererStorage::Material* RendererStorage::get_material_( RID handle )
+{
+    auto result = materials.get( handle );
+    NC_ASSERT_NULL( result );
+    return result;
 }
 
 RendererStorage::PSOKey RendererStorage::get_pso_key_( const MaterialTemplate& tmpl )
@@ -265,7 +366,7 @@ RendererStorage::PSOKey RendererStorage::get_pso_key_( const MaterialTemplate& t
     return key;
 }
 
-Vector<ResourceSignatureDesc> RendererStorage::build_resource_signatures_( const MaterialTemplate& tmpl )
+DynArray<ResourceSignatureDesc> RendererStorage::build_resource_signatures_( const MaterialTemplate& tmpl )
 {
     HashMap<uint8_t, ResourceSignatureDesc> sets;
 
@@ -308,16 +409,16 @@ Vector<ResourceSignatureDesc> RendererStorage::build_resource_signatures_( const
                     res.name          = param.name + "." + f.name;
                     res.resource_type = ResourceType::TEXTURE_SRV;
                     res.stage         = ShaderType::PIXEL;
+                    NC_LOG_DEBUG_C( log::GRAPHICS, "  -> add texture '{}' set={} stage=PIXEL", res.name, set );
                     add_resource( set, std::move( res ) );
                     binding++;
-                    NC_LOG_DEBUG_C( log::GRAPHICS, "  -> add texture '{}' set={} stage=PIXEL", res.name, set );
                 } else if (f.type == ShaderValueType::SAMPLER) {
                     res.name          = param.name + "." + f.name;
                     res.resource_type = ResourceType::SAMPLER;
                     res.stage         = ShaderType::PIXEL;
+                    NC_LOG_DEBUG_C( log::GRAPHICS, "  -> add sampler '{}' set={} stage=PIXEL", res.name, set );
                     add_resource( set, std::move( res ) );
                     binding++;
-                    NC_LOG_DEBUG_C( log::GRAPHICS, "  -> add sampler '{}' set={} stage=PIXEL", res.name, set );
                 }
             }
             ( void ) binding;
@@ -327,19 +428,19 @@ Vector<ResourceSignatureDesc> RendererStorage::build_resource_signatures_( const
             res.resource_type = ResourceType::CONSTANT_BUFFER;
             res.stage         = ShaderType::MULTIPLE;
             res.array_size    = 1;
-            add_resource( set, std::move( res ) );
             NC_LOG_DEBUG_C( log::GRAPHICS, "  -> add CB '{}' set={} stage=MULTIPLE", res.name, set );
+            add_resource( set, std::move( res ) );
         } else if (param.resource_type == ResourceType::TEXTURE_SRV || param.resource_type == ResourceType::SAMPLER) {
             PipelineResourceDesc res;
             res.name          = param.name;
             res.resource_type = param.resource_type;
             res.stage         = ShaderType::PIXEL;
             res.array_size    = 1;
-            add_resource( set, std::move( res ) );
             NC_LOG_DEBUG_C(
                 log::GRAPHICS, "  -> add standalone '{}' type={} set={} stage=PIXEL", res.name,
                 static_cast<int>( res.resource_type ), set
             );
+            add_resource( set, std::move( res ) );
         }
     }
 
@@ -354,7 +455,7 @@ Vector<ResourceSignatureDesc> RendererStorage::build_resource_signatures_( const
         NC_LOG_DEBUG_C( log::GRAPHICS, "  set {}: resources=[{}]", s, names );
     }
 
-    Vector<ResourceSignatureDesc> result;
+    DynArray<ResourceSignatureDesc> result;
     result.reserve( sets.size() );
     for (auto& [set, sig] : sets) {
         result.push_back( std::move( sig ) );

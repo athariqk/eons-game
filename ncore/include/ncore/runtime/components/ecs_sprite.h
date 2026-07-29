@@ -6,11 +6,11 @@
 
 namespace nc {
 
-struct NCAPI EcsSpriteRenderer {
+struct NCAPI EcsSpriteInstance {
     RID texture;
     Color tint{ 255, 255, 255, 255 };
 
-    NSTRUCT( EcsSpriteRenderer, NC_F( EcsSpriteRenderer, texture ) NC_F( EcsSpriteRenderer, tint ) )
+    NSTRUCT( EcsSpriteInstance, NC_F( EcsSpriteInstance, texture ) NC_F( EcsSpriteInstance, tint ) )
 };
 
 struct EcsCircleDraw {

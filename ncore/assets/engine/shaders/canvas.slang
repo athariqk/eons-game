@@ -1,48 +1,27 @@
 import common;
 
-ConstantBuffer<Constants> constants;
-
-struct VertexInput
-{
-    float2 pos;
-    float2 uv : TEXCOORD1;
-    float4 col : TEXCOORD2;
-};
-
-struct VertexOutput
-{
-    float4 col : TEXCOORD0;
-    float2 uv : TEXCOORD1;
-    float4 pos : SV_Position;
-};
-
-struct PixelInput
-{
-    float4 col : TEXCOORD0;
-    float2 uv : TEXCOORD1;
-};
-
-struct Bindings {
+struct ShaderBindings {
 	Texture2D Texture;
 	SamplerState Sampler;
 }
 
-ParameterBlock<Bindings> bindings;
+ConstantBuffer<ShaderConstants> g_Constants;
+ParameterBlock<ShaderBindings> g_Bindings;
 
 [shader("vertex")]
-VertexOutput vertex(VertexInput input)
+VertexOut vertex(Vertex2DIn input)
 {
-    VertexOutput output;
-    output.col = input.col;
-    output.uv = input.uv;
-    output.pos = mul(constants.ProjectionMatrix, float4(input.pos, 0.0, 1.0));
+    VertexOut output;
+    output.Color = input.Color;
+    output.UV = input.UV;
+    output.Position = mul(g_Constants.ViewMatrix, float4(input.Position, 0.0, 1.0));
     return output;
 }
 
 [shader("pixel")]
-float4 fragment(PixelInput input) : SV_Target
+float4 fragment(PixelIn input) : SV_Target
 {
-    float4 color = bindings.Texture.Sample(bindings.Sampler, input.uv) * input.col;
+    float4 color = g_Bindings.Texture.Sample(g_Bindings.Sampler, input.UV) * input.Color;
 
     // Premultiply alpha
     color.rgb *= color.a;

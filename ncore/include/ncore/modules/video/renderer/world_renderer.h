@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ncore/core/collection.h>
+#include <ncore/core/matrix.h>
 #include <ncore/core/rid.h>
 
 #include "../rhi.h"
@@ -17,7 +18,7 @@ public:
     }
 
     void submit_mesh(
-        RID vertex_buffer, RID index_buffer, uint32_t index_count, RID pso, RID srb, const float model_matrix[16]
+        RID vertex_buffer, RID index_buffer, uint32_t index_count, RID pso, RID srb, const Mat4& model_matrix
     );
 
     void flush();
@@ -38,8 +39,8 @@ private:
     };
 
     IRHI* m_rhi;
-    Vector<WorldDrawCmd> draw_queue;
-    Vector<RID> model_ubo_pool;
+    DynArray<WorldDrawCmd> draw_queue;
+    DynArray<RID> model_ubo_pool;
     size_t ubo_index = 0;
 };
 

@@ -16,7 +16,7 @@ namespace nc {
 
 struct WindowModule::Impl {
     HashMap<CursorType, SDL_Cursor*> mouse_cursors;
-    Vector<uint32_t> window_ids;
+    DynArray<uint32_t> window_ids;
 
     SDL_Window* get_sdl_window( uint32_t id )
     {

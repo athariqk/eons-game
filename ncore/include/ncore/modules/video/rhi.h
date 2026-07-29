@@ -2,6 +2,7 @@
 
 #include <ncore/core/color.h>
 #include <ncore/core/object.h>
+#include <ncore/core/rect.h>
 
 #include "rhi_types.h"
 
@@ -42,19 +43,22 @@ public:
     /**
      * @param resource_signatures List of explicitly created resource signature handles.
      */
-    virtual RID gfx_pipeline_create( const GraphicsPSODesc& desc, Vector<RID> resource_signatures = {} ) = 0;
-    virtual void gfx_pipeline_bind( RID pipeline )                                                       = 0;
-    virtual void gfx_pipeline_reload( RID pipeline )                                                     = 0;
+    virtual RID gfx_pipeline_create( const GraphicsPSODesc& desc, DynArray<RID> resource_signatures = {} ) = 0;
+    virtual void gfx_pipeline_bind( RID pipeline )                                                         = 0;
+    virtual void gfx_pipeline_reload( RID pipeline )                                                       = 0;
 
     struct Viewport {
-        Vec4 rect;
+        Rect rect;
         float min_depth = 0;
         float max_depth = 1;
     };
 
-    virtual void render_target_bind( std::span<const void*> rtvs, void* dsv = nullptr )          = 0;
+    virtual void render_target_bind( std::span<const void*> rtvs, void* dsv = nullptr ) = 0;
+    /**
+     * @brief Set viewport(s) of currently bound render target.
+     */
     virtual void render_target_set_viewport( std::span<const Viewport> viewports )               = 0;
-    virtual void render_target_set_scissor_rect( std::span<const Vec4> rect )                    = 0;
+    virtual void render_target_set_scissor_rect( std::span<const Rect> rect )                    = 0;
     virtual void render_target_clear_color( void* rtv, const Color& color )                      = 0;
     virtual void render_target_clear_depth( void* dsv, float depth = 1.0f, uint8_t stencil = 0 ) = 0;
 
@@ -80,8 +84,8 @@ public:
     virtual void buffer_update( RID buffer, const void* data, size_t size )         = 0;
     virtual void buffer_update_binding( RID buffer, RID binding, const char* name ) = 0;
     virtual void
-    vertex_buffers_bind( std::span<const RID> buffers, uint32_t slot, std::span<const uint64_t> offsets ) = 0;
-    virtual void index_buffer_bind( RID buffer, uint32_t offset )                                         = 0;
+    vertex_buffers_bind( std::span<const RID> buffers, uint32_t slot, std::span<const uint64_t> offsets = {} ) = 0;
+    virtual void index_buffer_bind( RID buffer, uint32_t offset )                                              = 0;
 
     virtual RID resource_signature_create( const ResourceSignatureDesc& desc ) = 0;
 

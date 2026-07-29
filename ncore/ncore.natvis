@@ -1,36 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
 	<Type Name="nc::RID">
-		<DisplayString>({value})</DisplayString>
+		<DisplayString>RID({value})</DisplayString>
 		<Expand>
 			<Item Name="value">value</Item>
 		</Expand>
 	</Type>
+
 	<Type Name="nc::ResourceFormatID">
-		<DisplayString>({id})</DisplayString>
+		<DisplayString>ResourceFormatID({id})</DisplayString>
+		<Expand>
+			<Item Name="id">id</Item>
+			<Item Name="id (hex)">id,x</Item>
+		</Expand>
 	</Type>
+
 	<Type Name="nc::Ref&lt;*&gt;">
-		<DisplayString>{obj}</DisplayString>
+		<DisplayString Condition="obj == 0">null</DisplayString>
+		<DisplayString Condition="obj != 0">{*obj}</DisplayString>
 		<Expand>
 			<Item Name="ptr">obj</Item>
+			<ExpandedItem Condition="obj != 0">*obj</ExpandedItem>
 		</Expand>
 	</Type>
+
 	<Type Name="nc::Vec2">
-		<DisplayString>({X}, {Y})</DisplayString>
+		<DisplayString>({x}, {y})</DisplayString>
 		<Expand>
-			<Item Name="X">X</Item>
-			<Item Name="Y">Y</Item>
+			<Item Name="x">x</Item>
+			<Item Name="y">y</Item>
 		</Expand>
 	</Type>
+
 	<Type Name="nc::Vec4">
-		<DisplayString>({X}, {Y}, {W}, {H})</DisplayString>
+		<DisplayString>({x}, {y}, {z}, {w})</DisplayString>
 		<Expand>
-			<Item Name="X">X</Item>
-			<Item Name="Y">Y</Item>
-			<Item Name="W">W</Item>
-			<Item Name="H">H</Item>
+			<Item Name="x">x</Item>
+			<Item Name="y">y</Item>
+			<Item Name="z">z</Item>
+			<Item Name="w">w</Item>
 		</Expand>
 	</Type>
+
 	<Type Name="nc::Color">
 		<DisplayString>(r={r}, g={g}, b={b}, a={a})</DisplayString>
 		<Expand>
@@ -40,33 +51,60 @@
 			<Item Name="a">a</Item>
 		</Expand>
 	</Type>
+
 	<Type Name="nc::Vertex2D">
-		<DisplayString>(pos={x}, {y} uv={u}, {v})</DisplayString>
+		<DisplayString>pos=({x}, {y}) uv=({u}, {v}) color={color}</DisplayString>
 		<Expand>
-			<Item Name="pos">nc::Vec2{x, y}</Item>
-			<Item Name="uv">nc::Vec2{u, v}</Item>
+			<Synthetic Name="pos">
+				<DisplayString>({x}, {y})</DisplayString>
+			</Synthetic>
+			<Synthetic Name="uv">
+				<DisplayString>({u}, {v})</DisplayString>
+			</Synthetic>
 			<Item Name="color">color</Item>
 		</Expand>
 	</Type>
+
 	<Type Name="nc::Vertex3D">
-		<DisplayString>(pos={px}, {py}, {pz})</DisplayString>
+		<DisplayString>pos=({px}, {py}, {pz}) uv=({u}, {v}) color={color}</DisplayString>
 		<Expand>
-			<Item Name="pos">nc::Vec2{px, py}</Item>
-			<Item Name="normal">nc::Vec2{nx, ny}</Item>
-			<Item Name="tangent">nc::Vec2{tx, ty}</Item>
-			<Item Name="uv">nc::Vec2{u, v}</Item>
-			<Item Name="uv2">nc::Vec2{u2, v2}</Item>
+			<Synthetic Name="pos">
+				<DisplayString>({px}, {py}, {pz})</DisplayString>
+			</Synthetic>
+			<Synthetic Name="normal">
+				<DisplayString>({nx}, {ny}, {nz})</DisplayString>
+			</Synthetic>
+			<Synthetic Name="tangent">
+				<DisplayString>({tx}, {ty}, {tz})</DisplayString>
+			</Synthetic>
+			<Synthetic Name="uv">
+				<DisplayString>({u}, {v})</DisplayString>
+			</Synthetic>
+			<Synthetic Name="uv2">
+				<DisplayString>({u2}, {v2})</DisplayString>
+			</Synthetic>
 			<Item Name="color">color</Item>
 		</Expand>
 	</Type>
+
 	<Type Name="nc::SkinnedVertex3D">
-		<DisplayString>(pos={px}, {py}, {pz})</DisplayString>
+		<DisplayString>pos=({px}, {py}, {pz}) weights=[{weights[0]}, {weights[1]}, {weights[2]}, {weights[3]}]</DisplayString>
 		<Expand>
-			<Item Name="pos">nc::Vec2{px, py}</Item>
-			<Item Name="normal">nc::Vec2{nx, ny}</Item>
-			<Item Name="tangent">nc::Vec2{tx, ty}</Item>
-			<Item Name="uv">nc::Vec2{u, v}</Item>
-			<Item Name="uv2">nc::Vec2{u2, v2}</Item>
+			<Synthetic Name="pos">
+				<DisplayString>({px}, {py}, {pz})</DisplayString>
+			</Synthetic>
+			<Synthetic Name="normal">
+				<DisplayString>({nx}, {ny}, {nz})</DisplayString>
+			</Synthetic>
+			<Synthetic Name="tangent">
+				<DisplayString>({tx}, {ty}, {tz})</DisplayString>
+			</Synthetic>
+			<Synthetic Name="uv">
+				<DisplayString>({u}, {v})</DisplayString>
+			</Synthetic>
+			<Synthetic Name="uv2">
+				<DisplayString>({u2}, {v2})</DisplayString>
+			</Synthetic>
 			<Item Name="color">color</Item>
 			<ArrayItems>
 				<Size>4</Size>
@@ -74,49 +112,67 @@
 			</ArrayItems>
 		</Expand>
 	</Type>
-	<Type Name="nc::Vector&lt;*&gt;">
-		<DisplayString>{*(std::vector&lt;$T1&gt;*)this}</DisplayString>
+
+	<Type Name="nc::DynArray&lt;*&gt;">
+		<DisplayString>{{ size={((std::vector&lt;$T1&gt;*)this)-&gt;size()} bytes={((std::vector&lt;$T1&gt;*)this)-&gt;size() * sizeof($T1)} }}</DisplayString>
 		<Expand>
+			<Item Name="size">((std::vector&lt;$T1&gt;*)this)-&gt;size()</Item>
+			<Item Name="capacity">((std::vector&lt;$T1&gt;*)this)-&gt;capacity()</Item>
+			<Item Name="bytes">((std::vector&lt;$T1&gt;*)this)-&gt;size() * sizeof($T1)</Item>
 			<ExpandedItem>*(std::vector&lt;$T1&gt;*)this</ExpandedItem>
 		</Expand>
 	</Type>
 
 	<Type Name="nc::HashMap&lt;*,*&gt;">
-		<DisplayString>{*(std::unordered_map&lt;$T1,$T2&gt;*)this}</DisplayString>
+		<DisplayString>{{ size={((std::unordered_map&lt;$T1,$T2&gt;*)this)-&gt;size()} bytes(approx)={((std::unordered_map&lt;$T1,$T2&gt;*)this)-&gt;size() * sizeof(std::pair&lt;const $T1,$T2&gt;)} }}</DisplayString>
 		<Expand>
+			<Item Name="size">((std::unordered_map&lt;$T1,$T2&gt;*)this)-&gt;size()</Item>
+			<Item Name="bytes (approx, excludes bucket overhead)">((std::unordered_map&lt;$T1,$T2&gt;*)this)-&gt;size() * sizeof(std::pair&lt;const $T1,$T2&gt;)</Item>
 			<ExpandedItem>*(std::unordered_map&lt;$T1,$T2&gt;*)this</ExpandedItem>
 		</Expand>
 	</Type>
 
 	<Type Name="nc::Array&lt;*,*&gt;">
-		<DisplayString>{*(std::array&lt;$T1,$S&gt;*)this}</DisplayString>
+		<DisplayString>{{ size={$T2} bytes={$T2 * sizeof($T1)} }}</DisplayString>
 		<Expand>
-			<ExpandedItem>*(std::array&lt;$T1,$S&gt;*)this</ExpandedItem>
+			<Item Name="size">$T2</Item>
+			<Item Name="bytes">$T2 * sizeof($T1)</Item>
+			<ExpandedItem>*(std::array&lt;$T1,$T2&gt;*)this</ExpandedItem>
 		</Expand>
 	</Type>
+
 	<Type Name="nc::RendererStorage::PSOFlags">
-		<DisplayString>({(__int64)$e})</DisplayString>
+		<DisplayString>
+			Cull={((__int64)$e) &amp; 0x3}
+			Depth=[test={((((__int64)$e) &amp; 0x4) != 0) ? "ON" : "OFF"} write={((((__int64)$e) &amp; 0x8) != 0) ? "ON" : "OFF"}]
+			Blend={(((__int64)$e) &gt;&gt; 4) &amp; 0xF}
+			Scissor={((((__int64)$e) &amp; 0x8000000) != 0) ? "ON" : "OFF"}
+			(raw=0x{(__int64)$e,x})
+		</DisplayString>
 		<Expand>
 			<Item Name="cull">((__int64)$e) &amp; 0x3</Item>
-			<Item Name="depth_test">((($__int64)$e &amp; 0x4) != 0) ? "ON" : "OFF"</Item>
-			<Item Name="depth_write">((($__int64)$e &amp; 0x8) != 0) ? "ON" : "OFF"</Item>
+			<Item Name="depth_test">((((__int64)$e) &amp; 0x4) != 0) ? "ON" : "OFF"</Item>
+			<Item Name="depth_write">((((__int64)$e) &amp; 0x8) != 0) ? "ON" : "OFF"</Item>
 			<Item Name="blend">(((__int64)$e) &gt;&gt; 4) &amp; 0xF</Item>
-			<Item Name="scissor">((($__int64)$e &amp; 0x8000000) != 0) ? "ON" : "OFF"</Item>
+			<Item Name="scissor">((((__int64)$e) &amp; 0x8000000) != 0) ? "ON" : "OFF"</Item>
+			<Item Name="raw">(__int64)$e</Item>
 		</Expand>
 	</Type>
+
 	<Type Name="nc::RendererStorage::PSOKey">
-		<DisplayString>{debug_name}</DisplayString>
+		<DisplayString>{debug_name} (vs={vs}, ps={ps})</DisplayString>
 		<Expand>
+			<Item Name="debug_name">debug_name</Item>
 			<Item Name="flags">flags</Item>
 			<Item Name="vs">vs</Item>
 			<Item Name="ps">ps</Item>
 			<Item Name="vertex_layout">vertex_layout</Item>
 			<Item Name="resource_signatures">resource_signatures</Item>
-			<Item Name="debug_name">debug_name</Item>
 		</Expand>
 	</Type>
+
 	<Type Name="nc::Material">
-		<DisplayString>Material PSO=({pso})</DisplayString>
+		<DisplayString>Material (pso={pso})</DisplayString>
 		<Expand>
 			<Item Name="pso">pso</Item>
 			<Item Name="resource_signatures">resource_signatures</Item>
@@ -126,11 +182,25 @@
 			<Item Name="texture_slots">texture_slots</Item>
 		</Expand>
 	</Type>
+
 	<Type Name="nc::TextureSlot">
-		<DisplayString>({name}, srb={srb_index})</DisplayString>
+		<DisplayString>{name} (srb={srb_index})</DisplayString>
+		<Expand>
+			<Item Name="name">name</Item>
+			<Item Name="srb_index">srb_index</Item>
+		</Expand>
 	</Type>
+
+	<Type Name="nc::Material::TextureSlot">
+		<DisplayString>{name} (srb={srb_index})</DisplayString>
+		<Expand>
+			<Item Name="name">name</Item>
+			<Item Name="srb_index">srb_index</Item>
+		</Expand>
+	</Type>
+
 	<Type Name="nc::VertexLayoutElement">
-		<DisplayString>loc={location} type={type} slot={buffer_slot}</DisplayString>
+		<DisplayString>loc={location} slot={buffer_slot} type={type} offset={relative_offset}</DisplayString>
 		<Expand>
 			<Item Name="location">location</Item>
 			<Item Name="type">type</Item>
@@ -141,22 +211,25 @@
 			<Item Name="hlsl_semantic">hlsl_semantic</Item>
 		</Expand>
 	</Type>
+
 	<Type Name="nc::RendererContext">
-		<DisplayString>RendererContext rhi={rhi}</DisplayString>
+		<DisplayString>RendererContext (canvas: {canvas_verts}/{canvas_vb_size} verts, {canvas_indices}/{canvas_ib_size} indices)</DisplayString>
 		<Expand>
 			<Item Name="rhi">rhi</Item>
 			<Item Name="canvas_vb">canvas_vb</Item>
 			<Item Name="canvas_ib">canvas_ib</Item>
-			<Item Name="canvas_vb_size">canvas_vb_size</Item>
-			<Item Name="canvas_ib_size">canvas_ib_size</Item>
-			<Item Name="canvas_verts">canvas_verts</Item>
-			<Item Name="canvas_indices">canvas_indices</Item>
+			<Item Name="canvas_verts (used)">canvas_verts</Item>
+			<Item Name="canvas_vb_size (capacity)">canvas_vb_size</Item>
+			<Item Name="canvas_vb_bytes (capacity)">canvas_vb_size * sizeof(nc::Vertex2D)</Item>
+			<Item Name="canvas_indices (used)">canvas_indices</Item>
+			<Item Name="canvas_ib_size (capacity)">canvas_ib_size</Item>
 			<Item Name="canvas_material">canvas_material</Item>
 			<Item Name="canvas_clip">canvas_clip</Item>
 		</Expand>
 	</Type>
+
 	<Type Name="nc::ShaderParamInfo">
-		<DisplayString>({name}, type={resource_type})</DisplayString>
+		<DisplayString>{name} (type={resource_type}, binding={binding_idx}@space{binding_space})</DisplayString>
 		<Expand>
 			<Item Name="name">name</Item>
 			<Item Name="semantic_name">semantic_name</Item>
@@ -168,26 +241,40 @@
 			<Item Name="fields">fields</Item>
 		</Expand>
 	</Type>
+
 	<Type Name="nc::ShaderParamField">
-		<DisplayString>({name}, type={type}, offset={offset})</DisplayString>
-	</Type>
-	<Type Name="nc::Geometry&lt;*&gt;">
-		<DisplayString>{{ vertices size={vertices} indices size={indices} }}</DisplayString>
+		<DisplayString>{name} (type={type}, offset={offset})</DisplayString>
 		<Expand>
-			<Item Name="vertices">vertices</Item>
-			<Item Name="indices">indices</Item>
-			<Item Name="topology">topology</Item>
+			<Item Name="name">name</Item>
+			<Item Name="type">type</Item>
+			<Item Name="offset">offset</Item>
 		</Expand>
 	</Type>
+
+	<Type Name="nc::Geometry&lt;*&gt;">
+		<DisplayString>{{ verts={((std::vector&lt;$T1&gt;*)&amp;vertices)-&gt;size()} indices={((std::vector&lt;uint16_t&gt;*)&amp;indices)-&gt;size()} topology={topology} }}</DisplayString>
+		<Expand>
+			<Item Name="topology">topology</Item>
+			<Item Name="vertex_count">((std::vector&lt;$T1&gt;*)&amp;vertices)-&gt;size()</Item>
+			<Item Name="index_count">((std::vector&lt;uint16_t&gt;*)&amp;indices)-&gt;size()</Item>
+			<Item Name="vertex_bytes">((std::vector&lt;$T1&gt;*)&amp;vertices)-&gt;size() * sizeof($T1)</Item>
+			<Item Name="index_bytes">((std::vector&lt;uint16_t&gt;*)&amp;indices)-&gt;size() * sizeof(unsigned int)</Item>
+			<Item Name="total_bytes">(((std::vector&lt;$T1&gt;*)&amp;vertices)-&gt;size() * sizeof($T1)) + (((std::vector&lt;uint16_t&gt;*)&amp;indices)-&gt;size() * sizeof(unsigned int))</Item>
+			<Item Name="vertices">vertices</Item>
+			<Item Name="indices">indices</Item>
+		</Expand>
+	</Type>
+
 	<Type Name="nc::ResourceManager">
-		<DisplayString>ResourceManager importers={num_importers}</DisplayString>
+		<DisplayString>ResourceManager (importers={num_importers}, cached_paths={((std::unordered_map&lt;std::string,nc::RID&gt;*)&amp;path_map)-&gt;size()})</DisplayString>
 		<Expand>
 			<Item Name="num_importers">num_importers</Item>
 			<Item Name="path_map">path_map</Item>
 		</Expand>
 	</Type>
+
 	<Type Name="nc::MaterialTemplate">
-		<DisplayString>{debug_name}</DisplayString>
+		<DisplayString>{debug_name} (params={((std::vector&lt;nc::ShaderParamInfo&gt;*)&amp;params)-&gt;size()}, textures={((std::vector&lt;nc::TextureSlot&gt;*)&amp;textures)-&gt;size()})</DisplayString>
 		<Expand>
 			<Item Name="debug_name">debug_name</Item>
 			<Item Name="vs">vs</Item>
@@ -201,19 +288,26 @@
 			<Item Name="textures">textures</Item>
 		</Expand>
 	</Type>
+
 	<Type Name="nc::MultisampleStateDesc">
 		<DisplayString>MSAA count={count} quality={quality}</DisplayString>
+		<Expand>
+			<Item Name="count">count</Item>
+			<Item Name="quality">quality</Item>
+		</Expand>
 	</Type>
+
 	<Type Name="nc::ResourceSignatureDesc">
-		<DisplayString>{name} (set={set})</DisplayString>
+		<DisplayString>{name} (set={set}, resources={((std::vector&lt;nc::PipelineResourceDesc&gt;*)&amp;resources)-&gt;size()})</DisplayString>
 		<Expand>
 			<Item Name="name">name</Item>
 			<Item Name="set">set</Item>
 			<Item Name="resources">resources</Item>
 		</Expand>
 	</Type>
+
 	<Type Name="nc::PipelineResourceDesc">
-		<DisplayString>{name} type={resource_type}</DisplayString>
+		<DisplayString>{name} (type={resource_type}, stage={stage}, array_size={array_size})</DisplayString>
 		<Expand>
 			<Item Name="name">name</Item>
 			<Item Name="resource_type">resource_type</Item>
@@ -221,4 +315,5 @@
 			<Item Name="array_size">array_size</Item>
 		</Expand>
 	</Type>
+
 </AutoVisualizer>

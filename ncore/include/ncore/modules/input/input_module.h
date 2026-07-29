@@ -35,7 +35,7 @@ public:
     }
 
 private:
-    Vector<InputEvent> event_queue;
+    DynArray<InputEvent> event_queue;
 };
 
 } // namespace nc

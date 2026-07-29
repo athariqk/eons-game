@@ -4,13 +4,14 @@
 
 #include <ncore/core/collection.h>
 #include <ncore/core/color.h>
+#include <ncore/core/matrix.h>
 #include <ncore/core/rid.h>
 #include <ncore/core/vector.h>
 #include <ncore/modules/module.h>
-#include <ncore/modules/video/renderer/geometry.h>
 
 #include "renderer/renderer_context.h"
 #include "renderer/renderer_storage.h"
+#include "renderer/vertex_format.h"
 #include "renderer/world_renderer.h"
 #include "rhi.h"
 
@@ -43,22 +44,29 @@ public:
     Vec2 swapchain_get_size( RID sc );
     void swapchain_destroy( RID sc );
 
+    RID texture_2d_create( const Image& image );
+
     RID material_create( const MaterialTemplate& tmpl );
     void material_set_texture( RID material, RID texture, uint32_t slot );
 
-    RID create_mesh( const Mesh& mesh );
-    RID create_texture_2d( const Image& image );
+    RID gpu_mesh_create( const Mesh& mesh );
 
     void destroy_rid( RID rid );
 
     void frame_begin();
     void frame_end();
 
+    void world_camera_set_fov( float fov );
+    void world_camera_set_z_near( float p_near );
+    void world_camera_set_z_far( float p_far );
+
+    void world_draw_instance( RID gpu_mesh, const Mat4& transform, RID material, uint32_t count = 1 );
+
     /**
      * @brief Immediate draw an array of indexed vertices.
      */
     void canvas_draw_triangles(
-        std::span<const Vertex2D> verts, std::span<const uint16_t> indices, RID material, Vec4 clip = {}
+        std::span<const Vertex2D> verts, std::span<const uint16_t> indices, RID material, Rect clip = {}
     );
 
     /**
@@ -66,7 +74,7 @@ public:
      */
     void canvas_draw_quad(
         Vec2 points[4], RID material, Color tint = Color( 255, 255, 255, 255 ),
-        Vec4 uv_rect = Vec4( 0.0f, 0.0f, 1.0f, 1.0f ), Vec4 clip = {}
+        Rect uv_rect = Rect( 0.0f, 0.0f, 1.0f, 1.0f ), Rect clip = {}
     );
 
     /**
@@ -86,10 +94,19 @@ private:
     RenderSettings settings;
     RendererContext ctx;
     // WorldRenderer m_world;
-    Vector<RID> swapchains;
+    DynArray<RID> swapchains;
+
+    struct Camera {
+        Mat4 proj_matrix = Mat4::identity();
+        float fov        = 90;     // a.k.a angle-of-view (in degrees)
+        float z_near     = 0.1f;   // near clipping plane
+        float z_far      = 100.0f; // far clipping plane
+    };
+
+    Camera main_cam;
 
     // Canvas
-    float ortho_proj[16] = {};
+    Mat4 ortho_proj = Mat4::identity();
     RID canvas_vb;
     RID canvas_ib;
     uint32_t canvas_vb_size = 0;

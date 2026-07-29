@@ -2,49 +2,29 @@
 
 namespace nc {
 
-void Mesh::set_sub_meshes( Vector<SubMesh>&& p_sub_meshes )
-{
-    sub_meshes = std::move( p_sub_meshes );
-}
-
-std::span<const Mesh::SubMesh> Mesh::get_sub_meshes() const
-{
-    return sub_meshes;
-}
-
 std::span<const std::byte> Mesh::get_vertices() const
 {
-    return vertices;
+    return desc.vertices;
 }
 
-std::span<const std::byte> Mesh::get_indices() const
+std::span<const uint16_t> Mesh::get_indices() const
 {
-    return indices;
-}
-
-const VertexLayout& Mesh::get_vertex_layout() const
-{
-    return vert_layout;
-}
-
-PrimitiveTopology Mesh::get_topology() const
-{
-    return topology;
+    return desc.indices;
 }
 
 uint32_t Mesh::get_vertex_stride() const
 {
-    return vertex_stride;
+    return desc.vertex_stride;
 }
 
 size_t Mesh::vertex_count() const
 {
-    return vertex_stride ? vertices.size() / vertex_stride : 0;
+    return desc.vertex_stride ? desc.vertices.size() / desc.vertex_stride : 0;
 }
 
 size_t Mesh::index_count() const
 {
-    return indices.size() / sizeof( uint32_t );
+    return desc.indices.size();
 }
 
 } // namespace nc

@@ -1,4 +1,4 @@
-#include <ncore/modules/video/renderer/geometry.h>
+#include <ncore/modules/video/renderer/vertex_format.h>
 
 namespace nc {
 
@@ -39,7 +39,7 @@ VertexLayout get_vertex3d_layout()
         VertexLayoutElement{
             .location        = 0,
             .type            = ShaderValueType::FLOAT3,
-            .stride          = 52,
+            .stride          = 60,
             .relative_offset = 0,
             .frequency       = VertexFrequency::PER_VERTEX,
             .hlsl_semantic   = "POSITION",
@@ -47,7 +47,7 @@ VertexLayout get_vertex3d_layout()
         VertexLayoutElement{
             .location        = 1,
             .type            = ShaderValueType::FLOAT3,
-            .stride          = 52,
+            .stride          = 60,
             .relative_offset = 12,
             .frequency       = VertexFrequency::PER_VERTEX,
             .hlsl_semantic   = "NORMAL",
@@ -55,7 +55,7 @@ VertexLayout get_vertex3d_layout()
         VertexLayoutElement{
             .location        = 2,
             .type            = ShaderValueType::FLOAT4,
-            .stride          = 52,
+            .stride          = 60,
             .relative_offset = 24,
             .frequency       = VertexFrequency::PER_VERTEX,
             .hlsl_semantic   = "TANGENT",
@@ -63,7 +63,7 @@ VertexLayout get_vertex3d_layout()
         VertexLayoutElement{
             .location        = 3,
             .type            = ShaderValueType::FLOAT2,
-            .stride          = 52,
+            .stride          = 60,
             .relative_offset = 40,
             .frequency       = VertexFrequency::PER_VERTEX,
             .hlsl_semantic   = "TEXCOORD0",
@@ -71,7 +71,7 @@ VertexLayout get_vertex3d_layout()
         VertexLayoutElement{
             .location        = 4,
             .type            = ShaderValueType::FLOAT2,
-            .stride          = 52,
+            .stride          = 60,
             .relative_offset = 48,
             .frequency       = VertexFrequency::PER_VERTEX,
             .hlsl_semantic   = "TEXCOORD1",
@@ -79,82 +79,11 @@ VertexLayout get_vertex3d_layout()
         VertexLayoutElement{
             .location        = 5,
             .type            = ShaderValueType::UBYTE4_NORM,
-            .stride          = 52,
+            .stride          = 60,
             .relative_offset = 56,
             .normalized      = true,
             .frequency       = VertexFrequency::PER_VERTEX,
             .hlsl_semantic   = "COLOR",
-        },
-    };
-}
-
-VertexLayout get_skinned_vertex3d_layout()
-{
-    return {
-        VertexLayoutElement{
-            .location        = 0,
-            .type            = ShaderValueType::FLOAT3,
-            .stride          = 76,
-            .relative_offset = 0,
-            .frequency       = VertexFrequency::PER_VERTEX,
-            .hlsl_semantic   = "POSITION",
-        },
-        VertexLayoutElement{
-            .location        = 1,
-            .type            = ShaderValueType::FLOAT3,
-            .stride          = 76,
-            .relative_offset = 12,
-            .frequency       = VertexFrequency::PER_VERTEX,
-            .hlsl_semantic   = "NORMAL",
-        },
-        VertexLayoutElement{
-            .location        = 2,
-            .type            = ShaderValueType::FLOAT4,
-            .stride          = 76,
-            .relative_offset = 24,
-            .frequency       = VertexFrequency::PER_VERTEX,
-            .hlsl_semantic   = "TANGENT",
-        },
-        VertexLayoutElement{
-            .location        = 3,
-            .type            = ShaderValueType::FLOAT2,
-            .stride          = 76,
-            .relative_offset = 40,
-            .frequency       = VertexFrequency::PER_VERTEX,
-            .hlsl_semantic   = "TEXCOORD0",
-        },
-        VertexLayoutElement{
-            .location        = 4,
-            .type            = ShaderValueType::FLOAT2,
-            .stride          = 76,
-            .relative_offset = 48,
-            .frequency       = VertexFrequency::PER_VERTEX,
-            .hlsl_semantic   = "TEXCOORD1",
-        },
-        VertexLayoutElement{
-            .location        = 5,
-            .type            = ShaderValueType::UBYTE4_NORM,
-            .stride          = 76,
-            .relative_offset = 56,
-            .normalized      = true,
-            .frequency       = VertexFrequency::PER_VERTEX,
-            .hlsl_semantic   = "COLOR",
-        },
-        VertexLayoutElement{
-            .location        = 6,
-            .type            = ShaderValueType::USHORT4,
-            .stride          = 76,
-            .relative_offset = 60,
-            .frequency       = VertexFrequency::PER_VERTEX,
-            .hlsl_semantic   = "BLENDWEIGHTS",
-        },
-        VertexLayoutElement{
-            .location        = 7,
-            .type            = ShaderValueType::USHORT4,
-            .stride          = 76,
-            .relative_offset = 68,
-            .frequency       = VertexFrequency::PER_VERTEX,
-            .hlsl_semantic   = "BLENDINDICES",
         },
     };
 }
@@ -169,11 +98,6 @@ VertexLayout get_vertex_layout_for<Vertex3D>()
 {
     return get_vertex3d_layout();
 }
-template<>
-VertexLayout get_vertex_layout_for<SkinnedVertex3D>()
-{
-    return get_skinned_vertex3d_layout();
-}
 
 VertexLayout get_vertex_layout_by_name( const std::string& name )
 {
@@ -181,8 +105,6 @@ VertexLayout get_vertex_layout_by_name( const std::string& name )
         return get_vertex2d_layout();
     if (name == "Vertex3D")
         return get_vertex3d_layout();
-    if (name == "SkinnedVertex3D")
-        return get_skinned_vertex3d_layout();
     return {};
 }
 

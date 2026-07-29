@@ -30,8 +30,8 @@ public:
     BlendPreset blend                      = BlendPreset::ALPHA_BLEND;
     MultisampleStateDesc multisample_state = { 1, 0 };
 
-    Vector<ShaderParamInfo> params;
-    Vector<MaterialTextureSlot> textures;
+    DynArray<ShaderParamInfo> params;
+    DynArray<MaterialTextureSlot> textures;
 };
 
 } // namespace nc

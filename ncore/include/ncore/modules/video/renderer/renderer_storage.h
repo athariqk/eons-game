@@ -4,18 +4,19 @@
 #include <functional>
 #include <string>
 
+#include <ncore/core/matrix.h>
 #include <ncore/core/rid.h>
 
 #include "../rhi_types.h"
-#include "material.h"
 
 namespace nc {
 
 class IRHI;
 class Shader;
 class MaterialTemplate;
+class Mesh;
 struct ShaderParamInfo;
-using ShaderParamLayout = Vector<ShaderParamInfo>;
+using ShaderParamLayout = DynArray<ShaderParamInfo>;
 
 /**
  * @brief For reference see https://github.com/DiligentGraphics/DiligentFX/blob/master/PBR/interface/PBR_Renderer.hpp
@@ -46,7 +47,7 @@ public:
         const Shader* vs = nullptr;
         const Shader* ps = nullptr;
         VertexLayout vertex_layout;
-        Vector<RID> resource_signatures;
+        DynArray<RID> resource_signatures;
         std::string debug_name;
 
         bool operator==( const PSOKey& o ) const;
@@ -56,18 +57,58 @@ public:
         std::size_t operator()( const PSOKey& p ) const;
     };
 
-    RID get_pipeline_or_create( const PSOKey& key, IRHI* rhi );
+    struct Material {
+        RID pso;
+        DynArray<RID> resource_signatures;
+        DynArray<RID> srbs;
+        RID sampler;
+        RID constant_buffer;
 
-    RID material_create( const MaterialTemplate& tmpl, IRHI* rhi );
-    Material* get_material( RID handle );
+        struct TextureSlot {
+            std::string name;
+            size_t srb_index;
+        };
+
+        DynArray<TextureSlot> texture_slots;
+    };
+
+    struct GPUMesh {
+        RID vertices;
+        RID indices;
+        uint32_t index_count;
+    };
+
+    struct ShaderConstants {
+        Mat4 ModelMatrix;
+        Mat4 ViewMatrix;
+    };
+
+    void set_rhi( IRHI* p_rhi )
+    {
+        rhi = p_rhi;
+    }
+
+    RID get_pipeline_or_create( const PSOKey& key );
+
+    RID material_create( const MaterialTemplate& tmpl );
+    void material_set_texture( RID handle, RID texture, uint32_t slot );
+    void material_bind( RID handle, const ShaderConstants& constants );
     void destroy_materials();
 
-private:
-    PSOKey get_pso_key_( const MaterialTemplate& tmpl );
-    Vector<ResourceSignatureDesc> build_resource_signatures_( const MaterialTemplate& tmpl );
+    RID gpu_mesh_create( const Mesh& mesh );
+    void gpu_mesh_bind( RID handle );
+    GPUMesh* get_gpu_mesh( RID handle );
+    void destroy_gpu_meshes();
 
+private:
+    Material* get_material_( RID handle );
+    PSOKey get_pso_key_( const MaterialTemplate& tmpl );
+    DynArray<ResourceSignatureDesc> build_resource_signatures_( const MaterialTemplate& tmpl );
+
+    IRHI* rhi;
     HashMap<PSOKey, RID, PSOKeyHasher> pso_cache;
     ResourcePool<Material> materials;
+    ResourcePool<GPUMesh> gpu_meshes;
 };
 
 } // namespace nc

@@ -57,10 +57,10 @@ DiligentRHI::DiligentRHI()
         ci.EnableValidation            = false;
         ci.FeaturesVk.DynamicRendering = Diligent::DEVICE_FEATURE_STATE_ENABLED;
 #endif
-
         ci.DynamicHeapSize           = 64 << 20;
         ci.MainDescriptorPoolSize    = { 8192, 1024, 8192, 8192, 1024, 4096, 4096, 1024, 1024, 256, 256 };
         ci.DynamicDescriptorPoolSize = { 2048, 256, 2048, 2048, 256, 1024, 1024, 256, 256, 64, 64 };
+        ci.Features.MultiViewport    = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
 
         Diligent::ImmediateContextCreateInfo ctxInfo[3] = {
             { "Graphics", 0, Diligent::QUEUE_PRIORITY_MEDIUM },
@@ -263,7 +263,7 @@ void DiligentRHI::swapchain_destroy( RID target )
 // Graphics pipeline
 // ---------------------------------------------------------------------------
 
-RID DiligentRHI::gfx_pipeline_create( const GraphicsPSODesc& desc, Vector<RID> resource_signatures )
+RID DiligentRHI::gfx_pipeline_create( const GraphicsPSODesc& desc, DynArray<RID> resource_signatures )
 {
     Diligent::RefCntAutoPtr<Diligent::IShader> vs;
     {
@@ -306,7 +306,7 @@ RID DiligentRHI::gfx_pipeline_create( const GraphicsPSODesc& desc, Vector<RID> r
         auto& dsdesc                            = desc.depth_stencil_state;
         auto& bsdesc                            = desc.blend_state.render_targets[0];
         gp.RasterizerDesc.FillMode              = DiligentTypeHelpers::translate_fill_mode( rsdesc.fill );
-        gp.RasterizerDesc.CullMode              = DiligentTypeHelpers::translate_cull( rsdesc.cull );
+        gp.RasterizerDesc.CullMode              = Diligent::CULL_MODE_NONE;
         gp.RasterizerDesc.FrontCounterClockwise = static_cast<Diligent::Bool>( rsdesc.front_ccw );
         gp.RasterizerDesc.DepthBias             = static_cast<Diligent::Int32>( rsdesc.depth_bias_constant );
         gp.RasterizerDesc.SlopeScaledDepthBias  = rsdesc.depth_bias_slope;
@@ -339,7 +339,7 @@ RID DiligentRHI::gfx_pipeline_create( const GraphicsPSODesc& desc, Vector<RID> r
         gp.SmplDesc.Count                   = desc.multisample_state.count;
         gp.SmplDesc.Quality                 = desc.multisample_state.quality;
 
-        Vector<Diligent::LayoutElement> inputs;
+        DynArray<Diligent::LayoutElement> inputs;
         for (const auto& elem : desc.vert_layout) {
             Diligent::LayoutElement le{};
             le.HLSLSemantic         = elem.hlsl_semantic;
@@ -357,7 +357,7 @@ RID DiligentRHI::gfx_pipeline_create( const GraphicsPSODesc& desc, Vector<RID> r
         ci.GraphicsPipeline.InputLayout.NumElements    = static_cast<Diligent::Uint32>( inputs.size() );
         ci.GraphicsPipeline.InputLayout.LayoutElements = inputs.data();
 
-        Vector<Diligent::IPipelineResourceSignature*> sigs;
+        DynArray<Diligent::IPipelineResourceSignature*> sigs;
         for (auto& rid : resource_signatures) {
             auto entry = res_signatures.get( rid );
             NC_ASSERT( entry->RawPtr(), "A valid resource signature is required for PSO creation" );
@@ -425,9 +425,9 @@ void DiligentRHI::render_target_bind( std::span<const void*> rtvs, void* dsv )
 
 void DiligentRHI::render_target_set_viewport( std::span<const Viewport> p_viewports )
 {
-    Vector<Diligent::Viewport> vps;
+    DynArray<Diligent::Viewport> vps;
     for (auto& vp : p_viewports) {
-        vps.push_back( { vp.rect.x, vp.rect.y, vp.rect.z, vp.rect.w, vp.min_depth, vp.max_depth } );
+        vps.push_back( { vp.rect.x, vp.rect.y, vp.rect.w, vp.rect.h, vp.min_depth, vp.max_depth } );
     }
     NC_LOG_TRACE_C(
         log::GRAPHICS, "set_viewport: {} viewports (first: {:.0f},{:.0f} {:.0f}x{:.0f})", vps.size(), vps[0].TopLeftX,
@@ -436,14 +436,14 @@ void DiligentRHI::render_target_set_viewport( std::span<const Viewport> p_viewpo
     get_active_ctx_()->SetViewports( static_cast<Diligent::Uint32>( vps.size() ), vps.data(), 0, 0 );
 }
 
-void DiligentRHI::render_target_set_scissor_rect( std::span<const Vec4> p_rects )
+void DiligentRHI::render_target_set_scissor_rect( std::span<const Rect> p_rects )
 {
-    Vector<Diligent::Rect> rects;
+    DynArray<Diligent::Rect> rects;
     for (auto r : p_rects) {
         rects.push_back(
             Diligent::Rect{
                 static_cast<Diligent::Int32>( r.x ), static_cast<Diligent::Int32>( r.y ),
-                static_cast<Diligent::Int32>( r.x + r.z ), static_cast<Diligent::Int32>( r.y + r.w )
+                static_cast<Diligent::Int32>( r.x + r.w ), static_cast<Diligent::Int32>( r.y + r.h )
             }
         );
     }
@@ -645,6 +645,7 @@ RID DiligentRHI::buffer_create( const BufferDesc& p_desc )
     desc.BindFlags      = static_cast<Diligent::BIND_FLAGS>( p_desc.bind_mask );
     desc.Usage          = static_cast<Diligent::USAGE>( p_desc.usage );
     desc.CPUAccessFlags = static_cast<Diligent::CPU_ACCESS_FLAGS>( p_desc.access_mask );
+    desc.Mode           = Diligent::BUFFER_MODE_RAW;
 
     Diligent::BufferData init_data{ p_desc.initial_data, static_cast<Diligent::Uint32>( p_desc.size ) };
     Diligent::RefCntAutoPtr<Diligent::IBuffer> buffer;
@@ -699,16 +700,16 @@ void DiligentRHI::vertex_buffers_bind(
     std::span<const RID> p_buffers, uint32_t slot, std::span<const uint64_t> offsets
 )
 {
-    Vector<Diligent::IBuffer*> buffer_ptrs;
+    DynArray<Diligent::IBuffer*> buffer_arr;
     for (auto& rid : p_buffers) {
         auto ptr = buffers.get( rid );
         NC_ASSERT_NULL( ptr );
-        buffer_ptrs.push_back( ptr->RawPtr() );
+        buffer_arr.push_back( ptr->RawPtr() );
     }
 
     NC_LOG_TRACE_C( log::GRAPHICS, "vertex_buffers_bind: {} buffers at slot={}", p_buffers.size(), slot );
     get_active_ctx_()->SetVertexBuffers(
-        slot, static_cast<Diligent::Uint32>( buffer_ptrs.size() ), buffer_ptrs.data(), offsets.data(),
+        slot, static_cast<Diligent::Uint32>( buffer_arr.size() ), buffer_arr.data(), offsets.data(),
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, Diligent::SET_VERTEX_BUFFERS_FLAG_RESET
     );
 }
@@ -729,7 +730,7 @@ RID DiligentRHI::resource_signature_create( const ResourceSignatureDesc& desc )
     pdesc.BindingIndex = desc.set;
     pdesc.Name         = desc.name.c_str();
 
-    Vector<Diligent::PipelineResourceDesc> rdescs;
+    DynArray<Diligent::PipelineResourceDesc> rdescs;
     for (const auto& rd : desc.resources) {
         Diligent::PipelineResourceDesc rdesc{};
         rdesc.Name         = rd.name.c_str();

@@ -8,12 +8,12 @@ namespace nc {
 class MaterialTemplate;
 
 struct NCAPI EcsMaterialInstance {
-    Ref<MaterialTemplate> template_ref;
-    RID material{};
+    Ref<MaterialTemplate> template_resource;
+    RID material = 0;
     Array<RID, 8> textures{};
 
     NSTRUCT(
-        EcsMaterialInstance, NC_F( EcsMaterialInstance, template_ref ) NC_F( EcsMaterialInstance, material )
+        EcsMaterialInstance, NC_F( EcsMaterialInstance, template_resource ) NC_F( EcsMaterialInstance, material )
                                  NC_F( EcsMaterialInstance, textures )
     )
 };

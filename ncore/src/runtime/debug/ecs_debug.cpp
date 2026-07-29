@@ -2,12 +2,16 @@
 
 #include <imgui.h>
 
+#include <ncore/core/collection.h>
+#include <ncore/core/quaternion.h>
 #include <ncore/game_world.h>
 #include <ncore/modules/io/resource_manager.h>
 #include <ncore/modules/video/render_module.h>
+#include <ncore/modules/video/renderer/vertex_format.h>
 #include <ncore/modules/video/window_module.h>
 #include <ncore/resources/material_template.h>
 #include <ncore/runtime/components/ecs_material.h>
+#include <ncore/runtime/components/ecs_mesh.h>
 #include <ncore/runtime/components/ecs_sprite.h>
 #include <ncore/runtime/components/ecs_time.h>
 #include <ncore/runtime/components/ecs_transform.h>
@@ -31,6 +35,13 @@ namespace nc {
 
 struct DebugState {
     std::array<char, 64> window_attrs;
+    float cube_rotation         = 0;
+    bool cube_rot_switch        = true;
+    Quaternion initial_cube_rot = Quaternion( 180, Vec3::up() );
+    Quaternion target_cube_rot  = Quaternion( 0, Vec3::up() );
+    float fov                   = 1.5708f;
+    float near                  = 0.1f;
+    float far                   = 100.0f;
     NSTRUCT( DebugState, NC_F( DebugState, window_attrs ) )
 };
 
@@ -50,9 +61,66 @@ void EcsDebugFeature::build( EcsWorld& world )
                     EcsTransform2D{ .position = Vec2( sc->size.x / 2, sc->size.y / 2 ), .size = Vec2( 150, 150 ) }
                 )
                 .with<EcsMaterialInstance>( EcsMaterialInstance{
-                    .template_ref = io->resources->load<MaterialTemplate>( "engine/materials/canvas.material" )
+                    .template_resource = io->resources->load<MaterialTemplate>( "engine/materials/canvas.material" )
                 } )
-                .with<EcsSpriteRenderer>( EcsSpriteRenderer{ .texture = 0, .tint = Color( 255, 125, 0, 255 ) } )
+                .with<EcsSpriteInstance>( EcsSpriteInstance{ .texture = 0, .tint = Color( 255, 125, 0, 255 ) } )
+                .build();
+        } );
+
+    world.create_observer( "EcsDebugFeature::CreateTestMesh" )
+        .on<EcsSwapChainRef>( EcsCoreEvent::OnSet )
+        .run( []( QueryContext& ctx ) {
+            auto io = ctx.world().get_singleton<IoModules>();
+
+            // clang-format off
+			 Array<Vertex3D, 8> cube_verts = {
+						//  px,    py,    pz,    nx,   ny,   nz,   tx,   ty,   tz,   tw,   u,    v,    u2,   v2,   color
+			    Vertex3D{ -1.0f, -1.0f, -1.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFF0000FF },
+			    Vertex3D{ -1.0f,  1.0f, -1.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFF00FF00 },
+			    Vertex3D{  1.0f,  1.0f, -1.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFFFF0000 },
+			    Vertex3D{  1.0f, -1.0f, -1.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFFFFFFFF },
+			
+			    Vertex3D{ -1.0f, -1.0f,  1.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFF00FFFF },
+			    Vertex3D{ -1.0f,  1.0f,  1.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFFFFFF00 },
+			    Vertex3D{  1.0f,  1.0f,  1.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFFFF00FF },
+			    Vertex3D{  1.0f, -1.0f,  1.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFF333333 }
+			};
+			Array<uint16_t, 36> cube_indices = {
+				2,0,1, 2,3,0,
+				4,6,5, 4,7,6,
+				0,7,4, 0,3,7,
+				1,0,4, 1,4,5,
+				1,5,2, 5,6,2,
+				3,6,7, 3,2,6
+			};
+            // clang-format on
+
+            auto mesh = Ref<Mesh>::create(
+                MeshDesc{
+                    .vertices = DynArray<std::byte>(
+                        reinterpret_cast<std::byte const*>( cube_verts.data() ),
+                        reinterpret_cast<std::byte const*>( cube_verts.data() + 8 )
+                    ),
+                    .indices       = DynArray<uint16_t>( cube_indices.data(), cube_indices.data() + 36 ),
+                    .vertex_stride = sizeof( Vertex3D )
+                }
+            );
+
+            auto test_model_id =
+                ctx.world()
+                    .create_entity( "TestModel3D" )
+                    .with<EcsTransform3D>( EcsTransform3D{
+                        .translation = Vec3( 0, 0, 0 ), .rotation = Quaternion(), .scale = Vec3( 2, 2, 2 )
+                    } )
+                    .build();
+
+            ctx.world()
+                .create_entity( "CubeMesh" )
+                .with<EcsMeshInstance>( EcsMeshInstance{ .mesh_resource = mesh } )
+                .with<EcsMaterialInstance>( EcsMaterialInstance{
+                    .template_resource = io->resources->load<MaterialTemplate>( "engine/materials/pbr.material" )
+                } )
+                .child_of( test_model_id )
                 .build();
         } );
 
@@ -60,8 +128,9 @@ void EcsDebugFeature::build( EcsWorld& world )
         .with<EcsSwapChainRef>()
         .in( EcsSystemPhase::UPDATE )
         .run( []( QueryContext& ctx ) {
-            auto time = ctx.world().get_singleton<EcsTime>();
-            auto gfx  = ctx.world().get_singleton<GraphicsModules>();
+            auto time  = ctx.world().get_singleton<EcsTime>();
+            auto gfx   = ctx.world().get_singleton<GraphicsModules>();
+            auto state = ctx.world().get_singleton<DebugState>();
 
             if (ImGui::BeginMainMenuBar()) {
                 if (ImGui::BeginMenu( "File" )) {
@@ -109,9 +178,8 @@ void EcsDebugFeature::build( EcsWorld& world )
                 ImGui::SetNextWindowPos( ImVec2( work_pos.x, work_pos.y ), ImGuiCond_Always, ImVec2( 0.0f, 0.0f ) );
                 ImGui::PushStyleVar( ImGuiStyleVar_WindowRounding, 0.0f );
 
-                bool open = true;
                 if (ImGui::Begin(
-                        "Stats", &open,
+                        "Stats", nullptr,
                         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings
                     )) {
 
@@ -141,10 +209,33 @@ void EcsDebugFeature::build( EcsWorld& world )
                             .build();
                     }
                 }
-
                 ImGui::End();
                 ImGui::PopStyleVar();
             }
+
+            if (ImGui::Begin( "Camera" )) {
+                ImGui::SeparatorText( "Camera" );
+
+                if (ImGui::SliderAngle( "FoV", &state->fov, 60, 120, "%.3f deg" )) {
+                    gfx->renderer->world_camera_set_fov( math::rad_to_deg( state->fov ) );
+                }
+                if (ImGui::SliderFloat( "Near", &state->near, 0.001f, 50.f )) {
+                    gfx->renderer->world_camera_set_z_near( state->near );
+                }
+                if (ImGui::SliderFloat( "Far", &state->far, 50.f, 100.f )) {
+                    gfx->renderer->world_camera_set_z_far( state->far );
+                }
+
+                if (ImGui::Button( "Reset" )) {
+                    state->fov  = 1.5708f;
+                    state->near = 0.1f;
+                    state->far  = 100.0f;
+                    gfx->renderer->world_camera_set_fov( math::rad_to_deg( state->fov ) );
+                    gfx->renderer->world_camera_set_z_near( state->near );
+                    gfx->renderer->world_camera_set_z_far( state->far );
+                }
+            }
+            ImGui::End();
         } );
 
     world.create_system( "EcsDebugFeature::Transform2DGizmos" )
@@ -168,7 +259,26 @@ void EcsDebugFeature::build( EcsWorld& world )
         .in( EcsSystemPhase::UPDATE )
         .each( []( QueryContext& ctx, EcsEntityId ) {
             auto xform = ctx.get_component<EcsTransform2D>();
-            xform->angle += static_cast<float>( ctx.delta_time() );
+            xform->angle += static_cast<float>( ctx.delta_time() ) * 3.5f;
+        } );
+
+    world.create_system( "EcsDebugFeature::TestSpinner3D" )
+        .with<EcsTransform3D>()
+        .in( EcsSystemPhase::UPDATE )
+        .each( []( QueryContext& ctx, EcsEntityId ) {
+            auto state = ctx.world().get_singleton<DebugState>();
+            auto xform = ctx.get_component<EcsTransform3D>();
+            state->cube_rotation += static_cast<float>( ctx.delta_time() );
+            if (state->cube_rotation >= 1.0f) {
+                state->cube_rotation     = 0.0f;
+                state->initial_cube_rot  = state->target_cube_rot;
+                Quaternion flip_180      = Quaternion( 180, Vec3::up() );
+                Quaternion weird_swaying = Quaternion( 30, Vec3::forward() );
+                state->target_cube_rot   = state->initial_cube_rot * flip_180 * weird_swaying;
+            }
+            xform->rotation = Quaternion::slerp(
+                state->initial_cube_rot, state->target_cube_rot, std::min( state->cube_rotation, 1.0f )
+            );
         } );
 
 #if !defined( NC_DIST )

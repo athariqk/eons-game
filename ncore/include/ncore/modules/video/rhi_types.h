@@ -17,7 +17,7 @@ enum class PrimitiveTopology {
     POINT_LIST,
 };
 
-enum class ResourceBindFlags {
+enum class ResourceBindFlags : uint32_t {
     NONE               = 0,
     VERTEX_BUFFER      = 1 << 0,
     INDEX_BUFFER       = 1 << 1,
@@ -246,10 +246,10 @@ struct PipelineResourceDesc {
 struct ResourceSignatureDesc {
     std::string name;
     uint8_t set = 0;
-    Vector<PipelineResourceDesc> resources;
+    DynArray<PipelineResourceDesc> resources;
 };
 
-using ResourceLayoutDesc = Vector<ResourceSignatureDesc>;
+using ResourceLayoutDesc = DynArray<ResourceSignatureDesc>;
 
 struct BufferDesc {
     std::string debug_name;
@@ -287,7 +287,7 @@ struct VertexLayoutElement {
     const char* hlsl_semantic   = "ATTRIB";
 };
 
-using VertexLayout = Vector<VertexLayoutElement>;
+using VertexLayout = DynArray<VertexLayoutElement>;
 
 struct StencilOpDesc {
     StencilOp fail       = StencilOp::KEEP;
@@ -299,7 +299,7 @@ struct StencilOpDesc {
 struct DepthStencilStateDesc {
     bool depth_test            = true;
     bool depth_write           = true;
-    CompareFunc depth_func     = CompareFunc::LESS;
+    CompareFunc depth_func     = CompareFunc::LESS_EQUAL;
     bool stencil_test          = false;
     uint8_t stencil_read_mask  = 0xFF;
     uint8_t stencil_write_mask = 0xFF;
@@ -356,7 +356,7 @@ struct GraphicsPSODesc {
     std::span<const uint32_t> vs_bytecode;
     std::span<const uint32_t> ps_bytecode;
     VertexLayout vert_layout;
-    Vector<ResourceSignatureDesc> resource_signatures; // TODO: implicit resource signature
+    DynArray<ResourceSignatureDesc> resource_signatures; // TODO: implicit resource signature
     RasterizerStateDesc rasterizer_state;
     DepthStencilStateDesc depth_stencil_state;
     BlendStateDesc blend_state;

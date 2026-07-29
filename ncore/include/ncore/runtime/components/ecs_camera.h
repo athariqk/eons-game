@@ -13,13 +13,12 @@ struct NCAPI EcsCamera {
     Mode mode = ORTHOGRAPHIC;
     Vec2 ortho_size{ 1280, 720 };
     float fov        = 60.0f;
-    float near_plane = 0.1f;
-    float far_plane  = 1000.0f;
-    Vec4 viewport{ 0, 0, 1, 1 };
+    float z_near = 0.1f;
+    float z_far  = 1000.0f;
 
     NSTRUCT(
         EcsCamera, NC_F( EcsCamera, mode ) NC_F( EcsCamera, ortho_size ) NC_F( EcsCamera, fov )
-                       NC_F( EcsCamera, near_plane ) NC_F( EcsCamera, far_plane ) NC_F( EcsCamera, viewport )
+                       NC_F( EcsCamera, z_near ) NC_F( EcsCamera, z_far )
     )
 };
 

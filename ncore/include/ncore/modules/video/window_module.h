@@ -105,7 +105,7 @@ private:
     VideoSettings settings;
     struct Impl;
     std::unique_ptr<Impl> pImpl;
-    Vector<WindowEvent> event_queue;
+    DynArray<WindowEvent> event_queue;
     Ref<Image> default_app_icon;
 };
 

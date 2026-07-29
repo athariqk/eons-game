@@ -18,12 +18,65 @@ template<typename T, size_t S>
 using Array = std::array<T, S>;
 
 template<typename T>
-using Vector = std::vector<T, NcAllocator<T>>;
+using DynArray = std::vector<T, NcAllocator<T>>;
 
 template<typename TKey, typename TVal, typename THasher = std::hash<TKey>>
 using HashMap = std::unordered_map<TKey, TVal, THasher, std::equal_to<TKey>, NcAllocator<std::pair<const TKey, TVal>>>;
 
 using BytesBuffer = std::vector<std::byte, NcAllocator<std::byte>>;
+
+// ---------------------------------------------------------------------------
+
+template<typename T, class TSlot, bool IsConst>
+class SlotIterator {
+public:
+    using underlying = std::conditional_t<
+        IsConst, typename PagedAllocator<TSlot>::const_iterator, typename PagedAllocator<TSlot>::iterator>;
+
+    SlotIterator( underlying it, underlying end ) : it_( it ), end_( end )
+    {
+        skip_non_alive();
+    }
+
+    using TQ = std::conditional_t<IsConst, const T, T>;
+
+    TQ& operator*() const
+    {
+        return *reinterpret_cast<TQ*>( &( *it_ ).data );
+    }
+
+    TQ* operator->() const
+    {
+        return reinterpret_cast<TQ*>( &( *it_ ).data );
+    }
+
+    SlotIterator& operator++()
+    {
+        ++it_;
+        skip_non_alive();
+        return *this;
+    }
+
+    bool operator==( const SlotIterator& o ) const
+    {
+        return it_ == o.it_;
+    }
+    bool operator!=( const SlotIterator& o ) const
+    {
+        return it_ != o.it_;
+    }
+
+private:
+    void skip_non_alive()
+    {
+        while (it_ != end_ && !( *it_ ).is_alive)
+            ++it_;
+    }
+
+    underlying it_, end_;
+};
+
+// ---------------------------------------------------------------------------
 
 /**
  * @brief PagedPool is a memory pool that pre-allocates objects of type T
@@ -47,6 +100,7 @@ class PagedPool {
     // so we can fit in a free list node into its allocated memory
     struct alignas( alignof( T ) ) Slot {
         std::byte data[std::max( sizeof( T ), sizeof( FreeList ) )];
+        bool is_alive = false;
     };
 
 public:
@@ -73,6 +127,7 @@ public:
 
         T* ptr = reinterpret_cast<T*>( slot );
         new ( ptr ) T( std::forward<Args>( args )... );
+        slot->is_alive = true;
         ++active_count;
         return ptr;
     }
@@ -80,33 +135,36 @@ public:
     void release( T* obj )
     {
         NC_ASSERT_RET( obj != nullptr, "Cannot release a null object" );
-        auto slot = reinterpret_cast<Slot*>( obj );
+        Slot* slot = reinterpret_cast<Slot*>( obj );
         NC_ASSERT_RET( arena.is_bounded_ptr( slot ), "Object does not belong to this pool" );
 
         obj->~T();
         new ( obj ) FreeList{ free_list };
         FreeList* node = reinterpret_cast<FreeList*>( obj );
         free_list      = node;
-
+        slot->is_alive = false;
         --active_count;
     }
 
     void release_all()
     {
-        // collect all pointers to the already freed slots
-        // so we don't call the destructor on them again
-        std::set<void*> freed;
-        while (free_list) {
-            freed.insert( static_cast<void*>( free_list ) );
-            free_list = free_list->next;
-        }
         for (uint32_t i = 0; i < arena.get_size(); i++) {
             Slot* slot = arena.get( i );
-            if (slot && !freed.contains( static_cast<void*>( slot ) )) {
+            if (slot && slot->is_alive) {
                 T* obj = reinterpret_cast<T*>( slot );
                 obj->~T();
+                slot->is_alive = false;
             }
         }
+        arena.reset();
+        free_list = nullptr;
+    }
+
+    /**
+     * @brief Reset the internal arena but does not free memory nor call destructors.
+     */
+    void reset()
+    {
         arena.reset();
         free_list = nullptr;
     }
@@ -116,9 +174,47 @@ public:
         return active_count;
     }
 
+    /**
+     * @brief Alias for get_active_count()
+     */
+    size_t size() const
+    {
+        return static_cast<size_t>( active_count );
+    }
+
     uint32_t get_page_count() const
     {
         return arena.get_page_count();
+    }
+
+    /**
+     * @brief This is unsafe as it may return released objects.
+     */
+    T& operator[]( uint32_t i )
+    {
+        T* it = arena.get( i );
+        NC_ASSERT( it, "Out of bounds" );
+        return *it;
+    }
+
+    using iterator       = SlotIterator<T, Slot, false>;
+    using const_iterator = SlotIterator<T, Slot, true>;
+
+    iterator begin()
+    {
+        return iterator( arena.begin(), arena.end() );
+    }
+    iterator end()
+    {
+        return iterator( arena.end(), arena.end() );
+    }
+    const_iterator begin() const
+    {
+        return const_iterator( arena.begin(), arena.end() );
+    }
+    const_iterator end() const
+    {
+        return const_iterator( arena.end(), arena.end() );
     }
 
 private:
@@ -126,6 +222,8 @@ private:
     FreeList* free_list;
     uint32_t active_count = 0;
 };
+
+// ---------------------------------------------------------------------------
 
 /**
  * @brief ResourcePool is an object pool that provides an
@@ -143,6 +241,7 @@ class ResourcePool {
         alignas( T ) std::byte data[sizeof( T )];
         uint32_t generation = 1;
         uint32_t next_free  = UINT32_MAX;
+        bool is_alive       = false;
     };
 
 public:
@@ -170,6 +269,7 @@ public:
 
         slot->next_free = UINT32_MAX;
         new ( &slot->data ) T( std::forward<Args>( args )... );
+        slot->is_alive = true;
         return encode_rid( index, slot->generation );
     }
 
@@ -203,25 +303,29 @@ public:
         reinterpret_cast<T*>( &slot->data )->~T();
         slot->generation++;
         slot->next_free = free_list_head;
+        slot->is_alive  = false;
         free_list_head  = index;
     }
 
     void release_all()
     {
-        // first, collect all the already freed slots (ones that are in the free list)
-        std::vector<bool> freed( arena.get_size(), false );
-        for (uint32_t i = free_list_head; i != UINT32_MAX;) {
-            Slot* s  = arena.get( i );
-            freed[i] = true;
-            i        = s->next_free;
-        }
-        // then, call the destructor of all the slots excluding freed
         for (uint32_t i = 0; i < arena.get_size(); i++) {
-            if (!freed[i]) {
-                T* obj = reinterpret_cast<T*>( &arena.get( i )->data );
+            Slot* slot = arena.get( i );
+            if (slot && slot->is_alive) {
+                T* obj = reinterpret_cast<T*>( &slot->data );
                 obj->~T();
+                slot->is_alive = false;
             }
         }
+        arena.reset();
+        free_list_head = UINT32_MAX;
+    }
+
+    /**
+     * @brief Reset the internal arena but does not free memory nor call destructors.
+     */
+    void reset()
+    {
         arena.reset();
         free_list_head = UINT32_MAX;
     }
@@ -240,6 +344,9 @@ public:
         return arena.get_size();
     }
 
+    /**
+     * @brief This is unsafe as it may return released objects.
+     */
     T& operator[]( RID handle )
     {
         T* it = get( handle );
@@ -247,24 +354,24 @@ public:
         return *it;
     }
 
-    using iterator       = PagedAllocator<T>::iterator;
-    using const_iterator = PagedAllocator<T>::const_iterator;
+    using iterator       = SlotIterator<T, Slot, false>;
+    using const_iterator = SlotIterator<T, Slot, true>;
 
     iterator begin()
     {
-        return arena.begin();
+        return iterator( arena.begin(), arena.end() );
     }
     iterator end()
     {
-        return arena.end();
+        return iterator( arena.end(), arena.end() );
     }
     const_iterator begin() const
     {
-        return arena.begin();
+        return const_iterator( arena.begin(), arena.end() );
     }
     const_iterator end() const
     {
-        return arena.end();
+        return const_iterator( arena.end(), arena.end() );
     }
 
 private:

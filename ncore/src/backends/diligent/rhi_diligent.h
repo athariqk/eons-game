@@ -37,13 +37,13 @@ public:
     void* swapchain_get_view( RID sc, TextureViewType view ) override;
     void swapchain_destroy( RID sc ) override;
 
-    RID gfx_pipeline_create( const GraphicsPSODesc& desc, Vector<RID> resource_signatures = {} ) override;
+    RID gfx_pipeline_create( const GraphicsPSODesc& desc, DynArray<RID> resource_signatures = {} ) override;
     void gfx_pipeline_bind( RID pipeline ) override;
     void gfx_pipeline_reload( RID pipeline ) override;
 
     void render_target_bind( std::span<const void*> rtvs, void* dsv = nullptr ) override;
     void render_target_set_viewport( std::span<const Viewport> viewports ) override;
-    void render_target_set_scissor_rect( std::span<const Vec4> rect ) override;
+    void render_target_set_scissor_rect( std::span<const Rect> rect ) override;
     void render_target_clear_color( void* rtv, const Color& color ) override;
     void render_target_clear_depth( void* dsv, float depth = 1.0f, uint8_t stencil = 0 ) override;
 
@@ -64,7 +64,8 @@ public:
     RID buffer_create( const BufferDesc& desc ) override;
     void buffer_update( RID buffer, const void* data, size_t size ) override;
     void buffer_update_binding( RID buffer, RID binding, const char* name ) override;
-    void vertex_buffers_bind( std::span<const RID> buffers, uint32_t slot, std::span<const uint64_t> offsets ) override;
+    void
+    vertex_buffers_bind( std::span<const RID> buffers, uint32_t slot, std::span<const uint64_t> offsets = {} ) override;
     void index_buffer_bind( RID buffer, uint32_t offset ) override;
 
     RID resource_signature_create( const ResourceSignatureDesc& desc ) override;
@@ -91,7 +92,7 @@ private:
     Diligent::IDeviceContext* get_active_ctx_();
     Diligent::IDeviceContext* get_imm_ctx_();
 
-    Diligent::IEngineFactoryVk* engine_factory = nullptr;
+    Diligent::RefCntAutoPtr<Diligent::IEngineFactoryVk> engine_factory;
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device;
 
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> ctx_gfx;  // immediate graphics context

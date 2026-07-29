@@ -1,22 +1,16 @@
 #pragma once
 
+#include <ncore/core/reference.h>
 #include <ncore/core/rid.h>
-#include <ncore/modules/video/renderer/geometry.h>
+#include <ncore/resources/mesh.h>
 
 namespace nc {
 
-struct NCAPI EcsMeshRenderer {
-    RID gpu_mesh;
-    RID model_buffer;
-    uint32_t index_count   = 0;
-    uint32_t vertex_stride = 0;
-    VertexLayout vert_layout;
+struct NCAPI EcsMeshInstance {
+    Ref<Mesh> mesh_resource;
+    RID gpu_mesh = 0;
 
-    NSTRUCT(
-        EcsMeshRenderer,
-        NC_F( EcsMeshRenderer, gpu_mesh ) NC_F( EcsMeshRenderer, model_buffer ) NC_F( EcsMeshRenderer, index_count )
-            NC_F( EcsMeshRenderer, vertex_stride ) NC_F( EcsMeshRenderer, vert_layout )
-    )
+    NSTRUCT( EcsMeshInstance, NC_F( EcsMeshInstance, mesh_resource ) NC_F( EcsMeshInstance, gpu_mesh ) )
 };
 
 } // namespace nc

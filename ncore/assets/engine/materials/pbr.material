@@ -1,11 +1,17 @@
 [header]
-debug_name = "Physically Based Rendering"
+debug_name = Physically Based Rendering
 
 [shaders]
-composite = "assets/shaders/pbr.slang"
+composite = engine/shaders/pbr.slang
 
 [raster]
-cull_mode   = "None"
-depth_test  = false
-depth_write = false
-blend       = "AlphaBlend"
+cull_mode = Back
+depth_test = true
+depth_write = true
+blend = AlphaBlend
+
+[multisample]
+count = 1
+
+[vertex]
+layout = Vertex3D

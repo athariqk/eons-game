@@ -162,7 +162,7 @@ public:
 private:
     EcsWorld& world_;
     std::string name;
-    Vector<EcsEntityId> events;
+    DynArray<EcsEntityId> events;
     EcsQueryBuilder qb_;
     EcsEntityId init_observer_( EcsCallbackKind kind, void* callback );
 };

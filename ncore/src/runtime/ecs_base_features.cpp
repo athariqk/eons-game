@@ -62,7 +62,7 @@ void EcsBaseFeatures::build( EcsWorld& world )
     world.load_feature<EcsDebugFeature>();
 #endif
 
-    world.create_system( "EcsBaseFeatures::TransformPropagator" )
+    world.create_system( "EcsBaseFeatures::Transform2DPropagator" )
         .in( EcsSystemPhase::UPDATE )
         .with<EcsTransform2D>()
         .each( []( QueryContext& ctx, EcsEntityId eid ) {
@@ -72,6 +72,14 @@ void EcsBaseFeatures::build( EcsWorld& world )
                 log::ECS, "Entity: {}, Transform: {}", eid,
                 rtti::TypeRegistry::to_string( xform, rtti::TypeRegistry::get_type_id<EcsTransform2D>() )
             );
+        } );
+
+    world.create_system( "EcsBaseFeatures::Transform3DPropagator" )
+        .in( EcsSystemPhase::UPDATE )
+        .with<EcsTransform3D>()
+        .each( []( QueryContext& ctx, EcsEntityId ) {
+            //auto xform = ctx.get_component<EcsTransform3D>();
+
         } );
 
     world.finalize_ordering();

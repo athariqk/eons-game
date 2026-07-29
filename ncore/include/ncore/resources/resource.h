@@ -44,7 +44,7 @@ public:
         return 0;
     }
 
-    std::string filepath;
+    std::string filepath = "generated";
 };
 
 } // namespace nc

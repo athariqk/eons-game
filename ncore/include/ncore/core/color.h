@@ -8,8 +8,8 @@
 namespace nc {
 
 /**
-* @brief RGBA color.
-*/
+ * @brief RGBA color.
+ */
 struct NCAPI Color {
     Color() {}
     Color( uint8_t R, uint8_t G, uint8_t B, uint8_t A ) : r( R ), g( G ), b( B ), a( A ) {}
@@ -26,6 +26,12 @@ struct NCAPI Color {
             static_cast<uint8_t>( hex & 0xFF ),
             alpha,
         };
+    }
+
+    uint32_t pack() const
+    {
+        return ( static_cast<uint32_t>( a * 255.0f ) << 24 ) | ( static_cast<uint32_t>( b * 255.0f ) << 16 ) |
+               ( static_cast<uint32_t>( g * 255.0f ) << 8 ) | ( static_cast<uint32_t>( r * 255.0f ) );
     }
 
     uint8_t r = 0;

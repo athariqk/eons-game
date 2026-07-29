@@ -6,13 +6,18 @@
 #pragma once
 
 #include <ncore.h>
+#include <ncore/utils/math.h>
 
 #include "types.h"
 
 namespace nc {
 
+/**
+* @brief CommonVectorOps define shared math operations for
+* N-dimension vectors of type T.
+*/
 template<typename Derived, typename T, std::size_t N>
-struct VectorOps {
+struct CommonVectorOps {
 private:
     constexpr Derived& self()
     {
@@ -27,7 +32,7 @@ private:
 public:
     Derived add( const Derived& rhs ) const
     {
-        Derived out;
+        Derived out{};
         for (std::size_t i = 0; i < N; ++i)
             out.data()[i] = self().data()[i] + rhs.data()[i];
         return out;
@@ -35,7 +40,7 @@ public:
 
     Derived subtract( const Derived& rhs ) const
     {
-        Derived out;
+        Derived out{};
         for (std::size_t i = 0; i < N; ++i)
             out.data()[i] = self().data()[i] - rhs.data()[i];
         return out;
@@ -43,7 +48,7 @@ public:
 
     Derived multiply( const Derived& rhs ) const
     {
-        Derived out;
+        Derived out{};
         for (std::size_t i = 0; i < N; ++i)
             out.data()[i] = self().data()[i] * rhs.data()[i];
         return out;
@@ -51,15 +56,23 @@ public:
 
     Derived divide( const Derived& rhs ) const
     {
-        Derived out;
+        Derived out{};
         for (std::size_t i = 0; i < N; ++i)
             out.data()[i] = self().data()[i] / rhs.data()[i];
         return out;
     }
 
+    T dot( const Derived& rhs ) const
+    {
+        T out;
+        for (std::size_t i = 0; i < N; ++i)
+            out += self().data()[i] * rhs.data()[i];
+        return out;
+    }
+
     Derived add( T value ) const
     {
-        Derived out;
+        Derived out{};
         for (std::size_t i = 0; i < N; ++i)
             out.data()[i] = self().data()[i] + value;
         return out;
@@ -67,7 +80,7 @@ public:
 
     Derived subtract( T value ) const
     {
-        Derived out;
+        Derived out{};
         for (std::size_t i = 0; i < N; ++i)
             out.data()[i] = self().data()[i] - value;
         return out;
@@ -75,7 +88,7 @@ public:
 
     Derived multiply( T value ) const
     {
-        Derived out;
+        Derived out{};
         for (std::size_t i = 0; i < N; ++i)
             out.data()[i] = self().data()[i] * value;
         return out;
@@ -83,7 +96,7 @@ public:
 
     Derived divide( T value ) const
     {
-        Derived out;
+        Derived out{};
         for (std::size_t i = 0; i < N; ++i)
             out.data()[i] = self().data()[i] / value;
         return out;
@@ -192,7 +205,7 @@ public:
 
     Derived operator-() const
     {
-        Derived out;
+        Derived out{};
         for (std::size_t i = 0; i < N; ++i)
             out.data()[i] = -self().data()[i];
         return out;
@@ -208,12 +221,10 @@ public:
     T length_sqr() const
     {
         T result{};
-
         for (std::size_t i = 0; i < N; ++i) {
             auto& c = self().data()[i];
             result += c * c;
         }
-
         return result;
     }
 
@@ -224,19 +235,35 @@ public:
 
     bool is_zero() const
     {
-        return length_sqr() < ( std::numeric_limits<T>::epsilon() * std::numeric_limits<T>::epsilon() );
+        return length_sqr() < std::numeric_limits<T>::epsilon();
+    }
+
+    bool is_equal_approx( const Derived& rhs )
+    {
+        for (std::size_t i = 0; i < N; ++i) {
+            if (!math::is_equal_approx( self().data()[i], rhs.data()[i] ))
+                return false;
+        }
+        return true;
     }
 
     static Derived lerp( const Derived& a, const Derived& b, T amount )
     {
         amount = std::clamp( amount, T( 0 ), T( 1 ) );
-
-        Derived out;
-
+        Derived out{};
         for (std::size_t i = 0; i < N; ++i) {
             out.data()[i] = a.data()[i] + ( b.data()[i] - a.data()[i] ) * amount;
         }
+        return out;
+    }
 
+    static Derived normalize( const Derived& v )
+    {
+        auto m = v.length();
+        Derived out{};
+        for (std::size_t i = 0; i < N; ++i) {
+            out.data()[i] = v.data()[i] / m;
+        }
         return out;
     }
 
@@ -246,7 +273,6 @@ public:
             if (self().data()[i] != rhs.data()[i])
                 return false;
         }
-
         return true;
     }
 
@@ -256,7 +282,10 @@ public:
     }
 };
 
-struct NCAPI Vec2 : VectorOps<Vec2, float, 2> {
+/**
+ * @brief 2 components vector of single-precision floating-point numbers.
+ */
+struct NCAPI Vec2 : CommonVectorOps<Vec2, float, 2> {
     float x = 0, y = 0;
 
     Vec2() = default;
@@ -274,7 +303,10 @@ struct NCAPI Vec2 : VectorOps<Vec2, float, 2> {
     NSTRUCT( Vec2, NC_F( Vec2, x ) NC_F( Vec2, y ) )
 };
 
-struct NCAPI Vec3 : VectorOps<Vec3, float, 3> {
+/**
+ * @brief 3 components vector of single-precision floating-point numbers.
+ */
+struct NCAPI Vec3 : CommonVectorOps<Vec3, float, 3> {
     float x = 0, y = 0, z = 0;
 
     Vec3() = default;
@@ -289,10 +321,48 @@ struct NCAPI Vec3 : VectorOps<Vec3, float, 3> {
         return &x;
     }
 
+    Vec3 cross( const Vec3& rhs ) const
+    {
+        return { y * rhs.z - z * rhs.y, z * rhs.x - x * rhs.z, x * rhs.y - y * rhs.x };
+    }
+
+    static Vec3 up()
+    {
+        return Vec3( 0, 1, 0 );
+    }
+
+    static Vec3 down()
+    {
+        return Vec3( 0, -1, 0 );
+    }
+
+    static Vec3 forward()
+    {
+        return Vec3( 0, 0, 1 );
+    }
+
+    static Vec3 backward()
+    {
+        return Vec3( 0, 0, -1 );
+    }
+
+    static Vec3 right()
+    {
+        return Vec3( 1, 0, 0 );
+    }
+
+    static Vec3 left()
+    {
+        return Vec3( -1, 0, 0 );
+    }
+
     NSTRUCT( Vec3, NC_F( Vec3, x ) NC_F( Vec3, y ) NC_F( Vec3, z ) )
 };
 
-struct Vec4 : VectorOps<Vec4, float, 4> {
+/**
+ * @brief 4 components vector of single-precision floating-point numbers.
+ */
+struct Vec4 : CommonVectorOps<Vec4, float, 4> {
     float x = 0, y = 0, z = 0, w = 0;
 
     Vec4() = default;

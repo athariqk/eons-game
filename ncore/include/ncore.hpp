@@ -6,8 +6,10 @@
 
 #include <ncore/application.h>
 #include <ncore/core/errors.h>
+#include <ncore/core/matrix.h>
 #include <ncore/core/object.h>
 #include <ncore/core/random.h>
+#include <ncore/core/rect.h>
 #include <ncore/core/rid.h>
 #include <ncore/core/vector.h>
 #include <ncore/core/types.h>

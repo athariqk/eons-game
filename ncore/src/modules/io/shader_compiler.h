@@ -15,7 +15,7 @@ struct ShaderCompileDesc {
 
 struct ShaderCompileResult {
     std::string_view shader_name;
-    Vector<ShaderDesc> programs;
+    DynArray<ShaderDesc> programs;
     bool ok = false;
     std::string diagnostics;
 };

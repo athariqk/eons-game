@@ -34,7 +34,7 @@ public:
     }
 
     /**
-     * @brief Decrements the reference count in an atomic way.
+     * @brief Decrements the reference count atomically.
      *
      * @return True if decrementing to zero.
      */
