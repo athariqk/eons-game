@@ -2,7 +2,7 @@
 
 namespace nc {
 
-ResourceFormatID MaterialTemplate::get_format_id()
+ResourceFormatID MaterialTemplate::get_format_id() const
 {
     return "matl";
 }

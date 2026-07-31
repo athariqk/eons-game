@@ -11,10 +11,6 @@
 
 namespace nc {
 
-// Currently, we mostly just have wrappers for Flecs C API.
-// Just something that we can build upon in the future
-// from a standardized base.
-
 class EcsWorld;
 class EcsQueryBuilder;
 class ModuleRegistry;
@@ -23,6 +19,10 @@ class ModuleRegistry;
  * @brief A lightweight, non-owning handle to a query owned by an EcsWorld.
  *
  * This is cached and supports range-for iteration.
+ *
+ * Currently, we mostly just have wrappers for Flecs C API.
+ * Just something that we can build upon in the future
+ * from a standardized base.
  */
 class NCAPI EcsQuery {
 public:
@@ -60,36 +60,27 @@ class NCAPI QueryContext {
 public:
     explicit QueryContext( void* iter );
 
-    double delta_time() const;         // The global delta time
-    float delta_time_internal() const; // System's own delta time
-    int32_t count() const;             // The entity count being iterated
-    EcsEntityId entity( int32_t row ) const;
-    EcsWorld& world() const;
+    double delta_time() const;               // The global delta time.
+    float delta_time_internal() const;       // System's own delta time.
+    int32_t count() const;                   // The entity count being iterated.
+    EcsEntityId entity( int32_t row ) const; // Gets entity ID at given row.
+    EcsWorld& world() const;                 // The current world.
+    ModuleRegistry& modules() const;         // Helper access to engine modules.
+    EcsEntityId event();                     // Returns any event if applicable.
+    void* event_payload();
+
+    template<typename T>
+	T* event_payload()
+	{
+        return reinterpret_cast<T*>( event_payload() );
+	}
+
+    /**
+     * @brief Sets the component instance that will be returned by get_component().
+     */
     void set_row( int32_t row )
     {
         current_row_ = row;
-    }
-    ModuleRegistry& modules() const; // Helper access to the engine modules
-    EcsEntityId event();
-
-    /**
-     * @brief Typed component access. Component indices are 0-based in the order
-     * terms were added to the builder.
-     */
-    template<typename T>
-    T* get_component( int32_t component_idx )
-    {
-        static const auto& info = rtti::TypeRegistry::get<T>();
-        return static_cast<T*>( get_component_( component_idx, info.size, info.alignment ) );
-    }
-
-    /**
-     * @brief Gets a single element from a typed component at a given row.
-     */
-    template<typename T>
-    T& get_component( int32_t component_idx, int32_t row )
-    {
-        return get_component<T>( component_idx )[row];
     }
 
     /**
@@ -104,15 +95,6 @@ public:
         int32_t idx             = resolve_term_index_( info );
         NC_ASSERT( idx >= 0, "Component not found in query terms" );
         return static_cast<T*>( get_component_( idx, info.size, info.alignment ) );
-    }
-
-    /**
-     * @brief Convenience overload: type-based lookup with row access.
-     */
-    template<typename T>
-    T& get_component( int32_t row )
-    {
-        return get_component<T>()[row];
     }
 
     /**

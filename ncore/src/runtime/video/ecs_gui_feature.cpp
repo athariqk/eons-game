@@ -12,6 +12,7 @@
 #include <ncore/modules/video/window_module.h>
 #include <ncore/resources/image.h>
 #include <ncore/resources/material_template.h>
+#include <ncore/runtime/components/ecs_events.h>
 #include <ncore/runtime/components/ecs_material.h>
 #include <ncore/runtime/components/ecs_window.h>
 #include <ncore/runtime/ecs_base_features.h>
@@ -37,7 +38,7 @@ void EcsGuiFeature::build( EcsWorld& world )
 {
     world.emplace_singleton<ImGuiState>();
 
-    world.create_system( "EcsGuiFeature::Init" ).in( EcsSystemPhase::INIT ).order( 10 ).run( []( QueryContext& ctx ) {
+    world.system( "EcsGuiFeature::Init" ).in( EcsSystemPhase::INIT ).order( 10 ).run( []( QueryContext& ctx ) {
         auto io  = ctx.world().get_singleton<IoModules>();
         auto gfx = ctx.world().get_singleton<GraphicsModules>();
 
@@ -63,8 +64,9 @@ void EcsGuiFeature::build( EcsWorld& world )
 
         ImGui::SetCurrentContext( state.imgui_ctx );
 
-        auto tmpl = io->resources->load<MaterialTemplate>( "engine/materials/canvas.material" );
-        NC_ASSERT_NULL( tmpl );
+        auto tmpl_rid = io->resources->load( "engine/materials/canvas.material" );
+        auto tmpl     = io->resources->get<MaterialTemplate>( tmpl_rid );
+        NC_VERIFY( tmpl );
         auto mat = gfx->renderer->material_create( *tmpl );
 
         state.material = mat; // TODO: why are we even storing the mat in the global state when
@@ -73,38 +75,36 @@ void EcsGuiFeature::build( EcsWorld& world )
         auto state_id = ctx.world().set_singleton<ImGuiState>( state );
 
         ctx.world()
-            .create_entity( "ImGui_Material" )
-            .with<EcsMaterialInstance>( EcsMaterialInstance{ .template_resource = tmpl, .material = mat, .textures = {} } )
+            .entity( "ImGui_Material" )
+            .with<EcsMaterialInstance>( { tmpl_rid, mat, {} } )
             .child_of( state_id )
             .build();
     } );
 
-    world.create_observer( "EcsGuiFeature::Cleanup" )
-        .on<ImGuiState>( EcsCoreEvent::OnRemove )
-        .run( []( QueryContext& ctx ) {
-            auto state          = ctx.get_component<ImGuiState>();
-            auto gfx            = ctx.world().get_singleton<GraphicsModules>();
-            ImGuiPlatformIO& io = ImGui::GetPlatformIO();
-            for (ImTextureData* tex : io.Textures) {
-                if (tex->BackendUserData) {
-                    RID rid( static_cast<uint64_t>( reinterpret_cast<uintptr_t>( tex->BackendUserData ) ) );
-                    gfx->renderer->destroy_rid( rid );
-                }
-                tex->BackendUserData = nullptr;
-                tex->SetTexID( ImTextureID_Invalid );
-                tex->SetStatus( ImTextureStatus_Destroyed );
+    world.observer( "EcsGuiFeature::Cleanup" ).on<ImGuiState>( EcsCoreEvent::OnRemove ).run( []( QueryContext& ctx ) {
+        auto state          = ctx.get_component<ImGuiState>();
+        auto gfx            = ctx.world().get_singleton<GraphicsModules>();
+        ImGuiPlatformIO& io = ImGui::GetPlatformIO();
+        for (ImTextureData* tex : io.Textures) {
+            if (tex->BackendUserData) {
+                RID rid( static_cast<uint64_t>( reinterpret_cast<uintptr_t>( tex->BackendUserData ) ) );
+                gfx->renderer->destroy_rid( rid );
             }
+            tex->BackendUserData = nullptr;
+            tex->SetTexID( ImTextureID_Invalid );
+            tex->SetStatus( ImTextureStatus_Destroyed );
+        }
 
-			auto& fonts = ImGui::GetIO().Fonts->Fonts;
-			for (auto font : fonts) {
-                ImGui::GetIO().Fonts->RemoveFont( font );
-			}
+        auto& fonts = ImGui::GetIO().Fonts->Fonts;
+        for (auto font : fonts) {
+            ImGui::GetIO().Fonts->RemoveFont( font );
+        }
 
-            if (state->imgui_ctx)
-                ImGui::DestroyContext( state->imgui_ctx );
-        } );
+        if (state->imgui_ctx)
+            ImGui::DestroyContext( state->imgui_ctx );
+    } );
 
-    world.create_system( "EcsGuiFeature::ProcessEvents" )
+    world.system( "EcsGuiFeature::ProcessEvents" )
         .in( EcsSystemPhase::PRE_FRAME )
         .with<ImGuiState>()
         .run( []( QueryContext& ctx ) {
@@ -160,7 +160,7 @@ void EcsGuiFeature::build( EcsWorld& world )
             }
         } );
 
-    world.create_system( "EcsGuiFeature::PrepareFrame" )
+    world.system( "EcsGuiFeature::PrepareFrame" )
         .in( EcsSystemPhase::PRE_UPDATE )
         .with<EcsSwapChainRef>()
         .run( []( QueryContext& ctx ) {
@@ -189,7 +189,7 @@ void EcsGuiFeature::build( EcsWorld& world )
             }
         } );
 
-    world.create_system( "EcsGuiFeature::EndFrame" )
+    world.system( "EcsGuiFeature::EndFrame" )
         .in( EcsSystemPhase::POST_UPDATE )
         .with<EcsSwapChainRef>()
         .run( []( QueryContext& ctx ) {

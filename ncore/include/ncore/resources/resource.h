@@ -21,15 +21,15 @@ struct ResourceFormatID {
     ResourceFormatID( const std::string& ascii_id );
     ResourceFormatID( const char* ascii_id );
 
-    bool is_valid();
-    std::string to_string();
+    bool is_valid() const;
+    std::string to_string() const;
 };
 
 class IResource : public RefCounted {
     NCLASS( IResource, RefCounted )
 
 public:
-    virtual ResourceFormatID get_format_id()
+    virtual ResourceFormatID get_format_id() const
     {
         return ResourceFormatID();
     }

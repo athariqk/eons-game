@@ -11,6 +11,7 @@ namespace nc {
 
 struct ShaderCompileDesc {
     std::string_view filepath;
+    bool recreate_session = false;
 };
 
 struct ShaderCompileResult {
@@ -40,7 +41,7 @@ public:
     ShaderCompileResult compile( const ShaderCompileDesc& desc );
 
 private:
-    bool ensure_session();
+    bool ensure_session( bool recreate_session = false );
 
     Slang::ComPtr<slang::IGlobalSession> global_session;
     Slang::ComPtr<slang::ISession> compile_session;

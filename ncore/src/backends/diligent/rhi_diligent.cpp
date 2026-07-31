@@ -131,21 +131,21 @@ RID DiligentRHI::create_deferred_context( GpuQueue queue )
         case IRHI::GpuQueue::Graphics: {
             auto rid   = ctx_gfx_defer.acquire();
             auto entry = ctx_gfx_defer.get( rid );
-            NC_ASSERT_NULL( entry );
+            NC_VERIFY( entry );
             *entry = out;
             return rid;
         }
         case IRHI::GpuQueue::Compute: {
             auto rid   = ctx_comp_defer.acquire();
             auto entry = ctx_comp_defer.get( rid );
-            NC_ASSERT_NULL( entry );
+            NC_VERIFY( entry );
             *entry = out;
             return rid;
         }
         case IRHI::GpuQueue::Transfer: {
             auto rid   = ctx_tx_defer.acquire();
             auto entry = ctx_tx_defer.get( rid );
-            NC_ASSERT_NULL( entry );
+            NC_VERIFY( entry );
             *entry = out;
             return rid;
         }
@@ -199,7 +199,7 @@ RID DiligentRHI::swapchain_create( const SwapChainDesc& desc )
 
     auto rid    = swapchains.acquire();
     auto handle = swapchains.get( rid );
-    NC_ASSERT_NULL( handle );
+    NC_VERIFY( handle );
     *handle = std::move( out );
 
     return rid;
@@ -208,7 +208,7 @@ RID DiligentRHI::swapchain_create( const SwapChainDesc& desc )
 Vec2 DiligentRHI::swapchain_get_size( RID sc )
 {
     auto entry = swapchains.get( sc );
-    NC_ASSERT_NULL( entry );
+    NC_VERIFY( entry );
     auto width  = static_cast<float>( ( *entry )->GetDesc().Width );
     auto height = static_cast<float>( ( *entry )->GetDesc().Height );
     return Vec2( width, height );
@@ -217,7 +217,7 @@ Vec2 DiligentRHI::swapchain_get_size( RID sc )
 void DiligentRHI::swapchain_set_size( RID sc, Vec2 size )
 {
     auto entry = swapchains.get( sc );
-    NC_ASSERT_NULL( entry );
+    NC_VERIFY( entry );
     auto& desc      = ( *entry )->GetDesc();
     auto new_width  = static_cast<Diligent::Uint32>( size.x );
     auto new_height = static_cast<Diligent::Uint32>( size.y );
@@ -232,14 +232,14 @@ void DiligentRHI::swapchain_set_size( RID sc, Vec2 size )
 void DiligentRHI::swapchain_present( RID sc, bool sync_interval )
 {
     auto entry = swapchains.get( sc );
-    NC_ASSERT_NULL( entry );
+    NC_VERIFY( entry );
     ( *entry )->Present( sync_interval ? 1 : 0 );
 }
 
 void* DiligentRHI::swapchain_get_view( RID sc, TextureViewType view )
 {
     auto entry = swapchains.get( sc );
-    NC_ASSERT_NULL( entry );
+    NC_VERIFY( entry );
     switch (view) {
         case nc::TextureViewType::SHADER_RESOURCE:
             break;
@@ -277,7 +277,7 @@ RID DiligentRHI::gfx_pipeline_create( const GraphicsPSODesc& desc, DynArray<RID>
         ci.ByteCodeSize                    = desc.vs_bytecode.size_bytes();
         device->CreateShader( ci, &vs );
     }
-    NC_ASSERT_NULL( vs );
+    NC_VERIFY( vs );
 
     Diligent::RefCntAutoPtr<Diligent::IShader> ps;
     {
@@ -292,7 +292,7 @@ RID DiligentRHI::gfx_pipeline_create( const GraphicsPSODesc& desc, DynArray<RID>
         Diligent::RefCntAutoPtr<Diligent::IDataBlob> blob;
         device->CreateShader( ci, &ps, &blob );
     }
-    NC_ASSERT_NULL( ps );
+    NC_VERIFY( ps );
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pso;
     {
@@ -385,7 +385,7 @@ RID DiligentRHI::gfx_pipeline_create( const GraphicsPSODesc& desc, DynArray<RID>
             NC_LOG_ERROR_C( log::GRAPHICS, "FAILED to create PSO '{}'", desc.debug_name );
         }
     }
-    NC_ASSERT_NULL( pso );
+    NC_VERIFY( pso );
 
     RID handle = pipelines.acquire();
     auto entry = pipelines.get( handle );
@@ -398,7 +398,7 @@ RID DiligentRHI::gfx_pipeline_create( const GraphicsPSODesc& desc, DynArray<RID>
 void DiligentRHI::gfx_pipeline_bind( RID pipeline )
 {
     auto entry = pipelines.get( pipeline );
-    NC_ASSERT( entry, "Invalid pipeline" );
+    NC_VERIFY( entry );
     NC_LOG_TRACE_C( log::GRAPHICS, "gfx_pipeline_bind: rid={}", pipeline.value );
     get_active_ctx_()->SetPipelineState( *entry );
 }
@@ -406,7 +406,7 @@ void DiligentRHI::gfx_pipeline_bind( RID pipeline )
 void DiligentRHI::gfx_pipeline_reload( RID pipeline )
 {
     auto entry = pipelines.get( pipeline );
-    NC_ASSERT( entry, "Invalid pipeline" );
+    NC_VERIFY( entry );
     entry->Release();
     pipelines.release( pipeline );
 }
@@ -536,18 +536,17 @@ RID DiligentRHI::texture_create( const TextureDesc& desc )
 void DiligentRHI::texture_binding_update( RID texture, RID binding, const char* name )
 {
     auto srb_entry = res_bindings.get( binding );
-    NC_ASSERT( srb_entry, "Invalid SRB" );
-
     auto tex_entry = textures.get( texture );
-    NC_ASSERT( tex_entry, "Invalid texture" );
+    auto view      = ( *tex_entry )->GetDefaultView( Diligent::TEXTURE_VIEW_SHADER_RESOURCE );
 
-    auto view = ( *tex_entry )->GetDefaultView( Diligent::TEXTURE_VIEW_SHADER_RESOURCE );
-    NC_ASSERT_NULL( view );
+    NC_VERIFY( srb_entry );
+    NC_VERIFY( tex_entry );
+    NC_VERIFY( view );
 
     auto var = ( *srb_entry )->GetVariableByName( Diligent::SHADER_TYPE_PIXEL, name );
     if (!var)
         NC_LOG_ERROR_C( log::GRAPHICS, "texture_binding_update: var '{}' NOT FOUND in PIXEL stage", name );
-    NC_ASSERT_NULL( var );
+    NC_VERIFY( var );
 
     var->Set( view, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE );
 }
@@ -555,7 +554,7 @@ void DiligentRHI::texture_binding_update( RID texture, RID binding, const char* 
 void* DiligentRHI::texture_get_view( RID texture, TextureViewType view )
 {
     auto entry = textures.get( texture );
-    NC_ASSERT( entry, "Invalid texture" );
+    NC_VERIFY( entry );
 
     auto map_view = []( TextureViewType t ) {
         switch (t) {
@@ -610,7 +609,7 @@ RID DiligentRHI::sampler_create( const SamplerDesc& desc )
 
     RID handle = samplers.acquire();
     auto entry = samplers.get( handle );
-    NC_ASSERT( entry, "Failed acquiring new sampler slot" );
+    NC_VERIFY( entry );
     *entry = std::move( sampler );
 
     return handle;
@@ -619,15 +618,14 @@ RID DiligentRHI::sampler_create( const SamplerDesc& desc )
 void DiligentRHI::sampler_update_binding( RID sampler, RID binding, const char* name )
 {
     auto* srb_entry = res_bindings.get( binding );
-    NC_ASSERT( srb_entry, "Invalid SRB" );
-
     auto* sam_entry = samplers.get( sampler );
-    NC_ASSERT( sam_entry, "Invalid sampler" );
-
-    auto* var = ( *srb_entry )->GetVariableByName( Diligent::SHADER_TYPE_PIXEL, name );
+    auto* var       = ( *srb_entry )->GetVariableByName( Diligent::SHADER_TYPE_PIXEL, name );
     if (!var)
         NC_LOG_ERROR_C( log::GRAPHICS, "sampler_update_binding: var '{}' NOT FOUND in PIXEL stage", name );
-    NC_ASSERT_NULL( var );
+
+    NC_VERIFY( srb_entry );
+    NC_VERIFY( sam_entry );
+    NC_VERIFY( var );
 
     var->Set( *sam_entry );
     NC_LOG_TRACE_C( log::GRAPHICS, "sampler_update_binding: var='{}' bound to sampler rid={}", name, sampler.value );
@@ -653,7 +651,7 @@ RID DiligentRHI::buffer_create( const BufferDesc& p_desc )
 
     RID handle = buffers.acquire();
     auto entry = buffers.get( handle );
-    NC_ASSERT( entry, "Failed acquiring new buffer slot" );
+    NC_VERIFY( entry );
     *entry = std::move( buffer );
 
     NC_LOG_DEBUG_C(
@@ -668,7 +666,7 @@ RID DiligentRHI::buffer_create( const BufferDesc& p_desc )
 void DiligentRHI::buffer_update( RID buffer, const void* data, size_t size )
 {
     auto buf = buffers.get( buffer );
-    NC_ASSERT( buf, "Invalid buffer" );
+    NC_VERIFY( buf );
 
     Diligent::MapHelper<uint8_t> map{ get_active_ctx_(), *buf, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD };
     if (map) {
@@ -682,15 +680,14 @@ void DiligentRHI::buffer_update( RID buffer, const void* data, size_t size )
 void DiligentRHI::buffer_update_binding( RID buffer, RID binding, const char* name )
 {
     auto srb_entry = res_bindings.get( binding );
-    NC_ASSERT( srb_entry, "Invalid SRB" );
-
     auto buf_entry = buffers.get( buffer );
-    NC_ASSERT( buf_entry, "Invalid buffer" );
-
-    auto var = ( *srb_entry )->GetVariableByName( Diligent::SHADER_TYPE_VERTEX, name );
+    auto var       = ( *srb_entry )->GetVariableByName( Diligent::SHADER_TYPE_VERTEX, name );
     if (!var)
         NC_LOG_ERROR_C( log::GRAPHICS, "buffer_update_binding: var '{}' NOT FOUND in VERTEX stage", name );
-    NC_ASSERT_NULL( var );
+
+    NC_VERIFY( srb_entry );
+    NC_VERIFY( buf_entry );
+    NC_VERIFY( var );
 
     var->Set( *buf_entry );
     NC_LOG_TRACE_C( log::GRAPHICS, "buffer_update_binding: var='{}' bound to buffer rid={}", name, buffer.value );
@@ -703,7 +700,7 @@ void DiligentRHI::vertex_buffers_bind(
     DynArray<Diligent::IBuffer*> buffer_arr;
     for (auto& rid : p_buffers) {
         auto ptr = buffers.get( rid );
-        NC_ASSERT_NULL( ptr );
+        NC_VERIFY( ptr );
         buffer_arr.push_back( ptr->RawPtr() );
     }
 
@@ -717,7 +714,7 @@ void DiligentRHI::vertex_buffers_bind(
 void DiligentRHI::index_buffer_bind( RID buffer, uint32_t offset )
 {
     auto buf = buffers.get( buffer );
-    NC_ASSERT_NULL( buf );
+    NC_VERIFY( buf );
     NC_LOG_TRACE_C( log::GRAPHICS, "index_buffer_bind: rid={} offset={}", buffer.value, offset );
     get_active_ctx_()->SetIndexBuffer( *buf, offset, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION );
 }
@@ -776,14 +773,14 @@ RID DiligentRHI::resource_signature_create( const ResourceSignatureDesc& desc )
 RID DiligentRHI::resource_binding_create( RID signature )
 {
     auto sig = res_signatures.get( signature );
-    NC_ASSERT( sig, "Invalid resource signature" );
+    NC_VERIFY( sig );
 
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> srb;
     ( *sig )->CreateShaderResourceBinding( &srb, true );
 
     RID handle = res_bindings.acquire();
     auto entry = res_bindings.get( handle );
-    NC_ASSERT( entry, "Failed acquiring new resource binding slot" );
+    NC_VERIFY( entry );
     *entry = std::move( srb );
 
     return handle;
@@ -792,7 +789,7 @@ RID DiligentRHI::resource_binding_create( RID signature )
 void DiligentRHI::resource_binding_commit( RID binding )
 {
     auto srb = res_bindings.get( binding );
-    NC_ASSERT( srb, "Invalid SRB" );
+    NC_VERIFY( srb );
     NC_LOG_TRACE_C( log::GRAPHICS, "resource_binding_commit: rid={}", binding.value );
     get_active_ctx_()->CommitShaderResources( *srb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION );
 }
@@ -801,47 +798,25 @@ void DiligentRHI::resource_binding_commit( RID binding )
 
 bool DiligentRHI::is_rid_owned( RID rid )
 {
-    if (textures.contains( rid ))
-        return true;
-    if (pipelines.contains( rid ))
-        return true;
-    if (buffers.contains( rid ))
-        return true;
-    if (samplers.contains( rid ))
-        return true;
-    if (res_signatures.contains( rid ))
-        return true;
-    if (res_bindings.get( rid ))
-        return true;
-    return false;
+    return ctx_gfx_defer.contains( rid ) || ctx_comp_defer.contains( rid ) || ctx_tx_defer.contains( rid ) ||
+           swapchains.contains( rid ) || textures.contains( rid ) || pipelines.contains( rid ) ||
+           buffers.contains( rid ) || samplers.contains( rid ) || res_signatures.contains( rid ) ||
+           res_bindings.contains( rid );
 }
 
 void DiligentRHI::destroy_resource( RID rid )
 {
-    if (textures.get( rid )) {
-        textures.release( rid );
-        return;
-    }
-    if (pipelines.get( rid )) {
-        pipelines.release( rid );
-        return;
-    }
-    if (buffers.get( rid )) {
-        buffers.release( rid );
-        return;
-    }
-    if (samplers.get( rid )) {
-        samplers.release( rid );
-        return;
-    }
-    if (res_signatures.get( rid )) {
-        res_signatures.release( rid );
-        return;
-    }
-    if (res_bindings.get( rid )) {
-        res_bindings.release( rid );
-        return;
-    }
+    NC_LOG_DEBUG_C( log::GRAPHICS, "Destroying RID={}", rid.value );
+    ctx_gfx_defer.release( rid );
+    ctx_comp_defer.release( rid );
+    ctx_tx_defer.release( rid );
+    swapchains.release( rid );
+    pipelines.release( rid );
+    textures.release( rid );
+    buffers.release( rid );
+    samplers.release( rid );
+    res_signatures.release( rid );
+    res_bindings.release( rid );
 }
 
 // ---------------------------------------------------------------------------

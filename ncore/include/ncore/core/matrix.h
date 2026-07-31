@@ -65,6 +65,9 @@ struct NCAPI Mat4 {
         );
     }
 
+    /**
+     * @brief Perform M * v operation.
+     */
     Vec3 multiply( const Vec3& v ) const
     {
         Vec4 r = multiply( Vec4( v.x, v.y, v.z, 1.0f ) );

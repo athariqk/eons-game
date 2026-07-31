@@ -67,11 +67,12 @@ bool operator!=( const NcAllocator<T>&, const NcAllocator<U>& )
 
 /**
  * @brief BumpAllocator defines a single contiguous block of memory on the heap.
+ * Allocation means moving/bumping the "free" memory address pointer.
  */
 template<typename T>
 class BumpAllocator {
 public:
-    BumpAllocator( size_t p_capacity ) : capacity( p_capacity ), size( 0 )
+    BumpAllocator( size_t p_capacity ) : capacity( p_capacity )
     {
         data = static_cast<T*>( memalloc_aligned( capacity * sizeof( T ), alignof( T ) ) );
     }
@@ -83,43 +84,70 @@ public:
 
     T* alloc()
     {
-        if (size >= capacity)
+        if (head >= capacity)
             return nullptr;
-        return &data[size++];
+        return &data[head++];
+    }
+
+    T* alloc_at( size_t position )
+    {
+        if (position > capacity)
+            return nullptr;
+        head = position;
+        return &data[head];
     }
 
     void dealloc()
     {
-        size = 0;
+        head = 0;
         memfree_align( data, alignof( T ) );
     }
 
     T* operator[]( size_t index )
     {
-        if (index >= size)
+        if (index >= head)
+            return nullptr;
+        return &data[index];
+    }
+    const T* operator[]( size_t index ) const
+    {
+        if (index >= head)
             return nullptr;
         return &data[index];
     }
 
-    // This does NOT free memory, just resets the counter to 0
+    /**
+     * @brief This does NOT free memory, just resets the head pointer to 0!
+     */
     void reset()
     {
-        size = 0;
+        head = 0;
     }
 
-    size_t get_size() const
+    size_t get_head() const
     {
-        return size;
+        return head;
     }
+    void set_head( size_t position )
+    {
+        NC_ASSERT( position <= capacity, "Out of bounds" );
+        head = position;
+    }
+
     size_t get_capacity() const
     {
         return capacity;
     }
 
+    const T* get_data() const
+    {
+        return data;
+    }
+
 private:
-    size_t capacity;
-    size_t size;
-    T* data;
+    size_t capacity = 0;
+    size_t head     = 0;
+    T* data         = nullptr;
 };
 
 /**
@@ -130,7 +158,7 @@ private:
  *
  * This is intended to be used on top of managers that handle object lifetimes.
  * Otherwise, you are responsible for calling the constructors and destructors
- * of any allocated objects.
+ * of the allocated objects.
  */
 template<typename T>
 class PagedAllocator {
@@ -242,7 +270,7 @@ public:
     }
 
     /**
-     * @brief Returns the total number of elements allocated in the arena
+     * @brief Returns the total number of elements allocated in the arena.
      */
     uint32_t get_size() const
     {
@@ -250,7 +278,7 @@ public:
     }
 
     /**
-     * @brief Returns the number of pages currently allocated
+     * @brief Returns the number of pages currently allocated.
      */
     size_t get_page_count() const
     {
@@ -258,7 +286,7 @@ public:
     }
 
     /**
-     * @brief Returns the size of each page in the arena
+     * @brief Returns the size of each page in the arena.
      */
     uint32_t get_page_capacity() const
     {

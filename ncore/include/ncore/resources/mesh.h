@@ -20,6 +20,8 @@ class Mesh : public IResource {
 public:
     Mesh( const MeshDesc& p_desc ) : desc( p_desc ) {}
 
+    ResourceFormatID get_format_id() const override;
+
     std::span<const std::byte> get_vertices() const;
     std::span<const uint16_t> get_indices() const;
     size_t vertex_count() const;

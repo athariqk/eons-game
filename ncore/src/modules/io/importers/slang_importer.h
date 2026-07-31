@@ -15,7 +15,7 @@ public:
         return ext == ".slang";
     }
 
-    Ref<IResource> import( std::string_view path ) override;
+    Ref<IResource> import( std::string_view path, Context ctx ) override;
 
 private:
     ShaderCompiler compiler;

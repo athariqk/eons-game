@@ -50,6 +50,7 @@ public:
     void request_quit()
     {
         wants_to_quit = true;
+        NC_LOG_DEBUG( "Quit requested" );
     }
 
     /**

@@ -50,7 +50,7 @@ NCAPI void handle_assert( const char* expr, const char* msg, const char* file, i
         }                                                                                                              \
     } while (0)
 
-#define NC_ASSERT_NULL( ptr ) NC_ASSERT_NULL_MSG( ptr, "pointer to object is null" )
+#define NC_VERIFY( ptr ) NC_ASSERT_NULL_MSG( ptr, "pointer to object is null" )
 
 #else
 
@@ -78,7 +78,7 @@ NCAPI void handle_assert( const char* expr, const char* msg, const char* file, i
         }                                                                                                              \
     } while (0)
 
-#define NC_ASSERT_NULL( ptr )                                                                                          \
+#define NC_VERIFY( ptr )                                                                                          \
     do {                                                                                                               \
         if (ptr == nullptr) {                                                                                          \
             nc::log::handle_assert( #ptr, "pointer is null reference", __FILE__, __LINE__ );                           \

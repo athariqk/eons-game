@@ -4,7 +4,7 @@ namespace nc {
 
 Shader::Shader( const ShaderDesc& p_desc ) : desc( p_desc ) {}
 
-ResourceFormatID Shader::get_format_id()
+ResourceFormatID Shader::get_format_id() const
 {
     return "shdr";
 }

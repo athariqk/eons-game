@@ -8,6 +8,7 @@
 #include <array>
 #include <set>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "memory.h"
 #include "rid.h"
@@ -20,8 +21,14 @@ using Array = std::array<T, S>;
 template<typename T>
 using DynArray = std::vector<T, NcAllocator<T>>;
 
+template<typename T, size_t Extent = std::dynamic_extent>
+using Span = std::span<T, Extent>;
+
 template<typename TKey, typename TVal, typename THasher = std::hash<TKey>>
 using HashMap = std::unordered_map<TKey, TVal, THasher, std::equal_to<TKey>, NcAllocator<std::pair<const TKey, TVal>>>;
+
+template<typename T, typename THasher = std::hash<T>, typename TKeyEq = std::equal_to<T>>
+using HashSet = std::unordered_set<T, THasher, TKeyEq, NcAllocator<T>>;
 
 using BytesBuffer = std::vector<std::byte, NcAllocator<std::byte>>;
 
@@ -225,13 +232,22 @@ private:
 
 // ---------------------------------------------------------------------------
 
+namespace detail {
+inline std::atomic<uint64_t> g_rid_sequence{ 1 }; // First ResourcePool acquire will get the value 1
+inline uint64_t next_rid_sequence() noexcept
+{
+    return g_rid_sequence.fetch_add( 1, std::memory_order_relaxed );
+}
+} // namespace detail
+
 /**
  * @brief ResourcePool is an object pool that provides an
  * RID-based interface for acquiring and releasing objects of
  * type T.
  *
  * This calls the constructor of T when acquiring an object and calls the
- * destructor of T when releasing it.
+ * destructor of T when releasing it. Generated RIDs are guaranteed to be
+ * unique process-wide.
  *
  * The internal allocator/storage is backed by a PagedAllocator.
  */
@@ -239,9 +255,9 @@ template<typename T>
 class ResourcePool {
     struct Slot {
         alignas( T ) std::byte data[sizeof( T )];
-        uint32_t generation = 1;
-        uint32_t next_free  = UINT32_MAX;
-        bool is_alive       = false;
+        uint32_t validator = 1; // a.k.a "generation"
+        uint32_t next_free = UINT32_MAX;
+        bool is_alive      = false;
     };
 
 public:
@@ -268,9 +284,10 @@ public:
         }
 
         slot->next_free = UINT32_MAX;
+        slot->validator = detail::next_rid_sequence();
         new ( &slot->data ) T( std::forward<Args>( args )... );
         slot->is_alive = true;
-        return encode_rid( index, slot->generation );
+        return encode_rid( index, slot->validator );
     }
 
     T* get( RID handle )
@@ -278,10 +295,10 @@ public:
         if (!handle.is_valid())
             return nullptr;
 
-        auto [index, generation] = decode_rid( handle );
+        auto [index, validator] = decode_rid( handle );
 
         Slot* slot = arena.get( index );
-        if (!slot || slot->generation != generation) {
+        if (!slot || slot->validator != validator) {
             return nullptr;
         }
 
@@ -293,15 +310,15 @@ public:
         if (!handle.is_valid())
             return;
 
-        auto [index, generation] = decode_rid( handle );
+        auto [index, validator] = decode_rid( handle );
 
         Slot* slot = arena.get( index );
-        if (!slot || slot->generation != generation) {
-            return; // probably already released
+        if (!slot || slot->validator != validator) {
+            return; // probably already released or not owned by us
         }
 
         reinterpret_cast<T*>( &slot->data )->~T();
-        slot->generation++;
+        slot->validator = 0;
         slot->next_free = free_list_head;
         slot->is_alive  = false;
         free_list_head  = index;
@@ -334,9 +351,9 @@ public:
     {
         if (!handle.is_valid())
             return false;
-        auto [index, generation] = decode_rid( handle );
-        const Slot* slot         = arena.get( index );
-        return slot && slot->generation == generation;
+        auto [index, validator] = decode_rid( handle );
+        const Slot* slot        = arena.get( index );
+        return slot && slot->validator == validator;
     }
 
     size_t get_size() const
@@ -375,22 +392,84 @@ public:
     }
 
 private:
-    static RID encode_rid( uint32_t index, uint32_t generation )
+    static RID encode_rid( uint32_t index, uint32_t validator )
     {
-        uint64_t val = ( static_cast<uint64_t>( generation ) << 32 ) | index;
-        return RID{ val };
+        uint64_t val = ( static_cast<uint64_t>( validator ) << 32 ) | index;
+        return RID( val );
     }
 
     static std::pair<uint32_t, uint32_t> decode_rid( RID handle )
     {
-        uint32_t index      = static_cast<uint32_t>( handle.value & 0xFFFFFFFFu );
-        uint32_t generation = static_cast<uint32_t>( handle.value >> 32 );
-        return { index, generation };
+        uint32_t index     = static_cast<uint32_t>( handle.value & 0xFFFFFFFFu );
+        uint32_t validator = static_cast<uint32_t>( handle.value >> 32 );
+        return { index, validator };
     }
 
 private:
     PagedAllocator<Slot> arena;
     uint32_t free_list_head = UINT32_MAX;
+};
+
+/**
+ * @brief RingBuffer is an implementation of overwriting-circular-buffer.
+ */
+template<typename T>
+class RingBuffer {
+public:
+    static constexpr size_t DEFAULT_CAPACITY = 512; // 512 * sizeof(T) bytes
+
+    RingBuffer( size_t p_capacity = DEFAULT_CAPACITY ) : arena( p_capacity ) {}
+
+    void push( const T& value )
+    {
+        if (full()) {
+            tail = ( tail + 1 ) % static_cast<uint32_t>( arena.get_capacity() );
+        } else {
+            size++;
+        }
+
+        size_t head = arena.get_head();
+        T* write    = arena.alloc_at( head );
+        head        = ( head + 1 ) % arena.get_capacity();
+        arena.set_head( head );
+        *write = value;
+    }
+
+    T* pop()
+    {
+        if (empty())
+            return nullptr;
+
+        size--;
+        T* read = arena[tail];
+        tail    = ( tail + 1 ) % static_cast<uint32_t>( arena.get_capacity() );
+        return read;
+    }
+
+    const T* peek() const
+    {
+        return empty() ? nullptr : arena[tail];
+    }
+
+    bool empty() const
+    {
+        return size == 0;
+    }
+
+    bool full() const
+    {
+        return size >= arena.get_capacity();
+    }
+
+    uint32_t get_size() const
+    {
+        return size;
+    }
+
+private:
+    BumpAllocator<T> arena;
+    uint32_t tail = 0;
+    uint32_t size = 0;
 };
 
 } // namespace nc

@@ -3,6 +3,8 @@
 #include <ncore/modules/module_registry.h>
 #include <ncore/modules/video/render_module.h>
 #include <ncore/modules/video/window_module.h>
+#include <ncore/runtime/components/ecs_events.h>
+#include <ncore/runtime/components/ecs_resource.h>
 #include <ncore/runtime/components/ecs_time.h>
 #include <ncore/runtime/components/ecs_transform.h>
 #include <ncore/runtime/ecs_base_features.h>
@@ -10,7 +12,7 @@
 #include <ncore/runtime/ecs_world.h>
 
 #include "audio/ecs_audio.h"
-#include "debug/ecs_debug.h"
+#include "debug/ecs_debug_feature.h"
 #include "input/ecs_inputs.h"
 #include "physics/ecs_physics.h"
 #include "video/ecs_gui_feature.h"
@@ -19,6 +21,11 @@
 
 namespace nc {
 
+struct ResourceWatchState {
+    DynArray<ResourceManager::Event> pending_events;
+    NSTRUCT( ResourceWatchState, NC_F( ResourceWatchState, pending_events ) )
+};
+
 void EcsBaseFeatures::build( EcsWorld& world )
 {
     world.set_singleton<AppDesc>( app_desc );
@@ -26,8 +33,9 @@ void EcsBaseFeatures::build( EcsWorld& world )
     world.emplace_singleton<EcsTime>();
     world.emplace_singleton<IoModules>();
     world.emplace_singleton<GraphicsModules>();
+    world.emplace_singleton<ResourceWatchState>();
 
-    world.create_system( "EcsBaseFeatures::Init" ).in( EcsSystemPhase::INIT ).run( []( QueryContext& ctx ) {
+    world.system( "EcsBaseFeatures::Init" ).in( EcsSystemPhase::INIT ).run( []( QueryContext& ctx ) {
         auto gfx      = ctx.world().get_singleton<GraphicsModules>();
         gfx->window   = ctx.modules().resolve<WindowModule>();
         gfx->renderer = ctx.modules().resolve<RenderModule>();
@@ -36,7 +44,7 @@ void EcsBaseFeatures::build( EcsWorld& world )
         io->resources = ctx.modules().resolve<ResourceManager>();
     } );
 
-    world.create_system( "EcsBaseFeatures::TrackFPS" )
+    world.system( "EcsBaseFeatures::TrackFPS" )
         .with<EcsTime>()
         .in( EcsSystemPhase::PRE_FRAME )
         .run( []( QueryContext& ctx ) {
@@ -62,7 +70,36 @@ void EcsBaseFeatures::build( EcsWorld& world )
     world.load_feature<EcsDebugFeature>();
 #endif
 
-    world.create_system( "EcsBaseFeatures::Transform2DPropagator" )
+    world.system( "EcsRenderFeature::ResourceWatcher::Poll" )
+        .in( EcsSystemPhase::POST_UPDATE )
+        .run( []( QueryContext& ctx ) {
+            auto io    = ctx.world().get_singleton<IoModules>();
+            auto state = ctx.world().get_singleton<ResourceWatchState>();
+
+            state->pending_events.clear();
+            ResourceManager::Event e;
+            while (io->resources->poll_event( &e )) {
+                state->pending_events.push_back( e );
+            }
+        } );
+
+    world.system( "EcsBaseFeatures::ResourceWatcher::Emit" )
+        .with<EcsHasResource>()
+        .in( EcsSystemPhase::POST_UPDATE )
+        .each( []( QueryContext& ctx, EcsEntityId id ) {
+            auto state = ctx.world().get_singleton<ResourceWatchState>();
+            for (auto& entry : state->pending_events) {
+                if (auto loaded = std::get_if<ResourceManager::LoadEvent>( &entry )) {
+                    NC_LOG_DEBUG(
+                        "ResourceManager::LoadEvent: RID={} ResourceFormatID={}", loaded->handle.value,
+                        loaded->format_id.to_string()
+                    );
+                    ctx.world().emit_event<EcsResourceLoaded>( { loaded->handle, loaded->format_id }, id );
+                }
+            }
+        } );
+
+    world.system( "EcsBaseFeatures::Transform2DPropagator" )
         .in( EcsSystemPhase::UPDATE )
         .with<EcsTransform2D>()
         .each( []( QueryContext& ctx, EcsEntityId eid ) {
@@ -74,12 +111,11 @@ void EcsBaseFeatures::build( EcsWorld& world )
             );
         } );
 
-    world.create_system( "EcsBaseFeatures::Transform3DPropagator" )
+    world.system( "EcsBaseFeatures::Transform3DPropagator" )
         .in( EcsSystemPhase::UPDATE )
         .with<EcsTransform3D>()
         .each( []( QueryContext& ctx, EcsEntityId ) {
-            //auto xform = ctx.get_component<EcsTransform3D>();
-
+            // auto xform = ctx.get_component<EcsTransform3D>();
         } );
 
     world.finalize_ordering();

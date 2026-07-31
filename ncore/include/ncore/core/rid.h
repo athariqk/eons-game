@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+
 namespace nc {
 
 /**
@@ -34,6 +36,20 @@ struct RID {
     bool operator!=( const RID& other ) const
     {
         return !( *this == other );
+    }
+
+    operator bool()
+    {
+        return is_valid();
+    }
+    operator bool() const
+    {
+        return is_valid();
+    }
+
+    bool operator!() const
+    {
+        return !is_valid();
     }
 
     RID operator++( int )

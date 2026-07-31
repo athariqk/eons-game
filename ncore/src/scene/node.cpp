@@ -13,7 +13,7 @@ Node* Node::create_child( const std::string& name )
     auto node = scene->node_pool.acquire();
     node->set_scene( scene );
     node->parent      = this;
-    node->internal_id = scene->ecs_world.create_entity( name ).child_of( internal_id ).build();
+    node->internal_id = scene->ecs_world.entity( name ).child_of( internal_id ).build();
     NC_LOG_TRACE( "Created child node '{}' with entity ID {}", name, node->internal_id );
     return node;
 }
@@ -33,7 +33,7 @@ void Node::reparent_to( Node* child ) {}
 
 std::string_view Node::get_name() const
 {
-    return scene->ecs_world.get_entity_name( internal_id );
+    return scene->ecs_world.lookup( internal_id );
 }
 
 } // namespace nc

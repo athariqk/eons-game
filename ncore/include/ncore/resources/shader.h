@@ -42,7 +42,7 @@ class Shader : public IResource {
 public:
     Shader( const ShaderDesc& p_desc );
 
-    ResourceFormatID get_format_id() override;
+    ResourceFormatID get_format_id() const override;
 
     ShaderType get_stage() const;
     std::string_view get_entry_point() const;
@@ -53,6 +53,7 @@ private:
     ShaderDesc desc;
 };
 
+// TODO: merge into Shader
 class CompositeShader : public IResource {
     NCLASS( CompositeShader, IResource )
 

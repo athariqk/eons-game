@@ -81,6 +81,8 @@ public:
     struct ShaderConstants {
         Mat4 ModelMatrix;
         Mat4 ViewMatrix;
+        float Time;
+        float DeltaTime;
     };
 
     void set_rhi( IRHI* p_rhi )
@@ -93,12 +95,13 @@ public:
     RID material_create( const MaterialTemplate& tmpl );
     void material_set_texture( RID handle, RID texture, uint32_t slot );
     void material_bind( RID handle, const ShaderConstants& constants );
-    void destroy_materials();
 
     RID gpu_mesh_create( const Mesh& mesh );
     void gpu_mesh_bind( RID handle );
     GPUMesh* get_gpu_mesh( RID handle );
-    void destroy_gpu_meshes();
+
+    void destroy_rid( RID rid );
+    void flush_pending_destroys();
 
 private:
     Material* get_material_( RID handle );
@@ -109,6 +112,7 @@ private:
     HashMap<PSOKey, RID, PSOKeyHasher> pso_cache;
     ResourcePool<Material> materials;
     ResourcePool<GPUMesh> gpu_meshes;
+    DynArray<RID> pending_destroys;
 };
 
 } // namespace nc

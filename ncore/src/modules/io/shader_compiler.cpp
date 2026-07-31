@@ -136,7 +136,7 @@ ShaderCompileResult ShaderCompiler::compile( const ShaderCompileDesc& desc )
         return result;
     }
 
-    if (!ensure_session())
+    if (!ensure_session( desc.recreate_session ))
         return result;
 
     slang::IModule* module = nullptr;
@@ -398,9 +398,9 @@ ShaderCompileResult ShaderCompiler::compile( const ShaderCompileDesc& desc )
     return result;
 }
 
-bool ShaderCompiler::ensure_session()
+bool ShaderCompiler::ensure_session( bool recreate_session )
 {
-    if (session_created)
+    if (session_created && !recreate_session)
         return true;
 
     if (!global_session) {

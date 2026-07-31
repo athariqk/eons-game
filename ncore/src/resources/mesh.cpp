@@ -2,6 +2,11 @@
 
 namespace nc {
 
+ResourceFormatID Mesh::get_format_id() const
+{
+    return "mesh";
+}
+
 std::span<const std::byte> Mesh::get_vertices() const
 {
     return desc.vertices;

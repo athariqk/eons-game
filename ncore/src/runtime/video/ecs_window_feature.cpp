@@ -3,8 +3,10 @@
 #include <ncore/application.h>
 #include <ncore/modules/io/resource_manager.h>
 #include <ncore/modules/video/render_module.h>
+#include <ncore/modules/video/window/window_event.h>
 #include <ncore/modules/video/window_module.h>
 #include <ncore/resources/image.h>
+#include <ncore/runtime/components/ecs_events.h>
 #include <ncore/runtime/components/ecs_window.h>
 #include <ncore/runtime/ecs_base_features.h>
 #include <ncore/runtime/ecs_system.h>
@@ -14,7 +16,7 @@ namespace nc {
 
 void EcsWindowFeature::build( EcsWorld& world )
 {
-    world.create_system( "EcsWindowFeature::Init" )
+    world.system( "EcsWindowFeature::Init" )
         .with<AppDesc>()
         .with<IoModules>()
         .with<GraphicsModules>()
@@ -27,7 +29,7 @@ void EcsWindowFeature::build( EcsWorld& world )
             gfx->window->set_default_icon( io->resources->load<Image>( "engine/images/default.ico" ) );
 
             auto window_eid = ctx.world()
-                                  .create_entity( "PrimaryWindow" )
+                                  .entity( "PrimaryWindow" )
                                   .with<EcsWindow>( EcsWindow{
                                       .title            = app_desc->Name,
                                       .resolution       = Vec2( 1280.0f, 720.0f ),
@@ -40,13 +42,13 @@ void EcsWindowFeature::build( EcsWorld& world )
                                   .build();
 
             ctx.world()
-                .create_entity()
+                .entity()
                 .with<EcsSwapChainRef>( EcsSwapChainRef{ .vsync = gfx->renderer->get_settings().VSync } )
                 .child_of( window_eid )
                 .build();
         } );
 
-    world.create_observer( "EcsWindowFeature::ConfigureWindows" )
+    world.observer( "EcsWindowFeature::ConfigureWindows" )
         .on<EcsWindow>( EcsCoreEvent::OnSet )
         .each( []( QueryContext& ctx, EcsEntityId entity_id ) {
             auto win = ctx.get_component<EcsWindow>();
@@ -63,7 +65,7 @@ void EcsWindowFeature::build( EcsWorld& world )
             gfx->window->window_set_visible( win->id, win->visible );
         } );
 
-    world.create_observer( "EcsWindowFeature::ConfigureSwapChains" )
+    world.observer( "EcsWindowFeature::ConfigureSwapChains" )
         .with<EcsSwapChainRef>()
         .with<EcsWindow>()
         .up()
@@ -80,7 +82,7 @@ void EcsWindowFeature::build( EcsWorld& world )
             }
         } );
 
-    world.create_observer( "EcsWindowFeature::DestroySwapChains" )
+    world.observer( "EcsWindowFeature::DestroySwapChains" )
         .on<EcsSwapChainRef>( EcsCoreEvent::OnRemove )
         .each( []( QueryContext& ctx, EcsEntityId ) {
             auto rd  = ctx.get_component<EcsSwapChainRef>();
@@ -91,7 +93,7 @@ void EcsWindowFeature::build( EcsWorld& world )
             }
         } );
 
-    world.create_observer( "EcsWindowFeature::DestroyWindows" )
+    world.observer( "EcsWindowFeature::DestroyWindows" )
         .on<EcsWindow>( EcsCoreEvent::OnRemove )
         .each( []( QueryContext& ctx, EcsEntityId ) {
             auto win = ctx.get_component<EcsWindow>();
@@ -99,7 +101,7 @@ void EcsWindowFeature::build( EcsWorld& world )
             gfx->window->window_pop( win->id );
         } );
 
-    world.create_system( "EcsWindowFeature::PumpEvents" )
+    world.system( "EcsWindowFeature::PumpEvents" )
         .with<GraphicsModules>()
         .in( EcsSystemPhase::PRE_FRAME )
         .run( []( QueryContext& ctx ) {
@@ -107,7 +109,7 @@ void EcsWindowFeature::build( EcsWorld& world )
             gfx->window->pump_events();
         } );
 
-    world.create_system( "EcsWindowFeature::ResizeSwapChains" )
+    world.system( "EcsWindowFeature::ResizeSwapChains" )
         .with<EcsSwapChainRef>()
         .with<EcsWindow>()
         .up()
@@ -133,7 +135,7 @@ void EcsWindowFeature::build( EcsWorld& world )
             }
         } );
 
-    world.create_system( "EcsWindowFeature::CloseWindows" )
+    world.system( "EcsWindowFeature::CloseWindows" )
         .with<EcsWindow>()
         .in( EcsSystemPhase::POST_FRAME )
         .order( 100 )

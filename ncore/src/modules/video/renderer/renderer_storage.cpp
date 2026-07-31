@@ -62,7 +62,7 @@ RID RendererStorage::get_pipeline_or_create( const PSOKey& key )
     }
 
     NC_LOG_DEBUG_C( log::GRAPHICS, "get_pipeline_or_create: '{}' cache MISS -> creating new PSO", key.debug_name );
-    NC_ASSERT_NULL( rhi );
+    NC_VERIFY( rhi );
 
     GraphicsPSODesc desc;
     desc.debug_name                      = key.debug_name;
@@ -145,7 +145,7 @@ size_t RendererStorage::PSOKeyHasher::operator()( const PSOKey& p ) const
 
 RID RendererStorage::material_create( const MaterialTemplate& tmpl )
 {
-    NC_ASSERT_NULL( rhi );
+    NC_VERIFY( rhi );
 
     auto sig_descs = build_resource_signatures_( tmpl );
 
@@ -161,7 +161,7 @@ RID RendererStorage::material_create( const MaterialTemplate& tmpl )
 
     RID rid  = materials.acquire();
     auto mat = materials.get( rid );
-    NC_ASSERT_NULL( mat );
+    NC_VERIFY( mat );
 
     mat->pso                 = pso;
     mat->resource_signatures = sig_rids;
@@ -225,7 +225,7 @@ RID RendererStorage::material_create( const MaterialTemplate& tmpl )
 
 void RendererStorage::material_set_texture( RID handle, RID texture, uint32_t slot )
 {
-    NC_ASSERT_NULL( rhi );
+    NC_VERIFY( rhi );
 
     auto mat = get_material_( handle );
     if (!mat || slot >= mat->texture_slots.size())
@@ -238,10 +238,10 @@ void RendererStorage::material_set_texture( RID handle, RID texture, uint32_t sl
 
 void RendererStorage::material_bind( RID handle, const ShaderConstants& constants )
 {
-    NC_ASSERT_NULL( rhi );
+    NC_VERIFY( rhi );
 
     auto mat = get_material_( handle );
-    NC_ASSERT_NULL( mat );
+    NC_VERIFY( mat );
 
     NC_LOG_TRACE_C(
         log::GRAPHICS, "material_bind: PSO rid={} CB rid={} SRBs={}", mat->pso.value, mat->constant_buffer.value,
@@ -263,18 +263,13 @@ void RendererStorage::material_bind( RID handle, const ShaderConstants& constant
     }
 }
 
-void RendererStorage::destroy_materials()
-{
-    materials.release_all();
-}
-
 // ---------------------------------------------------------------------------
 
 RID RendererStorage::gpu_mesh_create( const Mesh& mesh )
 {
     auto rid    = gpu_meshes.acquire();
     auto result = gpu_meshes.get( rid );
-    NC_ASSERT_NULL( result );
+    NC_VERIFY( result );
 
     auto basename = std::string( mesh.get_class_name() ) + "_" + mesh.filepath + "_";
 
@@ -313,13 +308,29 @@ void RendererStorage::gpu_mesh_bind( RID handle )
 RendererStorage::GPUMesh* RendererStorage::get_gpu_mesh( RID handle )
 {
     auto result = gpu_meshes.get( handle );
-    NC_ASSERT_NULL( result );
+    NC_VERIFY( result );
     return result;
 }
 
-void RendererStorage::destroy_gpu_meshes()
+// ---------------------------------------------------------------------------
+
+void RendererStorage::destroy_rid( RID rid )
 {
-    gpu_meshes.release_all();
+    if (materials.contains( rid ) || gpu_meshes.contains( rid )) {
+        pending_destroys.push_back( rid );
+        return;
+    }
+    rhi->destroy_resource( rid );
+}
+
+void RendererStorage::flush_pending_destroys()
+{
+    for (RID rid : pending_destroys) {
+        NC_LOG_DEBUG_C( log::GRAPHICS, "Flushing pending destroys: RID={}", rid.value );
+        materials.release( rid );
+        gpu_meshes.release( rid );
+    }
+    pending_destroys.clear();
 }
 
 // ---------------------------------------------------------------------------
@@ -327,7 +338,7 @@ void RendererStorage::destroy_gpu_meshes()
 RendererStorage::Material* RendererStorage::get_material_( RID handle )
 {
     auto result = materials.get( handle );
-    NC_ASSERT_NULL( result );
+    NC_VERIFY( result );
     return result;
 }
 

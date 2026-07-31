@@ -12,7 +12,7 @@ class SDLAudioLoader : public IResourceImporter {
 public:
     bool is_handling_extension( const std::string& ext ) override;
 
-    Ref<IResource> import( const std::string_view path ) override;
+    Ref<IResource> import( const std::string_view path, Context ctx ) override;
 };
 
 } // namespace nc

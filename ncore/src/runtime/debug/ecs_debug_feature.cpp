@@ -1,4 +1,4 @@
-#include "ecs_debug.h"
+#include "ecs_debug_feature.h"
 
 #include <imgui.h>
 
@@ -8,17 +8,18 @@
 #include <ncore/modules/io/resource_manager.h>
 #include <ncore/modules/video/render_module.h>
 #include <ncore/modules/video/renderer/vertex_format.h>
-#include <ncore/modules/video/window_module.h>
 #include <ncore/resources/material_template.h>
+#include <ncore/resources/mesh.h>
+#include <ncore/runtime/components/ecs_events.h>
 #include <ncore/runtime/components/ecs_material.h>
 #include <ncore/runtime/components/ecs_mesh.h>
+#include <ncore/runtime/components/ecs_resource.h>
 #include <ncore/runtime/components/ecs_sprite.h>
 #include <ncore/runtime/components/ecs_time.h>
 #include <ncore/runtime/components/ecs_transform.h>
 #include <ncore/runtime/components/ecs_window.h>
 #include <ncore/runtime/ecs_base_features.h>
 #include <ncore/runtime/ecs_world.h>
-#include <runtime/video/ecs_render_feature.h>
 
 namespace nc {
 
@@ -42,6 +43,7 @@ struct DebugState {
     float fov                   = 1.5708f;
     float near                  = 0.1f;
     float far                   = 100.0f;
+    bool spin                   = true;
     NSTRUCT( DebugState, NC_F( DebugState, window_attrs ) )
 };
 
@@ -49,25 +51,22 @@ void EcsDebugFeature::build( EcsWorld& world )
 {
     world.emplace_singleton<DebugState>();
 
-    world.create_observer( "EcsDebugFeature::CreateTestQuad" )
+    world.observer( "EcsDebugFeature::CreateTestQuad" )
         .on<EcsSwapChainRef>( EcsCoreEvent::OnSet )
         .run( []( QueryContext& ctx ) {
             auto io = ctx.world().get_singleton<IoModules>();
             auto sc = ctx.get_component<EcsSwapChainRef>();
 
             ctx.world()
-                .create_entity( "TestQuad" )
-                .with<EcsTransform2D>(
-                    EcsTransform2D{ .position = Vec2( sc->size.x / 2, sc->size.y / 2 ), .size = Vec2( 150, 150 ) }
-                )
-                .with<EcsMaterialInstance>( EcsMaterialInstance{
-                    .template_resource = io->resources->load<MaterialTemplate>( "engine/materials/canvas.material" )
-                } )
-                .with<EcsSpriteInstance>( EcsSpriteInstance{ .texture = 0, .tint = Color( 255, 125, 0, 255 ) } )
+                .entity( "TestQuad" )
+                .with<EcsTransform2D>( { Vec2( sc->size.x / 2, sc->size.y / 2 ), Vec2( 150, 150 ) } )
+                .with<EcsHasResource>()
+                .with<EcsMaterialInstance>( { io->resources->load( "engine/materials/canvas.material" ) } )
+                .with<EcsSpriteInstance>( { RID(), RID(), Color( 255, 125, 0, 255 ) } )
                 .build();
         } );
 
-    world.create_observer( "EcsDebugFeature::CreateTestMesh" )
+    world.observer( "EcsDebugFeature::CreateTestMesh" )
         .on<EcsSwapChainRef>( EcsCoreEvent::OnSet )
         .run( []( QueryContext& ctx ) {
             auto io = ctx.world().get_singleton<IoModules>();
@@ -105,26 +104,21 @@ void EcsDebugFeature::build( EcsWorld& world )
                     .vertex_stride = sizeof( Vertex3D )
                 }
             );
-
-            auto test_model_id =
-                ctx.world()
-                    .create_entity( "TestModel3D" )
-                    .with<EcsTransform3D>( EcsTransform3D{
-                        .translation = Vec3( 0, 0, 0 ), .rotation = Quaternion(), .scale = Vec3( 2, 2, 2 )
-                    } )
-                    .build();
+            auto mesh_rid = io->resources->add( mesh );
 
             ctx.world()
-                .create_entity( "CubeMesh" )
-                .with<EcsMeshInstance>( EcsMeshInstance{ .mesh_resource = mesh } )
-                .with<EcsMaterialInstance>( EcsMaterialInstance{
-                    .template_resource = io->resources->load<MaterialTemplate>( "engine/materials/pbr.material" )
-                } )
-                .child_of( test_model_id )
+                .entity( "CubeMesh" )
+                .with<EcsHasResource>()
+                .with<EcsMeshInstance>( { mesh_rid, RID(), 5 } )
+                .with<EcsMaterialInstance>( { io->resources->load( "engine/materials/pbr.material" ) } )
+                .child_of( ctx.world()
+                               .entity( "TestModel3D" )
+                               .with<EcsTransform3D>( { Vec3( 0, 0, 0 ), Quaternion(), Vec3( 2, 2, 2 ) } )
+                               .build() )
                 .build();
         } );
 
-    world.create_system( "EcsDebugFeature::DebugUI" )
+    world.system( "EcsDebugFeature::DebugUI" )
         .with<EcsSwapChainRef>()
         .in( EcsSystemPhase::UPDATE )
         .run( []( QueryContext& ctx ) {
@@ -204,7 +198,7 @@ void EcsDebugFeature::build( EcsWorld& world )
 
                     if (ImGui::Button( "Spawn Window" )) {
                         ctx.world()
-                            .create_entity()
+                            .entity()
                             .with<EcsWindow>( EcsWindow{ .resolution = Vec2( 300, 300 ), .visible = true } )
                             .build();
                     }
@@ -236,9 +230,14 @@ void EcsDebugFeature::build( EcsWorld& world )
                 }
             }
             ImGui::End();
+
+            if (ImGui::Begin( "Debug Stuff" )) {
+                ImGui::Checkbox( "Test Spin", &state->spin );
+            }
+            ImGui::End();
         } );
 
-    world.create_system( "EcsDebugFeature::Transform2DGizmos" )
+    world.system( "EcsDebugFeature::Transform2DGizmos" )
         .with<EcsTransform2D>()
         .in( EcsSystemPhase::UPDATE )
         .each( []( QueryContext& ctx, EcsEntityId ) {
@@ -254,20 +253,25 @@ void EcsDebugFeature::build( EcsWorld& world )
             draw_list->AddCircleFilled( ImVec2( center.x, center.y ), 6, IM_COL32( 255, 0, 0, 255 ) );
         } );
 
-    world.create_system( "EcsDebugFeature::TestSpinner" )
+    world.system( "EcsDebugFeature::TestSpinner" )
         .with<EcsTransform2D>()
         .in( EcsSystemPhase::UPDATE )
         .each( []( QueryContext& ctx, EcsEntityId ) {
+            auto state = ctx.world().get_singleton<DebugState>();
             auto xform = ctx.get_component<EcsTransform2D>();
+            if (!state->spin)
+                return;
             xform->angle += static_cast<float>( ctx.delta_time() ) * 3.5f;
         } );
 
-    world.create_system( "EcsDebugFeature::TestSpinner3D" )
+    world.system( "EcsDebugFeature::TestSpinner3D" )
         .with<EcsTransform3D>()
         .in( EcsSystemPhase::UPDATE )
         .each( []( QueryContext& ctx, EcsEntityId ) {
             auto state = ctx.world().get_singleton<DebugState>();
             auto xform = ctx.get_component<EcsTransform3D>();
+            if (!state->spin)
+                return;
             state->cube_rotation += static_cast<float>( ctx.delta_time() );
             if (state->cube_rotation >= 1.0f) {
                 state->cube_rotation     = 0.0f;
@@ -282,15 +286,21 @@ void EcsDebugFeature::build( EcsWorld& world )
         } );
 
 #if !defined( NC_DIST )
-    world.create_system( "EcsDebugFeature::HotReload" ).in( EcsSystemPhase::UPDATE ).run( []( QueryContext& ctx ) {
+    world.system( "EcsDebugFeature::HotReload" ).in( EcsSystemPhase::UPDATE ).run( []( QueryContext& ctx ) {
+        auto io = ctx.world().get_singleton<IoModules>();
+
         if (ImGui::IsKeyPressed( ImGuiKey_F5 )) {
             NC_LOG_INFO_C( log::GRAPHICS, "Hot-reloading" );
+            io->resources->load<MaterialTemplate>( "engine/shaders/pbr.slang", true );
+            io->resources->load<MaterialTemplate>( "engine/materials/pbr.material", true );
+            io->resources->load<MaterialTemplate>( "engine/shaders/canvas.slang", true );
+            io->resources->load<MaterialTemplate>( "engine/materials/canvas.material", true );
         }
     } );
 #endif
 
     // TODO: refactor this to use Timers
-    world.create_system( "EcsDebugFeature::TitleBarUpdater" )
+    world.system( "EcsDebugFeature::TitleBarUpdater" )
         .with<EcsWindow>()
         .in( EcsSystemPhase::POST_FRAME )
         .each( []( QueryContext& ctx, EcsEntityId id ) {

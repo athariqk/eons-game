@@ -9,8 +9,6 @@
 
 namespace nc {
 
-MaterialImporter::MaterialImporter( ResourceManager* rm ) : resource_manager( rm ) {}
-
 static CullMode parse_cull_mode( const std::string& str )
 {
     if (str == "None")
@@ -33,7 +31,7 @@ static BlendPreset parse_blend( const std::string& str )
     return BlendPreset::ALPHA_BLEND;
 }
 
-Ref<IResource> MaterialImporter::import( std::string_view path )
+Ref<IResource> MaterialImporter::import( std::string_view path, Context ctx )
 {
     std::string path_str( path );
 
@@ -66,8 +64,8 @@ Ref<IResource> MaterialImporter::import( std::string_view path )
         // Prefer single composite shader file over separate vs/ps
         if (shaders.find( "composite" ) != shaders.end()) {
             std::string comp_path = shaders["composite"].as<std::string>();
-            RID comp_rid          = resource_manager->load_resource( comp_path );
-            auto comp_raw         = resource_manager->get_resource<IResource>( comp_rid );
+            RID comp_rid          = ctx.load( comp_path );
+            auto comp_raw         = ctx.get( comp_rid );
             auto comp_shader      = comp_raw.as<CompositeShader>();
             if (comp_shader) {
                 vs_shader = comp_shader->get_shader( ShaderType::VERTEX );
@@ -76,8 +74,8 @@ Ref<IResource> MaterialImporter::import( std::string_view path )
         } else {
             if (shaders.find( "vs" ) != shaders.end()) {
                 std::string vs_path = shaders["vs"].as<std::string>();
-                RID vs_rid          = resource_manager->load_resource( vs_path );
-                auto vs_raw         = resource_manager->get_resource<IResource>( vs_rid );
+                RID vs_rid          = ctx.load( vs_path );
+                auto vs_raw         = ctx.get( vs_rid );
                 auto vs_composite   = vs_raw.as<CompositeShader>();
                 if (vs_composite)
                     vs_shader = vs_composite->get_shader( ShaderType::VERTEX );
@@ -85,8 +83,8 @@ Ref<IResource> MaterialImporter::import( std::string_view path )
 
             if (shaders.find( "ps" ) != shaders.end()) {
                 std::string ps_path = shaders["ps"].as<std::string>();
-                RID ps_rid          = resource_manager->load_resource( ps_path );
-                auto ps_raw         = resource_manager->get_resource<IResource>( ps_rid );
+                RID ps_rid          = ctx.load( ps_path );
+                auto ps_raw         = ctx.get( ps_rid );
                 auto ps_composite   = ps_raw.as<CompositeShader>();
                 if (ps_composite)
                     ps_shader = ps_composite->get_shader( ShaderType::PIXEL );

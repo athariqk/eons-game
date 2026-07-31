@@ -14,7 +14,7 @@ namespace OrganismFactory {
 
 inline OrganismComponent& create( nc::EcsWorld& world, SpeciesRegistry& reg, SpeciesComponent* species )
 {
-    auto instance = world.create_entity();
+    auto instance = world.entity();
 
     float spawn_x = 0.0f;
     float spawn_y = 0.0f;

@@ -4,12 +4,12 @@
 
 #pragma once
 
+#include <functional>
 #include <string>
 
 #include <ncore/core/object.h>
 #include <ncore/core/reference.h>
 #include <ncore/resources/resource.h>
-#include <ncore/utils/log.h>
 
 namespace nc {
 
@@ -19,18 +19,21 @@ class IResourceImporter : public NcObject {
     NCLASS( IResourceImporter, NcObject )
 
 public:
+    struct Context {
+        std::function<RID( const std::string_view filepath )> load;
+        std::function<Ref<IResource>( RID handle )> get;
+        bool skip_cache;
+    };
+
     virtual bool is_handling_extension( const std::string& ext ) = 0;
 
-    Ref<IResource> operator()( const std::string_view path )
+    Ref<IResource> operator()( const std::string_view path, Context ctx )
     {
-        auto resource = import( path );
-        if (resource) {
-            NC_LOG_TRACE_C( log::IO, "Imported resource '{}' from path: '{}'", resource->get_class_name(), path );
-        }
+        auto resource = import( path, ctx );
         return resource;
     }
 
-    virtual Ref<IResource> import( const std::string_view path ) = 0;
+    virtual Ref<IResource> import( const std::string_view path, Context ctx ) = 0;
 };
 
 } // namespace nc

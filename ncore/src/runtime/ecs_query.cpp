@@ -77,6 +77,12 @@ EcsEntityId QueryContext::event()
     return it->event;
 }
 
+void* QueryContext::event_payload()
+{
+    auto* it = static_cast<ecs_iter_t*>( it_ );
+    return it->param;
+}
+
 void* QueryContext::get_component_( int32_t column, size_t size, size_t alignment ) const
 {
     ( void ) alignment;

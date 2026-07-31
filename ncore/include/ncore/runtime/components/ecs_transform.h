@@ -28,6 +28,9 @@ struct NCAPI EcsTransform3D {
     Quaternion rotation;
     Vec3 scale;
 
+    /**
+     * @brief Builds 4x4 transform/model matrix from translation, rotation and scale.
+     */
     Mat4 get_matrix() const;
 
     NSTRUCT(

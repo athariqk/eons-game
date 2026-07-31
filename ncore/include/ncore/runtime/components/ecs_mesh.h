@@ -1,16 +1,18 @@
 #pragma once
 
-#include <ncore/core/reference.h>
 #include <ncore/core/rid.h>
-#include <ncore/resources/mesh.h>
 
 namespace nc {
 
 struct NCAPI EcsMeshInstance {
-    Ref<Mesh> mesh_resource;
-    RID gpu_mesh = 0;
+    RID source            = 0;
+    RID instance            = 0;
+    uint32_t instance_count = 1;
 
-    NSTRUCT( EcsMeshInstance, NC_F( EcsMeshInstance, mesh_resource ) NC_F( EcsMeshInstance, gpu_mesh ) )
+    NSTRUCT(
+        EcsMeshInstance,
+        NC_F( EcsMeshInstance, source ) NC_F( EcsMeshInstance, instance ) NC_F( EcsMeshInstance, instance_count )
+    )
 };
 
 } // namespace nc

@@ -22,6 +22,10 @@ class Shader;
 class MaterialTemplate;
 class Mesh;
 
+/**
+ * @brief RenderModule keeps all funtionalities for rendering stuff on-screen,
+ * and perhaps off-screen stuff too later.
+ */
 class NCAPI RenderModule : public IModule {
     NCLASS( RenderModule, IModule )
 
@@ -54,13 +58,16 @@ public:
     void destroy_rid( RID rid );
 
     void frame_begin();
-    void frame_end();
+    void frame_end( float delta_time );
 
     void world_camera_set_fov( float fov );
     void world_camera_set_z_near( float p_near );
     void world_camera_set_z_far( float p_far );
 
-    void world_draw_instance( RID gpu_mesh, const Mat4& transform, RID material, uint32_t count = 1 );
+    /**
+     * @brief Push a new mesh draw call to the draw list to be rendered next frame.
+     */
+    void world_draw_instance( RID gpu_mesh, const Mat4& transform, RID material, uint32_t instancing = 1 );
 
     /**
      * @brief Immediate draw an array of indexed vertices.
@@ -95,12 +102,13 @@ private:
     RendererContext ctx;
     // WorldRenderer m_world;
     DynArray<RID> swapchains;
+    float time;
 
     struct Camera {
         Mat4 proj_matrix = Mat4::identity();
-        float fov        = 90;     // a.k.a angle-of-view (in degrees)
-        float z_near     = 0.1f;   // near clipping plane
-        float z_far      = 100.0f; // far clipping plane
+        float fov        = 90;     // a.k.a angle-of-view (in degrees).
+        float z_near     = 0.1f;   // near clipping plane.
+        float z_far      = 100.0f; // far clipping plane.
     };
 
     Camera main_cam;

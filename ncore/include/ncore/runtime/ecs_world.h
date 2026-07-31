@@ -16,12 +16,16 @@ namespace nc {
 
 class IGameWorld;
 
-// Currently, we're just doing wrappers for Flecs C API.
-// Just something that we can build upon in the future
-// from a standardized base.
-
 /**
  * @brief EcsWorld is an implementation of an archetype-based ECS architecture.
+ *
+ * Currently, we're just doing wrappers over Flecs C API.
+ * Just something that we can build upon in the future
+ * from a standardized base.
+ *
+ * Another justification for this is that, we can leverage our
+ * existing RTTI system for handling ECS component registration,
+ * lookups etc.
  */
 class NCAPI EcsWorld : public NcObject {
     NCLASS( EcsWorld, NcObject )
@@ -34,11 +38,11 @@ public:
     EcsWorld& operator=( const EcsWorld& ) = delete;
 
     /**
-     * @brief Ticks the systems.
+     * @brief Tick all systems.
      */
     void progress( double delta_time );
 
-    // FEATURES
+    // Features
 
     template<std::derived_from<EcsFeature> T, class... TArgs>
     void load_feature( TArgs&&... args )
@@ -50,11 +54,11 @@ public:
         NC_LOG_DEBUG_C( log::ECS, "{} loading complete", name );
     }
 
-    // ENTITIES
+    // Entities
 
-    EcsEntityBuilder create_entity( const std::string& name = std::string() );
-    EcsEntityId get_entity( std::string_view name, EcsEntityId parent = INVALID_ENTITY_ID ) const;
-    std::string_view get_entity_name( EcsEntityId entity ) const;
+    EcsEntityBuilder entity( const std::string& name = std::string() );
+    EcsEntityId lookup( std::string_view entity_name, EcsEntityId parent = INVALID_ENTITY_ID ) const;
+    std::string_view lookup( EcsEntityId entity ) const;
     std::span<EcsEntityId> get_entities() const;
     size_t get_entity_count( bool alive = true ) const;
     void destroy_entity( EcsEntityId entity );
@@ -63,11 +67,13 @@ public:
     bool has_pair( EcsEntityId entity, EcsComponentId first, EcsComponentId second ) const;
     void remove_pair( EcsEntityId entity, EcsComponentId first, EcsComponentId second );
 
-    // COMPONENTS
+    void emit_event( EcsEntityId event, EcsEntityId target );
+
+    // Components
 
     /**
      * @brief Registers and/or resolves a component type to/from world
-     * via NCORE's RTTI.
+     * via NCORE's RTTI system.
      *
      * @return Its entity ID (each component type is its own dedicated entity).
      */
@@ -121,14 +127,14 @@ public:
      * copy semantics.
      *
      * This is not for setting a component value for a particular entity,
-     * for that use create_entity() builder.
+     * for that use entity() builder.
      *
      * @return The component's handle.
      */
     template<class T>
     EcsComponentId set_singleton( const T& value )
     {
-        const rtti::TypeInfo* type = rtti::TypeRegistry::find<T>();
+        auto type = rtti::TypeRegistry::find<T>();
         return set_component_( INVALID_ENTITY_ID, type, &value );
     }
 
@@ -136,31 +142,38 @@ public:
      * @brief Create and set a singleton component owned by EcsWorld in-place.
      *
      * This is not for setting a component's value for a particular entity,
-     * for that use create_entity() builder.
+     * for that use entity() builder.
      *
      * @return The component's handle.
      */
     template<class T, class... Args>
     EcsComponentId emplace_singleton( Args&&... args )
     {
-        const rtti::TypeInfo* type = rtti::TypeRegistry::find<T>();
+        auto type = rtti::TypeRegistry::find<T>();
         // TODO: handle args
         return emplace_component_( INVALID_ENTITY_ID, type );
     }
 
-    // SYSTEMS & QUERIES
+    template<class T>
+    void emit_event( const T& data, EcsEntityId target ) const
+    {
+        auto type = rtti::TypeRegistry::find<T>();
+        emit_event_( type, target, &data );
+    }
+
+    // Systems/Queries
 
     /**
      * @brief Returns a fluent builder for registering a stateless system.
      */
-    EcsSystemBuilder create_system( std::string_view name );
+    EcsSystemBuilder system( std::string_view name );
 
     /**
      * @brief Returns a fluent builder for creating a cached query.
      */
-    EcsQueryBuilder create_query( std::string_view name );
+    EcsQueryBuilder query( std::string_view name );
 
-    EcsObserverBuilder create_observer( std::string_view name );
+    EcsObserverBuilder observer( std::string_view name );
 
     /**
      * @brief Sorts systems within each pipeline phase by their order() value
@@ -193,6 +206,7 @@ private:
     bool has_component_( EcsEntityId id, const rtti::TypeInfo* type ) const;
     void remove_component_( EcsEntityId, const rtti::TypeInfo* type ) const;
     EcsQuery create_query_( const std::string& name, void* data );
+    void emit_event_( const rtti::TypeInfo* type, EcsEntityId target, const void* data ) const;
 
     struct Impl;
     std::unique_ptr<Impl> pImpl;

@@ -19,7 +19,7 @@ struct WorldRenderItem {
     RID material;
     RID gpu_mesh;
     Mat4 transform;
-    uint32_t count;
+    uint32_t instancing;
 };
 
 struct RendererContext {

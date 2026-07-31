@@ -1,13 +1,14 @@
 #include "ecs_render_feature.h"
 
-#include <ncore/core/matrix.h>
 #include <ncore/core/vector.h>
 #include <ncore/modules/io/resource_manager.h>
 #include <ncore/modules/video/render_module.h>
 #include <ncore/resources/image.h>
 #include <ncore/resources/material_template.h>
+#include <ncore/resources/mesh.h>
 #include <ncore/runtime/components/ecs_material.h>
 #include <ncore/runtime/components/ecs_mesh.h>
+#include <ncore/runtime/components/ecs_resource.h>
 #include <ncore/runtime/components/ecs_sprite.h>
 #include <ncore/runtime/components/ecs_transform.h>
 #include <ncore/runtime/components/ecs_window.h>
@@ -21,7 +22,7 @@ void EcsRenderFeature::build( EcsWorld& world )
 {
     world.emplace_singleton<RenderState>();
 
-    world.create_system( "EcsRenderFeature::Init" )
+    world.system( "EcsRenderFeature::Init" )
         .with<RenderState>()
         .in( EcsSystemPhase::INIT )
         .run( []( QueryContext& ctx ) {
@@ -31,7 +32,7 @@ void EcsRenderFeature::build( EcsWorld& world )
             state->white_texture = gfx->renderer->texture_2d_create( Image( 1, 1, pixels ) );
         } );
 
-    world.create_system( "EcsRenderFeature::PrepareFrame" )
+    world.system( "EcsRenderFeature::PrepareFrame" )
         .with<EcsSwapChainRef>()
         .in( EcsSystemPhase::PRE_FRAME )
         .order( 10 )
@@ -43,33 +44,48 @@ void EcsRenderFeature::build( EcsWorld& world )
             rs->display_size = sc->size;
         } );
 
-    world.create_observer( "EcsRenderFeature::MaterialInstanceIniter" )
-        .on<EcsMaterialInstance>( EcsCoreEvent::OnAdd ) // TODO: or OnSet?
-        .each( []( QueryContext& ctx, EcsEntityId ) {
+    world.observer( "EcsRenderFeature::MaterialInstanceIniter" )
+        .with<EcsMaterialInstance>()
+        .event<EcsResourceLoaded>()
+        .each( []( QueryContext& ctx, EcsEntityId id ) {
             auto state    = ctx.world().get_singleton<RenderState>();
             auto gfx      = ctx.world().get_singleton<GraphicsModules>();
+            auto io       = ctx.world().get_singleton<IoModules>();
             auto material = ctx.get_component<EcsMaterialInstance>();
-            NC_ASSERT(
-                material->template_resource, "Material template must be set on a new EcsMaterialInstance"
-            ); // TODO: this isnt good
-            if (!material->material.is_valid() && material->template_resource) {
-                material->material = gfx->renderer->material_create( *material->template_resource );
-            }
+            auto loaded   = ctx.event_payload<EcsResourceLoaded>();
+
+            if (material->source != loaded->resource_id)
+                return;
+
+            if (material->instance)
+                gfx->renderer->destroy_rid( material->instance );
+
+            auto res              = io->resources->get<MaterialTemplate>( loaded->resource_id );
+            material->instance    = gfx->renderer->material_create( *res );
             material->textures[0] = state->white_texture; // TODO: custom textures
-            gfx->renderer->material_set_texture( material->material, material->textures[0], 0 );
+            gfx->renderer->material_set_texture( material->instance, material->textures[0], 0 );
         } );
 
-    world.create_observer( "EcsRenderFeature::MeshInstanceIniter" )
-        .on<EcsMeshInstance>( EcsCoreEvent::OnAdd )
+    world.observer( "EcsRenderFeature::MeshInstanceIniter" )
+        .with<EcsMeshInstance>()
+        .event<EcsResourceLoaded>()
         .each( []( QueryContext& ctx, EcsEntityId ) {
-            auto gfx  = ctx.world().get_singleton<GraphicsModules>();
-            auto mesh = ctx.get_component<EcsMeshInstance>();
-            if (!mesh->gpu_mesh.is_valid()) {
-                mesh->gpu_mesh = gfx->renderer->gpu_mesh_create( *mesh->mesh_resource );
-            }
+            auto gfx    = ctx.world().get_singleton<GraphicsModules>();
+            auto io     = ctx.world().get_singleton<IoModules>();
+            auto mesh   = ctx.get_component<EcsMeshInstance>();
+            auto loaded = ctx.event_payload<EcsResourceLoaded>();
+
+            if (mesh->source != loaded->resource_id)
+                return;
+
+            if (mesh->instance)
+                gfx->renderer->destroy_rid( mesh->instance );
+
+            auto res       = io->resources->get<Mesh>( loaded->resource_id );
+            mesh->instance = gfx->renderer->gpu_mesh_create( *res );
         } );
 
-    world.create_system( "EcsRenderFeature::MeshInstanceDrawer" )
+    world.system( "EcsRenderFeature::MeshInstanceDrawer" )
         .with<EcsMeshInstance>()
         .with<EcsMaterialInstance>()
         .with<EcsTransform3D>()
@@ -81,10 +97,14 @@ void EcsRenderFeature::build( EcsWorld& world )
             auto xform    = ctx.get_component<EcsTransform3D>();
             auto gfx      = ctx.world().get_singleton<GraphicsModules>();
 
-            gfx->renderer->world_draw_instance( mesh->gpu_mesh, xform->get_matrix(), material->material );
+            if (mesh->instance && material->instance) {
+                gfx->renderer->world_draw_instance(
+                    mesh->instance, xform->get_matrix(), material->instance, mesh->instance_count
+                );
+            }
         } );
 
-    world.create_system( "EcsRenderFeature::SpriteInstanceDrawer" )
+    world.system( "EcsRenderFeature::SpriteInstanceDrawer" )
         .with<EcsTransform2D>()
         .with<EcsMaterialInstance>()
         .with<EcsSpriteInstance>()
@@ -119,16 +139,17 @@ void EcsRenderFeature::build( EcsWorld& world )
                 world_coords[i] += c_world;
             }
 
-            gfx->renderer->canvas_draw_quad( world_coords, material->material, sprite->tint );
+            if (material->instance)
+                gfx->renderer->canvas_draw_quad( world_coords, material->instance, sprite->tint );
         } );
 
-    world.create_system( "EcsRenderFeature::EndFrame" )
+    world.system( "EcsRenderFeature::EndFrame" )
         .with<EcsSwapChainRef>()
         .in( EcsSystemPhase::POST_FRAME )
         .order( 10 )
         .each( []( QueryContext& ctx, EcsEntityId ) {
             auto gfx = ctx.world().get_singleton<GraphicsModules>();
-            gfx->renderer->frame_end();
+            gfx->renderer->frame_end( static_cast<float>( ctx.delta_time() ) );
         } );
 }
 

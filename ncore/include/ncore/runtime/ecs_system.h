@@ -21,16 +21,6 @@ enum class EcsSystemPhase {
     POST_FRAME
 };
 
-namespace EcsCoreEvent {
-const EcsEntityId OnAdd          = 300;
-const EcsEntityId OnRemove       = 301;
-const EcsEntityId OnSet          = 302;
-const EcsEntityId OnDelete       = 303;
-const EcsEntityId OnDeleteTarget = 304;
-const EcsEntityId OnTableCreate  = 305;
-const EcsEntityId OnTableDelete  = 306;
-} // namespace EcsCoreEvent
-
 enum class EcsCallbackKind {
     RUN,
     EACH
@@ -140,6 +130,14 @@ public:
         return *this;
     }
 
+    template<class T>
+    EcsObserverBuilder& event()
+    {
+        auto type = rtti::TypeRegistry::find<T>();
+        add_event_( type );
+        return *this;
+    }
+
     /**
      * @brief Set up traversal on the last added term (default: ChildOf).
      */
@@ -165,6 +163,7 @@ private:
     DynArray<EcsEntityId> events;
     EcsQueryBuilder qb_;
     EcsEntityId init_observer_( EcsCallbackKind kind, void* callback );
+    void add_event_( const rtti::TypeInfo* type );
 };
 
 } // namespace nc

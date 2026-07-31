@@ -97,7 +97,7 @@ RID RenderModule::gpu_mesh_create( const Mesh& mesh )
 
 void RenderModule::destroy_rid( RID rid )
 {
-    ctx.rhi->destroy_resource( rid );
+    ctx.storage.destroy_rid( rid );
 }
 
 void RenderModule::frame_begin()
@@ -158,9 +158,11 @@ void RenderModule::frame_begin()
     ctx.rhi->render_target_set_viewport( { &vp, 1 } );
 }
 
-void RenderModule::frame_end()
+void RenderModule::frame_end( float delta_time )
 {
     NC_LOG_TRACE_C( log::GRAPHICS, "frame_end: canvas_render_list={}", ctx.canvas_render_list.size() );
+
+    time += delta_time;
 
     ctx.rhi->begin_queries();
 
@@ -170,19 +172,23 @@ void RenderModule::frame_end()
 		Vec4( 1, 0,  0, 0 ),
 		Vec4( 0, 1,  0, 0 ),
 		Vec4( 0, 0,  1, 0 ),
-		Vec4( 0, 0, -5, 1 )
+		Vec4( 0, 0, -15, 1 )
 	);
     // clang-format on
     constants.ViewMatrix = main_cam.proj_matrix * view_matrix;
+    constants.Time       = time;
+    constants.DeltaTime  = delta_time;
 
     for (auto& item : ctx.world_render_list) {
         NC_ASSERT( item.material.is_valid(), "A valid material is required to draw a world object." );
-        NC_LOG_TRACE_C( log::GRAPHICS, "world_items_flush: gpu_mesh_rid={} instance_count={}", item.gpu_mesh.value, item.count );
+        NC_LOG_TRACE_C(
+            log::GRAPHICS, "world_items_flush: gpu_mesh_rid={} instances={}", item.gpu_mesh.value, item.instancing
+        );
         auto mesh             = ctx.storage.get_gpu_mesh( item.gpu_mesh );
         constants.ModelMatrix = item.transform;
         ctx.storage.material_bind( item.material, constants );
         ctx.storage.gpu_mesh_bind( item.gpu_mesh );
-        ctx.rhi->draw_indexed( mesh->index_count, 0, 0, item.count );
+        ctx.rhi->draw_indexed( mesh->index_count, 0, 0, item.instancing );
     }
 
     constants.ModelMatrix = Mat4::identity();
@@ -224,6 +230,8 @@ void RenderModule::frame_end()
 
     // ctx.rhi->commands_release();
 
+    ctx.storage.flush_pending_destroys();
+
     ctx.world_render_list.reset();
     ctx.canvas_render_list.reset();
 }
@@ -243,13 +251,13 @@ void RenderModule::world_camera_set_z_far( float p_far )
     main_cam.z_far = p_far;
 }
 
-void RenderModule::world_draw_instance( RID gpu_mesh, const Mat4& transform, RID material, uint32_t count )
+void RenderModule::world_draw_instance( RID gpu_mesh, const Mat4& transform, RID material, uint32_t instancing )
 {
-    auto item       = ctx.world_render_list.acquire();
-    item->gpu_mesh  = gpu_mesh;
-    item->transform = transform;
-    item->material  = material;
-    item->count     = count;
+    auto item        = ctx.world_render_list.acquire();
+    item->gpu_mesh   = gpu_mesh;
+    item->transform  = transform;
+    item->material   = material;
+    item->instancing = instancing;
 }
 
 void RenderModule::canvas_draw_triangles(

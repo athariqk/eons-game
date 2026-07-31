@@ -95,23 +95,23 @@ void EcsWorld::progress( double delta_time )
 
 //------------------------------------------------------------------------------
 
-EcsEntityBuilder EcsWorld::create_entity( const std::string& name )
+EcsEntityBuilder EcsWorld::entity( const std::string& name )
 {
     return EcsEntityBuilder( *this, name );
 }
 
-EcsEntityId EcsWorld::get_entity( std::string_view name, EcsEntityId parent ) const
+EcsEntityId EcsWorld::lookup( std::string_view entity_name, EcsEntityId parent ) const
 {
     auto ent = INVALID_ENTITY_ID;
     if (parent != INVALID_ENTITY_ID) {
-        ent = ecs_lookup_child( pImpl->world, parent, name.data() );
+        ent = ecs_lookup_child( pImpl->world, parent, entity_name.data() );
     } else {
-        ent = ecs_lookup( pImpl->world, name.data() );
+        ent = ecs_lookup( pImpl->world, entity_name.data() );
     }
     return static_cast<EcsEntityId>( ent );
 }
 
-std::string_view EcsWorld::get_entity_name( EcsEntityId entity ) const
+std::string_view EcsWorld::lookup( EcsEntityId entity ) const
 {
     return std::string_view( ecs_get_name( pImpl->world, entity ) );
 }
@@ -147,6 +147,14 @@ bool EcsWorld::has_pair( EcsEntityId entity, EcsComponentId first, EcsComponentI
 void EcsWorld::remove_pair( EcsEntityId entity, EcsComponentId first, EcsComponentId second )
 {
     ecs_remove_pair( pImpl->world, entity, first, second );
+}
+
+void EcsWorld::emit_event( EcsEntityId event, EcsEntityId target )
+{
+    ecs_event_desc_t desc{};
+    desc.event  = event;
+    desc.entity = target;
+    ecs_emit( pImpl->world, &desc );
 }
 
 //------------------------------------------------------------------------------
@@ -240,17 +248,17 @@ EcsEntityId EcsWorld::register_component_type( const rtti::TypeInfo* type )
 
 //------------------------------------------------------------------------------
 
-EcsSystemBuilder EcsWorld::create_system( std::string_view name )
+EcsSystemBuilder EcsWorld::system( std::string_view name )
 {
     return EcsSystemBuilder( *this, std::string( name ) );
 }
 
-EcsQueryBuilder EcsWorld::create_query( std::string_view name )
+EcsQueryBuilder EcsWorld::query( std::string_view name )
 {
     return EcsQueryBuilder( *this, std::string( name ) );
 }
 
-EcsObserverBuilder EcsWorld::create_observer( std::string_view name )
+EcsObserverBuilder EcsWorld::observer( std::string_view name )
 {
     return EcsObserverBuilder( *this, std::string( name ) );
 }
@@ -419,6 +427,20 @@ EcsQuery EcsWorld::create_query_( const std::string& name, void* data )
     cached = q;
     NC_LOG_TRACE_C( log::ECS, "Created query '{}'", name );
     return EcsQuery( this, pImpl->world, q );
+}
+
+void EcsWorld::emit_event_( const rtti::TypeInfo* type, EcsEntityId target, const void* data ) const
+{
+    auto it = pImpl->comp_id_map.find( type );
+    if (it == pImpl->comp_id_map.end())
+        return;
+
+    ecs_event_desc_t desc{};
+    desc.event       = it->second;
+    desc.const_param = data;
+    desc.entity      = target;
+    desc.ids         = ecs_get_type( pImpl->world, target );
+    ecs_emit( pImpl->world, &desc );
 }
 
 } // namespace nc

@@ -45,7 +45,7 @@ void Scene::ensure_root_node_exists_()
         return;
     root_node = node_pool.acquire();
     root_node->set_scene( this );
-    root_node->internal_id = ecs_world.create_entity( "RootNode" ).build();
+    root_node->internal_id = ecs_world.entity( "RootNode" ).build();
     NC_LOG_TRACE( "Root node was missing but is now created with entity ID {}", root_node->internal_id );
 }
 

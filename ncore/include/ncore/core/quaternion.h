@@ -11,7 +11,9 @@ namespace nc {
  * system with one real number and three complex numbers.
  * Used for gimbal-lock free and efficient rotations.
  *
- * Useful reference: https://imadrahmoune.com/rotations-with-quaternions/
+ * Useful references:
+ * https://imadrahmoune.com/rotations-with-quaternions/
+ * http://number-none.com/product/Understanding%20Slerp,%20Then%20Not%20Using%20It/
  */
 struct Quaternion {
     float w = 0;
@@ -20,8 +22,7 @@ struct Quaternion {
     Quaternion() = default;
 
     /**
-     * @brief Initialize a new quaternion with given
-     * angle in degrees and direction as unit vector.
+     * @brief Initialize a new quaternion from angle axis.
      */
     Quaternion( float angle, Vec3 axis )
     {

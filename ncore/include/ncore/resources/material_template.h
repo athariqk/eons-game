@@ -16,7 +16,7 @@ class MaterialTemplate : public IResource {
     NCLASS( MaterialTemplate, IResource )
 
 public:
-    ResourceFormatID get_format_id() override;
+    ResourceFormatID get_format_id() const override;
 
     std::string debug_name;
     std::string vertex_layout_name;

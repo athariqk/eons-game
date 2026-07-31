@@ -105,7 +105,7 @@ EcsEntityId EcsSystemBuilder::init_system_( EcsCallbackKind kind, void* p_callba
 
     if (pImpl->order_ != 0) {
         int32_t order_val = pImpl->order_;
-        auto validate     = world_.create_entity( name ).with<SystemOrder>( order_val ).build();
+        auto validate     = world_.entity( name ).with<SystemOrder>( order_val ).build();
         NC_ASSERT( validate == id, "EcsEntityBuilder produces non-matching entity id" );
     }
 
@@ -159,6 +159,11 @@ EcsEntityId EcsObserverBuilder::init_observer_( EcsCallbackKind kind, void* p_ca
     qb_.pImpl->built = true; // mark the query builder as built to silence warning
 
     return ecs_observer_init( world, &desc );
+}
+
+void EcsObserverBuilder::add_event_( const rtti::TypeInfo* type )
+{
+    events.push_back( world_.register_component_type( type ) );
 }
 
 } // namespace nc

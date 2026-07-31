@@ -10,7 +10,7 @@ bool SDLImageLoader::is_handling_extension( const std::string& ext )
     return ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tga";
 }
 
-Ref<IResource> SDLImageLoader::import( const std::string_view path )
+Ref<IResource> SDLImageLoader::import( const std::string_view path, Context ctx )
 {
     // TODO: integrate dedicated library for image loading
     SDL_Surface* surface = nullptr;

@@ -28,7 +28,7 @@ Error ResourceManager::init( ConfFile& cfg_file )
     register_importer<SDLAudioLoader>();
     register_importer<SDLImageLoader>();
     register_importer<SlangImporter>();
-    register_importer<MaterialImporter>( this ); // TODO: implement better context passing (existing resources etc)
+    register_importer<MaterialImporter>();
     return Error::OK;
 }
 
@@ -53,7 +53,7 @@ static std::string get_extension( const std::string_view path )
     return ext;
 }
 
-RID ResourceManager::load_resource( const std::string_view path )
+RID ResourceManager::load( const std::string_view path, bool skip_cache )
 {
     auto fs_path     = std::filesystem::current_path() / "assets" / path;
     auto fs_path_str = fs_path.string();
@@ -69,13 +69,20 @@ RID ResourceManager::load_resource( const std::string_view path )
         return RID();
     }
 
-    auto cached = path_map.find( fs_path_str );
-    if (cached != path_map.end()) {
-        NC_LOG_DEBUG_C( log::IO, "load_resource: cache HIT, RID={} filepath={}", cached->second.value, cached->first );
+    auto cached     = path_map.find( fs_path_str );
+    bool has_cached = cached != path_map.end();
+    if (!skip_cache && has_cached) {
+        NC_LOG_DEBUG_C( log::IO, "load: cache HIT, RID={} filepath={}", cached->second.value, cached->first );
+        auto ref = storage.get( cached->second );
+        NC_VERIFY( ref );
+        LoadEvent e;
+        e.handle    = cached->second;
+        e.format_id = ( *ref )->get_format_id();
+        events.push( e );
         return cached->second;
     }
 
-    NC_LOG_TRACE_C( log::IO, "Importing resource from path: {}", fs_path_str );
+    NC_LOG_DEBUG_C( log::IO, "Importing resource from path: {}", fs_path_str );
 
     std::string ext = get_extension( path );
     if (ext.empty()) {
@@ -96,22 +103,32 @@ RID ResourceManager::load_resource( const std::string_view path )
         return RID();
     }
 
-    auto resource = handler->import( fs_path_str );
-    if (!resource) {
+    IResourceImporter::Context ctx;
+    ctx.load       = [&]( const std::string_view path_ ) { return load( path_, skip_cache ); };
+    ctx.get        = [&]( RID handle_ ) { return get( handle_ ); };
+    ctx.skip_cache = skip_cache;
+
+    auto result = handler->import( fs_path_str, ctx );
+    if (!result) {
         NC_LOG_ERROR_C( log::IO, "Importer failed to load resource from '{}'", fs_path_str );
         return RID();
     }
-    NC_LOG_INFO_C( log::IO, "Imported a {} from {}", resource->get_class_name(), fs_path_str );
+    result->filepath = fs_path_str;
 
-    resource->filepath = fs_path_str;
+    auto rid    = has_cached ? cached->second : storage.acquire();
+    auto pooled = storage.get( rid );
+    NC_VERIFY( pooled );
 
-    auto handle = storage.acquire();
-    if (auto pooled = storage.get( handle ))
-        *pooled = std::move( resource );
+    *pooled               = result;
+    path_map[fs_path_str] = rid;
+    NC_LOG_INFO_C( log::IO, "Imported a {} from path {}. RID={}", result->get_class_name(), fs_path_str, rid.value );
 
-    path_map[fs_path_str] = handle;
+    LoadEvent e;
+    e.handle    = rid;
+    e.format_id = result->get_format_id();
+    events.push( e );
 
-    return handle;
+    return rid;
 }
 
 void ResourceManager::unload_resource( RID rid )
@@ -133,6 +150,42 @@ void ResourceManager::unload_all()
 {
     storage.release_all();
     path_map.clear();
+}
+
+RID ResourceManager::add( const Ref<IResource>& res )
+{
+    auto handle = storage.acquire();
+    auto entry  = storage.get( handle );
+    *entry      = res;
+
+    LoadEvent e;
+    e.handle    = handle;
+    e.format_id = res->get_format_id();
+    events.push( e );
+
+    return handle;
+}
+
+Ref<IResource> ResourceManager::get( RID rid )
+{
+    auto entry = storage.get( rid );
+    if (!entry)
+        return nullptr;
+    return *entry;
+}
+
+const ResourceManager::Event* ResourceManager::peek_event() const
+{
+    return events.peek();
+}
+
+bool ResourceManager::poll_event( ResourceManager::Event* event )
+{
+    auto removed = events.pop();
+    if (removed) {
+        *event = *removed;
+    }
+    return removed;
 }
 
 } // namespace nc

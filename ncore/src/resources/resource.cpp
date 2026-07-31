@@ -13,12 +13,12 @@ ResourceFormatID::ResourceFormatID( const char* ascii_id )
     id = FourCC::from_string( ascii_id );
 }
 
-bool ResourceFormatID::is_valid()
+bool ResourceFormatID::is_valid() const
 {
     return id != 0 && FourCC::is_valid_fourcc( id );
 }
 
-std::string ResourceFormatID::to_string()
+std::string ResourceFormatID::to_string() const
 {
     return is_valid() ? FourCC::to_string( id ) : std::string();
 }
