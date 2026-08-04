@@ -35,7 +35,7 @@ struct Quaternion {
     Quaternion multiply( const Quaternion& q ) const
     {
         Quaternion r;
-        r.w = w * q.w + v.dot( q.v );
+        r.w = w * q.w - v.dot( q.v );
         r.v = v * q.w + q.v * w + v.cross( q.v );
         return r;
     }
@@ -141,11 +141,8 @@ struct Quaternion {
 
     Quaternion& operator*=( const Quaternion& rhs )
     {
-        auto& q = *this;
-        auto p  = q * rhs * q.inverse();
-        q.w     = p.w;
-        q.v     = p.v;
-        return q;
+        *this = multiply( rhs );
+        return *this;
     }
 
     Quaternion& operator*=( float scalar )

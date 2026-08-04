@@ -106,7 +106,7 @@ private:
     using SubscriberList = std::vector<std::pair<size_t, CallbackType>>;
     std::unordered_map<rtti::TypeId, SubscriberList> subscribers;
 
-    DynArray<Ref<BaseEvent>> event_queue;
+    DynamicArray<Ref<BaseEvent>> event_queue;
 
     size_t next_subscription_id = 0;
 };

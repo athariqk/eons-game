@@ -23,15 +23,15 @@ struct ShaderParamInfo {
     uint32_t location          = 0;
     size_t offset              = 0;
     size_t stride              = 0;
-    DynArray<ShaderParamField> fields;
+    DynamicArray<ShaderParamField> fields;
 };
 
-using ShaderParamLayout = DynArray<ShaderParamInfo>;
+using ShaderParamLayout = DynamicArray<ShaderParamInfo>;
 
 struct ShaderDesc {
     ShaderType stage;
     std::string entrypoint;
-    DynArray<uint32_t> bytecode;
+    DynamicArray<uint32_t> bytecode;
     ShaderParamLayout params;
     VertexLayout vert_layout;
 };
@@ -58,6 +58,7 @@ class CompositeShader : public IResource {
     NCLASS( CompositeShader, IResource )
 
 public:
+    ResourceFormatID get_format_id() const override;
     Ref<Shader> get_shader( ShaderType stage );
     void set_shader( ShaderType stage, const Ref<Shader>& shader );
 

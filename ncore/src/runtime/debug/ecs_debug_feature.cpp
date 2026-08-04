@@ -10,7 +10,9 @@
 #include <ncore/modules/video/renderer/vertex_format.h>
 #include <ncore/resources/material_template.h>
 #include <ncore/resources/mesh.h>
+#include <ncore/runtime/components/ecs_camera.h>
 #include <ncore/runtime/components/ecs_events.h>
+#include <ncore/runtime/components/ecs_input.h>
 #include <ncore/runtime/components/ecs_material.h>
 #include <ncore/runtime/components/ecs_mesh.h>
 #include <ncore/runtime/components/ecs_resource.h>
@@ -36,35 +38,32 @@ namespace nc {
 
 struct DebugState {
     std::array<char, 64> window_attrs;
-    float cube_rotation         = 0;
-    bool cube_rot_switch        = true;
-    Quaternion initial_cube_rot = Quaternion( 180, Vec3::up() );
-    Quaternion target_cube_rot  = Quaternion( 0, Vec3::up() );
-    float fov                   = 1.5708f;
-    float near                  = 0.1f;
-    float far                   = 100.0f;
-    bool spin                   = true;
     NSTRUCT( DebugState, NC_F( DebugState, window_attrs ) )
+};
+
+struct TestSpin {
+    float rotation   = 0;
+    bool switch_rot  = true;
+    Quaternion start = Quaternion( 180, Vec3::up() );
+    Quaternion end   = Quaternion( 0, Vec3::up() );
+    NSTRUCT(
+        TestSpin, NC_F( TestSpin, rotation ) NC_F( TestSpin, switch_rot ) NC_F( TestSpin, start ) NC_F( TestSpin, end )
+    )
 };
 
 void EcsDebugFeature::build( EcsWorld& world )
 {
     world.emplace_singleton<DebugState>();
 
-    world.observer( "EcsDebugFeature::CreateTestQuad" )
-        .on<EcsSwapChainRef>( EcsCoreEvent::OnSet )
-        .run( []( QueryContext& ctx ) {
-            auto io = ctx.world().get_singleton<IoModules>();
-            auto sc = ctx.get_component<EcsSwapChainRef>();
-
-            ctx.world()
-                .entity( "TestQuad" )
-                .with<EcsTransform2D>( { Vec2( sc->size.x / 2, sc->size.y / 2 ), Vec2( 150, 150 ) } )
-                .with<EcsHasResource>()
-                .with<EcsMaterialInstance>( { io->resources->load( "engine/materials/canvas.material" ) } )
-                .with<EcsSpriteInstance>( { RID(), RID(), Color( 255, 125, 0, 255 ) } )
-                .build();
-        } );
+    world.system( "EcsDebugFeature::Init" ).in( EcsSystemPhase::INIT ).run( []( QueryContext& ctx ) {
+        // TODO: make this into a prefab
+        ctx.world()
+            .entity( "FlyCam" )
+            .with<EcsTransform3D>( { Vec3(), Quaternion::identity(), Vec3( 1, 1, 1 ) } )
+            .with<EcsCamera>()
+            .with<EcsInputReceiver>()
+            .build();
+    } );
 
     world.observer( "EcsDebugFeature::CreateTestMesh" )
         .on<EcsSwapChainRef>( EcsCoreEvent::OnSet )
@@ -96,11 +95,11 @@ void EcsDebugFeature::build( EcsWorld& world )
 
             auto mesh = Ref<Mesh>::create(
                 MeshDesc{
-                    .vertices = DynArray<std::byte>(
+                    .vertices = DynamicArray<std::byte>(
                         reinterpret_cast<std::byte const*>( cube_verts.data() ),
                         reinterpret_cast<std::byte const*>( cube_verts.data() + 8 )
                     ),
-                    .indices       = DynArray<uint16_t>( cube_indices.data(), cube_indices.data() + 36 ),
+                    .indices       = DynamicArray<uint16_t>( cube_indices.data(), cube_indices.data() + 36 ),
                     .vertex_stride = sizeof( Vertex3D )
                 }
             );
@@ -109,22 +108,35 @@ void EcsDebugFeature::build( EcsWorld& world )
             ctx.world()
                 .entity( "CubeMesh" )
                 .with<EcsHasResource>()
-                .with<EcsMeshInstance>( { mesh_rid, RID(), 5 } )
+                .with<EcsMeshInstance>( { mesh_rid, RID(), 1 } )
                 .with<EcsMaterialInstance>( { io->resources->load( "engine/materials/pbr.material" ) } )
-                .child_of( ctx.world()
-                               .entity( "TestModel3D" )
-                               .with<EcsTransform3D>( { Vec3( 0, 0, 0 ), Quaternion(), Vec3( 2, 2, 2 ) } )
-                               .build() )
+                .child_of(
+                    ctx.world()
+                        .entity( "TestModel3D" )
+                        .with<EcsTransform3D>( { Vec3( 0, 0, -10 ), Quaternion( 180, Vec3::up() ), Vec3( 1, 1, 1 ) } )
+                        //.with<TestSpin>()
+                        .build()
+                )
                 .build();
+        } );
+
+    world.observer( "EcsDebugFeature::SwapChainResizedDebug" )
+        .with<EcsSwapChainRef>()
+        .event<EcsSwapChainResized>()
+        .each( []( QueryContext& ctx, EcsEntityId ) {
+            auto resized = ctx.event_payload<EcsSwapChainResized>();
+            NC_LOG_DEBUG_C(
+                log::GRAPHICS, "SwapChainResized: size={}", rtti::TypeRegistry::to_string<Vec2>( &resized->size )
+            );
         } );
 
     world.system( "EcsDebugFeature::DebugUI" )
         .with<EcsSwapChainRef>()
         .in( EcsSystemPhase::UPDATE )
         .run( []( QueryContext& ctx ) {
-            auto time  = ctx.world().get_singleton<EcsTime>();
-            auto gfx   = ctx.world().get_singleton<GraphicsModules>();
-            auto state = ctx.world().get_singleton<DebugState>();
+            auto time = ctx.world().get_singleton<EcsTime>();
+            auto gfx  = ctx.world().get_singleton<GraphicsModules>();
+            auto sc   = ctx.get_component<EcsSwapChainRef>();
 
             if (ImGui::BeginMainMenuBar()) {
                 if (ImGui::BeginMenu( "File" )) {
@@ -134,6 +146,20 @@ void EcsDebugFeature::build( EcsWorld& world )
                     ImGui::EndMenu();
                 }
                 ImGui::EndMainMenuBar();
+            }
+
+            // Crosshair
+            {
+                auto draw_list = ImGui::GetBackgroundDrawList();
+                ImVec2 center  = { sc->size.x * 0.5f, sc->size.y * 0.5f };
+                draw_list->AddLine(
+                    ImVec2( center.x - 15.0f, center.y ), ImVec2( center.x + 15.0f, center.y ),
+                    IM_COL32( 255, 255, 255, 255 ), 1.5f
+                );
+                draw_list->AddLine(
+                    ImVec2( center.x, center.y - 15.0f ), ImVec2( center.x, center.y + 15.0f ),
+                    IM_COL32( 255, 255, 255, 255 ), 1.5f
+                );
             }
 
             const ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -172,10 +198,7 @@ void EcsDebugFeature::build( EcsWorld& world )
                 ImGui::SetNextWindowPos( ImVec2( work_pos.x, work_pos.y ), ImGuiCond_Always, ImVec2( 0.0f, 0.0f ) );
                 ImGui::PushStyleVar( ImGuiStyleVar_WindowRounding, 0.0f );
 
-                if (ImGui::Begin(
-                        "Stats", nullptr,
-                        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings
-                    )) {
+                if (ImGui::Begin( "Stats", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize )) {
 
                     ImGui::SeparatorText( "RTTI" );
                     ImGui::Text( "Hits: %d", rtti::TypeRegistry::get_rtti_hits() );
@@ -202,46 +225,66 @@ void EcsDebugFeature::build( EcsWorld& world )
                             .with<EcsWindow>( EcsWindow{ .resolution = Vec2( 300, 300 ), .visible = true } )
                             .build();
                     }
+
+                    char testbuf[100];
+                    ImGui::InputText( "Test", testbuf, 100 );
                 }
                 ImGui::End();
                 ImGui::PopStyleVar();
             }
+        } );
+
+    world.system( "EcsDebugFeature::3DCamDebugUI" )
+        .with<EcsCamera, EcsTransform3D>()
+        .in( EcsSystemPhase::UPDATE )
+        .each( []( QueryContext& ctx, EcsEntityId ) {
+            auto gfx   = ctx.world().get_singleton<GraphicsModules>();
+            auto cam   = ctx.get_component<EcsCamera>();
+            auto xform = ctx.get_component<EcsTransform3D>();
 
             if (ImGui::Begin( "Camera" )) {
-                ImGui::SeparatorText( "Camera" );
+                if (ImGui::BeginTable( "Transform", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg )) {
+                    for (int row = 0; row < 4; row++) {
+                        ImGui::TableNextRow();
+                        for (int col = 0; col < 4; col++) {
+                            ImGui::TableSetColumnIndex( col );
+                            ImGui::Text( "%.3f", static_cast<double>( xform->get_matrix().read( col, row ) ) );
+                        }
+                    }
+                    ImGui::EndTable();
+                }
 
-                if (ImGui::SliderAngle( "FoV", &state->fov, 60, 120, "%.3f deg" )) {
-                    gfx->renderer->world_camera_set_fov( math::rad_to_deg( state->fov ) );
+                if (ImGui::SliderAngle( "FoV", &cam->fov, 60, 120 )) {
+                    gfx->renderer->world_camera_set_fov( cam->fov );
                 }
-                if (ImGui::SliderFloat( "Near", &state->near, 0.001f, 50.f )) {
-                    gfx->renderer->world_camera_set_z_near( state->near );
+                if (ImGui::SliderFloat( "Near", &cam->z_near, 0.001f, 50.f )) {
+                    gfx->renderer->world_camera_set_z_near( cam->z_near );
                 }
-                if (ImGui::SliderFloat( "Far", &state->far, 50.f, 100.f )) {
-                    gfx->renderer->world_camera_set_z_far( state->far );
+                if (ImGui::SliderFloat( "Far", &cam->z_far, 50.f, 100.f )) {
+                    gfx->renderer->world_camera_set_z_far( cam->z_far );
                 }
 
                 if (ImGui::Button( "Reset" )) {
-                    state->fov  = 1.5708f;
-                    state->near = 0.1f;
-                    state->far  = 100.0f;
-                    gfx->renderer->world_camera_set_fov( math::rad_to_deg( state->fov ) );
-                    gfx->renderer->world_camera_set_z_near( state->near );
-                    gfx->renderer->world_camera_set_z_far( state->far );
+                    cam->fov    = 1.5708f;
+                    cam->z_near = 0.1f;
+                    cam->z_far  = 100.0f;
+                    gfx->renderer->world_camera_set_fov( cam->fov );
+                    gfx->renderer->world_camera_set_z_near( cam->z_near );
+                    gfx->renderer->world_camera_set_z_far( cam->z_far );
+                    xform->translation = Vec3();
+                    xform->rotation    = Quaternion::identity();
                 }
-            }
-            ImGui::End();
-
-            if (ImGui::Begin( "Debug Stuff" )) {
-                ImGui::Checkbox( "Test Spin", &state->spin );
             }
             ImGui::End();
         } );
 
-    world.system( "EcsDebugFeature::Transform2DGizmos" )
-        .with<EcsTransform2D>()
+    world.system( "EcsDebugFeature::TestSpinner" )
+        .with<EcsTransform2D, TestSpin>()
         .in( EcsSystemPhase::UPDATE )
         .each( []( QueryContext& ctx, EcsEntityId ) {
-            auto xform     = ctx.get_component<EcsTransform2D>();
+            auto xform = ctx.get_component<EcsTransform2D>();
+            xform->angle += static_cast<float>( ctx.delta_time() ) * 3.5f;
+
             auto draw_list = ImGui::GetForegroundDrawList();
             auto center    = xform->get_world_center_point();
             char tmps[512];
@@ -253,36 +296,21 @@ void EcsDebugFeature::build( EcsWorld& world )
             draw_list->AddCircleFilled( ImVec2( center.x, center.y ), 6, IM_COL32( 255, 0, 0, 255 ) );
         } );
 
-    world.system( "EcsDebugFeature::TestSpinner" )
-        .with<EcsTransform2D>()
-        .in( EcsSystemPhase::UPDATE )
-        .each( []( QueryContext& ctx, EcsEntityId ) {
-            auto state = ctx.world().get_singleton<DebugState>();
-            auto xform = ctx.get_component<EcsTransform2D>();
-            if (!state->spin)
-                return;
-            xform->angle += static_cast<float>( ctx.delta_time() ) * 3.5f;
-        } );
-
     world.system( "EcsDebugFeature::TestSpinner3D" )
-        .with<EcsTransform3D>()
+        .with<EcsTransform3D, TestSpin>()
         .in( EcsSystemPhase::UPDATE )
         .each( []( QueryContext& ctx, EcsEntityId ) {
-            auto state = ctx.world().get_singleton<DebugState>();
             auto xform = ctx.get_component<EcsTransform3D>();
-            if (!state->spin)
-                return;
-            state->cube_rotation += static_cast<float>( ctx.delta_time() );
-            if (state->cube_rotation >= 1.0f) {
-                state->cube_rotation     = 0.0f;
-                state->initial_cube_rot  = state->target_cube_rot;
+            auto spin  = ctx.get_component<TestSpin>();
+            spin->rotation += static_cast<float>( ctx.delta_time() );
+            if (spin->rotation >= 1.0f) {
+                spin->rotation           = 0.0f;
+                spin->start              = spin->end;
                 Quaternion flip_180      = Quaternion( 180, Vec3::up() );
                 Quaternion weird_swaying = Quaternion( 30, Vec3::forward() );
-                state->target_cube_rot   = state->initial_cube_rot * flip_180 * weird_swaying;
+                spin->end                = spin->start * flip_180 * weird_swaying;
             }
-            xform->rotation = Quaternion::slerp(
-                state->initial_cube_rot, state->target_cube_rot, std::min( state->cube_rotation, 1.0f )
-            );
+            xform->rotation = Quaternion::slerp( spin->start, spin->end, std::min( spin->rotation, 1.0f ) );
         } );
 
 #if !defined( NC_DIST )

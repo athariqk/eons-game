@@ -10,7 +10,7 @@ namespace nc {
  *
  * Reserved for future game-level events (animation, physics collisions, etc).
  * For OS/window/input stuff, events use the separate per-subsystem polling
- * model (std::variant).
+ * model (std::variant). See also: InputModule.
  */
 class NCAPI BaseEvent : public RefCounted {
     NCLASS( BaseEvent, RefCounted )

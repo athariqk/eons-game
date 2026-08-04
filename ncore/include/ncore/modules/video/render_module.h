@@ -53,6 +53,10 @@ public:
     RID material_create( const MaterialTemplate& tmpl );
     void material_set_texture( RID material, RID texture, uint32_t slot );
 
+    /**
+     * @brief Uploads a CPU Mesh resource into the current GPU device.
+     * @return A new RID handle to the buffer.
+     */
     RID gpu_mesh_create( const Mesh& mesh );
 
     void destroy_rid( RID rid );
@@ -63,6 +67,7 @@ public:
     void world_camera_set_fov( float fov );
     void world_camera_set_z_near( float p_near );
     void world_camera_set_z_far( float p_far );
+    void world_camera_set_transform( const Mat4& transform );
 
     /**
      * @brief Push a new mesh draw call to the draw list to be rendered next frame.
@@ -101,14 +106,15 @@ private:
     RenderSettings settings;
     RendererContext ctx;
     // WorldRenderer m_world;
-    DynArray<RID> swapchains;
+    DynamicArray<RID> swapchains;
     float time;
 
     struct Camera {
-        Mat4 proj_matrix = Mat4::identity();
-        float fov        = 90;     // a.k.a angle-of-view (in degrees).
-        float z_near     = 0.1f;   // near clipping plane.
-        float z_far      = 100.0f; // far clipping plane.
+        Mat4 transform  = Mat4::identity();
+        Mat4 projection = Mat4::identity();
+        float fov       = 1.5708f; // a.k.a angle-of-view (in radians).
+        float z_near    = 0.1f;    // near clipping plane.
+        float z_far     = 100.0f;  // far clipping plane.
     };
 
     Camera main_cam;

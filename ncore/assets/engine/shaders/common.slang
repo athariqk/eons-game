@@ -5,8 +5,8 @@ public struct ShaderConstants
     // Is just an ident matrix during 2D pass.
     public float4x4 ModelMatrix;
     // This is pre-multiplied with projection matrix in the CPU.
-	// An ortho projection during 2D pass and perspective during 3D pass.
-    public float4x4 ViewMatrix;
+    // An ortho projection during 2D pass and perspective during 3D pass.
+    public float4x4 ViewProjMatrix;
 	// Elapsed time in seconds.
     public float Time;
 	// Elapsed time between frames.

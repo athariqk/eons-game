@@ -43,7 +43,7 @@ public:
     /**
      * @param resource_signatures List of explicitly created resource signature handles.
      */
-    virtual RID gfx_pipeline_create( const GraphicsPSODesc& desc, DynArray<RID> resource_signatures = {} ) = 0;
+    virtual RID gfx_pipeline_create( const GraphicsPSODesc& desc, DynamicArray<RID> resource_signatures = {} ) = 0;
     virtual void gfx_pipeline_bind( RID pipeline )                                                         = 0;
     virtual void gfx_pipeline_reload( RID pipeline )                                                       = 0;
 

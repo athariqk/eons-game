@@ -7,7 +7,7 @@ namespace nc {
 
 struct MeshDesc {
     BytesBuffer vertices;
-    DynArray<uint16_t> indices;
+    DynamicArray<uint16_t> indices;
     uint32_t vertex_stride;
 };
 

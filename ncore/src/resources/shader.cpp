@@ -6,7 +6,7 @@ Shader::Shader( const ShaderDesc& p_desc ) : desc( p_desc ) {}
 
 ResourceFormatID Shader::get_format_id() const
 {
-    return "shdr";
+    return "shad";
 }
 
 ShaderType Shader::get_stage() const
@@ -27,6 +27,11 @@ std::span<const uint32_t> Shader::get_bytecode() const
 const ShaderDesc& Shader::get_desc() const
 {
     return desc;
+}
+
+ResourceFormatID CompositeShader::get_format_id() const
+{
+    return "cshd";
 }
 
 Ref<Shader> CompositeShader::get_shader( ShaderType stage )

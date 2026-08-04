@@ -4,6 +4,7 @@
 #include <span>
 
 #include <ncore/core/collection.h>
+#include <ncore/core/rect.h>
 #include <ncore/core/reference.h>
 #include <ncore/core/vector.h>
 #include <ncore/modules/module.h>
@@ -62,6 +63,39 @@ public:
     void window_set_fullscreen( uint32_t window_id, bool fullscreen );
 
     /**
+     * @brief Confines the mouse cursor to a rectangle within the window.
+     * The cursor cannot leave the rect while it is set, but continues to
+     * behave like a regular (non-grabbed) cursor inside it.
+     * @param rect Bounds in window coordinates; the rect does not scale with
+     * the window, so it must be updated after window resizes.
+     */
+    void window_set_mouse_confinement( uint32_t window_id, const Rect& rect ) const;
+
+    /**
+     * @brief Removes the mouse confinement rect set for the window.
+     */
+    void window_clear_mouse_confinement( uint32_t window_id ) const;
+
+    /**
+     * @brief Grabs the mouse cursor to the window, unlike confinement which
+     * restricts it to a rect: the cursor is locked inside the whole window,
+     * keeps receiving input even when the pointer leaves the window, and
+     * becomes visible again only once ungrab (and focus) returns.
+     * @see window_set_mouse_confinement
+     */
+    void window_set_mouse_grab( uint32_t window_id, bool grabbed ) const;
+
+    /**
+     * @brief Warps the mouse cursor to a position inside the window.
+     * Generates a mouse motion event. No-op on some platforms (e.g. Remote
+     * Desktop).
+     */
+    void window_set_mouse_position( uint32_t window_id, Vec2 position ) const;
+
+    bool window_get_mouse_locked( uint32_t window_id ) const;
+    void window_set_mouse_locked( uint32_t window_id, bool enabled ) const;
+
+    /**
      * @brief Destroy the window with given ID.
      * @return True if success, false if an error occured.
      */
@@ -76,6 +110,16 @@ public:
      * @brief Sets the mouse cursor visual type globally.
      */
     void set_cursor_type( CursorType cursor_type );
+
+    /**
+     * @brief Sets the mouse cursor visibility globally.
+     */
+    void set_cursor_visible( bool visible );
+
+    /**
+     * @return True if the mouse cursor is currently visible.
+     */
+    bool get_cursor_visible() const;
 
     /**
      * @brief Shows a message box on the main window.
@@ -105,7 +149,7 @@ private:
     VideoSettings settings;
     struct Impl;
     std::unique_ptr<Impl> pImpl;
-    DynArray<WindowEvent> event_queue;
+    DynamicArray<WindowEvent> event_queue;
     Ref<Image> default_app_icon;
 };
 

@@ -114,7 +114,7 @@ void EcsGuiFeature::build( EcsWorld& world )
             ImGuiIO& io  = ImGui::GetIO();
             io.DeltaTime = static_cast<float>( ctx.delta_time() );
 
-            for (const auto& ev : state->input->input_events()) {
+            for (const auto& ev : state->input->get_events()) {
                 std::visit(
                     [&]( auto&& e ) {
                         using T = std::decay_t<decltype( e )>;

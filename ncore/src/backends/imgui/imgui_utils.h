@@ -361,6 +361,7 @@ static ImGuiKey key_to_imgui_key( Key key )
             return ImGuiKey_None;
 
         case Key::UNKNOWN:
+        case Key::COUNT:
             return ImGuiKey_None;
     }
     return ImGuiKey_None;

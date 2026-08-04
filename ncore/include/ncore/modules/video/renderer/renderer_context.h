@@ -10,8 +10,8 @@ namespace nc {
 
 struct CanvasRenderItem {
     RID material;
-    DynArray<Vertex2D> verts;
-    DynArray<uint16_t> indices;
+    DynamicArray<Vertex2D> verts;
+    DynamicArray<uint16_t> indices;
     Rect clip = {};
 };
 

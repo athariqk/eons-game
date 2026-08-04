@@ -41,7 +41,7 @@ target_compile_definitions(
                 $<$<CONFIG:Dist>:NC_DIST=1>)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-  target_compile_options(ncore PRIVATE /GR-)
+  target_compile_options(ncore PRIVATE /GR- /w14701 /w14703)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   target_compile_options(
     ncore
@@ -50,6 +50,7 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
             -Werror
             -Wconversion
             -Wdouble-promotion
+			-Wuninitialized
             -Wno-unused-parameter
             -Wno-unused-function
             -Wno-sign-conversion
@@ -58,6 +59,7 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
             -Wno-unsafe-buffer-usage
             -Wno-switch-default
             -Wno-invalid-offsetof
+			-Wno-switch-enum
             -fsanitize=undefined
             -fsanitize-trap)
 endif()

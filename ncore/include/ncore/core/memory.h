@@ -74,7 +74,7 @@ class BumpAllocator {
 public:
     BumpAllocator( size_t p_capacity ) : capacity( p_capacity )
     {
-        data = static_cast<T*>( memalloc_aligned( capacity * sizeof( T ), alignof( T ) ) );
+        data_ = static_cast<T*>( memalloc_aligned( capacity * sizeof( T ), alignof( T ) ) );
     }
 
     ~BumpAllocator()
@@ -86,7 +86,7 @@ public:
     {
         if (head >= capacity)
             return nullptr;
-        return &data[head++];
+        return &data_[head++];
     }
 
     T* alloc_at( size_t position )
@@ -94,26 +94,40 @@ public:
         if (position > capacity)
             return nullptr;
         head = position;
-        return &data[head];
+        return &data_[head];
+    }
+
+    /**
+     * @brief Allocate and construct object in-place.
+     * @return The pointer to constructed object, or nullptr if allocation failed (arena full).
+     */
+    template<typename... Args>
+    T* emplace( Args&&... args )
+    {
+        T* ptr = alloc();
+        if (!ptr)
+            return nullptr;
+        new ( ptr ) T( std::forward<Args>( args )... );
+        return ptr;
     }
 
     void dealloc()
     {
         head = 0;
-        memfree_align( data, alignof( T ) );
+        memfree_align( data_, alignof( T ) );
     }
 
     T* operator[]( size_t index )
     {
         if (index >= head)
             return nullptr;
-        return &data[index];
+        return &data_[index];
     }
     const T* operator[]( size_t index ) const
     {
         if (index >= head)
             return nullptr;
-        return &data[index];
+        return &data_[index];
     }
 
     /**
@@ -139,15 +153,15 @@ public:
         return capacity;
     }
 
-    const T* get_data() const
+    const T* data() const
     {
-        return data;
+        return data_;
     }
 
 private:
     size_t capacity = 0;
     size_t head     = 0;
-    T* data         = nullptr;
+    T* data_        = nullptr;
 };
 
 /**

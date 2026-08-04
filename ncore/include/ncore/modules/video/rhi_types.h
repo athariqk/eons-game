@@ -246,10 +246,10 @@ struct PipelineResourceDesc {
 struct ResourceSignatureDesc {
     std::string name;
     uint8_t set = 0;
-    DynArray<PipelineResourceDesc> resources;
+    DynamicArray<PipelineResourceDesc> resources;
 };
 
-using ResourceLayoutDesc = DynArray<ResourceSignatureDesc>;
+using ResourceLayoutDesc = DynamicArray<ResourceSignatureDesc>;
 
 struct BufferDesc {
     std::string debug_name;
@@ -287,7 +287,7 @@ struct VertexLayoutElement {
     const char* hlsl_semantic   = "ATTRIB";
 };
 
-using VertexLayout = DynArray<VertexLayoutElement>;
+using VertexLayout = DynamicArray<VertexLayoutElement>;
 
 struct StencilOpDesc {
     StencilOp fail       = StencilOp::KEEP;
@@ -356,7 +356,7 @@ struct GraphicsPSODesc {
     std::span<const uint32_t> vs_bytecode;
     std::span<const uint32_t> ps_bytecode;
     VertexLayout vert_layout;
-    DynArray<ResourceSignatureDesc> resource_signatures; // TODO: implicit resource signature
+    DynamicArray<ResourceSignatureDesc> resource_signatures; // TODO: implicit resource signature
     RasterizerStateDesc rasterizer_state;
     DepthStencilStateDesc depth_stencil_state;
     BlendStateDesc blend_state;

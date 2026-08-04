@@ -33,6 +33,12 @@ struct NCAPI EcsSwapChainRef {
     )
 };
 
+struct NCAPI EcsSwapChainResized {
+    Vec2 size{};
+
+    NSTRUCT( EcsSwapChainResized, NC_F( EcsSwapChainResized, size ) )
+};
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wzero-length-array"
 struct NCAPI EcsMainWindow {

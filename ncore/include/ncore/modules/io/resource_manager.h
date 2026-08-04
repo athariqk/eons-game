@@ -89,7 +89,7 @@ public:
     const Event* peek_event() const;
     /**
      * @brief Pull (remove) events from queue into the event ptr param.
-     * Systems can use this to poll for pending events.
+     * Systems can use this to pump_events for pending events.
      */
     bool poll_event( Event* event );
 

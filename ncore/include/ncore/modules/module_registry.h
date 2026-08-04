@@ -144,7 +144,7 @@ public:
 
 private:
     using ModuleEntry = std::pair<rtti::TypeId, std::unique_ptr<IModule>>;
-    DynArray<ModuleEntry> modules;
+    DynamicArray<ModuleEntry> modules;
     std::unordered_map<rtti::TypeId, IModule*> cache_by_id;
     std::unordered_map<std::string_view, IModule*> cache_by_name;
 };

@@ -160,7 +160,7 @@ public:
 private:
     EcsWorld& world_;
     std::string name;
-    DynArray<EcsEntityId> events;
+    DynamicArray<EcsEntityId> events;
     EcsQueryBuilder qb_;
     EcsEntityId init_observer_( EcsCallbackKind kind, void* callback );
     void add_event_( const rtti::TypeInfo* type );

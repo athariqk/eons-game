@@ -149,7 +149,7 @@ RID RendererStorage::material_create( const MaterialTemplate& tmpl )
 
     auto sig_descs = build_resource_signatures_( tmpl );
 
-    DynArray<RID> sig_rids;
+    DynamicArray<RID> sig_rids;
     sig_rids.reserve( sig_descs.size() );
     for (auto& desc : sig_descs) {
         sig_rids.push_back( rhi->resource_signature_create( desc ) );
@@ -253,8 +253,8 @@ void RendererStorage::material_bind( RID handle, const ShaderConstants& constant
     rhi->buffer_update( mat->constant_buffer, &constants, sizeof( ShaderConstants ) );
     NC_LOG_TRACE_C(
         log::GRAPHICS, "material_bind: CB updated ({} bytes, [{:.4f}, {:.4f}, {:.4f}, {:.4f} ...])",
-        sizeof( constants.ViewMatrix ), constants.ViewMatrix.data()[0], constants.ViewMatrix.data()[1],
-        constants.ViewMatrix.data()[4], constants.ViewMatrix.data()[5]
+        sizeof( constants.ViewProjMatrix ), constants.ViewProjMatrix.data()[0], constants.ViewProjMatrix.data()[1],
+        constants.ViewProjMatrix.data()[4], constants.ViewProjMatrix.data()[5]
     );
 
     for (auto& srb : mat->srbs) {
@@ -377,7 +377,7 @@ RendererStorage::PSOKey RendererStorage::get_pso_key_( const MaterialTemplate& t
     return key;
 }
 
-DynArray<ResourceSignatureDesc> RendererStorage::build_resource_signatures_( const MaterialTemplate& tmpl )
+DynamicArray<ResourceSignatureDesc> RendererStorage::build_resource_signatures_( const MaterialTemplate& tmpl )
 {
     HashMap<uint8_t, ResourceSignatureDesc> sets;
 
@@ -466,7 +466,7 @@ DynArray<ResourceSignatureDesc> RendererStorage::build_resource_signatures_( con
         NC_LOG_DEBUG_C( log::GRAPHICS, "  set {}: resources=[{}]", s, names );
     }
 
-    DynArray<ResourceSignatureDesc> result;
+    DynamicArray<ResourceSignatureDesc> result;
     result.reserve( sets.size() );
     for (auto& [set, sig] : sets) {
         result.push_back( std::move( sig ) );

@@ -24,9 +24,9 @@ struct NCAPI EcsTransform2D {
 };
 
 struct NCAPI EcsTransform3D {
-    Vec3 translation;
-    Quaternion rotation;
-    Vec3 scale;
+    Vec3 translation    = Vec3();
+    Quaternion rotation = Quaternion::identity();
+    Vec3 scale          = Vec3( 1, 1, 1 );
 
     /**
      * @brief Builds 4x4 transform/model matrix from translation, rotation and scale.

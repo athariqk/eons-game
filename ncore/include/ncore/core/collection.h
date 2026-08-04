@@ -1,12 +1,14 @@
 // Copyright (C) 2026 Ahmad Ghalib Athariq <alib.athariq@gmail.com>
 // This file is subject to the license terms in the LICENSE file
 // found in the top-level directory of this distribution.
-// File: defines template classes for managing objects in a collection/container.
+// File: defines template classes and some non-template ones for managing
+// objects in a collection/container.
 
 #pragma once
 
 #include <array>
 #include <set>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -15,11 +17,15 @@
 
 namespace nc {
 
+using String = std::basic_string<char, std::char_traits<char>, NcAllocator<char>>;
+
+using StringView = std::basic_string_view<char>;
+
 template<typename T, size_t S>
 using Array = std::array<T, S>;
 
 template<typename T>
-using DynArray = std::vector<T, NcAllocator<T>>;
+using DynamicArray = std::vector<T, NcAllocator<T>>;
 
 template<typename T, size_t Extent = std::dynamic_extent>
 using Span = std::span<T, Extent>;
@@ -464,6 +470,65 @@ public:
     uint32_t get_size() const
     {
         return size;
+    }
+
+    class Iterator {
+    public:
+        using iterator_category = std::forward_iterator_tag;
+        using value_type        = T;
+        using difference_type   = std::ptrdiff_t;
+        using pointer           = T*;
+        using reference         = T&;
+
+    private:
+        RingBuffer* buffer;
+        size_t logical_index;
+
+    public:
+        Iterator( RingBuffer* buf, size_t index ) : buffer( buf ), logical_index( index ) {}
+
+        reference operator*() const
+        {
+            size_t physical_index = ( buffer->arena.get_head() + logical_index ) % buffer->arena.get_capacity();
+            return buffer->arena[physical_index];
+        }
+
+        pointer operator->()
+        {
+            return &( operator*() );
+        }
+
+        Iterator& operator++()
+        {
+            logical_index++;
+            return *this;
+        }
+
+        Iterator operator++( int )
+        {
+            Iterator tmp = *this;
+            logical_index++;
+            return tmp;
+        }
+
+        friend bool operator==( const Iterator& a, const Iterator& b )
+        {
+            return a.buffer == b.buffer && a.logical_index == b.logical_index;
+        }
+
+        friend bool operator!=( const Iterator& a, const Iterator& b )
+        {
+            return !( a == b );
+        }
+    };
+
+    Iterator begin()
+    {
+        return Iterator( this, 0 );
+    }
+    Iterator end()
+    {
+        return Iterator( this, size );
     }
 
 private:

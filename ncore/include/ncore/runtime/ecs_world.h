@@ -17,7 +17,7 @@ namespace nc {
 class IGameWorld;
 
 /**
- * @brief EcsWorld is an implementation of an archetype-based ECS architecture.
+ * @brief EcsWorld is an implementation of archetype-based ECS architecture.
  *
  * Currently, we're just doing wrappers over Flecs C API.
  * Just something that we can build upon in the future
@@ -56,6 +56,10 @@ public:
 
     // Entities
 
+    /**
+     * @brief Create a new entity.
+     * @return A fluent builder for registering named entity.
+     */
     EcsEntityBuilder entity( const std::string& name = std::string() );
     EcsEntityId lookup( std::string_view entity_name, EcsEntityId parent = INVALID_ENTITY_ID ) const;
     std::string_view lookup( EcsEntityId entity ) const;
@@ -164,15 +168,21 @@ public:
     // Systems/Queries
 
     /**
-     * @brief Returns a fluent builder for registering a stateless system.
+     * @brief Create a new system.
+     * @return A fluent builder for registering a stateless system.
      */
     EcsSystemBuilder system( std::string_view name );
 
     /**
-     * @brief Returns a fluent builder for creating a cached query.
+     * @brief Create a new query.
+     * @return A fluent builder for registering a cached query.
      */
     EcsQueryBuilder query( std::string_view name );
 
+    /**
+     * @brief Create a new event observer.
+     * @return A fluent builder for registering an event observer.
+     */
     EcsObserverBuilder observer( std::string_view name );
 
     /**

@@ -16,7 +16,7 @@ class Shader;
 class MaterialTemplate;
 class Mesh;
 struct ShaderParamInfo;
-using ShaderParamLayout = DynArray<ShaderParamInfo>;
+using ShaderParamLayout = DynamicArray<ShaderParamInfo>;
 
 /**
  * @brief For reference see https://github.com/DiligentGraphics/DiligentFX/blob/master/PBR/interface/PBR_Renderer.hpp
@@ -47,7 +47,7 @@ public:
         const Shader* vs = nullptr;
         const Shader* ps = nullptr;
         VertexLayout vertex_layout;
-        DynArray<RID> resource_signatures;
+        DynamicArray<RID> resource_signatures;
         std::string debug_name;
 
         bool operator==( const PSOKey& o ) const;
@@ -59,8 +59,8 @@ public:
 
     struct Material {
         RID pso;
-        DynArray<RID> resource_signatures;
-        DynArray<RID> srbs;
+        DynamicArray<RID> resource_signatures;
+        DynamicArray<RID> srbs;
         RID sampler;
         RID constant_buffer;
 
@@ -69,7 +69,7 @@ public:
             size_t srb_index;
         };
 
-        DynArray<TextureSlot> texture_slots;
+        DynamicArray<TextureSlot> texture_slots;
     };
 
     struct GPUMesh {
@@ -80,7 +80,7 @@ public:
 
     struct ShaderConstants {
         Mat4 ModelMatrix;
-        Mat4 ViewMatrix;
+        Mat4 ViewProjMatrix; // This is Projection * View
         float Time;
         float DeltaTime;
     };
@@ -106,13 +106,13 @@ public:
 private:
     Material* get_material_( RID handle );
     PSOKey get_pso_key_( const MaterialTemplate& tmpl );
-    DynArray<ResourceSignatureDesc> build_resource_signatures_( const MaterialTemplate& tmpl );
+    DynamicArray<ResourceSignatureDesc> build_resource_signatures_( const MaterialTemplate& tmpl );
 
     IRHI* rhi;
     HashMap<PSOKey, RID, PSOKeyHasher> pso_cache;
     ResourcePool<Material> materials;
     ResourcePool<GPUMesh> gpu_meshes;
-    DynArray<RID> pending_destroys;
+    DynamicArray<RID> pending_destroys;
 };
 
 } // namespace nc

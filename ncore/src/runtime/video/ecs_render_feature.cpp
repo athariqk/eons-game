@@ -6,6 +6,7 @@
 #include <ncore/resources/image.h>
 #include <ncore/resources/material_template.h>
 #include <ncore/resources/mesh.h>
+#include <ncore/runtime/components/ecs_camera.h>
 #include <ncore/runtime/components/ecs_material.h>
 #include <ncore/runtime/components/ecs_mesh.h>
 #include <ncore/runtime/components/ecs_resource.h>
@@ -42,6 +43,19 @@ void EcsRenderFeature::build( EcsWorld& world )
             auto rs  = ctx.world().get_singleton<RenderState>();
             gfx->renderer->frame_begin();
             rs->display_size = sc->size;
+        } );
+
+    world.system( "EcsRenderFeature::Update3DCamera" )
+        .with<EcsCamera, EcsTransform3D>()
+        .in( EcsSystemPhase::UPDATE )
+        .each( []( QueryContext& ctx, EcsEntityId ) {
+            auto gfx   = ctx.world().get_singleton<GraphicsModules>();
+            auto cam   = ctx.get_component<EcsCamera>();
+            auto xform = ctx.get_component<EcsTransform3D>();
+            gfx->renderer->world_camera_set_fov( cam->fov );
+            gfx->renderer->world_camera_set_z_far( cam->z_far );
+            gfx->renderer->world_camera_set_z_near( cam->z_near );
+            gfx->renderer->world_camera_set_transform( xform->get_matrix() );
         } );
 
     world.observer( "EcsRenderFeature::MaterialInstanceIniter" )

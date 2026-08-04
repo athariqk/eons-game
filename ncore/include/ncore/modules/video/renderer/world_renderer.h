@@ -39,8 +39,8 @@ private:
     };
 
     IRHI* m_rhi;
-    DynArray<WorldDrawCmd> draw_queue;
-    DynArray<RID> model_ubo_pool;
+    DynamicArray<WorldDrawCmd> draw_queue;
+    DynamicArray<RID> model_ubo_pool;
     size_t ubo_index = 0;
 };
 

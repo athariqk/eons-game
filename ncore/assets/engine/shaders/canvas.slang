@@ -14,7 +14,7 @@ VertexOut vertex(Vertex2DIn input)
     VertexOut output;
     output.Color = input.Color;
     output.UV = input.UV;
-    output.Position = mul(g_Constants.ViewMatrix, float4(input.Position, 0.0, 1.0));
+    output.Position = mul(g_Constants.ViewProjMatrix, float4(input.Position, 0.0, 1.0));
     return output;
 }
 

@@ -9,6 +9,7 @@ struct AppDesc;
 class WindowModule;
 class RenderModule;
 class ResourceManager;
+class InputModule;
 
 struct NCAPI GraphicsModules {
     WindowModule* window   = nullptr;
@@ -18,7 +19,8 @@ struct NCAPI GraphicsModules {
 
 struct NCAPI IoModules {
     ResourceManager* resources;
-    NSTRUCT( IoModules, NC_F( IoModules, resources ) )
+    InputModule* inputs;
+    NSTRUCT( IoModules, NC_F( IoModules, resources ) NC_F( IoModules, inputs ) )
 };
 
 /**

@@ -37,7 +37,7 @@ public:
     void* swapchain_get_view( RID sc, TextureViewType view ) override;
     void swapchain_destroy( RID sc ) override;
 
-    RID gfx_pipeline_create( const GraphicsPSODesc& desc, DynArray<RID> resource_signatures = {} ) override;
+    RID gfx_pipeline_create( const GraphicsPSODesc& desc, DynamicArray<RID> resource_signatures = {} ) override;
     void gfx_pipeline_bind( RID pipeline ) override;
     void gfx_pipeline_reload( RID pipeline ) override;
 

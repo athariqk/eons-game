@@ -14,10 +14,8 @@
 #include <ncore/resources/image.h>
 #include <ncore/resources/material_template.h>
 #include <ncore/resources/mesh.h>
-#include <ncore/resources/shader.h>
 #include <ncore/utils/config.h>
 #include <ncore/utils/log.h>
-#include <ncore/utils/math.h>
 
 namespace nc {
 
@@ -131,14 +129,14 @@ void RenderModule::frame_begin()
     // https://www.scratchapixel.com/lessons/3d-basic-rendering/perspective-and-orthographic-projection-matrix//building-basic-perspective-projection-matrix.html
     // https://github.com/DiligentGraphics/DiligentSamples/blob/master/SampleBase/src/SampleBase.cpp
     auto aspect_ratio = size.x / size.y;
-    float y_scale     = 1.0f / std::tan( math::deg_to_rad( main_cam.fov * 0.5f ) );
+    float y_scale     = 1.0f / std::tan( main_cam.fov * 0.5f );
     float x_scale     = y_scale / aspect_ratio;
     auto n            = main_cam.z_near;
     auto f            = main_cam.z_far;
     auto zz           = -f / ( f - n );     // used to remap z to [0,1]
     auto wz           = -f * n / ( f - n ); // used to remap z [0,1]
     // clang-format off
-    main_cam.proj_matrix = Mat4(
+    main_cam.projection = Mat4(
         Vec4( x_scale, 0,       0,   0  ), // scale the x coordinates of the projected point
         Vec4( 0,       y_scale, 0,   0  ), // scale the y coordinates of the projected point
         Vec4( 0,       0,       zz,  -1 ), // set w = -z
@@ -167,17 +165,11 @@ void RenderModule::frame_end( float delta_time )
     ctx.rhi->begin_queries();
 
     RendererStorage::ShaderConstants constants;
-    // clang-format off
-    auto view_matrix = Mat4(
-		Vec4( 1, 0,  0, 0 ),
-		Vec4( 0, 1,  0, 0 ),
-		Vec4( 0, 0,  1, 0 ),
-		Vec4( 0, 0, -15, 1 )
-	);
-    // clang-format on
-    constants.ViewMatrix = main_cam.proj_matrix * view_matrix;
-    constants.Time       = time;
-    constants.DeltaTime  = delta_time;
+    // precompute the V*P part of M*V*P so we don't have do it on the GPU.
+    // here we take the inverse of camera transform to get its view matrix.
+    constants.ViewProjMatrix = main_cam.projection * main_cam.transform.affine_inverse();
+    constants.Time           = time;
+    constants.DeltaTime      = delta_time;
 
     for (auto& item : ctx.world_render_list) {
         NC_ASSERT( item.material.is_valid(), "A valid material is required to draw a world object." );
@@ -191,8 +183,8 @@ void RenderModule::frame_end( float delta_time )
         ctx.rhi->draw_indexed( mesh->index_count, 0, 0, item.instancing );
     }
 
-    constants.ModelMatrix = Mat4::identity();
-    constants.ViewMatrix  = ortho_proj;
+    constants.ModelMatrix    = Mat4::identity();
+    constants.ViewProjMatrix = ortho_proj;
 
     for (auto& item : ctx.canvas_render_list) {
         if (item.verts.empty()) {
@@ -249,6 +241,11 @@ void RenderModule::world_camera_set_z_near( float p_near )
 void RenderModule::world_camera_set_z_far( float p_far )
 {
     main_cam.z_far = p_far;
+}
+
+void RenderModule::world_camera_set_transform( const Mat4& transform )
+{
+    main_cam.transform = transform;
 }
 
 void RenderModule::world_draw_instance( RID gpu_mesh, const Mat4& transform, RID material, uint32_t instancing )

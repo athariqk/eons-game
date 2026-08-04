@@ -115,7 +115,7 @@ void EcsWindowFeature::build( EcsWorld& world )
         .up()
         .in( EcsSystemPhase::PRE_FRAME )
         .order( 5 )
-        .each( []( QueryContext& ctx, EcsEntityId ) {
+        .each( []( QueryContext& ctx, EcsEntityId id ) {
             auto win    = ctx.get_component<EcsWindow>();
             auto sc     = ctx.get_component<EcsSwapChainRef>();
             auto gfx    = ctx.world().get_singleton<GraphicsModules>();
@@ -125,10 +125,7 @@ void EcsWindowFeature::build( EcsWorld& world )
                 if (auto resize = std::get_if<WindowResizeEvent>( &ev )) {
                     if (resize->window_id == win->id) {
                         sc->size = Vec2( static_cast<float>( resize->width ), static_cast<float>( resize->height ) );
-                        NC_LOG_DEBUG_C(
-                            log::GRAPHICS, "WindowResizeEvent: window_id={} size={}", win->id,
-                            rtti::TypeRegistry::to_string<Vec2>( &sc->size )
-                        );
+                        ctx.world().emit_event<EcsSwapChainResized>( { sc->size }, id );
                         gfx->renderer->swapchain_set_size( sc->swapchain, sc->size );
                     }
                 }

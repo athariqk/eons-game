@@ -16,7 +16,7 @@ namespace nc {
 
 struct WindowModule::Impl {
     HashMap<CursorType, SDL_Cursor*> mouse_cursors;
-    DynArray<uint32_t> window_ids;
+    DynamicArray<uint32_t> window_ids;
 
     SDL_Window* get_sdl_window( uint32_t id )
     {
@@ -195,6 +195,53 @@ void WindowModule::window_set_fullscreen( uint32_t window_id, bool fullscreen )
     }
 }
 
+void WindowModule::window_set_mouse_confinement( uint32_t window_id, const Rect& rect ) const
+{
+    auto window = pImpl->get_sdl_window( window_id );
+    SDL_Rect sdl_rect{
+        static_cast<int>( rect.x ), static_cast<int>( rect.y ), static_cast<int>( rect.w ), static_cast<int>( rect.h )
+    };
+    if (!SDL_SetWindowMouseRect( window, &sdl_rect )) {
+        NC_LOG_ERROR_C( log::GRAPHICS, "Failed to confine mouse for window {}: {}", window_id, SDL_GetError() );
+    }
+}
+
+void WindowModule::window_clear_mouse_confinement( uint32_t window_id ) const
+{
+    auto window = pImpl->get_sdl_window( window_id );
+    if (!SDL_SetWindowMouseRect( window, nullptr )) {
+        NC_LOG_ERROR_C(
+            log::GRAPHICS, "Failed to clear mouse confinement for window {}: {}", window_id, SDL_GetError()
+        );
+    }
+}
+
+void WindowModule::window_set_mouse_grab( uint32_t window_id, bool grabbed ) const
+{
+    auto window = pImpl->get_sdl_window( window_id );
+    if (!SDL_SetWindowMouseGrab( window, grabbed )) {
+        NC_LOG_ERROR_C( log::GRAPHICS, "Failed to set mouse grab for window {}: {}", window_id, SDL_GetError() );
+    }
+}
+
+void WindowModule::window_set_mouse_position( uint32_t window_id, Vec2 position ) const
+{
+    auto window = pImpl->get_sdl_window( window_id );
+    SDL_WarpMouseInWindow( window, position.x, position.y );
+}
+
+bool WindowModule::window_get_mouse_locked( uint32_t window_id ) const
+{
+    auto window = pImpl->get_sdl_window( window_id );
+    return SDL_GetWindowRelativeMouseMode( window );
+}
+
+void WindowModule::window_set_mouse_locked( uint32_t window_id, bool enabled ) const
+{
+    auto window = pImpl->get_sdl_window( window_id );
+    SDL_SetWindowRelativeMouseMode( window, enabled );
+}
+
 bool WindowModule::window_pop( uint32_t window_id )
 {
     NC_LOG_DEBUG_C( log::GRAPHICS, "Destroying SDL window, ID: {}", window_id );
@@ -219,6 +266,20 @@ void WindowModule::set_cursor_type( CursorType cursor_type )
     if (cursor) {
         SDL_SetCursor( cursor );
     }
+}
+
+void WindowModule::set_cursor_visible( bool visible )
+{
+    if (visible) {
+        SDL_ShowCursor();
+    } else {
+        SDL_HideCursor();
+    }
+}
+
+bool WindowModule::get_cursor_visible() const
+{
+    return SDL_CursorVisible();
 }
 
 bool WindowModule::show_message_box( MessageBoxType type, const std::string& title, const std::string& message ) const

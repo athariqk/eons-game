@@ -54,6 +54,7 @@ target_sources(
          "ncore/resources/shader.h"
          "ncore/runtime/components/ecs_camera.h"
          "ncore/runtime/components/ecs_events.h"
+         "ncore/runtime/components/ecs_input.h"
          "ncore/runtime/components/ecs_material.h"
          "ncore/runtime/components/ecs_mesh.h"
          "ncore/runtime/components/ecs_resource.h"

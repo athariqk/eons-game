@@ -64,7 +64,7 @@ public:
 
     T dot( const Derived& rhs ) const
     {
-        T out;
+        T out{};
         for (std::size_t i = 0; i < N; ++i)
             out += self().data()[i] * rhs.data()[i];
         return out;
@@ -211,6 +211,9 @@ public:
         return out;
     }
 
+    /**
+	* @brief Set value of all components to zero.
+	*/
     Derived& zero()
     {
         for (std::size_t i = 0; i < N; ++i)
@@ -261,10 +264,17 @@ public:
     {
         auto m = v.length();
         Derived out{};
+        if (m <= 0)
+            return out;
         for (std::size_t i = 0; i < N; ++i) {
             out.data()[i] = v.data()[i] / m;
         }
         return out;
+    }
+
+    Derived normalize()
+    {
+        return normalize( self() );
     }
 
     bool operator==( const Derived& rhs ) const
@@ -338,12 +348,12 @@ struct NCAPI Vec3 : CommonVectorOps<Vec3, float, 3> {
 
     static Vec3 forward()
     {
-        return Vec3( 0, 0, 1 );
+        return Vec3( 0, 0, -1 );
     }
 
     static Vec3 backward()
     {
-        return Vec3( 0, 0, -1 );
+        return Vec3( 0, 0, 1 );
     }
 
     static Vec3 right()

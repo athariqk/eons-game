@@ -1,4 +1,5 @@
 #include <ncore/game_world.h>
+#include <ncore/modules/input/input_module.h>
 #include <ncore/modules/io/resource_manager.h>
 #include <ncore/modules/module_registry.h>
 #include <ncore/modules/video/render_module.h>
@@ -13,7 +14,7 @@
 
 #include "audio/ecs_audio.h"
 #include "debug/ecs_debug_feature.h"
-#include "input/ecs_inputs.h"
+#include "input/ecs_inputs_feature.h"
 #include "physics/ecs_physics.h"
 #include "video/ecs_gui_feature.h"
 #include "video/ecs_render_feature.h"
@@ -22,7 +23,7 @@
 namespace nc {
 
 struct ResourceWatchState {
-    DynArray<ResourceManager::Event> pending_events;
+    DynamicArray<ResourceManager::Event> pending_events;
     NSTRUCT( ResourceWatchState, NC_F( ResourceWatchState, pending_events ) )
 };
 
@@ -42,6 +43,7 @@ void EcsBaseFeatures::build( EcsWorld& world )
 
         auto io       = ctx.world().get_singleton<IoModules>();
         io->resources = ctx.modules().resolve<ResourceManager>();
+        io->inputs    = ctx.modules().resolve<InputModule>();
     } );
 
     world.system( "EcsBaseFeatures::TrackFPS" )
@@ -59,12 +61,12 @@ void EcsBaseFeatures::build( EcsWorld& world )
             }
         } );
 
-    world.load_feature<EcsAudioFeature>();
     world.load_feature<EcsInputsFeature>();
     world.load_feature<EcsWindowFeature>();
-    world.load_feature<EcsPhysicsFeature>();
     world.load_feature<EcsGuiFeature>();
+    world.load_feature<EcsPhysicsFeature>();
     world.load_feature<EcsRenderFeature>();
+    world.load_feature<EcsAudioFeature>();
 
 #ifdef NC_DEBUG
     world.load_feature<EcsDebugFeature>();

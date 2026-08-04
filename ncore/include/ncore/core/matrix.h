@@ -23,12 +23,26 @@ struct NCAPI Mat4 {
         return &col0.x;
     }
 
+    float read( int column, int row )
+    {
+        return data()[column * 4 + row];
+    }
+
+    float* write( int column, int row )
+    {
+        return data() + column * 4 + row;
+    }
+
     static Mat4 identity()
     {
+        // clang-format off
         return Mat4(
-            Vec4( 1.0f, 0.0f, 0.0f, 0.0f ), Vec4( 0.0f, 1.0f, 0.0f, 0.0f ), Vec4( 0.0f, 0.0f, 1.0f, 0.0f ),
+            Vec4( 1.0f, 0.0f, 0.0f, 0.0f ),
+			Vec4( 0.0f, 1.0f, 0.0f, 0.0f ),
+			Vec4( 0.0f, 0.0f, 1.0f, 0.0f ),
             Vec4( 0.0f, 0.0f, 0.0f, 1.0f )
         );
+        // clang-format on
     }
 
     static Mat4 orthographic( float left, float right, float bottom, float top, float near_, float far_ )
@@ -37,11 +51,14 @@ struct NCAPI Mat4 {
         float tmb = top - bottom;
         float fmn = far_ - near_;
 
+        // clang-format off
         return Mat4(
-            Vec4( 2.0f / rml, 0.0f, 0.0f, 0.0f ), Vec4( 0.0f, 2.0f / tmb, 0.0f, 0.0f ),
+            Vec4( 2.0f / rml, 0.0f, 0.0f, 0.0f ),
+			Vec4( 0.0f, 2.0f / tmb, 0.0f, 0.0f ),
             Vec4( 0.0f, 0.0f, -2.0f / fmn, 0.0f ),
             Vec4( -( right + left ) / rml, -( top + bottom ) / tmb, -( far_ + near_ ) / fmn, 1.0f )
         );
+        // clang-format on
     }
 
     /**
@@ -77,6 +94,55 @@ struct NCAPI Mat4 {
     Mat4 multiply( float scalar ) const
     {
         return Mat4( col0 * scalar, col1 * scalar, col2 * scalar, col3 * scalar );
+    }
+
+    /**
+     * @brief Affine inverse exploits the structure of transform
+     * matrices to perform faster inverse matrix computation.
+     *
+     * https://stackoverflow.com/a/2625420
+     */
+    Mat4 affine_inverse() const
+    {
+        // clang-format off
+		// take the top-left block.
+        Vec3 block[3] = {
+            Vec3( col0.x, col0.y, col0.z ),
+			Vec3( col1.x, col1.y, col1.z ),
+			Vec3( col2.x, col2.y, col2.z )
+        };
+        // clang-format on
+
+        // we calculate its determinant by using vector cross product.
+        auto det = block[0].dot( block[1].cross( block[2] ) );
+        NC_ASSERT( det > 0, "Matrix is singular (non-invertible)" );
+
+        // find its adjoint matrix.
+        auto adj0 = block[1].cross( block[2] );
+        auto adj1 = block[2].cross( block[0] );
+        auto adj2 = block[0].cross( block[1] );
+
+        // inverse formula: 1 / det * (M)
+        auto recp = 1 / det;
+        auto inv0 = adj0 * recp;
+        auto inv1 = adj1 * recp;
+        auto inv2 = adj2 * recp;
+
+        // final inverse translation vector calc.
+        auto xlation = Vec3( col3.x, col3.y, col3.z );
+        auto b0      = -inv0.dot( xlation );
+        auto b1      = -inv1.dot( xlation );
+        auto b2      = -inv2.dot( xlation );
+
+        // clang-format off
+		// reconstruct 4x4 matrix.
+		return Mat4{
+            Vec4( inv0.x, inv1.x, inv2.x, 0),
+			Vec4( inv0.y, inv1.y, inv2.y, 0),
+			Vec4( inv0.z, inv1.z, inv2.z, 0),
+			Vec4( b0,     b1,     b2,     1)
+		};
+        // clang-format on
     }
 
     Mat4 operator*( float scalar ) const

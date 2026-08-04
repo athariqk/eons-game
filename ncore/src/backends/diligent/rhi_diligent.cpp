@@ -263,7 +263,7 @@ void DiligentRHI::swapchain_destroy( RID target )
 // Graphics pipeline
 // ---------------------------------------------------------------------------
 
-RID DiligentRHI::gfx_pipeline_create( const GraphicsPSODesc& desc, DynArray<RID> resource_signatures )
+RID DiligentRHI::gfx_pipeline_create( const GraphicsPSODesc& desc, DynamicArray<RID> resource_signatures )
 {
     Diligent::RefCntAutoPtr<Diligent::IShader> vs;
     {
@@ -339,7 +339,7 @@ RID DiligentRHI::gfx_pipeline_create( const GraphicsPSODesc& desc, DynArray<RID>
         gp.SmplDesc.Count                   = desc.multisample_state.count;
         gp.SmplDesc.Quality                 = desc.multisample_state.quality;
 
-        DynArray<Diligent::LayoutElement> inputs;
+        DynamicArray<Diligent::LayoutElement> inputs;
         for (const auto& elem : desc.vert_layout) {
             Diligent::LayoutElement le{};
             le.HLSLSemantic         = elem.hlsl_semantic;
@@ -357,7 +357,7 @@ RID DiligentRHI::gfx_pipeline_create( const GraphicsPSODesc& desc, DynArray<RID>
         ci.GraphicsPipeline.InputLayout.NumElements    = static_cast<Diligent::Uint32>( inputs.size() );
         ci.GraphicsPipeline.InputLayout.LayoutElements = inputs.data();
 
-        DynArray<Diligent::IPipelineResourceSignature*> sigs;
+        DynamicArray<Diligent::IPipelineResourceSignature*> sigs;
         for (auto& rid : resource_signatures) {
             auto entry = res_signatures.get( rid );
             NC_ASSERT( entry->RawPtr(), "A valid resource signature is required for PSO creation" );
@@ -425,7 +425,7 @@ void DiligentRHI::render_target_bind( std::span<const void*> rtvs, void* dsv )
 
 void DiligentRHI::render_target_set_viewport( std::span<const Viewport> p_viewports )
 {
-    DynArray<Diligent::Viewport> vps;
+    DynamicArray<Diligent::Viewport> vps;
     for (auto& vp : p_viewports) {
         vps.push_back( { vp.rect.x, vp.rect.y, vp.rect.w, vp.rect.h, vp.min_depth, vp.max_depth } );
     }
@@ -438,7 +438,7 @@ void DiligentRHI::render_target_set_viewport( std::span<const Viewport> p_viewpo
 
 void DiligentRHI::render_target_set_scissor_rect( std::span<const Rect> p_rects )
 {
-    DynArray<Diligent::Rect> rects;
+    DynamicArray<Diligent::Rect> rects;
     for (auto r : p_rects) {
         rects.push_back(
             Diligent::Rect{
@@ -697,7 +697,7 @@ void DiligentRHI::vertex_buffers_bind(
     std::span<const RID> p_buffers, uint32_t slot, std::span<const uint64_t> offsets
 )
 {
-    DynArray<Diligent::IBuffer*> buffer_arr;
+    DynamicArray<Diligent::IBuffer*> buffer_arr;
     for (auto& rid : p_buffers) {
         auto ptr = buffers.get( rid );
         NC_VERIFY( ptr );
@@ -727,7 +727,7 @@ RID DiligentRHI::resource_signature_create( const ResourceSignatureDesc& desc )
     pdesc.BindingIndex = desc.set;
     pdesc.Name         = desc.name.c_str();
 
-    DynArray<Diligent::PipelineResourceDesc> rdescs;
+    DynamicArray<Diligent::PipelineResourceDesc> rdescs;
     for (const auto& rd : desc.resources) {
         Diligent::PipelineResourceDesc rdesc{};
         rdesc.Name         = rd.name.c_str();
