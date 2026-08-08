@@ -30,7 +30,13 @@ struct EngineEditorState {
     bool stats_window    = false;
     bool camera_window   = false;
     bool inputs_window   = false;
-    NSTRUCT( EngineEditorState, NC_F( EngineEditorState, spatial_query ) NC_F( EngineEditorState, dockspace_id ) )
+    Node* selected_node  = nullptr;
+    NSTRUCT(
+        EngineEditorState, NC_F( EngineEditorState, current_scene ) NC_F( EngineEditorState, spatial_query )
+                               NC_F( EngineEditorState, dockspace_id ) NC_F( EngineEditorState, stats_window )
+                                   NC_F( EngineEditorState, camera_window ) NC_F( EngineEditorState, inputs_window )
+                                       NC_F( EngineEditorState, selected_node )
+    )
 };
 
 struct TestSpin {
@@ -43,20 +49,35 @@ struct TestSpin {
     )
 };
 
-static void draw_scene_tree_node( Node& node )
+static void draw_scene_tree_node( Node& node, EngineEditorState& state )
 {
     ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
     if (node.get_child_count() == 0) {
         flags |= ImGuiTreeNodeFlags_Leaf;
+    }
+    if (node == state.selected_node) {
+        flags |= ImGuiTreeNodeFlags_Selected;
     }
 
     auto name = node.get_name();
     bool open =
         ImGui::TreeNodeEx( reinterpret_cast<void*>( node.get_id() ), flags, "%s##%llu", name.data(), node.get_id() );
 
+    if (ImGui::BeginPopupContextItem()) {
+        if (ImGui::Button( "Delete" )) {
+            node.destroy();
+            state.selected_node = nullptr; // avoids crashing the ECS
+        }
+        ImGui::EndPopup();
+    }
+
+    if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
+        state.selected_node = &node;
+    }
+
     if (open) {
         for (auto& child : node.get_children()) {
-            draw_scene_tree_node( child );
+            draw_scene_tree_node( child, state );
         }
         ImGui::TreePop();
     }
@@ -84,8 +105,6 @@ void register_editor_plugin( Scene& scene )
 
             state->spatial_query =
                 ctx.world().query( "EngineEditorFeature::InputReceiverDebugQuery" ).with<InputComponent>().build();
-            // state->scene_entities_query =
-            //     ctx.world().query( "EngineEditorFeature::SceneEntitiesQuery" ).with<EcsSceneEntity>().build();
         } );
 
     scene.get_ecs()
@@ -183,7 +202,47 @@ void register_editor_plugin( Scene& scene )
                     auto root = state->current_scene->root();
                     if (root) {
                         ImGui::SetNextItemOpen( true, ImGuiCond_FirstUseEver );
-                        draw_scene_tree_node( *root );
+                        draw_scene_tree_node( *root, *state );
+                    }
+                }
+                ImGui::End();
+            }
+
+            {
+                if (ImGui::Begin( "Inspector" )) {
+                    if (state->selected_node) {
+                        auto name = state->selected_node->get_name();
+                        auto id   = state->selected_node->get_id();
+
+                        ImGui::Text( "Node: %s", name.data() );
+                        ImGui::Text( "ID: %llu", id );
+                        ImGui::Separator();
+
+                        auto& ecs = state->current_scene->get_ecs();
+                        for (auto comp_id : state->selected_node->get_components()) {
+                            auto* type = ecs.resolve_component( comp_id );
+                            if (!type)
+                                continue;
+                            if (type == rtti::TypeRegistry::find<NodeRefComponent>())
+                                continue;
+
+                            void* comp = state->selected_node->get_component( type );
+                            if (!comp)
+                                continue;
+
+                            if (ImGui::CollapsingHeader( type->name, ImGuiTreeNodeFlags_DefaultOpen )) {
+                                auto str = rtti::TypeRegistry::to_string( comp, type->id );
+                                ImGui::TextUnformatted( str.c_str() );
+
+                                ImGui::PushID( static_cast<int>( id << 32 | type->id.value ) );
+                                if (ImGui::SmallButton( "Remove" )) {
+                                    state->selected_node->remove_component( type );
+                                }
+                                ImGui::PopID();
+                            }
+                        }
+                    } else {
+                        ImGui::TextDisabled( "No node selected" );
                     }
                 }
                 ImGui::End();

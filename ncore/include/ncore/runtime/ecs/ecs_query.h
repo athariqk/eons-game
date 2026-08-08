@@ -43,17 +43,22 @@ public:
     void* event_payload();
     void* user_ctx() const;
 
-    void* get_internal_iter() { return iter_; }
+    void* get_internal_iter()
+    {
+        return iter_;
+    }
 
 private:
     friend class EcsQuery;
 
-    enum class Kind : uint8_t { Query };
+    enum class Kind : uint8_t {
+        Query
+    };
 
     EcsIterator( EcsWorld* world_ref, void* world, void* query );
 
     void* world_ = nullptr;
-    void* query_ = nullptr;
+    void* query  = nullptr;
     void* iter_  = nullptr;
     Kind kind_   = Kind::Query;
     bool done_   = true;
@@ -80,17 +85,28 @@ public:
     EcsIterator begin();
     static std::nullptr_t end();
 
+    StringView get_name()
+    {
+        return name;
+    }
+
+    /**
+     * @brief Checks if a query handle is not null and is returning results.
+     */
+    bool is_valid();
+
 private:
     friend class EcsWorld;
     friend class EcsQueryBuilder;
     friend class EcsSystemBuilder;
 
-    EcsQuery( EcsWorld* world_ref, void* world_handle, void* query_handle );
+    EcsQuery( const String& name, EcsWorld* world_ref, void* world_handle, void* query_handle );
 
+    String name;
     // internal impl details
-    EcsWorld* world_ref_ = nullptr;
-    void* world_         = nullptr; // native world
-    void* query_         = nullptr; // native query
+    EcsWorld* world_ref = nullptr;
+    void* world         = nullptr; // native world
+    void* query         = nullptr; // native query
 };
 
 //------------------------------------------------------------------------------

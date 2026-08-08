@@ -82,10 +82,9 @@ EcsEntity EcsSystemBuilder::create_system_( void* callback, void* ctx, void ( *c
     auto world = static_cast<ecs_world_t*>( world_.get_native_handle() );
 
     ecs_entity_desc_t sys_ent_desc{};
-    sys_ent_desc.name    = name.c_str();
-    ecs_entity_t sys_ent = ecs_entity_init( world, &sys_ent_desc );
+    sys_ent_desc.name = name.c_str();
     ecs_system_desc_t sdesc{};
-    sdesc.entity   = sys_ent;
+    sdesc.entity   = ecs_entity_init( world, &sys_ent_desc );
     sdesc.query    = qb_.pImpl->get_as_descriptor();
     sdesc.phase    = detail::map_phase( pImpl->phase_ );
     sdesc.callback = reinterpret_cast<ecs_iter_action_t>( callback );

@@ -95,6 +95,8 @@ public:
         return register_component_type( type );
     }
 
+    const rtti::TypeInfo* resolve_component( EcsComponent id ) const;
+
     template<class T>
     void remove_component( EcsEntity eid )
     {
@@ -169,6 +171,8 @@ public:
      * @return A fluent builder for registering a cached query.
      */
     EcsQueryBuilder query( StringView name );
+
+    void remove_query( StringView name );
 
     /**
      * @brief Create a new event observer.

@@ -170,7 +170,9 @@ struct NCAPI TypeInfo {
     TypeId id;
     size_t size;
     size_t alignment;
-    TypeInfo* _next = nullptr;
+    FieldCategory category = FieldCategory::SCALAR;
+    bool is_floating       = false;
+    TypeInfo* _next        = nullptr;
 
     TypeInfo() : name( nullptr ), id( TypeId::null() ), size( 0 ), alignment( 0 ) {}
     TypeInfo( const char* n, TypeId i, size_t sz, size_t align ) : name( n ), id( i ), size( sz ), alignment( align ) {}
@@ -184,6 +186,8 @@ struct NCAPI TypeInfo {
     {
         return false;
     }
+
+    virtual std::string to_string( const void* instance ) const;
 };
 
 //------------------------------------------------------------------------------
@@ -244,6 +248,8 @@ struct NCAPI FieldInfo {
     {
         return has_flag( flags, f );
     }
+
+    std::string value_to_string( const void* instance ) const;
 };
 
 //------------------------------------------------------------------------------
@@ -326,6 +332,8 @@ struct NCAPI RecordInfo : public TypeInfo {
                 return &f;
         return nullptr;
     }
+
+    std::string to_string( const void* instance ) const override;
 
     virtual void visit(
         const void* instance, RecordVisitor* visitor, PropertyFlags filter = static_cast<PropertyFlags>( 0xFFFF ),
@@ -507,22 +515,7 @@ public:
         auto t = find( id );
         if (!t)
             return "UnknownType";
-        if (t->is_record()) {
-            auto c = static_cast<const RecordInfo*>( t );
-            std::string result;
-            result += c->name;
-            result += "(";
-
-            for (std::size_t i = 0; i < c->field_count(); ++i) {
-                if (i != 0)
-                    result += ",";
-                result += std::format( "{}={}", c->fields()[i].name, c->fields()[i].get_void_ptr( instance ) );
-            }
-
-            result += ")";
-            return result;
-        }
-        return std::format( "{}({})", t->name, instance );
+        return t->to_string( instance );
     }
 
     static const TypeInfo& get( TypeId id ) noexcept;
@@ -676,8 +669,10 @@ struct VectorClass : public TRecordInfo<VecT> {
 
 //------------------------------------------------------------------------------
 
-struct NCAPI StringClass : public TRecordInfo<std::string> {
+struct NCAPI StringClass : public TRecordInfo<String> {
     StringClass( const char* n, TypeId i, size_t sz, size_t align ) : TRecordInfo( n, i, sz, align ) {}
+
+    std::string to_string( const void* instance ) const override;
 
     void
     visit( void const* instance, RecordVisitor* visitor, PropertyFlags filter, unsigned depth ) const noexcept override
@@ -687,7 +682,7 @@ struct NCAPI StringClass : public TRecordInfo<std::string> {
             visitor->string( this, nullptr );
             return;
         }
-        auto* str  = static_cast<const std::string*>( instance );
+        auto* str  = static_cast<const String*>( instance );
         auto* cstr = str->c_str();
         visitor->string( this, &cstr );
     }

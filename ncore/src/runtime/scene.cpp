@@ -124,6 +124,7 @@ bool Scene::on_fixed_update( double p_delta )
 
 bool Scene::on_variable_update( double p_delta )
 {
+    process_pending_node_deletions_();
     ecs_world.progress( p_delta );
     return wants_to_quit;
 }
@@ -139,6 +140,11 @@ Node* Scene::root()
     return root_node;
 }
 
+void Scene::queue_destroy_node( Node* node )
+{
+    pending_node_deletions.push_back( node );
+}
+
 void Scene::ensure_root_node_exists_()
 {
     if (root_node)
@@ -150,12 +156,18 @@ void Scene::ensure_root_node_exists_()
     root_node->internal_id =
         ecs_world.entity( "RootNode" ).with<NodeRefComponent>( { root_node } ).with<RootNodeTag>().build();
 
-    root_node->child_query = ecs_world.query( "RootNode_ChildQuery" )
-                                 .with<NodeRefComponent>()
-                                 .with_pair( static_cast<EcsEntity>( EcsChildOf ), root_node->internal_id )
-                                 .build();
-
     NC_LOG_TRACE( "Root node was missing but is now created with entity ID {}", root_node->internal_id );
+}
+
+void Scene::process_pending_node_deletions_()
+{
+    for (auto& node : pending_node_deletions) {
+        NC_LOG_DEBUG_C( log::ECS, "Destroying node: Name={} ID={}", node->get_name(), node->internal_id );
+        ecs_world.remove_query( node->child_query.get_name() );
+        ecs_world.destroy_entity( node->get_id() );
+        node_pool.release( node );
+    }
+    pending_node_deletions.clear();
 }
 
 } // namespace nc

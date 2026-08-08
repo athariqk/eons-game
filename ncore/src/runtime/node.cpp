@@ -15,16 +15,31 @@ Node::Node( const String& p_name, Scene* p_scene, Node* p_parent ) : scene( p_sc
 
     internal_id =
         scene->get_ecs().entity( p_name ).child_of( p_parent->internal_id ).with<NodeRefComponent>( { this } ).build();
-
-    auto name   = std::format( "{}_{}_ChildQuery", p_name, internal_id );
-    child_query = scene->get_ecs()
-                      .query( name )
-                      .with<NodeRefComponent>()
-                      .with_pair( static_cast<EcsEntity>( EcsChildOf ), internal_id )
-                      .build();
 }
 
 Node::~Node() {}
+
+bool Node::operator==( const Node& other ) const
+{
+    return internal_id == other.internal_id;
+}
+
+bool Node::operator==( const Node* other ) const
+{
+    return other && other->internal_id == internal_id;
+}
+
+bool Node::operator!=( const Node& other ) const
+{
+    return internal_id != other.internal_id;
+}
+
+void Node::reparent_to( Node* child ) {}
+
+void Node::destroy()
+{
+    scene->queue_destroy_node( this );
+}
 
 Node* Node::create_child( const String& name )
 {
@@ -36,6 +51,15 @@ Node* Node::create_child( const String& name )
 
 Node::ChildRange Node::get_children()
 {
+    if (!child_query.is_valid()) {
+        auto name   = std::format( "{}_{}_ChildQuery", get_name(), internal_id );
+        child_query = scene->get_ecs()
+                          .query( name )
+                          .with<NodeRefComponent>()
+                          .with_pair( static_cast<EcsEntity>( EcsChildOf ), internal_id )
+                          .build();
+    }
+
     return Node::ChildRange( child_query, scene );
 }
 
@@ -49,28 +73,28 @@ uint32_t Node::get_child_count()
     return count;
 }
 
-void Node::destroy_child( Node* child )
-{
-    if (!child || child == this)
-        return;
-
-    NC_LOG_TRACE( "Destroying child node '{}' with entity ID {}", child->get_name(), child->internal_id );
-    scene->get_ecs().destroy_entity( child->internal_id );
-    node_pool->release( child );
-}
-
 void Node::destroy_children()
 {
-    DynamicArray<Node*> children;
     for (auto& child : get_children()) {
-        children.push_back( &child );
-    }
-    for (auto* child : children) {
-        destroy_child( child );
+        child.destroy();
     }
 }
 
-void Node::reparent_to( Node* child ) {}
+const void* Node::get_component_const( const rtti::TypeInfo* type ) const
+{
+    return scene->get_ecs().get_component_const_( internal_id, type );
+}
+
+void* Node::get_component( const rtti::TypeInfo* type ) const
+{
+    return scene->get_ecs().get_component_( internal_id, type );
+}
+
+Span<EcsComponent> Node::get_components()
+{
+    auto type = ecs_get_type( reinterpret_cast<ecs_world_t*>( scene->get_ecs().get_native_handle() ), internal_id );
+    return { type->array, static_cast<size_t>( type->count ) };
+}
 
 StringView Node::get_name() const
 {
@@ -97,16 +121,6 @@ void* Node::add_component_( const rtti::TypeInfo* type, const void* data )
     return obj;
 }
 
-void* Node::get_component_( const rtti::TypeInfo* type ) const
-{
-    return scene->get_ecs().get_component_( internal_id, type );
-}
-
-const void* Node::get_component_const_( const rtti::TypeInfo* type ) const
-{
-    return scene->get_ecs().get_component_const_( internal_id, type );
-}
-
 bool Node::has_component_( const rtti::TypeInfo* type ) const
 {
     return scene->get_ecs().has_component_( internal_id, type );
@@ -117,6 +131,16 @@ void Node::remove_component_( const rtti::TypeInfo* type ) const
     scene->get_ecs().remove_component_( internal_id, type );
 }
 
+bool Node::has_component( const rtti::TypeInfo* type ) const
+{
+    return has_component_( type );
+}
+
+void Node::remove_component( const rtti::TypeInfo* type )
+{
+    remove_component_( type );
+}
+
 void Node::emit_event_( const rtti::TypeInfo* type, EcsEntity target, const void* data ) const
 {
     scene->get_ecs().emit_event_( type, target, data );
@@ -124,13 +148,13 @@ void Node::emit_event_( const rtti::TypeInfo* type, EcsEntity target, const void
 
 //------------------------------------------------------------------------------
 
-Node::ChildRange::ChildRange( EcsQuery& query, Scene* p_scene ) : query_( query ), scene_( p_scene ) {}
+Node::ChildRange::ChildRange( EcsQuery& p_query, Scene* p_scene ) : query( p_query ), scene_( p_scene ) {}
 
-Node::ChildRange::ChildRange( Node::ChildRange&& o ) noexcept : query_( o.query_ ), scene_( o.scene_ ) {}
+Node::ChildRange::ChildRange( Node::ChildRange&& o ) noexcept : query( o.query ), scene_( o.scene_ ) {}
 
 Node::ChildRange::Iterator Node::ChildRange::begin()
 {
-    return Iterator( query_.begin(), scene_, false );
+    return Iterator( query.begin(), scene_, false );
 }
 
 Node::ChildRange::Iterator Node::ChildRange::end()

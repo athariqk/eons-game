@@ -13,6 +13,7 @@ class EcsWorld;
 namespace nc::detail {
 
 struct FlecsQueryBuilder {
+    EcsEntity assoc_entity = 0; // 0 = invalid
     EcsWorld& world;
     String name;
     String expr;
@@ -20,18 +21,20 @@ struct FlecsQueryBuilder {
     bool built = false;
 
     FlecsQueryBuilder( EcsWorld& w, String n ) : world( w ), name( std::move( n ) ) {}
+    FlecsQueryBuilder( EcsEntity e, EcsWorld& w, String n ) : assoc_entity( e ), world( w ), name( n ) {}
 
     // Wraps our data into Flecs' C struct
     // TODO: use implicit conversion opr overloading
     ecs_query_desc_t get_as_descriptor() const
     {
-        ecs_query_desc_t qdesc{};
-        qdesc.cache_kind = EcsQueryCacheDefault;
-        memcpy( qdesc.terms, terms.data(), terms.size() * sizeof( ecs_term_t ) );
+        ecs_query_desc_t desc{};
+        desc.entity     = assoc_entity;
+        desc.cache_kind = EcsQueryCacheDefault;
+        memcpy( desc.terms, terms.data(), terms.size() * sizeof( ecs_term_t ) );
         if (!expr.empty()) {
-            qdesc.expr = expr.c_str();
+            desc.expr = expr.c_str();
         }
-        return qdesc;
+        return desc;
     }
 };
 

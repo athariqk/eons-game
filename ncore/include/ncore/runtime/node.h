@@ -11,9 +11,9 @@ class EcsWorld;
 class Scene;
 
 /**
- * @brief Node is a wrapper over an EcsEntity. Node provides first-class
- * operations for Scene hierarchy and relationships. You can add any
- * components to a Node as POD or even non-POD classes/structs.
+ * @brief Node is a lightweight wrapper over an EcsEntity. Node provides
+ * first-class operations for Scene hierarchy and relationships. You can
+ * add any components to a Node as POD or even non-POD classes/structs.
  */
 class NCAPI Node : public NcObject {
     NCLASS( Node, NcObject )
@@ -27,6 +27,10 @@ public:
 
     Node( const Node& )            = delete;
     Node& operator=( const Node& ) = delete;
+
+    bool operator==( const Node& other ) const;
+    bool operator==( const Node* other ) const;
+    bool operator!=( const Node& other ) const;
 
     class ChildRange {
     public:
@@ -68,17 +72,29 @@ public:
         Iterator end();
 
     private:
-        EcsQuery query_;
+        EcsQuery query;
         Scene* scene_;
     };
+
+    void reparent_to( Node* child );
+    /**
+     * @brief Queue removal of this Node from the Scene.
+     */
+    void destroy();
 
     Node* create_child( const String& name = String() );
     ChildRange get_children();
     uint32_t get_child_count();
-    void destroy_child( Node* child );
     void destroy_children();
 
-    void reparent_to( Node* child );
+    /**
+     * @return Immutable component pointer to instance, no staging.
+     */
+    const void* get_component_const( const rtti::TypeInfo* type ) const;
+    /**
+     * @return Mutable component pointer to instance.
+     */
+    void* get_component( const rtti::TypeInfo* type ) const;
 
     /**
      * @brief Return a read-only component of type T owned by this Node.
@@ -86,7 +102,7 @@ public:
     template<class T>
     const T* get_component() const
     {
-        auto result = get_component_const_( rtti::TypeRegistry::find<T>() );
+        auto result = get_component_const( rtti::TypeRegistry::find<T>() );
         return static_cast<const T*>( result );
     }
 
@@ -96,9 +112,11 @@ public:
     template<class T>
     T* get_component()
     {
-        auto result = get_component_( rtti::TypeRegistry::find<T>() );
+        auto result = get_component( rtti::TypeRegistry::find<T>() );
         return static_cast<T*>( result );
     }
+
+    Span<EcsComponent> get_components();
 
     /**
      * @brief Create and set a component owned by this Node.
@@ -132,6 +150,9 @@ public:
         return remove_component_( rtti::TypeRegistry::find<T>() );
     }
 
+    bool has_component( const rtti::TypeInfo* type ) const;
+    void remove_component( const rtti::TypeInfo* type );
+
     template<class T>
     void emit_event( const T& data, EcsEntity target ) const
     {
@@ -151,8 +172,6 @@ private:
 
     void* emplace_component_( const rtti::TypeInfo* type );
     void* add_component_( const rtti::TypeInfo* type, const void* data );
-    void* get_component_( const rtti::TypeInfo* type ) const;             // returns mutable ptr
-    const void* get_component_const_( const rtti::TypeInfo* type ) const; // returns const ptr, no staging
     bool has_component_( const rtti::TypeInfo* type ) const;
     void remove_component_( const rtti::TypeInfo* type ) const;
     void emit_event_( const rtti::TypeInfo* type, EcsEntity target, const void* data ) const;

@@ -394,7 +394,7 @@ void register_inputs_plugin( Scene& scene )
 
             auto win_id = gfx->window->get_main_window_id();
 
-            if (io->inputs->is_mouse_button_pressed( ButtonIndex::RIGHT )) {
+            if (!ImGui::GetIO().WantCaptureMouse && io->inputs->is_mouse_button_pressed( ButtonIndex::RIGHT )) {
                 auto is_locked = gfx->window->window_get_mouse_locked( win_id );
                 if (is_locked) {
                     gfx->window->window_set_mouse_position( win_id, gfx->window->window_get_resolution( win_id ) / 2 );

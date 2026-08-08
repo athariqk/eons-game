@@ -27,8 +27,9 @@ struct NCAPI NodeRefComponent {
 /**
  * @brief Scene defines the default IGameWorld implementation where game objects are
  * represented as a hierarchical node structure. A scene contains a root Node which
- * can have many child Nodes, and each Node can have multiple components attached to it.
- * You define game logic by... i don't know, lets figure it out :P
+ * can have many child Nodes, and each Node can have multiple components attached to it,
+ * which defines its "type" and thus archetype. You compose game logic by defining systems
+ * over these archetypes via the Scene API.
  *
  * This was very inspired by Godot's Node system.
  *
@@ -110,13 +111,22 @@ public:
      */
     Node* root();
 
+    bool is_node_valid( Node* node );
+
+    /**
+     * @brief Safely defer the deletion of a Node at the next frame.
+     */
+    void queue_destroy_node( Node* node );
+
 private:
     void ensure_root_node_exists_();
+    void process_pending_node_deletions_();
 
     EcsWorld ecs_world;
     Node::NodePool node_pool;
     Node* root_node       = nullptr;
     size_t system_counter = 0;
+    DynamicArray<Node*> pending_node_deletions; // TODO: any way to do this without DynamicArray would be nice
 };
 
 } // namespace nc

@@ -18,11 +18,11 @@ EcsIterator::EcsIterator( void* internal ) noexcept
     done_ = false;
 }
 
-EcsIterator::EcsIterator( EcsWorld*, void* world, void* query ) :
-    world_( world ), query_( query ), kind_( Kind::Query )
+EcsIterator::EcsIterator( EcsWorld*, void* world, void* p_query ) :
+    world_( world ), query( p_query ), kind_( Kind::Query )
 {
-    auto w = static_cast<ecs_world_t*>( world_ );
-    auto q = static_cast<ecs_query_t*>( query_ );
+    auto w = static_cast<ecs_world_t*>( world );
+    auto q = static_cast<ecs_query_t*>( query );
 
     iter_                              = new ecs_iter_t;
     *static_cast<ecs_iter_t*>( iter_ ) = ecs_query_iter( w, q );
@@ -40,7 +40,7 @@ EcsIterator::~EcsIterator()
 }
 
 EcsIterator::EcsIterator( EcsIterator&& other ) noexcept :
-    world_( other.world_ ), query_( other.query_ ), iter_( other.iter_ ), kind_( other.kind_ ), done_( other.done_ )
+    world_( other.world_ ), query( other.query ), iter_( other.iter_ ), kind_( other.kind_ ), done_( other.done_ )
 {
     other.iter_ = nullptr;
     other.done_ = true;
@@ -51,7 +51,7 @@ EcsIterator& EcsIterator::operator=( EcsIterator&& other ) noexcept
     if (this != &other) {
         delete static_cast<ecs_iter_t*>( iter_ );
         world_      = other.world_;
-        query_      = other.query_;
+        query       = other.query;
         iter_       = other.iter_;
         kind_       = other.kind_;
         done_       = other.done_;
@@ -125,18 +125,26 @@ void* EcsIterator::user_ctx() const
 // EcsQuery
 //------------------------------------------------------------------------------
 
-EcsQuery::EcsQuery( EcsWorld* world_ref, void* world_handle, void* query_handle ) :
-    world_ref_( world_ref ), world_( world_handle ), query_( query_handle )
+EcsQuery::EcsQuery( const String& p_name, EcsWorld* p_world_ref, void* p_world_handle, void* query_handle ) :
+    name( p_name ), world_ref( p_world_ref ), world( p_world_handle ), query( query_handle )
 {}
 
 EcsIterator EcsQuery::begin()
 {
-    return EcsIterator( world_ref_, world_, query_ );
+    return EcsIterator( world_ref, world, query );
 }
 
 std::nullptr_t EcsQuery::end()
 {
     return nullptr;
+}
+
+bool EcsQuery::is_valid()
+{
+    if (!query)
+        return false;
+    auto q = reinterpret_cast<ecs_query_t*>( query );
+    return ecs_query_is_true( q );
 }
 
 //------------------------------------------------------------------------------

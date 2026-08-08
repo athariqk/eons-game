@@ -51,7 +51,8 @@ static void init_flecs_os_api()
 
 struct EcsWorld::Impl {
     ecs_world_t* world = nullptr;
-    mutable HashMap<const rtti::TypeInfo*, EcsComponent> comp_id_map;
+    mutable HashMap<const rtti::TypeInfo*, EcsComponent> comp_type_to_id;
+    mutable HashMap<EcsComponent, const rtti::TypeInfo*> comp_id_to_type;
     HashMap<String, ecs_query_t*> query_cache; // TODO: is this even necessary? figure out how flecs cache queries
 
 #if defined( NC_DEBUG )
@@ -210,8 +211,8 @@ static void handle_move_hook( void* dst_ptr, void* src_ptr, int32_t count, const
 
 EcsEntity EcsWorld::register_component_type( const rtti::TypeInfo* type ) const
 {
-    auto it = pImpl->comp_id_map.find( type );
-    if (it != pImpl->comp_id_map.end()) {
+    auto it = pImpl->comp_type_to_id.find( type );
+    if (it != pImpl->comp_type_to_id.end()) {
         return static_cast<EcsComponent>( it->second );
     }
 
@@ -242,9 +243,19 @@ EcsEntity EcsWorld::register_component_type( const rtti::TypeInfo* type ) const
     auto comp_id = ecs_component_init( pImpl->world, &desc );
     NC_ASSERT( comp_id != 0, std::format( "Failed to auto-register component '{}'.", type->name ).c_str() );
 
-    pImpl->comp_id_map[type] = comp_id;
+    pImpl->comp_type_to_id[type]    = comp_id;
+    pImpl->comp_id_to_type[comp_id] = type;
 
     return static_cast<EcsEntity>( comp_id );
+}
+
+const rtti::TypeInfo* EcsWorld::resolve_component( EcsComponent id ) const
+{
+    auto it = pImpl->comp_id_to_type.find( id );
+    if (it != pImpl->comp_id_to_type.end()) {
+        return it->second;
+    }
+    return nullptr;
 }
 
 //------------------------------------------------------------------------------
@@ -257,6 +268,17 @@ EcsSystemBuilder EcsWorld::system( StringView name )
 EcsQueryBuilder EcsWorld::query( StringView name )
 {
     return EcsQueryBuilder( *this, String( name ) );
+}
+
+void EcsWorld::remove_query( StringView name )
+{
+    auto it = pImpl->query_cache.find( name.data() );
+    if (it == pImpl->query_cache.end())
+        return;
+
+    NC_LOG_DEBUG_C( log::ECS, "Destroying query: {}", name );
+    ecs_query_fini( it->second );
+    pImpl->query_cache.erase( it );
 }
 
 EcsObserverBuilder EcsWorld::observer( StringView name )
@@ -371,8 +393,8 @@ void* EcsWorld::emplace_component_( EcsEntity eid, const rtti::TypeInfo* type )
 
 void* EcsWorld::get_component_( EcsEntity id, const rtti::TypeInfo* type ) const
 {
-    auto it = pImpl->comp_id_map.find( type );
-    if (it == pImpl->comp_id_map.end())
+    auto it = pImpl->comp_type_to_id.find( type );
+    if (it == pImpl->comp_type_to_id.end())
         return nullptr;
     if (id == INVALID_ENTITY_ID) { // is singleton?
         id = it->second;
@@ -382,8 +404,8 @@ void* EcsWorld::get_component_( EcsEntity id, const rtti::TypeInfo* type ) const
 
 const void* EcsWorld::get_component_const_( EcsEntity id, const rtti::TypeInfo* type ) const
 {
-    auto it = pImpl->comp_id_map.find( type );
-    if (it == pImpl->comp_id_map.end())
+    auto it = pImpl->comp_type_to_id.find( type );
+    if (it == pImpl->comp_type_to_id.end())
         return nullptr;
     if (id == INVALID_ENTITY_ID) { // is singleton?
         id = it->second;
@@ -393,8 +415,8 @@ const void* EcsWorld::get_component_const_( EcsEntity id, const rtti::TypeInfo* 
 
 bool EcsWorld::has_component_( EcsEntity id, const rtti::TypeInfo* type ) const
 {
-    auto it = pImpl->comp_id_map.find( type );
-    if (it == pImpl->comp_id_map.end())
+    auto it = pImpl->comp_type_to_id.find( type );
+    if (it == pImpl->comp_type_to_id.end())
         return false;
     if (id == INVALID_ENTITY_ID) { // is singleton?
         id = it->second;
@@ -404,8 +426,8 @@ bool EcsWorld::has_component_( EcsEntity id, const rtti::TypeInfo* type ) const
 
 void EcsWorld::remove_component_( EcsEntity id, const rtti::TypeInfo* type ) const
 {
-    auto it = pImpl->comp_id_map.find( type );
-    if (it == pImpl->comp_id_map.end())
+    auto it = pImpl->comp_type_to_id.find( type );
+    if (it == pImpl->comp_type_to_id.end())
         return;
     if (id == INVALID_ENTITY_ID) { // is singleton?
         id = it->second;
@@ -415,25 +437,24 @@ void EcsWorld::remove_component_( EcsEntity id, const rtti::TypeInfo* type ) con
 
 EcsQuery EcsWorld::create_query_( const String& name, void* data )
 {
-    auto* qdesc = static_cast<ecs_query_desc_t*>( data );
-
     auto& cached = pImpl->query_cache[name];
     if (cached) {
         NC_LOG_TRACE_C( log::ECS, "Reusing cached query '{}'", name );
-        return EcsQuery( this, pImpl->world, cached );
+        return EcsQuery( name, this, pImpl->world, cached );
     }
 
-    ecs_query_t* q = ecs_query_init( pImpl->world, qdesc );
+    auto* desc     = static_cast<ecs_query_desc_t*>( data );
+    ecs_query_t* q = ecs_query_init( pImpl->world, desc );
     NC_ASSERT( q, std::format( "Failed to create query '{}'.", name ).c_str() );
     cached = q;
     NC_LOG_TRACE_C( log::ECS, "Created query '{}'", name );
-    return EcsQuery( this, pImpl->world, q );
+    return EcsQuery( name, this, pImpl->world, q );
 }
 
 void EcsWorld::emit_event_( const rtti::TypeInfo* type, EcsEntity target, const void* data ) const
 {
-    auto it = pImpl->comp_id_map.find( type );
-    if (it == pImpl->comp_id_map.end())
+    auto it = pImpl->comp_type_to_id.find( type );
+    if (it == pImpl->comp_type_to_id.end())
         return;
 
     ecs_event_desc_t desc{};
