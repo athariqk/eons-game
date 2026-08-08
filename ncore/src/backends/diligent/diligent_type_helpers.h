@@ -7,7 +7,7 @@
 #include <PipelineState.h>
 #include <RasterizerState.h>
 
-#include <ncore/modules/video/rhi_types.h>
+#include <ncore/services/video/rhi_types.h>
 
 namespace nc {
 

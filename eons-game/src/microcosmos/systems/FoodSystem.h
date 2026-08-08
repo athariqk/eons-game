@@ -1,7 +1,7 @@
 #pragma once
 
 #include <ncore/core/vector.h>
-#include <ncore/runtime/ecs_system.h>
+#include <ncore/runtime/ecs/ecs_system.h>
 
 // class FoodSystem : public nc::EcsSystem {
 //     NCLASS(FoodSystem, nc::EcsSystem)

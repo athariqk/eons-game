@@ -3,7 +3,7 @@
 #include <numbers>
 
 #include <ncore/core/random.h>
-#include <ncore/runtime/ecs_world.h>
+#include <ncore/runtime/ecs/ecs_world.h>
 #include <ncore/utils/log.h>
 
 #include <microcosmos/GameGroups.h>

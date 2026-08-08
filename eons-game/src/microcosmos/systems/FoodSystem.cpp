@@ -1,7 +1,7 @@
 #include "FoodSystem.h"
 
 #include <ncore/core/random.h>
-#include <ncore/runtime/ecs_world.h>
+#include <ncore/runtime/ecs/ecs_world.h>
 
 #include <microcosmos/GameGroups.h>
 #include <microcosmos/components/FoodComponent.h>

@@ -1,6 +1,6 @@
 #include "OrganismSystem.h"
 
-#include <ncore/runtime/ecs_world.h>
+#include <ncore/runtime/ecs/ecs_world.h>
 
 #include <microcosmos/SpeciesRegistry.h>
 #include <microcosmos/components/OrganismComponent.h>

@@ -2,8 +2,8 @@
 
 #include <imgui.h>
 
-#include <ncore/modules/input/input_event.h>
-#include <ncore/modules/video/window/window_types.h>
+#include <ncore/services/input/input_event.h>
+#include <ncore/services/video/window/window_types.h>
 
 namespace nc {
 

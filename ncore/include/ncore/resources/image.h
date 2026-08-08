@@ -5,7 +5,7 @@
 
 namespace nc {
 
-class Image : public IResource {
+class NCAPI Image : public IResource {
     NCLASS( Image, IResource )
 
 public:

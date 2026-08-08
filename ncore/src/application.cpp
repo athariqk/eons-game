@@ -16,14 +16,14 @@
 #include <ncore/core/memory.h>
 #include <ncore/core/types.h>
 #include <ncore/game_world.h>
-#include <ncore/modules/audio/audio_module.h>
-#include <ncore/modules/events/event_bus.h>
-#include <ncore/modules/input/input_module.h>
-#include <ncore/modules/io/resource_manager.h>
-#include <ncore/modules/module_registry.h>
-#include <ncore/modules/video/render_module.h>
-#include <ncore/modules/video/window_module.h>
-#include <ncore/scene/scene.h>
+#include <ncore/runtime/scene.h>
+#include <ncore/services/audio/audio_service.h>
+#include <ncore/services/events/event_bus.h>
+#include <ncore/services/input/input_service.h>
+#include <ncore/services/io/resource_service.h>
+#include <ncore/services/service_registry.h>
+#include <ncore/services/video/render_service.h>
+#include <ncore/services/video/window_service.h>
 #include <ncore/utils/config.h>
 #include <ncore/utils/log.h>
 #include <utils/logger/log_level.h>
@@ -74,12 +74,11 @@ void Application::init()
         }
     }
 
-    register_modules();
-    modules.init_all( cfg_file );
+    register_services();
+    services.init_all( cfg_file );
 
     g_world = create_world();
-    g_world->on_init();
-    on_world_init( *g_world );
+    g_world->on_enter();
 
     NC_LOG_TRACE( "Application initialized" );
 }
@@ -146,7 +145,7 @@ void Application::process_events()
     }
 }
 
-void Application::register_modules()
+void Application::register_services()
 {
     SDL_SetMemoryFunctions(
         []( size_t size ) -> void* { return memalloc( size ); },
@@ -159,35 +158,33 @@ void Application::register_modules()
         abort(); // TODO: handle this more gracefully
     }
 
-    events    = modules.provide<EventBus>();
-    input     = modules.provide<InputModule>();
-    resources = modules.provide<ResourceManager>();
-    window    = modules.provide<WindowModule>();
-    renderer  = modules.provide<RenderModule>();
-    modules.provide<Box2DPhysicsImpl>();
-    modules.provide<AudioModule>();
+    events    = services.provide<EventBus>();
+    input     = services.provide<InputService>();
+    resources = services.provide<ResourceService>();
+    window    = services.provide<WindowService>();
+    renderer  = services.provide<RenderService>();
+    services.provide<Box2DPhysicsImpl>();
+    services.provide<AudioService>();
 }
 
-void Application::unregister_modules()
+void Application::unregister_services()
 {
-    modules.clear();
+    services.clear();
     SDL_Quit();
 }
 
 std::unique_ptr<IGameWorld> Application::create_world()
 {
-    return std::make_unique<Scene>( app_desc, modules );
+    return std::make_unique<Scene>( app_desc, services );
 }
-
-void Application::on_world_init( IGameWorld& world ) {}
 
 void Application::finish()
 {
     NC_LOG_TRACE( "Application teardown" );
-    g_world->on_finish();
+    g_world->on_exit();
     g_world.reset();
-    modules.cleanup_all();
-    unregister_modules();
+    services.cleanup_all();
+    unregister_services();
     rtti::TypeRegistry::shutdown();
 }
 

@@ -15,7 +15,7 @@ namespace nc {
  * https://imadrahmoune.com/rotations-with-quaternions/
  * http://number-none.com/product/Understanding%20Slerp,%20Then%20Not%20Using%20It/
  */
-struct Quaternion {
+struct NCAPI Quaternion {
     float w = 0;
     Vec3 v  = Vec3();
 

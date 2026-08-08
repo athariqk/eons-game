@@ -341,20 +341,35 @@ struct NCAPI RecordInfo : public TypeInfo {
         const void* ptr, const FieldInfo* field, RecordVisitor* visitor, PropertyFlags filter, unsigned depth
     ) const noexcept;
 
-    virtual void construct( void* instance ) const           = 0;
-    virtual void destruct( void* instance ) const            = 0;
-    virtual void clone( const void* src, void* dst ) const   = 0;
-    virtual void replace( const void* src, void* dst ) const = 0;
+    /**
+     * @brief Construct the instance at the pointed location.
+     * @param instance Pointer to instance to construct.
+     * @param value If not NULL, this will do copy-construction.
+     */
+    virtual void construct( void* instance, const void* data = nullptr ) const = 0;
+    virtual void destruct( void* instance ) const                              = 0;
+    virtual void clone( const void* src, void* dst ) const                     = 0;
+    virtual void replace( const void* src, void* dst ) const                   = 0;
 };
 
 template<typename T>
 struct TRecordInfo : public RecordInfo {
     TRecordInfo( const char* name, TypeId t_id, size_t size, size_t align ) : RecordInfo( name, t_id, size, align ) {}
 
-    void construct( void* instance ) const override
+    void construct( void* instance, const void* data = nullptr ) const override
     {
-        if constexpr (std::is_default_constructible_v<T> && !std::is_abstract_v<T>)
-            new ( instance ) T();
+        if constexpr (std::is_abstract_v<T>)
+            return;
+
+        if (data) {
+            if constexpr (std::is_copy_constructible_v<T>) {
+                new ( instance ) T( *static_cast<const T*>( data ) );
+            }
+        } else {
+            if constexpr (std::is_default_constructible_v<T>) {
+                new ( instance ) T();
+            }
+        }
     }
 
     void destruct( void* instance ) const override
@@ -632,7 +647,7 @@ struct NCAPI RecordVisitor {
 //------------------------------------------------------------------------------
 
 template<typename VecT>
-struct NCAPI VectorClass : public TRecordInfo<VecT> {
+struct VectorClass : public TRecordInfo<VecT> {
     VectorClass( const char* n, TypeId i, size_t sz, size_t align ) : TRecordInfo<VecT>( n, i, sz, align ) {}
 
     void

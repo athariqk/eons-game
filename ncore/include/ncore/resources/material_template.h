@@ -1,18 +1,18 @@
 #pragma once
 
-#include <ncore/modules/video/rhi_types.h>
 #include <ncore/resources/resource.h>
+#include <ncore/services/video/rhi_types.h>
 
 #include "shader.h"
 
 namespace nc {
 
-struct MaterialTextureSlot {
+struct NCAPI MaterialTextureSlot {
     std::string name;
     uint32_t binding;
 };
 
-class MaterialTemplate : public IResource {
+class NCAPI MaterialTemplate : public IResource {
     NCLASS( MaterialTemplate, IResource )
 
 public:

@@ -10,7 +10,7 @@
 #include <ScopedQueryHelper.hpp>
 #include <Texture.h>
 
-#include <ncore/modules/video/rhi.h>
+#include <ncore/services/video/rhi.h>
 
 namespace nc {
 

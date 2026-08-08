@@ -14,7 +14,7 @@ namespace nc {
 /**
  * @brief ResourceFormatID uniquely identifies a resource format (e.g. image, etc).
  */
-struct ResourceFormatID {
+struct NCAPI ResourceFormatID {
     uint32_t id = 0;
 
     ResourceFormatID() = default;
@@ -25,7 +25,7 @@ struct ResourceFormatID {
     std::string to_string() const;
 };
 
-class IResource : public RefCounted {
+class NCAPI IResource : public RefCounted {
     NCLASS( IResource, RefCounted )
 
 public:

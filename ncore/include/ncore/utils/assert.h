@@ -78,7 +78,7 @@ NCAPI void handle_assert( const char* expr, const char* msg, const char* file, i
         }                                                                                                              \
     } while (0)
 
-#define NC_VERIFY( ptr )                                                                                          \
+#define NC_VERIFY( ptr )                                                                                               \
     do {                                                                                                               \
         if (ptr == nullptr) {                                                                                          \
             nc::log::handle_assert( #ptr, "pointer is null reference", __FILE__, __LINE__ );                           \

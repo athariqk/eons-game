@@ -9,18 +9,17 @@
 
 #include <ncore/core/types.h>
 
-#include "modules/module_registry.h"
+#include "services/service_registry.h"
 
 namespace nc {
 
 class IGameWorld;
-class ResourceManager;
+class ResourceService;
 class EventBus;
 class ConfFile;
-class IGuiModule;
-class WindowModule;
-class RenderModule;
-class InputModule;
+class WindowService;
+class RenderService;
+class InputService;
 
 /**
  * @brief A semantic version representation for the application.
@@ -61,22 +60,31 @@ public:
     Application( const Application& )            = delete;
     Application& operator=( const Application& ) = delete;
 
+    /**
+     * @brief Sets up the application, initializing important subsystems.
+     */
     virtual void init();
+    /**
+     * @brief Runs the game loop until the end.
+     */
     virtual void run();
+    /**
+     * @brief Performs teardown, cleanup, and shutting down subsystems.
+     */
     virtual void finish();
 
     virtual void process_events();
 
     /**
-     * @brief Registers the IModules used by the application.
-     * This can be overridden to register custom modules.
+     * @brief Registers the IServices used by the application.
+     * This can be overridden to register custom services.
      */
-    virtual void register_modules();
+    virtual void register_services();
 
     /**
      * @brief Called once when the application is being destroyed.
      */
-    virtual void unregister_modules();
+    virtual void unregister_services();
 
     /**
      * @brief Creates a new game world instance.
@@ -87,25 +95,19 @@ public:
      */
     virtual std::unique_ptr<IGameWorld> create_world();
 
-    /**
-     * @brief Called once after the world is initialized.
-     */
-    virtual void on_world_init( IGameWorld& world );
-
 protected:
     AppDesc app_desc;
-    ModuleRegistry modules;
+    ServiceRegistry services;
     bool is_running   = false;
     uint64_t ticks    = 0;
     double delta_time = 0.0;
     std::unique_ptr<IGameWorld> g_world;
 
-    ResourceManager* resources = nullptr;
+    ResourceService* resources = nullptr;
     EventBus* events           = nullptr;
-    WindowModule* window       = nullptr;
-    RenderModule* renderer     = nullptr;
-    IGuiModule* imgui          = nullptr;
-    InputModule* input         = nullptr;
+    WindowService* window      = nullptr;
+    RenderService* renderer    = nullptr;
+    InputService* input        = nullptr;
 };
 
 } // namespace nc

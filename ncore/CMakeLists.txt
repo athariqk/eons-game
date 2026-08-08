@@ -50,7 +50,7 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
             -Werror
             -Wconversion
             -Wdouble-promotion
-			-Wuninitialized
+            -Wuninitialized
             -Wno-unused-parameter
             -Wno-unused-function
             -Wno-sign-conversion
@@ -59,7 +59,7 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
             -Wno-unsafe-buffer-usage
             -Wno-switch-default
             -Wno-invalid-offsetof
-			-Wno-switch-enum
+            -Wno-switch-enum
             -fsanitize=undefined
             -fsanitize-trap)
 endif()
@@ -75,6 +75,7 @@ target_include_directories(
 add_subdirectory(external)
 add_subdirectory(include)
 add_subdirectory(src)
+add_subdirectory(tooling)
 add_subdirectory(tests EXCLUDE_FROM_ALL)
 
 # Copy runtime DLLs alongside ncore target in the build tree

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ncore/runtime/ecs_system.h>
+#include <ncore/runtime/ecs/ecs_system.h>
 
 // class SpeciesSystem : public nc::EcsSystem {
 //     NCLASS(SpeciesSystem, nc::EcsSystem)

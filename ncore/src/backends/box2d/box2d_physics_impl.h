@@ -5,12 +5,12 @@
 #include <box2d/types.h>
 
 #include <ncore/core/vector.h>
-#include <ncore/modules/physics/physics_module.h>
+#include <ncore/services/physics/physics_service.h>
 
 namespace nc {
 
-class Box2DPhysicsImpl : public IPhysicsModule {
-    NCLASS( Box2DPhysicsImpl, IPhysicsModule )
+class Box2DPhysicsImpl : public IPhysicsService {
+    NCLASS( Box2DPhysicsImpl, IPhysicsService )
 
 public:
     Error init( ConfFile& cfg_file ) override;

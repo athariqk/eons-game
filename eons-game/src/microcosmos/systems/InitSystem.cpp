@@ -1,6 +1,6 @@
 #include "InitSystem.h"
 
-#include <ncore/runtime/ecs_world.h>
+#include <ncore/runtime/ecs/ecs_world.h>
 #include <ncore/utils/log.h>
 
 #include <microcosmos/OrganismFactory.h>

@@ -4,7 +4,7 @@
 
 #include <flecs.h>
 
-#include <ncore/runtime/ecs_system.h>
+#include <ncore/runtime/ecs/ecs_system.h>
 
 namespace nc {
 class EcsWorld;
@@ -14,12 +14,12 @@ namespace nc::detail {
 
 struct FlecsQueryBuilder {
     EcsWorld& world;
-    std::string name;
-    std::string expr;
-    std::vector<ecs_term_t> terms;
+    String name;
+    String expr;
+    DynamicArray<ecs_term_t> terms;
     bool built = false;
 
-    FlecsQueryBuilder( EcsWorld& w, std::string n ) : world( w ), name( std::move( n ) ) {}
+    FlecsQueryBuilder( EcsWorld& w, String n ) : world( w ), name( std::move( n ) ) {}
 
     // Wraps our data into Flecs' C struct
     // TODO: use implicit conversion opr overloading

@@ -10,7 +10,7 @@ namespace nc {
  *
  * The default value of RID is 0, which is considered invalid.
  */
-struct RID {
+struct NCAPI RID {
     uint64_t value = 0;
 
     RID() = default;

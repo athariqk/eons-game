@@ -69,7 +69,7 @@ private:
  * So, same semantics and best practices may apply.
  */
 template<typename T, typename TAlloc = NcAllocator<T>>
-class NCAPI Ref final {
+class Ref final {
 public:
     Ref() : obj( nullptr ) {}
 

@@ -1,11 +1,11 @@
 #pragma once
 
-#include <ncore/modules/video/rhi_types.h>
 #include <ncore/resources/resource.h>
+#include <ncore/services/video/rhi_types.h>
 
 namespace nc {
 
-struct ShaderParamField {
+struct NCAPI ShaderParamField {
     std::string name;
     uint32_t offset;
     uint32_t size;
@@ -13,7 +13,7 @@ struct ShaderParamField {
     ShaderValueType type;
 };
 
-struct ShaderParamInfo {
+struct NCAPI ShaderParamInfo {
     std::string name;
     std::string semantic_name;
     ResourceType resource_type = ResourceType::CONSTANT_BUFFER;
@@ -28,7 +28,7 @@ struct ShaderParamInfo {
 
 using ShaderParamLayout = DynamicArray<ShaderParamInfo>;
 
-struct ShaderDesc {
+struct NCAPI ShaderDesc {
     ShaderType stage;
     std::string entrypoint;
     DynamicArray<uint32_t> bytecode;
@@ -36,7 +36,7 @@ struct ShaderDesc {
     VertexLayout vert_layout;
 };
 
-class Shader : public IResource {
+class NCAPI Shader : public IResource {
     NCLASS( Shader, IResource )
 
 public:

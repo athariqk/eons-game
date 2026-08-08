@@ -5,7 +5,7 @@
 
 namespace nc {
 
-class AudioClip : public IResource {
+class NCAPI AudioClip : public IResource {
     NCLASS( AudioClip, IResource )
 
 public:

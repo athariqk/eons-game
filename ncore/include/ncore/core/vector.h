@@ -372,7 +372,7 @@ struct NCAPI Vec3 : CommonVectorOps<Vec3, float, 3> {
 /**
  * @brief 4 components vector of single-precision floating-point numbers.
  */
-struct Vec4 : CommonVectorOps<Vec4, float, 4> {
+struct NCAPI Vec4 : CommonVectorOps<Vec4, float, 4> {
     float x = 0, y = 0, z = 0, w = 0;
 
     Vec4() = default;

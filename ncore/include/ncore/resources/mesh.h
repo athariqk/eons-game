@@ -5,7 +5,7 @@
 
 namespace nc {
 
-struct MeshDesc {
+struct NCAPI MeshDesc {
     BytesBuffer vertices;
     DynamicArray<uint16_t> indices;
     uint32_t vertex_stride;
@@ -14,7 +14,7 @@ struct MeshDesc {
 /**
  * @brief Mesh is a static geometrical data containing vertex attributes.
  */
-class Mesh : public IResource {
+class NCAPI Mesh : public IResource {
     NCLASS( Mesh, IResource )
 
 public:

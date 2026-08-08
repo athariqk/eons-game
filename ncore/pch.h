@@ -43,8 +43,8 @@
 // === Engine core ===
 #include <ncore/core/errors.h>
 #include <ncore/core/random.h>
-#include <ncore/core/vector.h>
 #include <ncore/core/types.h>
+#include <ncore/core/vector.h>
 
 // === Utilities ==
 #include <ncore/utils/assert.h>

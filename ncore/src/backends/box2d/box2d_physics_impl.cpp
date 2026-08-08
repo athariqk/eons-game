@@ -2,7 +2,7 @@
 
 #include <box2d/box2d.h>
 
-#include <ncore/modules/module_registry.h>
+#include <ncore/services/service_registry.h>
 #include <ncore/utils/assert.h>
 #include <ncore/utils/log.h>
 

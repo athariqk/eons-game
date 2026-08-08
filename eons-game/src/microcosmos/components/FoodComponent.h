@@ -1,7 +1,7 @@
 #pragma once
 
-#include <ncore/core/vector.h>
 #include <ncore/core/types.h>
+#include <ncore/core/vector.h>
 
 struct FoodComponent {
     FoodComponent() : cur_energy( 0.0f ) {}

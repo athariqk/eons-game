@@ -3,8 +3,8 @@
 #include <stdint.h>
 
 #include <ncore/core/random.h>
-#include <ncore/core/vector.h>
 #include <ncore/core/types.h>
+#include <ncore/core/vector.h>
 
 struct Genes {
 public:
