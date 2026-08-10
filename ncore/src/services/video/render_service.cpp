@@ -219,7 +219,7 @@ void RenderService::frame_end( float delta_time )
         ctx.rhi->vertex_buffers_bind( { &canvas_vb, 1 }, 0 );
         ctx.rhi->index_buffer_bind( canvas_ib, 0 );
 
-        if (item.clip.w > 0 && item.clip.h > 0) {
+        if (item.clip.x >= 0 && item.clip.y >= 0 && item.clip.w > 0 && item.clip.h > 0) {
             ctx.rhi->render_target_set_scissor_rect( { &item.clip, 1 } );
         }
 

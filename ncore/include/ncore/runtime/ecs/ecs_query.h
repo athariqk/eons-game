@@ -16,7 +16,7 @@ class ServiceRegistry;
 
 //------------------------------------------------------------------------------
 
-class EcsIterator {
+class NCAPI EcsIterator {
 public:
     EcsIterator() = default;
     ~EcsIterator();
@@ -77,7 +77,7 @@ private:
  */
 class NCAPI EcsQuery {
 public:
-    EcsQuery() = default;
+    EcsQuery() : name(), world_ref( nullptr ), world( nullptr ), query( nullptr ) {}
 
     /**
      * @brief Return iterator for queried tables.
@@ -143,6 +143,9 @@ public:
         current_row_ = row;
     }
 
+    /**
+     * @brief Retrieve the component by type.
+     */
     template<typename T>
     T* get_component()
     {
@@ -150,6 +153,16 @@ public:
         int32_t idx             = resolve_term_index_( info );
         NC_ASSERT( idx >= 0, "Component not found in query terms" );
         return static_cast<T*>( get_component_( idx, info.size, info.alignment ) );
+    }
+
+    /**
+     * @brief Retrieve the component by term index.
+     */
+    template<typename T>
+    T* get_component( uint8_t column )
+    {
+        static const auto& info = rtti::TypeRegistry::get<T>();
+        return static_cast<T*>( get_component_( column, info.size, info.alignment ) );
     }
 
     template<typename First, typename Second>
@@ -222,6 +235,7 @@ public:
 
     /**
      * @brief Set up traversal on the last added term (default: ChildOf).
+     * TODO: allow custom relationship traversal
      */
     EcsQueryBuilder& up();
 
@@ -229,6 +243,16 @@ public:
      * @brief Match the last term on self (default, explicit for clarity).
      */
     EcsQueryBuilder& self();
+
+    /**
+     * @brief Exclude self from the last term's match (walk parent only, used with up()).
+     */
+    EcsQueryBuilder& skip_self();
+
+    /**
+     * @brief Order results breadth-first through the ChildOf hierarchy (cascade).
+     */
+    EcsQueryBuilder& cascade();
 
     /**
      * @brief Set the optional query DSL expression.

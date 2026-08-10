@@ -25,18 +25,19 @@ struct NCAPI Transform2DComponent {
 };
 
 struct NCAPI Transform3DComponent {
-    Vec3 translation    = Vec3();
-    Quaternion rotation = Quaternion::identity();
-    Vec3 scale          = Vec3( 1, 1, 1 );
+    Vec3 translation    = Vec3();                 // Local translation.
+    Quaternion rotation = Quaternion::identity(); // Local rotation.
+    Vec3 scale          = Vec3( 1, 1, 1 );        // Local scale.
+    Mat4 world          = Mat4::identity();       // Global transform, auto-computed.
 
     /**
-     * @brief Builds 4x4 transform/model matrix from translation, rotation and scale.
+     * @brief Builds 4x4 transform/model matrix from the local translation, rotation and scale.
      */
     Mat4 get_matrix() const;
 
     NSTRUCT(
         Transform3DComponent, NC_F( Transform3DComponent, translation ) NC_F( Transform3DComponent, rotation )
-                                  NC_F( Transform3DComponent, scale )
+                                  NC_F( Transform3DComponent, scale ) NC_F( Transform3DComponent, world )
     )
 };
 

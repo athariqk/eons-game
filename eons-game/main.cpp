@@ -6,7 +6,7 @@
 
 #include "pch.h"
 
-#include <editor/ncore_editor.h>
+#include <ncore_editor.h>
 
 struct TestSpin {
     float rotation       = 0;

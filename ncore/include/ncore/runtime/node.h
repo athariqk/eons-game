@@ -46,9 +46,9 @@ public:
     bool operator==( const Node* other ) const;
     bool operator!=( const Node& other ) const;
 
-    class ChildRange {
+    class NCAPI ChildRange {
     public:
-        struct Iterator {
+        struct NCAPI Iterator {
             using iterator_category = std::input_iterator_tag;
             using value_type        = Node;
             using difference_type   = std::ptrdiff_t;
@@ -90,7 +90,17 @@ public:
         Scene* scene_;
     };
 
-    void reparent_to( Node* child );
+    /**
+     * @brief Recreate a new parent-child entity relationship.
+     * @param parent The new parent for this node.
+     */
+    void reparent_to( Node* parent );
+
+    /**
+     * @brief Checks whether this node is a child of the specified node.
+     */
+    bool is_descendant_of( Node& node );
+
     /**
      * @brief Queue removal of this Node from the Scene.
      */
@@ -133,9 +143,23 @@ public:
     Span<Component> get_components();
 
     /**
+     * @brief Create in-place (default-constructs) a component owned by this Node.
+     * @return Mutable pointer to constructed component instance, or existing one.
+     */
+    void* emplace_component( const rtti::TypeInfo* type );
+
+    /**
+     * @brief Create and set (copy-constructs) a component owned by this Node.
+     * @param type RTTI type of the component.
+     * @param data Existing data to copy.
+     * @return Mutable pointer to new component instance, or existing one.
+     */
+    void* add_component( const rtti::TypeInfo* type, const void* data );
+
+    /**
      * @brief Create and set a component owned by this Node.
      * @param args Optional value to set to the component using copy-semantics.
-     * @return The mutable component instance.
+     * @return The new mutable pointer to component instance, or the existing one.
      */
     template<class T, class... Args>
     T* add_component( Args&&... args )
@@ -143,15 +167,21 @@ public:
         auto type = rtti::TypeRegistry::find<T>();
         if constexpr (sizeof...( Args ) != 0) {
             T val( std::forward<Args>( args )... );
-            return static_cast<T*>( add_component_( type, &val ) );
+            return static_cast<T*>( add_component( type, &val ) );
         } else {
-            return static_cast<T*>( emplace_component_( type ) );
+            return static_cast<T*>( emplace_component( type ) );
         }
     }
 
     /**
-     * @return True if this Node has component of given ID.
+     * @brief Return true if this Node has component of given RTTI type.
      */
+    bool has_component( const rtti::TypeInfo* type ) const;
+    /**
+     * @brief Remove component owned by this node by type.
+     */
+    void remove_component( const rtti::TypeInfo* type );
+
     template<class T>
     bool has_component() const
     {
@@ -164,9 +194,6 @@ public:
         return remove_component_( rtti::TypeRegistry::find<T>() );
     }
 
-    bool has_component( const rtti::TypeInfo* type ) const;
-    void remove_component( const rtti::TypeInfo* type );
-
     template<class T>
     void emit_event( const T& data, EcsEntity target ) const
     {
@@ -174,6 +201,7 @@ public:
     }
 
     StringView get_name() const;
+    void set_name( StringView name );
     uint64_t get_id() const;
 
     bool* get_active();
@@ -187,8 +215,6 @@ private:
     friend class Scene;
 
     void track_ecs_component( const rtti::TypeInfo* type, EcsComponent id );
-    void* emplace_component_( const rtti::TypeInfo* type );
-    void* add_component_( const rtti::TypeInfo* type, const void* data );
     bool has_component_( const rtti::TypeInfo* type ) const;
     void remove_component_( const rtti::TypeInfo* type );
     void emit_event_( const rtti::TypeInfo* type, EcsEntity target, const void* data ) const;
@@ -199,7 +225,7 @@ private:
     NodePool* node_pool   = nullptr; // owned by Scene.
     EcsEntity internal_id = INVALID_ENTITY_ID;
     EcsQuery child_query{};
-    Array<Component, MAX_TRACKED_COMPONENTS> components;
+    Array<Component, MAX_TRACKED_COMPONENTS> components{};
     uint32_t component_count = 0;
 };
 

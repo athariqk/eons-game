@@ -249,7 +249,7 @@ void register_render_plugin( Scene& scene )
             gfx->renderer->world_camera_set_fov( cam->fov );
             gfx->renderer->world_camera_set_z_far( cam->z_far );
             gfx->renderer->world_camera_set_z_near( cam->z_near );
-            gfx->renderer->world_camera_set_transform( xform->get_matrix() );
+            gfx->renderer->world_camera_set_transform( xform->world );
         } );
 
     scene.get_ecs()
@@ -310,7 +310,7 @@ void register_render_plugin( Scene& scene )
 
             if (mesh->instance && material->instance) {
                 gfx->renderer->world_draw_instance(
-                    mesh->instance, xform->get_matrix(), material->instance, mesh->instance_count
+                    mesh->instance, xform->world, material->instance, mesh->instance_count
                 );
             }
         } );
@@ -766,6 +766,8 @@ void register_gui_plugin( Scene& scene )
                         ( cmd.ClipRect.z - cmd.ClipRect.x ) * dd->FramebufferScale.x,
                         ( cmd.ClipRect.w - cmd.ClipRect.y ) * dd->FramebufferScale.y
                     );
+                    clip_rect.x = std::max( clip_rect.x, 0.0f );
+                    clip_rect.y = std::max( clip_rect.y, 0.0f );
 
                     auto vtx        = reinterpret_cast<Vertex2D*>( cmd_list->VtxBuffer.Data + cmd.VtxOffset );
                     auto idx        = reinterpret_cast<uint16_t*>( cmd_list->IdxBuffer.Data + cmd.IdxOffset );

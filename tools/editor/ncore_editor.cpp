@@ -27,11 +27,15 @@
 namespace nc::editor {
 
 struct EngineEditorState {
-    Scene* current_scene = nullptr;
-    ImGuiID dockspace_id = 0;
-    bool stats_window    = false;
-    bool inputs_window   = false;
-    Node* selected_node  = nullptr;
+    Scene* current_scene     = nullptr;
+    ImGuiID dockspace_id     = 0;
+    bool stats_window        = false;
+    bool inputs_window       = false;
+    Node* selected_node      = nullptr;
+    char rename_buffer[256]  = {};
+    Node* renaming_node      = nullptr;
+    bool open_rename         = false;
+    char add_comp_filter[64] = {};
     NSTRUCT(
         EngineEditorState, NC_F( EngineEditorState, current_scene ) NC_F( EngineEditorState, dockspace_id )
                                NC_F( EngineEditorState, stats_window ) NC_F( EngineEditorState, inputs_window )
@@ -41,7 +45,8 @@ struct EngineEditorState {
 
 static void draw_scene_tree_node( Node& node, EngineEditorState& state )
 {
-    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+    ImGuiTreeNodeFlags flags =
+        ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_DrawLinesFull;
     if (node.get_child_count() == 0) {
         flags |= ImGuiTreeNodeFlags_Leaf;
     }
@@ -53,10 +58,37 @@ static void draw_scene_tree_node( Node& node, EngineEditorState& state )
     bool open =
         ImGui::TreeNodeEx( reinterpret_cast<void*>( node.get_id() ), flags, "%s##%llu", name.data(), node.get_id() );
 
+    if (ImGui::BeginDragDropSource( ImGuiDragDropFlags_None )) {
+        Node* ptr = &node;
+        ImGui::SetDragDropPayload( "SCENE_TREE_NODE", &ptr, sizeof( ptr ) );
+        ImGui::Text( "%s", name.data() );
+        ImGui::EndDragDropSource();
+    }
+
+    if (ImGui::BeginDragDropTarget()) {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( "SCENE_TREE_NODE" )) {
+            Node* dragged = *static_cast<Node**>( payload->Data );
+            if (dragged && dragged != &node) {
+                dragged->reparent_to( &node );
+            }
+        }
+        ImGui::EndDragDropTarget();
+    }
+
     if (ImGui::BeginPopupContextItem()) {
+        if (ImGui::Button( "Rename" )) {
+            auto n    = node.get_name();
+            auto nlen = std::min( n.size(), sizeof( state.rename_buffer ) - 1 );
+            std::memcpy( state.rename_buffer, n.data(), nlen );
+            state.rename_buffer[nlen] = '\0';
+            state.renaming_node       = &node;
+            state.open_rename         = true;
+            ImGui::CloseCurrentPopup();
+        }
         if (ImGui::Button( "Delete" )) {
             node.destroy();
             state.selected_node = nullptr; // avoids crashing the ECS
+            ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
     }
@@ -278,9 +310,16 @@ void register_editor_plugin( Scene& scene )
     scene.get_ecs()
         .system( "EngineEditorFeature_Init" )
         .with<EngineEditorState>()
+        .with<GuiStateComponent>()
         .in( EcsSystemPhase::INIT )
         .order( 20 )
         .run( []( QueryContext& ctx ) {
+            auto gui_state = ctx.get_component<GuiStateComponent>();
+
+            if (gui_state->imctx) {
+                ImGui::SetCurrentContext( gui_state->imctx );
+            }
+
             StyleColorsEditor();
             StyleSizesEditor();
 
@@ -299,9 +338,9 @@ void register_editor_plugin( Scene& scene )
         .event<SwapChainResizedComponent>()
         .each( []( QueryContext& ctx, EcsEntity ) {
             auto resized = ctx.event_payload<SwapChainResizedComponent>();
-            NC_LOG_DEBUG_C(
-                log::GRAPHICS, "SwapChainResized: size={}", rtti::TypeRegistry::to_string<Vec2>( &resized->size )
-            );
+            String stringified;
+            rtti::TypeRegistry::to_string<Vec2>( stringified, &resized->size );
+            NC_LOG_DEBUG_C( log::GRAPHICS, "SwapChainResized: size={}", stringified );
         } );
 
     scene.get_ecs()
@@ -373,14 +412,57 @@ void register_editor_plugin( Scene& scene )
             ImVec2 work_size              = viewport->WorkSize;
 
             {
+                auto root = state->current_scene->root();
+
                 if (ImGui::Begin( "Scene Tree" )) {
-                    auto root = state->current_scene->root();
                     if (root) {
                         ImGui::SetNextItemOpen( true, ImGuiCond_FirstUseEver );
                         draw_scene_tree_node( *root, *state );
                     }
+
+                    if (ImGui::BeginDragDropTarget()) {
+                        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( "SCENE_TREE_NODE" )) {
+                            Node* dragged = *static_cast<Node**>( payload->Data );
+                            if (dragged && root) {
+                                dragged->reparent_to( root );
+                            }
+                        }
+                        ImGui::EndDragDropTarget();
+                    }
+
+                    if (ImGui::BeginPopupContextWindow( "Scene Tree Context Menu", ImGuiPopupFlags_NoOpenOverItems )) {
+                        if (ImGui::Button( "Spawn Entity" )) {
+                            root->create_child();
+                            ImGui::CloseCurrentPopup();
+                        }
+                        ImGui::EndPopup();
+                    }
                 }
                 ImGui::End();
+
+                if (state->open_rename) {
+                    ImGui::OpenPopup( "Entity Rename" );
+                    state->open_rename = false;
+                }
+
+                if (ImGui::BeginPopupModal( "Entity Rename", nullptr, ImGuiWindowFlags_AlwaysAutoResize )) {
+                    ImGui::InputText(
+                        "##rename", state->rename_buffer, sizeof( state->rename_buffer ),
+                        ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll
+                    );
+                    bool confirmed = ImGui::Button( "OK" ) || ImGui::IsKeyPressed( ImGuiKey_Enter );
+                    if (confirmed && state->renaming_node && state->rename_buffer[0]) {
+                        state->renaming_node->set_name( state->rename_buffer );
+                        state->renaming_node = nullptr;
+                        ImGui::CloseCurrentPopup();
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button( "Cancel" )) {
+                        state->renaming_node = nullptr;
+                        ImGui::CloseCurrentPopup();
+                    }
+                    ImGui::EndPopup();
+                }
             }
 
             {
@@ -393,7 +475,6 @@ void register_editor_plugin( Scene& scene )
                         ImGui::Text( "Node: %s", name.data() );
                         ImGui::Text( "ID: %llu", id );
                         ImGui::Checkbox( "Active", active );
-                        ImGui::Separator();
 
                         auto& ecs = state->current_scene->get_ecs();
                         for (auto& comp : state->selected_node->get_components()) {
@@ -407,6 +488,7 @@ void register_editor_plugin( Scene& scene )
                             if (!comp_data)
                                 continue;
 
+                            ImGui::Separator();
                             if (ImGui::CollapsingHeader( type->name, ImGuiTreeNodeFlags_DefaultOpen )) {
                                 if (type->is_record()) {
                                     auto* record = static_cast<const rtti::RecordInfo*>( type );
@@ -426,6 +508,38 @@ void register_editor_plugin( Scene& scene )
                                 ImGui::EndDisabled();
                                 ImGui::PopID();
                             }
+                        }
+
+                        ImGui::Separator();
+
+                        if (ImGui::Button( "+ Add Component", ImVec2( -FLT_MIN, 0 ) ))
+                            ImGui::OpenPopup( "AddComponent" );
+
+                        if (ImGui::BeginPopup( "AddComponent" )) {
+                            ImGui::InputTextWithHint(
+                                "##filter", "Search...", state->add_comp_filter, sizeof( state->add_comp_filter )
+                            );
+
+                            ImGui::BeginChild( "##complist", ImVec2( 0, 200 ), ImGuiChildFlags_Borders );
+                            for (auto type : ecs.get_component_types()) {
+                                if (!type->is_record())
+                                    continue;
+                                if (type == rtti::TypeRegistry::find<NodeRefComponent>())
+                                    continue;
+                                if (state->add_comp_filter[0] && !strstr( type->name, state->add_comp_filter ))
+                                    continue;
+
+                                bool already = state->selected_node->has_component( type );
+                                ImGui::BeginDisabled( already );
+                                if (ImGui::Selectable( type->name )) {
+                                    state->selected_node->emplace_component( type );
+                                    state->add_comp_filter[0] = '\0';
+                                    ImGui::CloseCurrentPopup();
+                                }
+                                ImGui::EndDisabled();
+                            }
+                            ImGui::EndChild();
+                            ImGui::EndPopup();
                         }
                     } else {
                         ImGui::TextDisabled( "No node selected" );

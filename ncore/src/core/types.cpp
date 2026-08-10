@@ -21,7 +21,7 @@ const TypeInfo& TypeRegistry::get( TypeId id ) noexcept
     return *p;
 }
 
-const TypeInfo& TypeRegistry::get( std::string_view name ) noexcept
+const TypeInfo& TypeRegistry::get( StringView name ) noexcept
 {
     auto* p = find( name );
     NC_ASSERT( p != nullptr, "Type not registered" );
@@ -171,95 +171,103 @@ void RecordInfo::visit_array(
 // to_string
 // ======================================================================
 
-std::string TypeInfo::to_string( const void* instance ) const
+void TypeInfo::to_string( String& out, const void* instance ) const
 {
-    if (!instance)
-        return "null";
+    if (!instance) {
+        out += "null";
+        return;
+    }
 
     switch (category) {
         case FieldCategory::SCALAR:
             if (is_floating) {
                 if (size == 4)
-                    return std::format( "{}", *static_cast<const float*>( instance ) );
+                    out += std::format( "{}", *static_cast<const float*>( instance ) );
                 if (size == 8)
-                    return std::format( "{}", *static_cast<const double*>( instance ) );
+                    out += std::format( "{}", *static_cast<const double*>( instance ) );
             }
             if (size == 1)
-                return std::format( "{}", *static_cast<const int8_t*>( instance ) );
+                out += std::format( "{}", *static_cast<const int8_t*>( instance ) );
             if (size == 2)
-                return std::format( "{}", *static_cast<const int16_t*>( instance ) );
+                out += std::format( "{}", *static_cast<const int16_t*>( instance ) );
             if (size == 4)
-                return std::format( "{}", *static_cast<const int32_t*>( instance ) );
+                out += std::format( "{}", *static_cast<const int32_t*>( instance ) );
             if (size == 8)
-                return std::format( "{}", *static_cast<const int64_t*>( instance ) );
+                out += std::format( "{}", *static_cast<const int64_t*>( instance ) );
             break;
         case FieldCategory::POINTER:
-            return std::format( "{}", *static_cast<const void* const*>( instance ) );
+            out += std::format( "{}", *static_cast<const void* const*>( instance ) );
+            break;
         default:
+            out += std::format( "{}", instance );
             break;
     }
-    return std::format( "{}", instance );
 }
 
-std::string RecordInfo::to_string( const void* instance ) const
+void RecordInfo::to_string( String& out, const void* instance ) const
 {
-    if (!instance)
-        return std::string( name ) + "(null)";
+    if (!instance) {
+        out += String( name ) + "(null)";
+        return;
+    }
 
-    std::string result;
-    result += name;
-    result += "(";
+    out += name;
+    out += "(";
     for (size_t i = 0; i < field_count(); ++i) {
         auto& f = fields()[i];
         if (i != 0)
-            result += ", ";
-        result += f.name;
-        result += "=";
-        result += f.value_to_string( instance );
+            out += ", ";
+        out += f.name;
+        out += "=";
+        f.value_to_string( out, instance );
     }
-    result += ")";
-    return result;
+    out += ")";
 }
 
-std::string StringClass::to_string( const void* instance ) const
+void StringClass::to_string( String& out, const void* instance ) const
 {
-    if (!instance)
-        return "null";
-    auto* str = static_cast<const std::string*>( instance );
-    return std::format( "\"{}\"", *str );
+    if (!instance) {
+        out += "null";
+        return;
+    }
+
+    auto* str = static_cast<const String*>( instance );
+    out += std::format( "\"{}\"", *str );
 }
 
-std::string FieldInfo::value_to_string( const void* instance ) const
+void FieldInfo::value_to_string( String& out, const void* instance ) const
 {
     auto* field_ptr = get_void_ptr( instance );
     auto* type      = get_type();
 
     if (type)
-        return type->to_string( field_ptr );
+        return type->to_string( out, field_ptr );
 
     switch (category) {
         case FieldCategory::SCALAR:
             if (width == 4)
-                return std::format( "{}", *static_cast<const float*>( field_ptr ) );
+                out += std::format( "{}", *static_cast<const float*>( field_ptr ) );
             if (width == 8)
-                return std::format( "{}", *static_cast<const double*>( field_ptr ) );
+                out += std::format( "{}", *static_cast<const double*>( field_ptr ) );
             if (width == 1)
-                return std::format( "{}", *static_cast<const uint8_t*>( field_ptr ) );
+                out += std::format( "{}", *static_cast<const uint8_t*>( field_ptr ) );
             if (width == 2)
-                return std::format( "{}", *static_cast<const uint16_t*>( field_ptr ) );
+                out += std::format( "{}", *static_cast<const uint16_t*>( field_ptr ) );
             if (width == 4)
-                return std::format( "{}", *static_cast<const uint32_t*>( field_ptr ) );
+                out += std::format( "{}", *static_cast<const uint32_t*>( field_ptr ) );
             if (width == 8)
-                return std::format( "{}", *static_cast<const uint64_t*>( field_ptr ) );
+                out += std::format( "{}", *static_cast<const uint64_t*>( field_ptr ) );
             break;
         case FieldCategory::STRING:
-            return std::format( "\"{}\"", *static_cast<const char* const*>( field_ptr ) );
+            out += std::format( "\"{}\"", *static_cast<const char* const*>( field_ptr ) );
+            break;
         case FieldCategory::POINTER:
-            return std::format( "{}", *static_cast<const void* const*>( field_ptr ) );
+            out += std::format( "{}", *static_cast<const void* const*>( field_ptr ) );
+            break;
         default:
+            out += std::format( "{}", field_ptr );
             break;
     }
-    return std::format( "{}", field_ptr );
 }
 
 } // namespace nc::rtti

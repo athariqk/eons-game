@@ -20,7 +20,7 @@ target_sources(
 
 target_include_directories(eons-game PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
-target_link_libraries(eons-game PRIVATE ncore)
+target_link_libraries(eons-game PRIVATE ncore ncore_editor)
 
 target_precompile_headers(eons-game PRIVATE "pch.h")
 

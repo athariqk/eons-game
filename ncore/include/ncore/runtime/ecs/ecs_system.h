@@ -88,6 +88,18 @@ public:
         return *this;
     }
 
+    EcsSystemBuilder& skip_self()
+    {
+        qb_.skip_self();
+        return *this;
+    }
+
+    EcsSystemBuilder& cascade()
+    {
+        qb_.cascade();
+        return *this;
+    }
+
     template<typename... Comps>
     EcsSystemBuilder& read()
     {
@@ -189,6 +201,18 @@ public:
     EcsObserverBuilder& self()
     {
         qb_.self();
+        return *this;
+    }
+
+    EcsObserverBuilder& skip_self()
+    {
+        qb_.skip_self();
+        return *this;
+    }
+
+    EcsObserverBuilder& cascade()
+    {
+        qb_.cascade();
         return *this;
     }
 

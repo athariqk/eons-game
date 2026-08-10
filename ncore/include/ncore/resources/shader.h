@@ -54,7 +54,7 @@ private:
 };
 
 // TODO: merge into Shader
-class CompositeShader : public IResource {
+class NCAPI CompositeShader : public IResource {
     NCLASS( CompositeShader, IResource )
 
 public:

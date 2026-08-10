@@ -79,9 +79,9 @@ template<typename T>
 constexpr size_t type_hash() noexcept
 {
 #if defined( __GNUC__ ) || defined( __clang__ )
-    constexpr std::string_view sig = __PRETTY_FUNCTION__;
+    constexpr StringView sig = __PRETTY_FUNCTION__;
 #elif defined( _MSC_VER )
-    constexpr std::string_view sig = __FUNCSIG__;
+    constexpr StringView sig = __FUNCSIG__;
 #else
 #error "Unsupported compiler for stable type IDs"
 #endif
@@ -187,13 +187,13 @@ struct NCAPI TypeInfo {
         return false;
     }
 
-    virtual std::string to_string( const void* instance ) const;
+    virtual void to_string( String& out, const void* instance ) const;
 };
 
 //------------------------------------------------------------------------------
 
 struct NCAPI FieldInfo {
-    std::string_view name;
+    StringView name;
     TypeId type_id;
     size_t width;
     size_t offset;
@@ -249,13 +249,13 @@ struct NCAPI FieldInfo {
         return has_flag( flags, f );
     }
 
-    std::string value_to_string( const void* instance ) const;
+    void value_to_string( String& out, const void* instance ) const;
 };
 
 //------------------------------------------------------------------------------
 
 struct NCAPI EnumElement {
-    std::string_view name;
+    StringView name;
     int64_t value;
 };
 
@@ -274,7 +274,7 @@ struct NCAPI EnumInfo : public TypeInfo {
         return { elements_begin, elements_end };
     }
 
-    bool try_get_value( std::string_view name, int64_t& out_value ) const noexcept
+    bool try_get_value( StringView name, int64_t& out_value ) const noexcept
     {
         for (const auto& elem : elements()) {
             if (elem.name == name) {
@@ -285,7 +285,7 @@ struct NCAPI EnumInfo : public TypeInfo {
         return false;
     }
 
-    std::string_view get_name( int64_t value ) const noexcept
+    StringView get_name( int64_t value ) const noexcept
     {
         for (const auto& elem : elements()) {
             if (elem.value == value)
@@ -325,7 +325,7 @@ struct NCAPI RecordInfo : public TypeInfo {
         return { fields_begin, fields_end };
     }
 
-    const FieldInfo* find_field( std::string_view n ) const noexcept
+    const FieldInfo* find_field( StringView n ) const noexcept
     {
         for (auto& f : fields())
             if (f.name == n)
@@ -333,7 +333,7 @@ struct NCAPI RecordInfo : public TypeInfo {
         return nullptr;
     }
 
-    std::string to_string( const void* instance ) const override;
+    void to_string( String& out, const void* instance ) const override;
 
     virtual void visit(
         const void* instance, RecordVisitor* visitor, PropertyFlags filter = static_cast<PropertyFlags>( 0xFFFF ),
@@ -486,7 +486,7 @@ public:
         return nullptr;
     }
 
-    static const TypeInfo* find( std::string_view name ) noexcept
+    static const TypeInfo* find( StringView name ) noexcept
     {
         for (auto* c = type_list_head; c; c = c->_next) {
             rtti_hits_++;
@@ -510,18 +510,18 @@ public:
         return static_cast<const RecordInfo*>( t );
     }
 
-    static const std::string to_string( void* instance, TypeId id ) noexcept
+    static const void to_string( String& out, void* instance, TypeId id ) noexcept
     {
         auto t = find( id );
         if (!t)
-            return "UnknownType";
-        return t->to_string( instance );
+            out = "UnknownType";
+        return t->to_string( out, instance );
     }
 
     static const TypeInfo& get( TypeId id ) noexcept;
-    static const TypeInfo& get( std::string_view name ) noexcept;
+    static const TypeInfo& get( StringView name ) noexcept;
 
-    static const std::string_view get_type_name( TypeId id ) noexcept
+    static const StringView get_type_name( TypeId id ) noexcept
     {
         auto* c = find( id );
         return c ? c->name : "<unknown>";
@@ -565,7 +565,7 @@ public:
     }
 
     template<typename T>
-    static const std::string_view get_type_name()
+    static const StringView get_type_name()
     {
         return get_type_name( detail::type_id<T>() );
     }
@@ -580,9 +580,9 @@ public:
     }
 
     template<typename T>
-    static const std::string to_string( void* instance )
+    static const void to_string( String& out, void* instance )
     {
-        return to_string( instance, detail::type_id<T>() );
+        return to_string( out, instance, detail::type_id<T>() );
     }
 
     static int get_rtti_hits()
@@ -606,10 +606,10 @@ constexpr FieldCategory category_of() noexcept
 {
     using raw = std::remove_cvref_t<F>;
     if constexpr (std::is_pointer_v<raw>) {
-        if constexpr (std::is_convertible_v<raw, std::string_view>)
+        if constexpr (std::is_convertible_v<raw, StringView>)
             return FieldCategory::STRING;
         return FieldCategory::POINTER;
-    } else if constexpr (std::is_convertible_v<raw, std::string_view>) {
+    } else if constexpr (std::is_convertible_v<raw, StringView>) {
         return FieldCategory::STRING;
     } else if constexpr (requires { typename raw::value_type; }) {
         return FieldCategory::CONTAINER;
@@ -672,7 +672,7 @@ struct VectorClass : public TRecordInfo<VecT> {
 struct NCAPI StringClass : public TRecordInfo<String> {
     StringClass( const char* n, TypeId i, size_t sz, size_t align ) : TRecordInfo( n, i, sz, align ) {}
 
-    std::string to_string( const void* instance ) const override;
+    void to_string( String& out, const void* instance ) const override;
 
     void
     visit( void const* instance, RecordVisitor* visitor, PropertyFlags filter, unsigned depth ) const noexcept override

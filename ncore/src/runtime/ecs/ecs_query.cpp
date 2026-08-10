@@ -349,6 +349,23 @@ EcsQueryBuilder& EcsQueryBuilder::self()
     return *this;
 }
 
+EcsQueryBuilder& EcsQueryBuilder::skip_self()
+{
+    if (!pImpl->terms.empty()) {
+        pImpl->terms.back().src.id &= ~EcsSelf;
+    }
+    return *this;
+}
+
+EcsQueryBuilder& EcsQueryBuilder::cascade()
+{
+    if (!pImpl->terms.empty()) {
+        pImpl->terms.back().src.id |= EcsCascade;
+        pImpl->terms.back().trav = EcsChildOf;
+    }
+    return *this;
+}
+
 EcsQueryBuilder& EcsQueryBuilder::expr( StringView dsl )
 {
     pImpl->expr = dsl;

@@ -1,4 +1,4 @@
-import common;
+import ncore;
 
 struct ShaderBindings {
 	Texture2D Texture;

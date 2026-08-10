@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ncore.h>
+#include <ncore.hpp>
 
 namespace nc {
 class Scene;

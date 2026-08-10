@@ -25,7 +25,7 @@ Guidance for AI coding agents working in this repository.
 cmake --preset windows-debug
 
 # Build (ninja — preferred, avoids CMake re-configure flakiness)
-ninja -C build/windows-debug ncore_d.dll eons-game_d.exe
+ninja -C build/windows-debug ncore_d.dll ncore_editor_d.dll eons-game_d.exe
 
 # Build (CMake)
 cmake --build build --config Debug
@@ -36,9 +36,34 @@ cmake --build build --config Debug
 
 Notes:
 - Debug builds append `_d` per `ncore/CMakeLists.txt:35`.
+- `ncore_editor_d.dll` is a separate shared library under `tools/editor/` — always build it alongside `ncore_d.dll`.
 - Assets and `.ini` files are auto-copied at build time.
-- Release: `cmake --preset windows-release`, target `ncore.dll eons-game.exe`.
+- Release: `cmake --preset windows-release`, target `ncore.dll ncore_editor.dll eons-game.exe`.
 - Do NOT delete or rebuild `build/`. The existing build is canonical — full reconfigure is slow.
+
+## Runtime Logs & Crash Diagnosis
+
+Log file: `build\windows-debug\bin\Debug\logs\eons.log` (configured in `eons.ini`).
+
+```
+# Tail logs live while the app runs
+Get-Content -Path "build\windows-debug\bin\Debug\logs\eons.log" -Wait -Tail 20
+
+# Search for errors across all log files
+Select-String -Path "build\windows-debug\bin\Debug\logs\eons.log*" -Pattern "ERROR|sentinel|assert" | Select-Object -Last 30
+
+# Post-crash: search for the crash location
+Select-String -Path "build\windows-debug\bin\Debug\logs\eons.log" -Pattern "ECS.*ERROR|sentinel|Access violation"
+```
+
+Auto-run + tail (PowerShell):
+```
+$log = "build\windows-debug\bin\Debug\logs\eons.log"
+$job = Start-Job { Get-Content $using:log -Wait -Tail 10 }
+Start-Process -FilePath "build\windows-debug\bin\Debug\eons-game_d.exe" -Wait
+$job | Receive-Job | Select-Object -Last 20
+Remove-Job $job
+```
 
 ## Architecture Summary
 

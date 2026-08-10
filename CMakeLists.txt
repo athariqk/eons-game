@@ -53,6 +53,7 @@ endforeach()
 
 add_subdirectory(ncore)
 add_subdirectory(eons-game)
+add_subdirectory(tools/editor)
 
 # --- Install rules ---
 install(
@@ -70,5 +71,15 @@ install(
   FILES $<TARGET_PDB_FILE:eons-game>
   DESTINATION .
   OPTIONAL)
+
+install(TARGETS ncore_editor
+  RUNTIME DESTINATION .
+  ARCHIVE DESTINATION .
+  LIBRARY DESTINATION .)
+install(
+  FILES $<TARGET_PDB_FILE:ncore_editor>
+  DESTINATION .
+  OPTIONAL)
+
 install(FILES eons-game/eons.ini DESTINATION .)
 install(DIRECTORY eons-game/assets/ DESTINATION assets)

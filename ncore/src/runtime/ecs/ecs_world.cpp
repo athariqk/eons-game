@@ -53,6 +53,7 @@ struct EcsWorld::Impl {
     ecs_world_t* world = nullptr;
     mutable HashMap<const rtti::TypeInfo*, EcsComponent> comp_type_to_id;
     mutable HashMap<EcsComponent, const rtti::TypeInfo*> comp_id_to_type;
+    DynamicArray<const rtti::TypeInfo*> registered_comp_types;
     HashMap<String, ecs_query_t*> query_cache; // TODO: is this even necessary? figure out how flecs cache queries
 
 #if defined( NC_DEBUG )
@@ -247,6 +248,7 @@ EcsEntity EcsWorld::register_component_type( const rtti::TypeInfo* type ) const
 
     pImpl->comp_type_to_id[type]    = comp_id;
     pImpl->comp_id_to_type[comp_id] = type;
+    pImpl->registered_comp_types.push_back( type );
 
     return static_cast<EcsEntity>( comp_id );
 }
@@ -258,6 +260,12 @@ const rtti::TypeInfo* EcsWorld::resolve_component( EcsComponent id ) const
         return it->second;
     }
     return nullptr;
+}
+
+Span<const rtti::TypeInfo*> EcsWorld::get_component_types() const
+{
+    // TODO: add a way to filter out "internal" types (not visible in editor)
+    return pImpl->registered_comp_types;
 }
 
 //------------------------------------------------------------------------------

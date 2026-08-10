@@ -34,7 +34,30 @@ bool Node::operator!=( const Node& other ) const
     return internal_id != other.internal_id;
 }
 
-void Node::reparent_to( Node* child ) {}
+void Node::reparent_to( Node* p_parent )
+{
+    NC_ASSERT_RET(
+        !p_parent->is_descendant_of( *this ),
+        std::format( "Trying to reparent node `{}` to its descendant `{}`", get_name(), p_parent->get_name() ).c_str()
+    );
+
+    auto world = reinterpret_cast<ecs_world_t*>( scene->get_ecs().get_native_handle() );
+    if (parent)
+        ecs_remove_pair( world, internal_id, EcsChildOf, parent->internal_id );
+    ecs_add_pair( world, internal_id, EcsChildOf, p_parent->internal_id );
+    parent = p_parent;
+}
+
+bool Node::is_descendant_of( Node& node )
+{
+    for (auto& child : node.get_children()) {
+        if (child == *this)
+            return true;
+        if (is_descendant_of( child ))
+            return true;
+    }
+    return false;
+}
 
 void Node::destroy()
 {
@@ -95,9 +118,38 @@ Span<Component> Node::get_components()
     return { components.data(), component_count };
 }
 
+void* Node::emplace_component( const rtti::TypeInfo* type )
+{
+    if (has_component_( type ))
+        return get_component( type );
+
+    void* result = scene->get_ecs().emplace_component_( internal_id, type );
+    auto comp_id = scene->get_ecs().register_component_type( type );
+    track_ecs_component( type, comp_id );
+    return result;
+}
+
+void* Node::add_component( const rtti::TypeInfo* type, const void* data )
+{
+    if (has_component_( type ))
+        return get_component( type );
+
+    auto comp_id = scene->get_ecs().set_component_( internal_id, type, data );
+    track_ecs_component( type, comp_id );
+    auto obj = get_component( type );
+    NC_VERIFY( obj );
+    return obj;
+}
+
 StringView Node::get_name() const
 {
     return scene->get_ecs().lookup( internal_id );
+}
+
+void Node::set_name( StringView name )
+{
+    auto world = reinterpret_cast<ecs_world_t*>( scene->get_ecs().get_native_handle() );
+    ecs_set_name( world, internal_id, name.data() );
 }
 
 uint64_t Node::get_id() const
@@ -116,29 +168,6 @@ void Node::track_ecs_component( const rtti::TypeInfo* type, EcsComponent id )
 {
     auto world                    = reinterpret_cast<ecs_world_t*>( scene->get_ecs().get_native_handle() );
     components[component_count++] = Component{ id, true, ecs_has_id( world, id, EcsCanToggle ) };
-}
-
-void* Node::emplace_component_( const rtti::TypeInfo* type )
-{
-    if (has_component_( type ))
-        return get_component( type );
-
-    void* result = scene->get_ecs().emplace_component_( internal_id, type );
-    auto comp_id = scene->get_ecs().register_component_type( type );
-    track_ecs_component( type, comp_id );
-    return result;
-}
-
-void* Node::add_component_( const rtti::TypeInfo* type, const void* data )
-{
-    if (has_component_( type ))
-        return get_component( type );
-
-    auto comp_id = scene->get_ecs().set_component_( internal_id, type, data );
-    track_ecs_component( type, comp_id );
-    auto obj = get_component( type );
-    NC_VERIFY( obj );
-    return obj;
 }
 
 bool Node::has_component_( const rtti::TypeInfo* type ) const

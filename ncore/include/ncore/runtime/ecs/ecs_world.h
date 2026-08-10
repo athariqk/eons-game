@@ -97,6 +97,13 @@ public:
 
     const rtti::TypeInfo* resolve_component( EcsComponent id ) const;
 
+    /**
+     * @brief Get all component types previously registered via register_component_type().
+     *
+     * @return Non-owning list of component TypeInfo.
+     */
+    Span<const rtti::TypeInfo*> get_component_types() const;
+
     template<class T>
     void remove_component( EcsEntity eid )
     {
