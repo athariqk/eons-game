@@ -55,8 +55,7 @@ static void draw_scene_tree_node( Node& node, EngineEditorState& state )
     }
 
     auto name = node.get_name();
-    bool open =
-        ImGui::TreeNodeEx( reinterpret_cast<void*>( node.get_id() ), flags, "%s##%llu", name.data(), node.get_id() );
+    bool open = ImGui::TreeNodeEx( reinterpret_cast<void*>( node.get_id() ), flags, "%s", name.data() );
 
     if (ImGui::BeginDragDropSource( ImGuiDragDropFlags_None )) {
         Node* ptr = &node;
@@ -627,7 +626,7 @@ void register_editor_plugin( Scene& scene )
             if (ImGui::IsKeyPressed( ImGuiKey_F5 )) {
                 NC_LOG_INFO_C( log::GRAPHICS, "Hot-reloading" );
                 io->resources->load<MaterialTemplate>( "shaders/pbr.slang", true );
-                io->resources->load<MaterialTemplate>( "materials/pbr.material", true );
+                io->resources->load<MaterialTemplate>( "materials/world_instance.material", true );
                 io->resources->load<MaterialTemplate>( "shaders/canvas.slang", true );
                 io->resources->load<MaterialTemplate>( "materials/canvas.material", true );
             }

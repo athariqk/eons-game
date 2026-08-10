@@ -465,7 +465,7 @@ void register_inputs_plugin( Scene& scene )
             // xform->rotation          = xform->rotation * roll * yaw * pitch;
 
             // i can't get the above working correctly without unwanted roll
-            // so have the below for now...
+            // so have the one below for now...
 
             const float yaw_amount   = input->angular_delta.x * dt;
             const float pitch_amount = input->angular_delta.y * dt;
@@ -481,8 +481,8 @@ void register_inputs_plugin( Scene& scene )
             Quaternion pitch( pitch_amount, Vec3::right() );
             xform->rotation = xform->rotation * pitch;
 
-            // this roll is useless as it is ignored by yaw and pitch,
-            // need to find other solutions
+            // this roll is useless as it is ignored by the world-up yaw,
+            // need to find another solution
             if (!math::is_equal_approx( roll_amount, 0 )) {
                 Quaternion roll( roll_amount, Vec3::forward() );
                 xform->rotation = xform->rotation * roll;
@@ -808,7 +808,7 @@ void NCAPI register_resources_plugin( Scene& scene )
 
             state->pending_events.clear();
             ResourceService::Event e;
-            while (io->resources->poll_event( &e )) {
+            while (io->resources->poll_event( &e )) { // has any resource event occurred?
                 state->pending_events.push_back( e );
             }
         } );
@@ -820,7 +820,7 @@ void NCAPI register_resources_plugin( Scene& scene )
         .each( []( QueryContext& ctx, EcsEntity id ) {
             auto state = ctx.world().get_singleton<ResourceWatchState>();
             for (auto& entry : state->pending_events) {
-                if (auto loaded = std::get_if<ResourceService::LoadEvent>( &entry )) {
+                if (auto loaded = std::get_if<ResourceService::LoadEvent>( &entry )) { // handle a resource loaded event
                     NC_LOG_DEBUG(
                         "ResourceService::LoadEvent: RID={} ResourceFormatID={}", loaded->handle.value,
                         loaded->format_id.to_string()

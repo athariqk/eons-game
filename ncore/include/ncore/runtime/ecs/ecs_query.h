@@ -234,7 +234,9 @@ public:
     EcsQueryBuilder& all_read();
 
     /**
-     * @brief Set up traversal on the last added term (default: ChildOf).
+     * @brief Traverse relationship bottom-up.
+     *
+     * Set up traversal on the last added term (default: ChildOf).
      * TODO: allow custom relationship traversal
      */
     EcsQueryBuilder& up();
@@ -250,7 +252,9 @@ public:
     EcsQueryBuilder& skip_self();
 
     /**
-     * @brief Order results breadth-first through the ChildOf hierarchy (cascade).
+     * @brief Traverse relationship top-down.
+     *
+     * Order results breadth-first through the ChildOf hierarchy (cascade).
      */
     EcsQueryBuilder& cascade();
 

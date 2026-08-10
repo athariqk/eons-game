@@ -43,6 +43,7 @@ void Scene::on_enter()
         .each( []( QueryContext& ctx, EcsEntity eid ) {
             auto xform = ctx.get_component<Transform2DComponent>();
             ( void ) xform;
+            // TODO: implement
         } );
 
     ecs_world.system( "Scene_Transform3D" )

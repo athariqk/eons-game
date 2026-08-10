@@ -1,3 +1,5 @@
+#include <ncore_editor.h>
+
 #include <ncore.hpp>
 #include <ncore/runtime/components/camera.h>
 #include <ncore/runtime/components/input.h>
@@ -5,8 +7,6 @@
 #include <microcosmos/MicrocosmModule.h>
 
 #include "pch.h"
-
-#include <ncore_editor.h>
 
 struct TestSpin {
     float rotation       = 0;
@@ -51,6 +51,17 @@ public:
 			1,5,2, 5,6,2,
 			3,6,7, 3,2,6
 		};
+		nc::Array<nc::Vertex3D, 4> plane_verts = {
+						//  px,   py,    pz,    nx,   ny,   nz,   tx,   ty,   tz,   tw,   u,    v,    u2,   v2,   color
+			nc::Vertex3D{ -1.0f, 0.0f,  1.0f,  0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFFFFFFFF },
+			nc::Vertex3D{ -1.0f, 0.0f, -1.0f,  0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0xFFFFFFFF },
+			nc::Vertex3D{  1.0f, 0.0f, -1.0f,  0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0xFFFFFFFF },
+			nc::Vertex3D{  1.0f, 0.0f,  1.0f,  0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0xFFFFFFFF }
+		};
+		nc::Array<uint16_t, 6> plane_indices = {
+			0, 2, 1,
+			0, 3, 2
+		};
         // clang-format on
 
         auto mesh = nc::Ref<nc::Mesh>::create(
@@ -65,6 +76,18 @@ public:
         );
         auto mesh_rid = res_svc->add( mesh );
 
+        auto pmesh = nc::Ref<nc::Mesh>::create(
+            nc::MeshDesc{
+                .vertices = nc::DynamicArray<std::byte>(
+                    reinterpret_cast<std::byte const*>( plane_verts.data() ),
+                    reinterpret_cast<std::byte const*>( plane_verts.data() + 4 )
+                ),
+                .indices       = nc::DynamicArray<uint16_t>( plane_indices.data(), plane_indices.data() + 6 ),
+                .vertex_stride = sizeof( nc::Vertex3D )
+            }
+        );
+        auto pmesh_rid = res_svc->add( pmesh );
+
         auto test_model = root()->create_child( "TestModel3D" );
         test_model->add_component<nc::Transform3DComponent>( nc::Transform3DComponent{
             nc::Vec3( 0, 0, -10 ), nc::Quaternion( 180, nc::Vec3::up() ), nc::Vec3( 1, 1, 1 )
@@ -73,10 +96,21 @@ public:
 
         auto cube_mesh = test_model->create_child( "CubeMesh" );
         cube_mesh->add_component<nc::MeshComponent>( nc::MeshComponent{ mesh_rid, nc::RID(), 1 } );
-        cube_mesh->add_component<nc::MaterialComponent>(
-            nc::MaterialComponent{ res_svc->load( "materials/pbr.material" ) }
-        );
         cube_mesh->add_component<nc::HasResourceTag>();
+        cube_mesh->add_component<nc::MaterialComponent>(
+            nc::MaterialComponent{ res_svc->load( "materials/world_instance.material" ) }
+        );
+
+        auto plane = root()->create_child( "Plane" );
+        plane->add_component<nc::Transform3DComponent>(
+            nc::Transform3DComponent{ nc::Vec3( 0, -5, 0 ), nc::Quaternion::identity(), nc::Vec3( 5, 1, 5 ) }
+        );
+        auto plane_mesh = plane->create_child( "PlaneMesh" );
+        plane_mesh->add_component<nc::MeshComponent>( nc::MeshComponent{ pmesh_rid, nc::RID(), 1 } );
+        plane_mesh->add_component<nc::HasResourceTag>();
+        plane_mesh->add_component<nc::MaterialComponent>(
+            nc::MaterialComponent{ res_svc->load( "materials/world_instance.material" ) }
+        );
 
         auto main_camera = root()->create_child( "MainCamera" );
         main_camera->add_component<nc::Transform3DComponent>(
