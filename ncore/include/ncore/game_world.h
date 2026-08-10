@@ -71,6 +71,11 @@ public:
         return services;
     }
 
+    AppDesc& get_app_desc() const
+    {
+        return app_desc;
+    }
+
 protected:
     AppDesc& app_desc;
     ServiceRegistry& services;

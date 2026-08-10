@@ -12,11 +12,11 @@ static void StyleColorsEditor()
 
     // Base panels: flatter, cooler charcoal-navy than StyleColorsNcoreDark,
     // closer to Hammer's #3C3C3C but shifted cold
-    colors[ImGuiCol_WindowBg]      = ImVec4( 0.06f, 0.07f, 0.09f, 1.00f );
+    colors[ImGuiCol_WindowBg]      = ImVec4( 0.04f, 0.07f, 0.13f, 0.67f );
     colors[ImGuiCol_ChildBg]       = ImVec4( 0.05f, 0.06f, 0.08f, 1.00f );
     colors[ImGuiCol_PopupBg]       = ImVec4( 0.04f, 0.05f, 0.07f, 0.98f );
-    colors[ImGuiCol_MenuBarBg]     = ImVec4( 0.045f, 0.055f, 0.075f, 1.00f );
-    colors[ImGuiCol_TitleBg]       = ImVec4( 0.03f, 0.04f, 0.055f, 1.00f );
+    colors[ImGuiCol_MenuBarBg]     = ImVec4( 0.01f, 0.06f, 0.11f, 1.00f );
+    colors[ImGuiCol_TitleBg]       = ImVec4( 0.01f, 0.04f, 0.08f, 1.00f );
     colors[ImGuiCol_TitleBgActive] = ImVec4( 0.05f, 0.07f, 0.10f, 1.00f );
 
     // Hairline borders everywhere — this is the Source "toolbox" read
@@ -89,7 +89,7 @@ static void StyleSizesEditor()
     style.PopupBorderSize  = 1.0f;
     style.TabBorderSize    = 1.0f;
 
-    style.FontSizeBase = 16.0f; // slightly smaller than your 18 — denser property panels
+    style.FontSizeBase = 18.0f;
 }
 
 } // namespace nc::editor

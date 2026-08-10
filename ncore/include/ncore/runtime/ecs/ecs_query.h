@@ -120,13 +120,13 @@ class NCAPI QueryContext {
 public:
     explicit QueryContext( void* iter );
 
-    double delta_time() const;
-    float delta_time_internal() const;
-    int32_t count() const;
-    EcsEntity entity( int32_t row ) const;
-    EcsWorld& world() const;
-    EcsEntity event();
-    void* event_payload();
+    double delta_time() const;             // The global delta time.
+    float delta_time_internal() const;     // System's own delta time.
+    int32_t count() const;                 // The entity count being iterated.
+    EcsEntity entity( int32_t row ) const; // Gets entity ID at given row.
+    EcsWorld& world() const;               // The current world.
+    EcsEntity event();                     // Returns any event if applicable.
+    void* event_payload();                 // Returns the event payload if applicable.
     void* user_ctx() const;
 
     template<typename T>

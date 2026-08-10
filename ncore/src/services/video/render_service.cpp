@@ -34,6 +34,17 @@ Error RenderService::init( ConfFile& cfg_file )
 
 void RenderService::shutdown()
 {
+    for (auto& sc : swapchains) {
+        ctx.rhi->swapchain_destroy( sc );
+    }
+    swapchains.clear();
+
+    if (canvas_vb.is_valid())
+        ctx.rhi->destroy_resource( canvas_vb );
+    if (canvas_ib.is_valid())
+        ctx.rhi->destroy_resource( canvas_ib );
+
+    ctx.storage.flush_pending_destroys();
     ctx.rhi->save_pso_cache();
     delete ctx.rhi;
 }
@@ -149,7 +160,7 @@ void RenderService::frame_begin()
 
     const void* rtvs[] = { rtv };
     ctx.rhi->render_target_bind( rtvs, dsv );
-    ctx.rhi->render_target_clear_color( rtv, Color( 128, 128, 128, 255 ) ); // TODO: don't hardcode grey
+    ctx.rhi->render_target_clear_color( rtv, Color( 0, 0, 0, 255 ) ); // TODO: don't hardcode grey
     ctx.rhi->render_target_clear_depth( dsv );
 
     IRHI::Viewport vp{ .rect = Rect( 0, 0, size.x, size.y ) };
@@ -225,7 +236,7 @@ void RenderService::frame_end( float delta_time )
     ctx.storage.flush_pending_destroys();
 
     ctx.world_render_list.reset();
-    ctx.canvas_render_list.reset();
+    ctx.canvas_render_list.release_all(); // CanvasRenderItem is non-POD
 }
 
 void RenderService::world_camera_set_fov( float fov )
@@ -246,6 +257,26 @@ void RenderService::world_camera_set_z_far( float p_far )
 void RenderService::world_camera_set_transform( const Mat4& transform )
 {
     main_cam.transform = transform;
+}
+
+Mat4 RenderService::world_camera_get_transform() const
+{
+    return main_cam.transform;
+}
+
+float RenderService::world_camera_get_fov() const
+{
+    return main_cam.fov;
+}
+
+float RenderService::world_camera_get_z_near() const
+{
+    return main_cam.z_near;
+}
+
+float RenderService::world_camera_get_z_far() const
+{
+    return main_cam.z_far;
 }
 
 void RenderService::world_draw_instance( RID gpu_mesh, const Mat4& transform, RID material, uint32_t instancing )

@@ -79,12 +79,12 @@ EcsWorld::EcsWorld() : pImpl( std::make_unique<Impl>() )
 
 EcsWorld::~EcsWorld()
 {
-    ecs_fini( pImpl->world );
-
 #if defined( NC_DEBUG )
     ecs_http_server_stop( pImpl->http_svr );
     ecs_rest_server_fini( pImpl->http_svr );
 #endif
+
+    ecs_fini( pImpl->world );
 }
 
 //------------------------------------------------------------------------------
@@ -241,7 +241,9 @@ EcsEntity EcsWorld::register_component_type( const rtti::TypeInfo* type ) const
     desc.type    = type_info;
 
     auto comp_id = ecs_component_init( pImpl->world, &desc );
-    NC_ASSERT( comp_id != 0, std::format( "Failed to auto-register component '{}'.", type->name ).c_str() );
+    NC_ASSERT( comp_id > 0, std::format( "Failed to auto-register component '{}'.", type->name ).c_str() );
+
+    ecs_add_id( pImpl->world, comp_id, EcsCanToggle ); // NOTE: flecs say this adds overhead to queries
 
     pImpl->comp_type_to_id[type]    = comp_id;
     pImpl->comp_id_to_type[comp_id] = type;
@@ -421,7 +423,7 @@ bool EcsWorld::has_component_( EcsEntity id, const rtti::TypeInfo* type ) const
     if (id == INVALID_ENTITY_ID) { // is singleton?
         id = it->second;
     }
-    return ecs_has_id( pImpl->world, id, it->second ) != 0;
+    return ecs_has_id( pImpl->world, id, it->second );
 }
 
 void EcsWorld::remove_component_( EcsEntity id, const rtti::TypeInfo* type ) const

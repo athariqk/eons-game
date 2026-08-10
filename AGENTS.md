@@ -4,94 +4,179 @@ Guidance for AI coding agents working in this repository.
 
 ## First Reads
 
-Read these before making non-trivial changes:
-
-1. [README.md](README.md)
-2. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — see [docs gotchas](#known-doc-discrepancies) below
-3. [CMakeLists.txt](CMakeLists.txt)
-4. [CMakePresets.json](CMakePresets.json)
-5. [src/main.cpp](src/main.cpp)
-6. [src/pch.h](src/pch.h) — version macros, AEON_FOR_EACH
+1. `ncore/include/ncore.hpp` — umbrella header, shows all public includes
+2. `ncore/include/ncore/application.h` — Application + AppDesc + lifecycle
+3. `ncore/include/ncore/runtime/scene.h` — Scene: the default IGameWorld
+4. `ncore/include/ncore/runtime/node.h` — Node: thin wrapper over ECS entity
+5. `ncore/include/ncore/runtime/ecs/ecs_world.h` — EcsWorld: Flecs wrapper
+6. `ncore/include/ncore/runtime/ecs/ecs_system.h` — SystemDelegate + EcsSystemBuilder
+7. `ncore/include/ncore/runtime/ecs/ecs_query.h` — EcsIterator, QueryContext, EcsQueryBuilder
+8. `ncore/include/ncore/runtime/ecs/ecs_entity.h` — EcsEntity: the 64-bit entity ID type
+9. `ncore/include/ncore/core/types.h` — RTTI: TypeInfo, RecordInfo, FieldInfo, NSTRUCT
+10. `ncore/include/ncore/services/service.h` — IService base + NullService
+11. `ncore/include/ncore/services/service_registry.h` — ServiceRegistry (service locator)
+12. `CMakeLists.txt` (root + ncore/)
+13. `eons-game/main.cpp` — game entry point
 
 ## Build And Run (Windows)
 
-Prerequisite: `$env:VCPKG_ROOT` must point to a working vcpkg clone.
-
-Preferred build path is CMake.
-
-1. Configure:
-
-```powershell
+```
+# Configure
 cmake --preset windows-debug
-```
 
-*(Also available: `windows-release`)*
+# Build (ninja — preferred, avoids CMake re-configure flakiness)
+ninja -C build/windows-debug ncore_d.dll eons-game_d.exe
 
-2. Build:
-
-```powershell
+# Build (CMake)
 cmake --build build --config Debug
-```
 
-3. Run:
-
-```powershell
-.\build\bin\Debug\eons_d.exe
+# Run
+.\build\windows-debug\bin\Debug\eons-game_d.exe
 ```
-*(Debug builds append `_d` per `CMakeLists.txt:116`)*
 
 Notes:
+- Debug builds append `_d` per `ncore/CMakeLists.txt:35`.
+- Assets and `.ini` files are auto-copied at build time.
+- Release: `cmake --preset windows-release`, target `ncore.dll eons-game.exe`.
+- Do NOT delete or rebuild `build/`. The existing build is canonical — full reconfigure is slow.
 
-- Release variants: `cmake --build build --config Release` (binary `eons.exe`), `--config Dist`.
-- Assets and `.ini` files are auto-copied to the output directory at build time by `cmake/copy_files.cmake`.
+## Architecture Summary
+
+### Directory layout
+
+```
+ncore/                          Engine library (shared, ncore_d.dll)
+  include/ncore/
+    core/                       Foundation: RTTI types, math (Vec2/3/4, Quaternion, Mat4),
+                                containers (PagedPool, ResourcePool, RingBuffer),
+                                memory, Ref<T> (intrusive ref-counted), RID, Color, Rect, errors.
+    resources/                  Resource types (Mesh, Image, Shader, MaterialTemplate, AudioClip).
+    runtime/                    ECS runtime + Scene/Node.
+      ecs/                      EcsWorld, EcsIterator, EcsSystemBuilder, EcsQueryBuilder.
+      components/               Component structs (Transform, Camera, Mesh, Sprite, etc.).
+      scene.h / node.h          Scene graph layered over ECS.
+    services/                   Engine services (IService + ServiceRegistry).
+      audio/, events/, input/, io/, physics/, video/.
+    utils/                      Assert, log, config.
+  src/
+    runtime/                    ECS + Scene + Node implementations.
+      scene_plugins.cpp/.h      Engine subsystem plugins (window, render, gui, input).
+    services/                   Service implementations.
+    backends/                   SDL, Diligent, Box2D, Flecs helpers.
+    application.cpp             Application lifecycle (init -> run -> finish).
+
+eons-game/                      Game project (executable, eons-game_d.exe).
+  main.cpp                      GameApplication + TestScene subclass.
+  src/microcosmos/              Game-specific ECS systems + components.
+```
+
+### Key abstractions
+
+**ServiceRegistry** — service locator for engine subsystems (WindowService, RenderService,
+InputService, etc.). All inherit `IService`. Registered in `Application::register_services()`
+via `services.provide<T>()`.
+
+**Scene** — default `IGameWorld`. Owns an `EcsWorld` + a `NodePool` + a root `Node`.
+Lifecycle: `on_enter()` loads engine plugins via `register_*_plugin()`, then calls
+`on_ready()` (game hook), then `ecs_world.finalize_ordering()`. Every frame,
+`on_variable_update(dt)` processes pending deletes then calls `ecs_world.progress(dt)`.
+
+**Node** — thin view into the ECS. Wraps an `EcsEntity`. Provides `create_child()`,
+`get_children()`, `get_child_count()`, `add_component<T>()`, `get_component<T>()`,
+`remove_component<T>()`. Children are queried via a cached `EcsQuery` built
+programmatically with a `(ChildOf, self_id)` pair term.
+
+**NodeRefComponent** — `{Node* node}` component placed on every Node-wrapped entity.
+Used by `ChildRange::Iterator` to resolve entity -> Node*. Skip in Inspector display.
+
+**EcsWorld** — Flecs v4 C API wrapper. `system(name)`, `query(name)`, `observer(name)`
+return fluent builders. `progress(dt)` ticks all systems. `finalize_ordering()`
+sorts systems within pipeline phases.
+
+**EcsSystemBuilder** — fluent: `.with<T>()`, `.in(phase)`, `.order(n)`,
+`.each(fn)` / `.run(fn)`. Callbacks accept any callable (templated). Zero-allocation
+path for raw function pointers (`+[](...) { ... }`).
+
+**SystemDelegate<Fn>** — heap-allocates captured lambdas. Provides static
+`invoke_run(void*)` / `invoke_each(void*)` trampolines that recover the delegate
+via `QueryContext::user_ctx()`. Typed `destroy()` for cleanup.
+
+**EcsIterator** — table-level cursor. Owns `ecs_iter_t*` (heap-allocated, deleted
+in dtor). `operator++()` calls `ecs_query_next()`. Exposes `count()`, `entity(row)`,
+`user_ctx()`, `get_internal_iter()`. Destructor calls `ecs_iter_fini()` if not fully
+consumed.
+
+**QueryContext** — row-level component accessor. Takes raw `void*` (ecs_iter_t*).
+`set_row()`, `get_component<T>()`, `count()`, `entity()`, `user_ctx()`. No Flecs
+types in public header.
+
+**EcsQueryBuilder** — `.with<T>()`, `.with_pair(EcsEntity, EcsEntity)`, `.up()`,
+`.self()`, `.expr(dsl)`, `.build()`. `with_pair` takes `EcsEntity` (uint64_t)
+so no Flecs types leak into public headers.
+
+**RTTI (types.h)** — `NSTRUCT(T, ...)` auto-registers types at static init.
+`TypeInfo` has virtual `to_string()`. `RecordInfo` overrides to format
+`Name(f1=v1, f2=v2)`. `FieldInfo::value_to_string()` dispatches by field
+category and width. Primitives (int, float, bool, etc.) registered in
+`TypeRegistry::initialize()` in `ncore/src/core/types.cpp`.
 
 ## Code Boundaries
 
-- Engine/framework code is under [src/engine](src/engine) (namespace `Aeon`).
-- Game-specific logic is under [src/game](src/game), especially [src/game/microcosm](src/game/microcosm).
-- Keep engine changes generic; avoid introducing game-specific behavior into engine modules.
+- Engine code is under `ncore/` (namespace `nc`). Keep reusable/generic.
+- Game code is under `eons-game/`. Game-specific systems and components live there.
+- Do not edit vendored libraries in `ncore/external/`.
+- Do not edit `build/` directory contents.
+- Prefer CMake. Legacy Premake files exist but are unused.
 
 ## Safe Editing Rules
 
-- Do not edit vendored libraries in [vendors](vendors) unless explicitly asked.
-- Do not edit generated build outputs in [build](build).
-- Do NOT delete or rebuild the `build/` directory. The existing build folder is the canonical build; reconfiguring from scratch is slow and unnecessary.
-- Prefer CMake over legacy Premake files ([premake5.lua](premake5.lua), [GenerateProject_vs17.bat](GenerateProject_vs17.bat), [GenerateProject_vs16.bat](GenerateProject_vs16.bat)).
+- Add new `.cpp` files to `ncore/src/CMakeLists.txt`. Add new public headers to
+  `ncore/include/CMakeLists.txt`.
+- Use `cmake --preset windows-debug` only when the configure stamp is stale.
+- Prefer `ninja -C build/windows-debug <target>` for incremental builds.
+- **NCAPI on template classes is forbidden.** `Ref<T>`, `PagedPool<T>`,
+  `ResourcePool<T>`, `RingBuffer<T>`, `SlotIterator`, `CommonVectorOps`,
+  `VectorClass` are all header-only templates and must NOT have NCAPI
+  (DLL export/import). Doing so causes linker errors when game code
+  instantiates them.
 
-## Change Workflow
+## Known Issues / Gotchas
 
-1. Make minimal, targeted edits.
-2. Wait for the user to explicitly request a build. **Do not rebuild automatically after every edit.**
-3. If behavior changed, run the executable and sanity-check startup and asset loading.
+- **Entity deletion during iteration**: Flecs locks entities referenced by active
+  queries. Before deleting a node, destroy its cached child_query via
+  `EcsWorld::destroy_query(name)`. Always use `Scene::queue_destroy_node()`
+  for deferred safe deletion (processed in a PRE_FRAME system inside
+  `ecs_progress()`).
 
-There is no dedicated automated test suite configured at repository root; rely on build success and runtime smoke checks.
+- **Get_child_count** iterates all children via the child query. Avoid in
+  tight loops. Fine for editor tree display.
 
-## Quick Orientation By Area
+- **ecs_children() vs ecs_query_next()**: These use completely different Flecs
+  advancement functions. `EcsIterator::operator++()` only calls `ecs_query_next()`.
+  Never wrap `ecs_children()` iterators in `EcsIterator`.
 
-- Main loop and lifecycle: [src/engine/MainLoop.h](src/engine/MainLoop.h)
-- Event model: [src/engine/Event.h](src/engine/Event.h)
-- Scene base type: [src/engine/World.h](src/engine/World.h)
-- Rendering abstraction: [src/engine/graphics/IRenderContext.h](src/engine/graphics/IRenderContext.h)
-- View transforms: [src/engine/graphics/Viewport.h](src/engine/graphics/Viewport.h)
-- Current game scene: [src/game/microcosm/MicrocosmWorld.h](src/game/microcosm/MicrocosmWorld.h)
+- **EcsCoreEvent constants**: Defined in `ecs/ecs_events.h` — use `EcsCoreEvent::OnSet`,
+  `EcsCoreEvent::OnRemove`, etc. with `observer().on<T>(event)`.
 
-## Known Doc Discrepancies
+- **Query expressions with numeric IDs**: Flecs DSL can't resolve bare numeric
+  entity IDs in expression strings (e.g. `"NodeRefComponent, (ChildOf, 554)"`).
+  Use the programmatic builder `.with<NodeRefComponent>().with_pair(EcsChildOf, id)`
+  instead.
 
-`docs/ARCHITECTURE.md` contains stale claims that will cause compile errors if followed literally:
+- **RID registration**: `rid.h` is transitively included before the `NSTRUCT`
+  macro is defined in `types.h`. RID is therefore registered manually in
+  `TypeRegistry::initialize()` via `TRecordInfo<RID>`.
 
-- **`world.GetServices()` does not exist.** The correct access is `world.GetMainLoop().GetServices()`.
-- **`OnRender` signature** is `OnRender(World &world, IRenderContext &graphics)`, not just `(World &world)`.
-- **Actual system hooks** (in `src/engine/ecs/System.h`): `OnInit`, `OnFixedUpdate`, `OnVariableUpdate`, `OnPostUpdate`, `OnRender`, `OnGuiRender`, `OnShutdown`. The doc lists 5 of 7, missing `OnPostUpdate` and `OnGuiRender`.
-- **Camera class** is `Camera2D`, not `Camera`.
+## Component / RTTI Conventions
 
-## Dependency Notes
+- All component structs should have `NSTRUCT(T, NC_F(T, field1) NC_F(T, field2) ...)`.
+- `NSTRUCT` auto-registers at static init via `TypeRegistry::register_type<TRecordInfo<T>, T>(#T)`.
+- Primitives are registered in `TypeRegistry::initialize()` in `ncore/src/core/types.cpp`.
+- If a header is transitively included by `types.h` before the `NSTRUCT` macro
+  definition (line ~732), use manual registration in `initialize()` instead.
 
-Dependencies are managed via vcpkg and in-repo vendor targets:
+## Build-Only Verification
 
-- SDL3 / SDL3_image
-- Box2D
-- ImGui
-- spdlog
-- mINI
-
-See [vcpkg.json](vcpkg.json) and [vendors/CMakeLists.txt](vendors/CMakeLists.txt).
+No automated test suite at root. Build success + runtime smoke check (main menu
+visible, scene tree populated, inspector shows component data, camera/stats
+windows toggle correctly) is the verification step.

@@ -100,6 +100,11 @@ Vec2 InputService::get_mouse_wheel() const
     return mouse_wheel;
 }
 
+bool InputService::is_key_pressed( Key key ) const
+{
+    return key_states[static_cast<size_t>( key )].pressed;
+}
+
 bool InputService::is_mouse_button_pressed( ButtonIndex button ) const
 {
     return mb_states[static_cast<size_t>( button )].pressed;

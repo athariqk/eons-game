@@ -80,6 +80,7 @@ public:
     Vec2 get_mouse_delta() const;
     Vec2 get_mouse_wheel() const;
 
+    bool is_key_pressed( Key key ) const;
     bool is_mouse_button_pressed( ButtonIndex button ) const;
 
     /**

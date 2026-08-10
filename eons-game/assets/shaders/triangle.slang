@@ -1,4 +1,4 @@
-#include "engine/shaders/common.slang"
+#include "shaders/common.slang"
 
 struct PSInput
 {

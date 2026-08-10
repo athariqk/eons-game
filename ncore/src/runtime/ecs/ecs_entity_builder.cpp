@@ -14,7 +14,7 @@ struct EcsEntityBuilder::Impl {
     struct PairEntry {
         EcsComponent first_id;
         EcsComponent second_id;
-        const rtti::TypeInfo* comp_type = nullptr; // nullptr -> tag-only
+        const rtti::TypeInfo* comp_type = nullptr; // if nullptr, means this "component" is tag-only
         DynamicArray<uint8_t> comp_data;
     };
 

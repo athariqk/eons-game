@@ -69,6 +69,11 @@ public:
     void world_camera_set_z_far( float p_far );
     void world_camera_set_transform( const Mat4& transform );
 
+    Mat4  world_camera_get_transform() const;
+    float world_camera_get_fov() const;
+    float world_camera_get_z_near() const;
+    float world_camera_get_z_far() const;
+
     /**
      * @brief Push a new mesh draw call to the draw list to be rendered next frame.
      */

@@ -90,10 +90,9 @@ void* Node::get_component( const rtti::TypeInfo* type ) const
     return scene->get_ecs().get_component_( internal_id, type );
 }
 
-Span<EcsComponent> Node::get_components()
+Span<Component> Node::get_components()
 {
-    auto type = ecs_get_type( reinterpret_cast<ecs_world_t*>( scene->get_ecs().get_native_handle() ), internal_id );
-    return { type->array, static_cast<size_t>( type->count ) };
+    return { components.data(), component_count };
 }
 
 StringView Node::get_name() const
@@ -106,17 +105,38 @@ uint64_t Node::get_id() const
     return internal_id;
 }
 
+bool* Node::get_active()
+{
+    return &active;
+}
+
 //------------------------------------------------------------------------------
+
+void Node::track_ecs_component( const rtti::TypeInfo* type, EcsComponent id )
+{
+    auto world                    = reinterpret_cast<ecs_world_t*>( scene->get_ecs().get_native_handle() );
+    components[component_count++] = Component{ id, true, ecs_has_id( world, id, EcsCanToggle ) };
+}
 
 void* Node::emplace_component_( const rtti::TypeInfo* type )
 {
-    return scene->get_ecs().emplace_component_( internal_id, type );
+    if (has_component_( type ))
+        return get_component( type );
+
+    void* result = scene->get_ecs().emplace_component_( internal_id, type );
+    auto comp_id = scene->get_ecs().register_component_type( type );
+    track_ecs_component( type, comp_id );
+    return result;
 }
 
 void* Node::add_component_( const rtti::TypeInfo* type, const void* data )
 {
-    scene->get_ecs().set_component_( internal_id, type, data );
-    auto obj = scene->get_ecs().get_component_( internal_id, type );
+    if (has_component_( type ))
+        return get_component( type );
+
+    auto comp_id = scene->get_ecs().set_component_( internal_id, type, data );
+    track_ecs_component( type, comp_id );
+    auto obj = get_component( type );
     NC_VERIFY( obj );
     return obj;
 }
@@ -126,9 +146,17 @@ bool Node::has_component_( const rtti::TypeInfo* type ) const
     return scene->get_ecs().has_component_( internal_id, type );
 }
 
-void Node::remove_component_( const rtti::TypeInfo* type ) const
+void Node::remove_component_( const rtti::TypeInfo* type )
 {
     scene->get_ecs().remove_component_( internal_id, type );
+    auto comp_id = scene->get_ecs().register_component_type( type );
+    for (uint32_t i = 0; i < component_count; ++i) {
+        if (components[i].EcsId == comp_id) {
+            components[i] = components[component_count - 1];
+            --component_count;
+            break;
+        }
+    }
 }
 
 bool Node::has_component( const rtti::TypeInfo* type ) const

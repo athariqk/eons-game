@@ -2,7 +2,7 @@
 debug_name = Physically Based Rendering
 
 [shaders]
-composite = engine/shaders/pbr.slang
+composite = shaders/pbr.slang
 
 [raster]
 cull_mode = Back

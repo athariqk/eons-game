@@ -2,7 +2,10 @@
 
 #include <imgui_internal.h>
 
+#include <ncore/core/color.h>
 #include <ncore/core/quaternion.h>
+#include <ncore/core/rid.h>
+#include <ncore/core/types.h>
 #include <ncore/game_world.h>
 #include <ncore/resources/material_template.h>
 #include <ncore/runtime/components/camera.h>
@@ -25,27 +28,14 @@ namespace nc::editor {
 
 struct EngineEditorState {
     Scene* current_scene = nullptr;
-    EcsQuery spatial_query{};
     ImGuiID dockspace_id = 0;
     bool stats_window    = false;
-    bool camera_window   = false;
     bool inputs_window   = false;
     Node* selected_node  = nullptr;
     NSTRUCT(
-        EngineEditorState, NC_F( EngineEditorState, current_scene ) NC_F( EngineEditorState, spatial_query )
-                               NC_F( EngineEditorState, dockspace_id ) NC_F( EngineEditorState, stats_window )
-                                   NC_F( EngineEditorState, camera_window ) NC_F( EngineEditorState, inputs_window )
-                                       NC_F( EngineEditorState, selected_node )
-    )
-};
-
-struct TestSpin {
-    float rotation   = 0;
-    bool switch_rot  = true;
-    Quaternion start = Quaternion( 180, Vec3::up() );
-    Quaternion end   = Quaternion( 0, Vec3::up() );
-    NSTRUCT(
-        TestSpin, NC_F( TestSpin, rotation ) NC_F( TestSpin, switch_rot ) NC_F( TestSpin, start ) NC_F( TestSpin, end )
+        EngineEditorState, NC_F( EngineEditorState, current_scene ) NC_F( EngineEditorState, dockspace_id )
+                               NC_F( EngineEditorState, stats_window ) NC_F( EngineEditorState, inputs_window )
+                                   NC_F( EngineEditorState, selected_node )
     )
 };
 
@@ -83,17 +73,216 @@ static void draw_scene_tree_node( Node& node, EngineEditorState& state )
     }
 }
 
+using WidgetDrawFn = void ( * )( const char* label, void* ptr, bool editable );
+
+static void draw_float_widget( const char* label, void* ptr, bool editable )
+{
+    if (editable)
+        ImGui::DragFloat( label, static_cast<float*>( ptr ), 0.01f );
+    else
+        ImGui::Text( "%s: %.3f", label, static_cast<double>( *static_cast<float*>( ptr ) ) );
+}
+
+static void draw_double_widget( const char* label, void* ptr, bool editable )
+{
+    if (editable)
+        ImGui::InputDouble( label, static_cast<double*>( ptr ) );
+    else
+        ImGui::Text( "%s: %.3f", label, *static_cast<double*>( ptr ) );
+}
+
+static void draw_bool_widget( const char* label, void* ptr, bool editable )
+{
+    if (editable)
+        ImGui::Checkbox( label, static_cast<bool*>( ptr ) );
+    else
+        ImGui::Text( "%s: %s", label, *static_cast<bool*>( ptr ) ? "true" : "false" );
+}
+
+static void draw_int32_widget( const char* label, void* ptr, bool editable )
+{
+    if (editable)
+        ImGui::DragInt( label, static_cast<int*>( ptr ), 0.1f );
+    else
+        ImGui::Text( "%s: %d", label, *static_cast<int*>( ptr ) );
+}
+
+static void draw_uint32_widget( const char* label, void* ptr, bool editable )
+{
+    if (editable)
+        ImGui::DragScalar( label, ImGuiDataType_U32, ptr, 0.1f );
+    else
+        ImGui::Text( "%s: %u", label, *static_cast<uint32_t*>( ptr ) );
+}
+
+static void draw_uint8_widget( const char* label, void* ptr, bool editable )
+{
+    if (editable) {
+        int val = *static_cast<uint8_t*>( ptr );
+        if (ImGui::DragInt( label, &val, 0.1f, 0, 255 ))
+            *static_cast<uint8_t*>( ptr ) = static_cast<uint8_t>( std::clamp( val, 0, 255 ) );
+    } else {
+        ImGui::Text( "%s: %u", label, *static_cast<uint8_t*>( ptr ) );
+    }
+}
+
+static void draw_vec2_widget( const char* label, void* ptr, bool editable )
+{
+    if (editable)
+        ImGui::DragFloat2( label, static_cast<Vec2*>( ptr )->data(), 0.01f );
+    else {
+        auto* v = static_cast<Vec2*>( ptr );
+        ImGui::Text( "%s: (%.2f, %.2f)", label, static_cast<double>( v->x ), static_cast<double>( v->y ) );
+    }
+}
+
+static void draw_vec3_widget( const char* label, void* ptr, bool editable )
+{
+    if (editable)
+        ImGui::DragFloat3( label, static_cast<Vec3*>( ptr )->data(), 0.01f );
+    else {
+        auto* v = static_cast<Vec3*>( ptr );
+        ImGui::Text(
+            "%s: (%.2f, %.2f, %.2f)", label, static_cast<double>( v->x ), static_cast<double>( v->y ),
+            static_cast<double>( v->z )
+        );
+    }
+}
+
+static void draw_vec4_widget( const char* label, void* ptr, bool editable )
+{
+    if (editable)
+        ImGui::DragFloat4( label, static_cast<Vec4*>( ptr )->data(), 0.01f );
+    else {
+        auto* v = static_cast<Vec4*>( ptr );
+        ImGui::Text(
+            "%s: (%.2f, %.2f, %.2f, %.2f)", label, static_cast<double>( v->x ), static_cast<double>( v->y ),
+            static_cast<double>( v->z ), static_cast<double>( v->w )
+        );
+    }
+}
+
+static void draw_color_widget( const char* label, void* ptr, bool editable )
+{
+    auto* c     = static_cast<Color*>( ptr );
+    float col[] = { c->r / 255.0f, c->g / 255.0f, c->b / 255.0f, c->a / 255.0f };
+    if (editable) {
+        if (ImGui::ColorEdit4( label, col )) {
+            c->r = static_cast<uint8_t>( std::clamp( col[0] * 255.0f, 0.0f, 255.0f ) );
+            c->g = static_cast<uint8_t>( std::clamp( col[1] * 255.0f, 0.0f, 255.0f ) );
+            c->b = static_cast<uint8_t>( std::clamp( col[2] * 255.0f, 0.0f, 255.0f ) );
+            c->a = static_cast<uint8_t>( std::clamp( col[3] * 255.0f, 0.0f, 255.0f ) );
+        }
+    } else {
+        ImGui::ColorButton(
+            label, ImVec4( col[0], col[1], col[2], col[3] ), ImGuiColorEditFlags_NoTooltip, ImVec2( 20, 20 )
+        );
+        ImGui::SameLine();
+        ImGui::Text( "%s", label );
+    }
+}
+
+static void draw_quaternion_widget( const char* label, void* ptr, bool editable )
+{
+    auto* q      = static_cast<Quaternion*>( ptr );
+    float vals[] = { q->w, q->v.x, q->v.y, q->v.z };
+    if (editable) {
+        if (ImGui::DragFloat4( label, vals, 0.01f, -1.0f, 1.0f )) {
+            q->w   = vals[0];
+            q->v.x = vals[1];
+            q->v.y = vals[2];
+            q->v.z = vals[3];
+        }
+    } else {
+        ImGui::Text(
+            "%s: (%.2f, %.2f, %.2f, %.2f)", label, static_cast<double>( vals[0] ), static_cast<double>( vals[1] ),
+            static_cast<double>( vals[2] ), static_cast<double>( vals[3] )
+        );
+    }
+}
+
+static void draw_rid_widget( const char* label, void* ptr, bool )
+{
+    ImGui::Text( "%s: 0x%016llx", label, static_cast<RID*>( ptr )->value );
+}
+
+static const WidgetDrawFn* find_widget( rtti::TypeId id )
+{
+    struct Binding {
+        rtti::TypeId type_id;
+        WidgetDrawFn draw;
+    };
+    static const Binding table[] = {
+        { rtti::TypeRegistry::find<float>()->id, draw_float_widget },
+        { rtti::TypeRegistry::find<double>()->id, draw_double_widget },
+        { rtti::TypeRegistry::find<bool>()->id, draw_bool_widget },
+        { rtti::TypeRegistry::find<int>()->id, draw_int32_widget },
+        { rtti::TypeRegistry::find<int32_t>()->id, draw_int32_widget },
+        { rtti::TypeRegistry::find<uint32_t>()->id, draw_uint32_widget },
+        { rtti::TypeRegistry::find<uint8_t>()->id, draw_uint8_widget },
+        { rtti::TypeRegistry::find<Vec2>()->id, draw_vec2_widget },
+        { rtti::TypeRegistry::find<Vec3>()->id, draw_vec3_widget },
+        { rtti::TypeRegistry::find<Vec4>()->id, draw_vec4_widget },
+        { rtti::TypeRegistry::find<Color>()->id, draw_color_widget },
+        { rtti::TypeRegistry::find<Quaternion>()->id, draw_quaternion_widget },
+        { rtti::TypeRegistry::find<RID>()->id, draw_rid_widget },
+    };
+    for (auto& entry : table) {
+        if (entry.type_id == id)
+            return &entry.draw;
+    }
+    return nullptr;
+}
+
+static void draw_field_widget( void* instance, const rtti::FieldInfo& field )
+{
+    auto* type = field.get_type();
+    if (!type)
+        return;
+
+    void* ptr = field.get_void_ptr( instance );
+    if (!ptr)
+        return;
+
+    bool is_editable  = field.is( rtti::PropertyFlags::EDITABLE ) && !field.is( rtti::PropertyFlags::READ_ONLY );
+    const char* label = field.name.data();
+
+    auto* draw = find_widget( field.type_id );
+    if (draw) {
+        ( *draw )( label, ptr, is_editable );
+        return;
+    }
+
+    if (type->category == rtti::FieldCategory::STRING) {
+        ImGui::Text( "%s: \"%s\"", label, static_cast<const char*>( ptr ) );
+    } else if (type->is_record()) {
+        auto* record = static_cast<const rtti::RecordInfo*>( type );
+        if (ImGui::TreeNode( label )) {
+            for (auto& sub_field : record->fields()) {
+                ImGui::PushID( sub_field.name.data() );
+                draw_field_widget( ptr, sub_field );
+                ImGui::PopID();
+            }
+            ImGui::TreePop();
+        }
+    } else {
+        ImGui::Text( "%s: <?>", label );
+    }
+}
+
 void register_editor_plugin( Scene& scene )
 {
     auto editor_state           = scene.get_ecs().emplace_singleton<EngineEditorState>();
     editor_state->current_scene = &scene;
 
     scene.get_ecs()
-        .system( "EngineEditorFeature::Init" )
+        .system( "EngineEditorFeature_Init" )
         .with<EngineEditorState>()
         .in( EcsSystemPhase::INIT )
+        .order( 20 )
         .run( []( QueryContext& ctx ) {
-            auto state = ctx.get_component<EngineEditorState>();
+            StyleColorsEditor();
+            StyleSizesEditor();
 
             // TODO: make this into a prefab
             ctx.world()
@@ -102,21 +291,10 @@ void register_editor_plugin( Scene& scene )
                 .with<CameraComponent>()
                 .with<InputComponent>()
                 .build();
-
-            state->spatial_query =
-                ctx.world().query( "EngineEditorFeature::InputReceiverDebugQuery" ).with<InputComponent>().build();
         } );
 
     scene.get_ecs()
-        .observer( "EngineEditorFeature::InitStyling" )
-        .on<GuiStateComponent>( EcsCoreEvent::OnSet )
-        .run( []( QueryContext& ctx ) {
-            StyleColorsEditor();
-            StyleSizesEditor();
-        } );
-
-    scene.get_ecs()
-        .observer( "EngineEditorFeature::SwapChainResizedDebug" )
+        .observer( "EngineEditorFeature_SwapChainResizedDebug" )
         .with<SwapChainComponent>()
         .event<SwapChainResizedComponent>()
         .each( []( QueryContext& ctx, EcsEntity ) {
@@ -127,7 +305,7 @@ void register_editor_plugin( Scene& scene )
         } );
 
     scene.get_ecs()
-        .system( "EngineEditorFeature::ConfigureDocking" )
+        .system( "EngineEditorFeature_ConfigureDocking" )
         .with<GuiStateComponent>()
         .with<EngineEditorState>()
         .in( EcsSystemPhase::PRE_UPDATE )
@@ -147,7 +325,7 @@ void register_editor_plugin( Scene& scene )
         } );
 
     scene.get_ecs()
-        .system( "EngineEditorFeature::Panels" )
+        .system( "EngineEditorFeature_Panels" )
         .with<SwapChainComponent>()
         .with<EngineEditorState>()
         .in( EcsSystemPhase::UPDATE )
@@ -167,9 +345,6 @@ void register_editor_plugin( Scene& scene )
                 if (ImGui::BeginMenu( "Debug" )) {
                     if (ImGui::MenuItem( "Stats" )) {
                         state->stats_window = true;
-                    }
-                    if (ImGui::MenuItem( "Camera" )) {
-                        state->camera_window = true;
                     }
                     if (ImGui::MenuItem( "Inputs" )) {
                         state->inputs_window = true;
@@ -211,33 +386,44 @@ void register_editor_plugin( Scene& scene )
             {
                 if (ImGui::Begin( "Inspector" )) {
                     if (state->selected_node) {
-                        auto name = state->selected_node->get_name();
-                        auto id   = state->selected_node->get_id();
+                        auto name   = state->selected_node->get_name();
+                        auto id     = state->selected_node->get_id();
+                        auto active = state->selected_node->get_active();
 
                         ImGui::Text( "Node: %s", name.data() );
                         ImGui::Text( "ID: %llu", id );
+                        ImGui::Checkbox( "Active", active );
                         ImGui::Separator();
 
                         auto& ecs = state->current_scene->get_ecs();
-                        for (auto comp_id : state->selected_node->get_components()) {
-                            auto* type = ecs.resolve_component( comp_id );
+                        for (auto& comp : state->selected_node->get_components()) {
+                            auto* type = ecs.resolve_component( comp.EcsId );
                             if (!type)
                                 continue;
                             if (type == rtti::TypeRegistry::find<NodeRefComponent>())
                                 continue;
 
-                            void* comp = state->selected_node->get_component( type );
-                            if (!comp)
+                            void* comp_data = state->selected_node->get_component( type );
+                            if (!comp_data)
                                 continue;
 
                             if (ImGui::CollapsingHeader( type->name, ImGuiTreeNodeFlags_DefaultOpen )) {
-                                auto str = rtti::TypeRegistry::to_string( comp, type->id );
-                                ImGui::TextUnformatted( str.c_str() );
+                                if (type->is_record()) {
+                                    auto* record = static_cast<const rtti::RecordInfo*>( type );
+                                    for (auto& field : record->fields()) {
+                                        ImGui::PushID( field.name.data() );
+                                        draw_field_widget( comp_data, field );
+                                        ImGui::PopID();
+                                    }
+                                }
 
                                 ImGui::PushID( static_cast<int>( id << 32 | type->id.value ) );
                                 if (ImGui::SmallButton( "Remove" )) {
                                     state->selected_node->remove_component( type );
                                 }
+                                ImGui::BeginDisabled( !comp.CanToggleActive );
+                                ImGui::Checkbox( "Active", &comp.Active );
+                                ImGui::EndDisabled();
                                 ImGui::PopID();
                             }
                         }
@@ -317,112 +503,26 @@ void register_editor_plugin( Scene& scene )
             }
         } );
 
-    scene.get_ecs()
-        .system( "EngineEditorFeature::CameraPanel" )
-        .with<CameraComponent, Transform3DComponent>()
-        .in( EcsSystemPhase::UPDATE )
-        .each( []( QueryContext& ctx, EcsEntity ) {
-            auto state = ctx.world().get_singleton<EngineEditorState>();
-            if (!state->camera_window)
-                return;
-
-            auto gfx   = ctx.world().get_singleton<GraphicsServices>();
-            auto cam   = ctx.get_component<CameraComponent>();
-            auto xform = ctx.get_component<Transform3DComponent>();
-
-            if (ImGui::Begin( "Camera", &state->camera_window )) {
-                if (ImGui::BeginTable( "Transform", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg )) {
-                    for (int row = 0; row < 4; row++) {
-                        ImGui::TableNextRow();
-                        for (int col = 0; col < 4; col++) {
-                            ImGui::TableSetColumnIndex( col );
-                            ImGui::Text( "%.3f", static_cast<double>( xform->get_matrix().read( col, row ) ) );
-                        }
-                    }
-                    ImGui::EndTable();
-                }
-
-                if (ImGui::SliderAngle( "FoV", &cam->fov, 60, 120 )) {
-                    gfx->renderer->world_camera_set_fov( cam->fov );
-                }
-                if (ImGui::SliderFloat( "Near", &cam->z_near, 0.001f, 50.f )) {
-                    gfx->renderer->world_camera_set_z_near( cam->z_near );
-                }
-                if (ImGui::SliderFloat( "Far", &cam->z_far, 50.f, 100.f )) {
-                    gfx->renderer->world_camera_set_z_far( cam->z_far );
-                }
-
-                if (ImGui::Button( "Reset" )) {
-                    cam->fov    = 1.5708f;
-                    cam->z_near = 0.1f;
-                    cam->z_far  = 100.0f;
-                    gfx->renderer->world_camera_set_fov( cam->fov );
-                    gfx->renderer->world_camera_set_z_near( cam->z_near );
-                    gfx->renderer->world_camera_set_z_far( cam->z_far );
-                    xform->translation = Vec3();
-                    xform->rotation    = Quaternion::identity();
-                }
-            }
-            ImGui::End();
-        } );
-
-    scene.get_ecs()
-        .system( "EngineEditorFeature::TestSpinner" )
-        .with<Transform2DComponent, TestSpin>()
-        .in( EcsSystemPhase::UPDATE )
-        .each( []( QueryContext& ctx, EcsEntity ) {
-            auto xform = ctx.get_component<Transform2DComponent>();
-            xform->angle += static_cast<float>( ctx.delta_time() ) * 3.5f;
-
-            auto draw_list = ImGui::GetForegroundDrawList();
-            auto center    = xform->get_world_center_point();
-            char tmps[512];
-            std::snprintf(
-                tmps, 512, "Translation: X=%.3f Y=%.3f\nAngle: %.3f deg", static_cast<double>( xform->position.x ),
-                static_cast<double>( xform->position.y ), static_cast<double>( xform->angle )
-            );
-            draw_list->AddText( ImVec2( xform->position.x, xform->position.y ), IM_COL32_BLACK, tmps );
-            draw_list->AddCircleFilled( ImVec2( center.x, center.y ), 6, IM_COL32( 255, 0, 0, 255 ) );
-        } );
-
-    scene.get_ecs()
-        .system( "EngineEditorFeature::TestSpinner3D" )
-        .with<Transform3DComponent, TestSpin>()
-        .in( EcsSystemPhase::UPDATE )
-        .each( []( QueryContext& ctx, EcsEntity ) {
-            auto xform = ctx.get_component<Transform3DComponent>();
-            auto spin  = ctx.get_component<TestSpin>();
-            spin->rotation += static_cast<float>( ctx.delta_time() );
-            if (spin->rotation >= 1.0f) {
-                spin->rotation           = 0.0f;
-                spin->start              = spin->end;
-                Quaternion flip_180      = Quaternion( 180, Vec3::up() );
-                Quaternion weird_swaying = Quaternion( 30, Vec3::forward() );
-                spin->end                = spin->start * flip_180 * weird_swaying;
-            }
-            xform->rotation = Quaternion::slerp( spin->start, spin->end, std::min( spin->rotation, 1.0f ) );
-        } );
-
 #if !defined( NC_DIST )
     scene.get_ecs()
-        .system( "EngineEditorFeature::HotReload" )
+        .system( "EngineEditorFeature_HotReload" )
         .in( EcsSystemPhase::UPDATE )
         .run( []( QueryContext& ctx ) {
             auto io = ctx.world().get_singleton<IoServices>();
 
             if (ImGui::IsKeyPressed( ImGuiKey_F5 )) {
                 NC_LOG_INFO_C( log::GRAPHICS, "Hot-reloading" );
-                io->resources->load<MaterialTemplate>( "engine/shaders/pbr.slang", true );
-                io->resources->load<MaterialTemplate>( "engine/materials/pbr.material", true );
-                io->resources->load<MaterialTemplate>( "engine/shaders/canvas.slang", true );
-                io->resources->load<MaterialTemplate>( "engine/materials/canvas.material", true );
+                io->resources->load<MaterialTemplate>( "shaders/pbr.slang", true );
+                io->resources->load<MaterialTemplate>( "materials/pbr.material", true );
+                io->resources->load<MaterialTemplate>( "shaders/canvas.slang", true );
+                io->resources->load<MaterialTemplate>( "materials/canvas.material", true );
             }
         } );
 #endif
 
     // TODO: refactor this to use Timers
     scene.get_ecs()
-        .system( "EngineEditorFeature::TitleBarUpdater" )
+        .system( "EngineEditorFeature_TitleBarUpdater" )
         .with<WindowComponent>()
         .in( EcsSystemPhase::POST_FRAME )
         .each( []( QueryContext& ctx, EcsEntity id ) {
@@ -436,7 +536,7 @@ void register_editor_plugin( Scene& scene )
         } );
 
     scene.get_ecs()
-        .system( "EngineEditorFeature::InputUI" )
+        .system( "EngineEditorFeature_InputUI" )
         .with<IoServices>()
         .in( EcsSystemPhase::UPDATE )
         .run( []( QueryContext& ctx ) {
@@ -501,26 +601,6 @@ void register_editor_plugin( Scene& scene )
                         "Wheel", io->inputs->get_mouse_wheel().data(), 1.0f, 0.0f, 0.0f, "%.3f",
                         ImGuiSliderFlags_NoInput
                     );
-                }
-
-                {
-                    ImGui::SeparatorText( "Input Receivers" );
-                    for (auto iter = state->spatial_query.begin(); iter != nullptr; ++iter) {
-                        QueryContext qctx( iter.get_internal_iter() );
-                        for (int32_t row = 0; row < qctx.count(); row++) {
-                            qctx.set_row( row );
-                            auto input = qctx.get_component<InputComponent>();
-                            ImGui::Text(
-                                "EID %llu | dir (%.2f, %.2f, %.2f) | mag %.2f | orient (%.2f, %.2f, %.2f)",
-                                static_cast<unsigned long long>( qctx.entity( row ) ),
-                                static_cast<double>( input->direction.x ), static_cast<double>( input->direction.y ),
-                                static_cast<double>( input->direction.z ), static_cast<double>( input->magnitude ),
-                                static_cast<double>( input->angular_delta.x ),
-                                static_cast<double>( input->angular_delta.y ),
-                                static_cast<double>( input->angular_delta.z )
-                            );
-                        }
-                    }
                 }
             }
             ImGui::End();

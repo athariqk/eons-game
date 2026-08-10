@@ -11,6 +11,17 @@ class EcsWorld;
 class Scene;
 
 /**
+ * @brief Component is a lightweight wrapper over an EcsComponent.
+ * For use in the Scene API.
+ */
+struct NCAPI Component {
+    EcsComponent EcsId   = 0;
+    bool Active          = false;
+    bool CanToggleActive = false;
+    NSTRUCT( Component, NC_F( Component, EcsId ) NC_F( Component, Active ) )
+};
+
+/**
  * @brief Node is a lightweight wrapper over an EcsEntity. Node provides
  * first-class operations for Scene hierarchy and relationships. You can
  * add any components to a Node as POD or even non-POD classes/structs.
@@ -20,6 +31,9 @@ class NCAPI Node : public NcObject {
 
 public:
     using NodePool = PagedPool<Node>;
+
+    // lets increase the max number when needed
+    inline static const uint32_t MAX_TRACKED_COMPONENTS = 16;
 
     Node() = default;
     Node( const String& p_name, Scene* p_scene, Node* p_parent );
@@ -116,7 +130,7 @@ public:
         return static_cast<T*>( result );
     }
 
-    Span<EcsComponent> get_components();
+    Span<Component> get_components();
 
     /**
      * @brief Create and set a component owned by this Node.
@@ -162,6 +176,8 @@ public:
     StringView get_name() const;
     uint64_t get_id() const;
 
+    bool* get_active();
+
     inline Scene* get_scene() const
     {
         return scene;
@@ -170,17 +186,21 @@ public:
 private:
     friend class Scene;
 
+    void track_ecs_component( const rtti::TypeInfo* type, EcsComponent id );
     void* emplace_component_( const rtti::TypeInfo* type );
     void* add_component_( const rtti::TypeInfo* type, const void* data );
     bool has_component_( const rtti::TypeInfo* type ) const;
-    void remove_component_( const rtti::TypeInfo* type ) const;
+    void remove_component_( const rtti::TypeInfo* type );
     void emit_event_( const rtti::TypeInfo* type, EcsEntity target, const void* data ) const;
 
+    bool active           = true;
     Scene* scene          = nullptr;
     Node* parent          = nullptr;
     NodePool* node_pool   = nullptr; // owned by Scene.
     EcsEntity internal_id = INVALID_ENTITY_ID;
     EcsQuery child_query{};
+    Array<Component, MAX_TRACKED_COMPONENTS> components;
+    uint32_t component_count = 0;
 };
 
 } // namespace nc

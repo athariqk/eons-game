@@ -91,7 +91,7 @@ EcsEntity EcsSystemBuilder::create_system_( void* callback, void* ctx, void ( *c
     sdesc.ctx      = ctx;
     sdesc.ctx_free = reinterpret_cast<ecs_ctx_free_t>( ctx_free );
 
-    ecs_entity_t id = ecs_system_init( world, &sdesc );
+	ecs_entity_t id = ecs_system_init( world, &sdesc );
     NC_ASSERT( id != 0, "Failed to register ECS system" );
 
     if (pImpl->order_ != 0) {

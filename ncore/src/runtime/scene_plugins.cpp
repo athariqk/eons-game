@@ -13,6 +13,7 @@
 #include <ncore/runtime/components/resource.h>
 #include <ncore/runtime/components/services.h>
 #include <ncore/runtime/components/sprite.h>
+#include <ncore/runtime/components/time.h>
 #include <ncore/runtime/components/transform.h>
 #include <ncore/runtime/components/window.h>
 #include <ncore/runtime/ecs/ecs_events.h>
@@ -21,12 +22,48 @@
 #include <ncore/runtime/scene.h>
 #include <ncore/services/input/input_event.h>
 #include <ncore/services/input/input_service.h>
-#include <ncore/services/io/resource_service.h>
 #include <ncore/services/video/render_service.h>
 #include <ncore/services/video/window/window_event.h>
 #include <ncore/services/video/window_service.h>
 
 namespace nc {
+
+void NCAPI register_core_plugin( Scene& scene )
+{
+    scene.get_ecs().emplace_singleton<TimeComponent>();
+
+    scene.get_ecs()
+        .system( "SceneCorePlugin_FPSTracker" )
+        .with<TimeComponent>()
+        .in( EcsSystemPhase::PRE_FRAME )
+        .run( []( QueryContext& ctx ) {
+            auto time = ctx.get_component<TimeComponent>();
+            time->ticks++;
+            time->frame_count++;
+            time->accumulator += ctx.delta_time();
+            if (time->accumulator >= 1.0) {
+                time->fps         = static_cast<double>( time->frame_count ) / time->accumulator;
+                time->frame_count = 0;
+                time->accumulator = 0.0;
+            }
+        } );
+
+    scene.get_ecs().emplace_singleton<IoServices>();
+    scene.get_ecs().emplace_singleton<GraphicsServices>();
+
+    scene.get_ecs()
+        .system( "Scene_Init" )
+        .with<IoServices, GraphicsServices>()
+        .in( EcsSystemPhase::INIT )
+        .run( [&scene]( QueryContext& ctx ) {
+            auto io       = ctx.world().get_singleton<IoServices>();
+            auto gfx      = ctx.world().get_singleton<GraphicsServices>();
+            io->resources = scene.get_services().resolve<ResourceService>();
+            io->inputs    = scene.get_services().resolve<InputService>();
+            gfx->window   = scene.get_services().resolve<WindowService>();
+            gfx->renderer = scene.get_services().resolve<RenderService>();
+        } );
+}
 
 void register_window_plugin( Scene& scene )
 {
@@ -41,10 +78,11 @@ void register_window_plugin( Scene& scene )
             auto io       = ctx.get_component<IoServices>();
             auto gfx      = ctx.get_component<GraphicsServices>();
 
-            gfx->window->set_default_icon( io->resources->load<Image>( "engine/images/default.ico" ) );
+            gfx->window->set_default_icon( io->resources->load<Image>( "images/default.ico" ) );
 
             auto window_eid = ctx.world()
                                   .entity( "PrimaryWindow" )
+                                  .with<MainWindowTag>()
                                   .with<WindowComponent>( WindowComponent{
                                       .title            = app_desc->Name,
                                       .resolution       = Vec2( 1280.0f, 720.0f ),
@@ -53,7 +91,6 @@ void register_window_plugin( Scene& scene )
                                       .vsync            = gfx->renderer->get_settings().VSync,
                                       .pixels_per_meter = gfx->window->get_settings().PixelsPerMeter
                                   } )
-                                  .with<MainWindowTag>()
                                   .build();
 
             ctx.world()
@@ -203,7 +240,7 @@ void register_render_plugin( Scene& scene )
 
     scene.get_ecs()
         .system( "SceneRenderPlugin_Update3DCamera" )
-        .with<CameraComponent, Transform3DComponent>()
+        .with<ActiveCameraTag, CameraComponent, Transform3DComponent>()
         .in( EcsSystemPhase::UPDATE )
         .each( []( QueryContext& ctx, EcsEntity ) {
             auto gfx   = ctx.world().get_singleton<GraphicsServices>();
@@ -394,14 +431,6 @@ void register_inputs_plugin( Scene& scene )
 
             auto win_id = gfx->window->get_main_window_id();
 
-            if (!ImGui::GetIO().WantCaptureMouse && io->inputs->is_mouse_button_pressed( ButtonIndex::RIGHT )) {
-                auto is_locked = gfx->window->window_get_mouse_locked( win_id );
-                if (is_locked) {
-                    gfx->window->window_set_mouse_position( win_id, gfx->window->window_get_resolution( win_id ) / 2 );
-                }
-                gfx->window->window_set_mouse_locked( win_id, !is_locked );
-            }
-
             // per-frame deltas, zeroed when the mouse is unlocked
             if (gfx->window->window_get_mouse_locked( win_id )) {
                 auto md                = io->inputs->get_mouse_delta();
@@ -417,7 +446,7 @@ void register_inputs_plugin( Scene& scene )
 
     scene.get_ecs()
         .system( "SceneInputPlugin_FlyCamUpdater" )
-        .with<Transform3DComponent, CameraComponent, InputComponent>()
+        .with<ActiveCameraTag, Transform3DComponent, CameraComponent, InputComponent>()
         .in( EcsSystemPhase::UPDATE )
         .each( []( QueryContext& ctx, EcsEntity ) {
             auto xform = ctx.get_component<Transform3DComponent>();
@@ -430,10 +459,63 @@ void register_inputs_plugin( Scene& scene )
             // NOTE: suffers from the so called "holonomy" where if you
             // try to yaw-pitch in a circular manner, then the camera
             // gets tilted ever so slightly
-            Quaternion yaw( input->angular_delta.x * dt, Vec3::up() );
-            Quaternion pitch( input->angular_delta.y * dt, Vec3::right() );
-            Quaternion roll( input->angular_delta.z * dt, Vec3::forward() );
-            xform->rotation = xform->rotation * roll * yaw * pitch;
+            // Quaternion yaw( input->angular_delta.x * dt, Vec3::up() );
+            // Quaternion pitch( input->angular_delta.y * dt, Vec3::right() );
+            // Quaternion roll( input->angular_delta.z * dt, Vec3::forward() );
+            // xform->rotation          = xform->rotation * roll * yaw * pitch;
+
+            // i can't get the above working correctly without unwanted roll
+            // so have the below for now...
+
+            const float yaw_amount   = input->angular_delta.x * dt;
+            const float pitch_amount = input->angular_delta.y * dt;
+            const float roll_amount  = input->angular_delta.z * dt;
+
+            // FPS-style cam
+
+            // yaw around *world* up
+            Quaternion yaw( yaw_amount, Vec3::up() );
+            xform->rotation = yaw * xform->rotation;
+
+            // pitch around *local* right
+            Quaternion pitch( pitch_amount, Vec3::right() );
+            xform->rotation = xform->rotation * pitch;
+
+            // this roll is useless as it is ignored by yaw and pitch,
+            // need to find other solutions
+            if (!math::is_equal_approx( roll_amount, 0 )) {
+                Quaternion roll( roll_amount, Vec3::forward() );
+                xform->rotation = xform->rotation * roll;
+            }
+
+            // good practice
+            xform->rotation = Quaternion::normalize( xform->rotation );
+        } );
+
+    scene.get_ecs()
+        .system( "SceneInputPlugin_MouseVisibilityHandler" )
+        .with<ActiveCameraTag, CameraComponent>()
+        .in( EcsSystemPhase::UPDATE )
+        .each( []( QueryContext& ctx, EcsEntity ) {
+            auto cam = ctx.get_component<CameraComponent>();
+            auto gfx = ctx.world().get_singleton<GraphicsServices>();
+            auto io  = ctx.world().get_singleton<IoServices>();
+
+            auto win_id = gfx->window->get_main_window_id();
+
+            auto rmb_clicked =
+                !ImGui::GetIO().WantCaptureMouse && io->inputs->is_mouse_button_pressed( ButtonIndex::RIGHT );
+            if (io->inputs->is_key_pressed( Key::ESC )) {
+                cam->mouse_locked = false;
+            } else if (rmb_clicked) {
+                cam->mouse_locked = !cam->mouse_locked;
+            }
+            gfx->window->window_set_mouse_locked( win_id, cam->mouse_locked );
+
+            if (cam->mouse_locked) {
+                // confine to center each frame
+                gfx->window->window_set_mouse_position( win_id, gfx->window->window_get_resolution( win_id ) / 2 );
+            }
         } );
 }
 
@@ -452,16 +534,14 @@ void register_gui_plugin( Scene& scene )
             auto state = ctx.get_component<GuiStateComponent>();
 
             IMGUI_CHECKVERSION();
-            state->imctx = ImGui::CreateContext();
-            StyleColorsNcoreDark();
-            StyleSizesNcoreDark();
+            state->imctx      = ImGui::CreateContext();
             ImGuiIO& imgui_io = ImGui::GetIO();
             imgui_io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
             imgui_io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors | ImGuiBackendFlags_RendererHasVtxOffset |
                                      ImGuiBackendFlags_RendererHasTextures;
-            imgui_io.Fonts->AddFontFromFileTTF( "assets/engine/fonts/SpaceGrotesk-SemiBold.ttf" );
-            imgui_io.Fonts->AddFontFromFileTTF( "assets/engine/fonts/SpaceGrotesk-Regular.ttf" );
-            imgui_io.FontDefault = imgui_io.Fonts->AddFontFromFileTTF( "assets/engine/fonts/SpaceGrotesk-Medium.ttf" );
+            imgui_io.Fonts->AddFontFromFileTTF( "assets/fonts/SpaceGrotesk-SemiBold.ttf" );
+            imgui_io.Fonts->AddFontFromFileTTF( "assets/fonts/SpaceGrotesk-Regular.ttf" );
+            imgui_io.FontDefault = imgui_io.Fonts->AddFontFromFileTTF( "assets/fonts/SpaceGrotesk-Medium.ttf" );
 
             for (int i = 0; i < ImGuiMouseCursor_COUNT; i++) {
                 auto imgui_cursor               = static_cast<ImGuiMouseCursor>( i );
@@ -471,7 +551,7 @@ void register_gui_plugin( Scene& scene )
 
             ImGui::SetCurrentContext( state->imctx );
 
-            auto tmpl_rid = io->resources->load( "engine/materials/canvas.material" );
+            auto tmpl_rid = io->resources->load( "materials/canvas.material" );
             auto tmpl     = io->resources->get<MaterialTemplate>( tmpl_rid );
             NC_VERIFY( tmpl );
             auto mat = gfx->renderer->material_create( *tmpl );
@@ -708,6 +788,42 @@ void register_gui_plugin( Scene& scene )
                     gfx->renderer->canvas_draw_triangles(
                         { vtx, vert_count }, { idx, idx_count }, state->material, clip_rect
                     );
+                }
+            }
+        } );
+}
+
+void NCAPI register_resources_plugin( Scene& scene )
+{
+    scene.get_ecs().emplace_singleton<ResourceWatchState>();
+
+    scene.get_ecs()
+        .system( "Scene_ResourceWatcher_Poll" )
+        .in( EcsSystemPhase::POST_UPDATE )
+        .run( []( QueryContext& ctx ) {
+            auto io    = ctx.world().get_singleton<IoServices>();
+            auto state = ctx.world().get_singleton<ResourceWatchState>();
+
+            state->pending_events.clear();
+            ResourceService::Event e;
+            while (io->resources->poll_event( &e )) {
+                state->pending_events.push_back( e );
+            }
+        } );
+
+    scene.get_ecs()
+        .system( "Scene_ResourceWatcher_Emit" )
+        .with<HasResourceTag>()
+        .in( EcsSystemPhase::POST_UPDATE )
+        .each( []( QueryContext& ctx, EcsEntity id ) {
+            auto state = ctx.world().get_singleton<ResourceWatchState>();
+            for (auto& entry : state->pending_events) {
+                if (auto loaded = std::get_if<ResourceService::LoadEvent>( &entry )) {
+                    NC_LOG_DEBUG(
+                        "ResourceService::LoadEvent: RID={} ResourceFormatID={}", loaded->handle.value,
+                        loaded->format_id.to_string()
+                    );
+                    ctx.world().emit_event<ResourceLoadedComponent>( { loaded->handle, loaded->format_id }, id );
                 }
             }
         } );

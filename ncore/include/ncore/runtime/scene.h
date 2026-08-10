@@ -31,8 +31,6 @@ struct NCAPI NodeRefComponent {
  * which defines its "type" and thus archetype. You compose game logic by defining systems
  * over these archetypes via the Scene API.
  *
- * This was very inspired by Godot's Node system.
- *
  * In practice, this is just a thin layer of abstraction on top of EcsWorld which is
  * a pure ECS runtime and may not be easily approachable to most game developers.
  * Therefore, with this we can at least make game authoring a little bit easier.
@@ -42,6 +40,8 @@ struct NCAPI NodeRefComponent {
  * This includes but not limited to: rendering, physics, and
  * others. You may bypass this altogether and just load whichever
  * features you need by overriding Scene.on_enter().
+ *
+ * This was very inspired by Godot's Node system.
  */
 class NCAPI Scene : public IGameWorld {
     NCLASS( Scene, IGameWorld )
@@ -76,14 +76,9 @@ public:
     {
         auto name = std::format( "Scene_Startup_{}", ++system_counter );
         ecs_world.system( name )
-            .with<RootNodeTag>()
-            .with<NodeRefComponent>()
             .in( EcsSystemPhase::INIT )
             .order( order )
-            .each( [fn = std::forward<Fn>( callback )]( QueryContext& ctx, EcsEntity ) {
-                auto ref = ctx.get_component<NodeRefComponent>();
-                fn( *ref->node );
-            } );
+            .each( [fn = std::forward<Fn>( callback )]( QueryContext& ctx, EcsEntity ) { fn(); } );
     }
 
     template<typename T, typename Fn>

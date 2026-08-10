@@ -2,7 +2,7 @@
 debug_name = 2D Canvas
 
 [shaders]
-composite = engine/shaders/canvas.slang
+composite = shaders/canvas.slang
 
 [raster]
 cull_mode = None

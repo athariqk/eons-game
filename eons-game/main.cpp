@@ -1,10 +1,22 @@
 #include <ncore.hpp>
+#include <ncore/runtime/components/camera.h>
+#include <ncore/runtime/components/input.h>
 
 #include <microcosmos/MicrocosmModule.h>
 
 #include "pch.h"
 
 #include <editor/ncore_editor.h>
+
+struct TestSpin {
+    float rotation       = 0;
+    bool switch_rot      = true;
+    nc::Quaternion start = nc::Quaternion( 180, nc::Vec3::up() );
+    nc::Quaternion end   = nc::Quaternion( 0, nc::Vec3::up() );
+    NSTRUCT(
+        TestSpin, NC_F( TestSpin, rotation ) NC_F( TestSpin, switch_rot ) NC_F( TestSpin, start ) NC_F( TestSpin, end )
+    )
+};
 
 class TestScene : public nc::Scene {
 public:
@@ -57,13 +69,55 @@ public:
         test_model->add_component<nc::Transform3DComponent>( nc::Transform3DComponent{
             nc::Vec3( 0, 0, -10 ), nc::Quaternion( 180, nc::Vec3::up() ), nc::Vec3( 1, 1, 1 )
         } );
+        test_model->add_component<TestSpin>();
 
         auto cube_mesh = test_model->create_child( "CubeMesh" );
         cube_mesh->add_component<nc::MeshComponent>( nc::MeshComponent{ mesh_rid, nc::RID(), 1 } );
         cube_mesh->add_component<nc::MaterialComponent>(
-            nc::MaterialComponent{ res_svc->load( "engine/materials/pbr.material" ) }
+            nc::MaterialComponent{ res_svc->load( "materials/pbr.material" ) }
         );
         cube_mesh->add_component<nc::HasResourceTag>();
+
+        auto main_camera = root()->create_child( "MainCamera" );
+        main_camera->add_component<nc::Transform3DComponent>(
+            nc::Transform3DComponent{ nc::Vec3( 0, 0, 5 ), nc::Quaternion::identity(), nc::Vec3( 1, 1, 1 ) }
+        );
+        main_camera->add_component<nc::CameraComponent>();
+        main_camera->add_component<nc::ActiveCameraTag>();
+        main_camera->add_component<nc::InputComponent>();
+
+        add_system<nc::Transform2DComponent, TestSpin>(
+            []( nc::Node& node, nc::Transform2DComponent& xform, TestSpin& spin, double delta_time ) {
+                // auto xform = ctx.get_component<nc::Transform2DComponent>();
+                // xform->angle += static_cast<float>( ctx.delta_time() ) * 3.5f;
+
+                // auto draw_list = ImGui::GetForegroundDrawList();
+                // auto center    = xform->get_world_center_point();
+                // char tmps[512];
+                // std::snprintf(
+                //     tmps, 512, "Translation: X=%.3f Y=%.3f\nAngle: %.3f deg", static_cast<double>( xform->position.x
+                //     ), static_cast<double>( xform->position.y ), static_cast<double>( xform->angle )
+                //);
+                // draw_list->AddText( ImVec2( xform->position.x, xform->position.y ), IM_COL32_BLACK, tmps );
+                // draw_list->AddCircleFilled( ImVec2( center.x, center.y ), 6, IM_COL32( 255, 0, 0, 255 ) );
+            },
+            nc::EcsSystemPhase::UPDATE
+        );
+
+        add_system<nc::Transform3DComponent, TestSpin>(
+            []( nc::Node& node, nc::Transform3DComponent& xform, TestSpin& spin, double delta_time ) {
+                spin.rotation += static_cast<float>( delta_time );
+                if (spin.rotation >= 1.0f) {
+                    spin.rotation                = 0.0f;
+                    spin.start                   = spin.end;
+                    nc::Quaternion flip_180      = nc::Quaternion( 180, nc::Vec3::up() );
+                    nc::Quaternion weird_swaying = nc::Quaternion( 30, nc::Vec3::forward() );
+                    spin.end                     = spin.start * flip_180 * weird_swaying;
+                }
+                xform.rotation = nc::Quaternion::slerp( spin.start, spin.end, std::min( spin.rotation, 1.0f ) );
+            },
+            nc::EcsSystemPhase::UPDATE
+        );
     }
 };
 

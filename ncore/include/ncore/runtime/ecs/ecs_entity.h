@@ -40,6 +40,9 @@ public:
         return *this;
     }
 
+    /**
+     * @brief Append component(s) to the build list.
+     */
     template<typename T, typename... Args>
     EcsEntityBuilder& with( Args&&... args )
     {
@@ -52,6 +55,9 @@ public:
         return *this;
     }
 
+    /**
+     * @brief Append a component pair to the build list.
+     */
     template<typename First, typename Second, typename... Args>
     EcsEntityBuilder& with_pair( Args&&... args )
     {
@@ -78,11 +84,18 @@ public:
     }
 
     EcsEntityBuilder& add_pair_id( EcsComponent first, EcsComponent second );
+    /**
+     * @brief Add parent-child relationship.
+     * @param parent The parent entity to set for this entity.
+     */
     EcsEntityBuilder& child_of( EcsEntity parent );
     EcsEntityBuilder& is_a( EcsEntity base );
     EcsEntityBuilder& depends_on( EcsEntity target );
     EcsEntityBuilder& alias( StringView alias );
 
+    /**
+     * @brief Finalize entity creation and set its components, in order.
+     */
     EcsEntity build();
 
 private:

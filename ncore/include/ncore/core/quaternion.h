@@ -193,6 +193,9 @@ struct NCAPI Quaternion {
         return q;
     }
 
+    /**
+     * @brief Returns a new Quaternion where all the values are between [0, 1].
+     */
     static Quaternion normalize( const Quaternion& q )
     {
         // unit quaternion = q / sqrt(length_of_q_squared)
@@ -210,6 +213,14 @@ struct NCAPI Quaternion {
         auto factor = ( q1.inverse() * target ) ^ t;
 
         return q1 * factor;
+    }
+
+    /**
+     * @brief Returns a new Quaternion where all the values are between [0, 1].
+     */
+    Quaternion normalized() const
+    {
+        return normalize( *this );
     }
 };
 

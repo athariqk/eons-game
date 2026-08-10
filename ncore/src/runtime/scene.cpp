@@ -1,92 +1,39 @@
 #include <flecs.h>
 
-#include <ncore/runtime/components/resource.h>
-#include <ncore/runtime/components/services.h>
-#include <ncore/runtime/components/time.h>
 #include <ncore/runtime/components/transform.h>
 #include <ncore/runtime/ecs/ecs_events.h>
 #include <ncore/runtime/node.h>
 #include <ncore/runtime/scene.h>
-#include <ncore/services/input/input_service.h>
-#include <ncore/services/io/resource_service.h>
 #include <ncore/services/service_registry.h>
-#include <ncore/services/video/render_service.h>
-#include <ncore/services/video/window_service.h>
 
 #include "scene_plugins.h"
 
 namespace nc {
-
-struct ResourceWatchState {
-    DynamicArray<ResourceService::Event> pending_events;
-    NSTRUCT( ResourceWatchState, NC_F( ResourceWatchState, pending_events ) )
-};
 
 Scene::Scene( AppDesc& p_app_desc, ServiceRegistry& p_services ) : IGameWorld( p_app_desc, p_services ) {}
 
 void Scene::on_enter()
 {
     ecs_world.set_singleton<AppDesc>( app_desc );
-    ecs_world.emplace_singleton<TimeComponent>();
-    ecs_world.emplace_singleton<IoServices>();
-    ecs_world.emplace_singleton<GraphicsServices>();
-    ecs_world.emplace_singleton<ResourceWatchState>();
 
-    add_startup( []( Node& root ) {
-        auto& svcs = root.get_scene()->get_services();
-        auto io    = root.get_scene()->get_ecs().get_singleton<IoServices>();
-        auto gfx   = root.get_scene()->get_ecs().get_singleton<GraphicsServices>();
-
-        io->resources = svcs.resolve<ResourceService>();
-        io->inputs    = svcs.resolve<InputService>();
-        gfx->window   = svcs.resolve<WindowService>();
-        gfx->renderer = svcs.resolve<RenderService>();
-    } );
-
-    ecs_world.system( "Scene_FPSTracker" )
-        .with<TimeComponent>()
-        .in( EcsSystemPhase::PRE_FRAME )
-        .run( []( QueryContext& ctx ) {
-            auto time = ctx.get_component<TimeComponent>();
-            time->ticks++;
-            time->frame_count++;
-            time->accumulator += ctx.delta_time();
-            if (time->accumulator >= 1.0) {
-                time->fps         = static_cast<double>( time->frame_count ) / time->accumulator;
-                time->frame_count = 0;
-                time->accumulator = 0.0;
-            }
+    ecs_world.system( "Scene_NodeActivenessUpdater" )
+        .with<NodeRefComponent>()
+        .in( EcsSystemPhase::PRE_UPDATE )
+        .each( []( QueryContext& ctx, EcsEntity id ) {
+            auto ref   = ctx.get_component<NodeRefComponent>();
+            auto world = reinterpret_cast<ecs_world_t*>( ctx.world().get_native_handle() );
+            ecs_enable( world, id, ref->node->active );
         } );
 
-    register_window_plugin( *this );
-    register_render_plugin( *this );
-    register_inputs_plugin( *this );
-    register_gui_plugin( *this );
-
-    ecs_world.system( "Scene_ResourceWatcher_Poll" ).in( EcsSystemPhase::POST_UPDATE ).run( []( QueryContext& ctx ) {
-        auto io    = ctx.world().get_singleton<IoServices>();
-        auto state = ctx.world().get_singleton<ResourceWatchState>();
-
-        state->pending_events.clear();
-        ResourceService::Event e;
-        while (io->resources->poll_event( &e )) {
-            state->pending_events.push_back( e );
-        }
-    } );
-
-    ecs_world.system( "Scene_ResourceWatcher_Emit" )
-        .with<HasResourceTag>()
-        .in( EcsSystemPhase::POST_UPDATE )
+    ecs_world.system( "Scene_ComponentActivenessUpdater" )
+        .with<NodeRefComponent>()
+        .in( EcsSystemPhase::PRE_UPDATE )
         .each( []( QueryContext& ctx, EcsEntity id ) {
-            auto state = ctx.world().get_singleton<ResourceWatchState>();
-            for (auto& entry : state->pending_events) {
-                if (auto loaded = std::get_if<ResourceService::LoadEvent>( &entry )) {
-                    NC_LOG_DEBUG(
-                        "ResourceService::LoadEvent: RID={} ResourceFormatID={}", loaded->handle.value,
-                        loaded->format_id.to_string()
-                    );
-                    ctx.world().emit_event<ResourceLoadedComponent>( { loaded->handle, loaded->format_id }, id );
-                }
+            auto ref   = ctx.get_component<NodeRefComponent>();
+            auto world = reinterpret_cast<ecs_world_t*>( ctx.world().get_native_handle() );
+            for (auto& comp : ref->node->get_components()) {
+                if (comp.CanToggleActive)
+                    ecs_enable_id( world, id, comp.EcsId, comp.Active );
             }
         } );
 
@@ -108,6 +55,13 @@ void Scene::on_enter()
         .each( []( QueryContext& ctx, EcsEntity ) {
             // auto xform = ctx.get_component<Transform3DComponent>();
         } );
+
+    register_core_plugin( *this );
+    register_window_plugin( *this );
+    register_render_plugin( *this );
+    register_inputs_plugin( *this );
+    register_gui_plugin( *this );
+    register_resources_plugin( *this );
 
     ensure_root_node_exists_();
     on_ready();

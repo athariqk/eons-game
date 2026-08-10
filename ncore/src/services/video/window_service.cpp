@@ -176,6 +176,7 @@ void WindowService::window_set_icon( uint32_t window_id, const Image& image ) co
     if (!SDL_SetWindowIcon( window, surf )) {
         NC_LOG_ERROR_C( log::GRAPHICS, "Failed to set icon for window {}: {}", window_id, SDL_GetError() );
     }
+    SDL_DestroySurface( surf );
     memfree( dst );
 }
 
