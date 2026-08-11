@@ -90,7 +90,7 @@ public:
 
         auto test_model = root()->create_child( "TestModel3D" );
         test_model->add_component<nc::Transform3DComponent>( nc::Transform3DComponent{
-            nc::Vec3( 0, 0, -10 ), nc::Quaternion( 180, nc::Vec3::up() ), nc::Vec3( 1, 1, 1 )
+            nc::Vec3( 0, 0, 0 ), nc::Quaternion( 180, nc::Vec3::up() ), nc::Vec3( 1, 1, 1 )
         } );
         test_model->add_component<TestSpin>();
 

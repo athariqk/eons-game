@@ -14,22 +14,22 @@ namespace nc {
 class ConfFile {
 public:
     ConfFile() = default;
-    ConfFile( std::string p_path )
+    ConfFile( String p_path )
     {
         load( p_path );
     }
 
-    void operator()( const std::string& p_path )
+    void operator()( const String& p_path )
     {
         load( p_path );
     }
-    std::string operator[]( const std::string& key ) const
+    String operator[]( const String& key ) const
     {
         return get( key );
     }
 
-    void load( const std::string& path );
-    std::string get( const std::string& key, const std::string& default_value = "" ) const;
+    void load( const String& path );
+    String get( const String& key, const String& default_value = "" ) const;
     void save();
 
     template<typename T>
@@ -49,8 +49,8 @@ private:
      */
     void read_into( const rtti::RecordInfo& type_info, void* result );
 
-    std::string path;
-    std::unordered_map<std::string, std::string> data;
+    String path;
+    std::unordered_map<String, String> data;
 };
 
 } // namespace nc

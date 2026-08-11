@@ -26,7 +26,6 @@
 #include <ncore/services/video/window_service.h>
 #include <ncore/utils/config.h>
 #include <ncore/utils/log.h>
-#include <utils/logger/log_level.h>
 #include <utils/logger/logger.h>
 #include <utils/logger/sink.h>
 
@@ -35,9 +34,9 @@ namespace nc {
 namespace cfg {
 
 struct Log {
-    int Level            = 0;
-    std::string FilePath = "logs/engine.log";
-    std::string Overrides;
+    int Level       = 0;
+    String FilePath = "logs/engine.log";
+    String Overrides;
     NSTRUCT( Log, NC_F( Log, Level ) NC_F( Log, FilePath ) NC_F( Log, Overrides ) )
 };
 
@@ -58,7 +57,7 @@ void Application::init()
     auto log_cfg  = cfg_file.read<cfg::Log>();
 
     // Set up logging
-    log::Logger::get_instance().add_sink( std::make_shared<log::FileSink>( log_cfg.FilePath ) );
+    log::Logger::get_instance().add_sink( Ref<log::FileSink>::create( log_cfg.FilePath ) );
     log::Logger::get_instance().set_level( log::Level( log_cfg.Level ) );
     std::string_view overrides( log_cfg.Overrides );
     if (!overrides.empty()) {

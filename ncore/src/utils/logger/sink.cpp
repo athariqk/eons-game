@@ -6,12 +6,14 @@ namespace nc::log {
 
 Sink::~Sink() {}
 
-std::string Sink::current_time()
+String Sink::current_time()
 {
     auto now         = std::chrono::system_clock::now();
     auto now_floored = std::chrono::floor<std::chrono::seconds>( now );
-    return std::format( "{:%H:%M:%S}", now_floored );
+    return std::format( "{:%H:%M:%S}", now_floored ).c_str();
 }
+
+//------------------------------------------------------------------------------
 
 void ConsoleSink::write( const LogMsg& msg )
 {
@@ -27,10 +29,12 @@ void ConsoleSink::write( const LogMsg& msg )
 
 void ConsoleSink::flush()
 {
-    fflush( stderr );
+    fflush( stderr ); // commit!
 }
 
-FileSink::FileSink( const std::string& path, size_t max_bytes, size_t max_files ) :
+//------------------------------------------------------------------------------
+
+FileSink::FileSink( const String& path, size_t max_bytes, size_t max_files ) :
     m_path( path ), m_max_bytes( max_bytes ), m_max_files( max_files )
 {
     open();
@@ -54,15 +58,15 @@ void FileSink::write( const LogMsg& msg )
 void FileSink::flush()
 {
     std::lock_guard<std::mutex> lock( m_mutex );
-    m_file.flush();
+    m_file.flush(); // commit!
 }
 
 void FileSink::rotate()
 {
     m_file.close();
     for (int i = static_cast<int>( m_max_files ) - 1; i >= 1; --i) {
-        auto src  = m_path + "." + std::to_string( i );
-        auto dest = m_path + "." + std::to_string( i + 1 );
+        auto src  = m_path + "." + String( std::to_string( i ) );
+        auto dest = m_path + "." + String( std::to_string( i + 1 ) );
         std::rename( src.c_str(), dest.c_str() );
     }
     std::rename( m_path.c_str(), ( m_path + ".1" ).c_str() );

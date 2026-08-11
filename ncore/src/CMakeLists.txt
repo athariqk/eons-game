@@ -53,7 +53,6 @@ target_sources(
           "services/video/render_service.cpp"
           "services/video/window_service.cpp"
           "utils/logger/log_api.cpp"
-          "utils/logger/log_level.h"
           "utils/logger/log_channel.h"
           "utils/logger/log_channel.cpp"
           "utils/logger/logger.h"

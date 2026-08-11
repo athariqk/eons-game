@@ -32,7 +32,7 @@ class NCAPI Node : public NcObject {
 public:
     using NodePool = PagedPool<Node>;
 
-    // lets increase the max number when needed
+    // lets increase the max number later if needed
     inline static const uint32_t MAX_TRACKED_COMPONENTS = 16;
 
     Node() = default;

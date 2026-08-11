@@ -28,7 +28,7 @@ struct NCAPI AppVersion {
     int Major = 0;
     int Minor = 0;
     int Patch = 0;
-    std::string Identifier;
+    String Identifier;
     NSTRUCT(
         AppVersion,
         NC_F( AppVersion, Major ) NC_F( AppVersion, Minor ) NC_F( AppVersion, Patch ) NC_F( AppVersion, Identifier )
@@ -39,9 +39,9 @@ struct NCAPI AppVersion {
  * @brief AppDesc can be used to initialize an app with the given specification.
  */
 struct NCAPI AppDesc {
-    std::string Name;
+    String Name;
     AppVersion Version;
-    std::string ConfigFile;
+    String ConfigFile;
     NSTRUCT( AppDesc, NC_F( AppDesc, Name ) NC_F( AppDesc, Version ) NC_F( AppDesc, ConfigFile ) )
 };
 

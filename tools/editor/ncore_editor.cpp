@@ -27,19 +27,25 @@
 namespace nc::editor {
 
 struct EngineEditorState {
-    Scene* current_scene     = nullptr;
-    ImGuiID dockspace_id     = 0;
-    bool stats_window        = false;
-    bool inputs_window       = false;
-    Node* selected_node      = nullptr;
-    char rename_buffer[256]  = {};
-    Node* renaming_node      = nullptr;
-    bool open_rename         = false;
-    char add_comp_filter[64] = {};
+    Scene* current_scene        = nullptr;
+    ImGuiID dockspace_id        = 0;
+    bool stats_window           = false;
+    bool inputs_window          = false;
+    bool logs_window            = false;
+    Node* selected_node         = nullptr;
+    char rename_buffer[256]     = {};
+    Node* renaming_node         = nullptr;
+    bool open_rename            = false;
+    char add_comp_filter[64]    = {};
+    ImGuiTextBuffer logs_buffer = {};
+    ImGuiTextFilter logs_filter = {};
+    ImVector<int> logs_offsets;
+    bool logs_auto_scroll = true;
+    log::ListenerToken log_listener_token; // for automatic de-registration
     NSTRUCT(
         EngineEditorState, NC_F( EngineEditorState, current_scene ) NC_F( EngineEditorState, dockspace_id )
                                NC_F( EngineEditorState, stats_window ) NC_F( EngineEditorState, inputs_window )
-                                   NC_F( EngineEditorState, selected_node )
+                                   NC_F( EngineEditorState, logs_window ) NC_F( EngineEditorState, selected_node )
     )
 };
 
@@ -306,6 +312,22 @@ void register_editor_plugin( Scene& scene )
     auto editor_state           = scene.get_ecs().emplace_singleton<EngineEditorState>();
     editor_state->current_scene = &scene;
 
+    editor_state->log_listener_token = log::add_listener( [editor_state]( const log::LogMsg& msg ) {
+        if (editor_state->logs_offsets.empty()) {
+            editor_state->logs_offsets.push_back( 0 );
+        }
+
+        int old_size = editor_state->logs_buffer.size();
+        editor_state->logs_buffer.appendf( msg.payload.c_str(), msg.payload.c_str() + msg.payload.size() );
+        editor_state->logs_buffer.append( "\n" );
+
+        for (int i = old_size; i < editor_state->logs_buffer.size(); i++) {
+            if (editor_state->logs_buffer[i] == '\n') {
+                editor_state->logs_offsets.push_back( i + 1 );
+            }
+        }
+    } );
+
     scene.get_ecs()
         .system( "EngineEditorFeature_Init" )
         .with<EngineEditorState>()
@@ -381,6 +403,9 @@ void register_editor_plugin( Scene& scene )
                     ImGui::EndMenu();
                 }
                 if (ImGui::BeginMenu( "Debug" )) {
+                    if (ImGui::MenuItem( "Logs" )) {
+                        state->logs_window = true;
+                    }
                     if (ImGui::MenuItem( "Stats" )) {
                         state->stats_window = true;
                     }
@@ -545,6 +570,50 @@ void register_editor_plugin( Scene& scene )
                     }
                 }
                 ImGui::End();
+            }
+
+            // Debug console
+            if (state->logs_window) {
+                if (ImGui::Begin( "Logs", &state->logs_window )) {
+                    if (ImGui::SmallButton( "Clear" )) {
+                        state->logs_buffer.clear();
+                        state->logs_offsets.clear();
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton( "Copy" ))
+                        ImGui::SetClipboardText( state->logs_buffer.c_str() );
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton( "Say Hello World" ))
+                        NC_LOG_INFO( "Hello World" );
+
+                    ImGui::BeginChild(
+                        "##log", ImVec2( 0.0f, 0.0f ), ImGuiChildFlags_Borders,
+                        ImGuiWindowFlags_AlwaysVerticalScrollbar | ImGuiWindowFlags_AlwaysHorizontalScrollbar
+                    );
+
+                    const char* buf     = state->logs_buffer.begin();
+                    const char* buf_end = state->logs_buffer.end();
+
+                    ImGuiListClipper clipper;
+                    clipper.Begin( state->logs_offsets.Size );
+                    while (clipper.Step()) {
+                        for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++) {
+                            const char* line_start = buf + state->logs_offsets[line_no];
+                            const char* line_end   = ( line_no + 1 < state->logs_offsets.Size )
+                                                         ? ( buf + state->logs_offsets[line_no + 1] - 1 )
+                                                         : buf_end;
+                            ImGui::TextUnformatted( line_start, line_end );
+                        }
+                    }
+
+                    if (state->logs_auto_scroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) {
+                        ImGui::SetScrollHereY( 1.0f );
+                    }
+
+                    ImGui::EndChild();
+
+                    ImGui::End();
+                }
             }
 
             {

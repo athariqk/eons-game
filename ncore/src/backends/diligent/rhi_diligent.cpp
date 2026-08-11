@@ -18,16 +18,16 @@ static void DILIGENT_CALL_TYPE DebugMessageCallbackVk(
 {
     switch (Severity) {
         case Diligent::DEBUG_MESSAGE_SEVERITY_INFO:
-            NC_LOG( log::GRAPHICS, 2, File, Function, Line, "Vulkan: {}", Message );
+            NC_LOG( log::GRAPHICS, log::Level::LINFO, File, Function, Line, "Vulkan: {}", Message );
             break;
         case Diligent::DEBUG_MESSAGE_SEVERITY_WARNING:
-            NC_LOG( log::GRAPHICS, 3, File, Function, Line, "Vulkan: {}", Message );
+            NC_LOG( log::GRAPHICS, log::Level::LWARN, File, Function, Line, "Vulkan: {}", Message );
             break;
         case Diligent::DEBUG_MESSAGE_SEVERITY_ERROR:
-            NC_LOG( log::GRAPHICS, 4, File, Function, Line, "Vulkan: {}", Message );
+            NC_LOG( log::GRAPHICS, log::Level::LERROR, File, Function, Line, "Vulkan: {}", Message );
             break;
         case Diligent::DEBUG_MESSAGE_SEVERITY_FATAL_ERROR:
-            NC_LOG( log::GRAPHICS, 5, File, Function, Line, "Vulkan: {}", Message );
+            NC_LOG( log::GRAPHICS, log::Level::LFATAL, File, Function, Line, "Vulkan: {}", Message );
             break;
     }
 }

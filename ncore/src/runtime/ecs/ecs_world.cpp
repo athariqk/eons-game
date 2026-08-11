@@ -14,22 +14,29 @@ namespace nc {
 
 static void flecs_log_callback( int32_t level, const char* file, int32_t line, const char* msg )
 {
-    int mapped_lvl = 1; // debug
+    log::Level mapped_lvl = log::Level::LDEBUG;
     switch (level) {
         case 0:
-            mapped_lvl = 0; // trace
+            mapped_lvl = log::Level::LTRACE;
             break;
         case -2:
-            mapped_lvl = 3; // warn
+            mapped_lvl = log::Level::LWARN;
             break;
         case -3:
-            mapped_lvl = 4; // error
+            mapped_lvl = log::Level::LERROR;
             break;
         case -4:
-            mapped_lvl = 5; // fatal
+            mapped_lvl = log::Level::LFATAL;
             break;
     }
-    log::log_message( log::ECS, mapped_lvl, file, nullptr, line, msg );
+    log::log_message(
+        log::LogMsg{
+            .channel = log::ECS,
+            .level   = mapped_lvl,
+            .loc     = { .file = file, .func = nullptr, .line = line },
+            .payload = msg
+        }
+    );
 }
 
 // static function so this is called only once

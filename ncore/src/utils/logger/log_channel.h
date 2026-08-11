@@ -8,36 +8,39 @@ namespace nc::log {
 
 class Sink;
 
-class LogChannel {
+class LogChannel : public RefCounted {
+    NCLASS( LogChannel, RefCounted )
+
 public:
     LogChannel();
-    LogChannel( std::string_view name, std::vector<std::shared_ptr<Sink>> p_sinks );
+    LogChannel( StringView name, DynamicArray<Ref<Sink>> p_sinks );
+
+    /**
+	* @brief Push a new log message to this channel, respecting log level.
+	*/
+    void write( const LogMsg& msg );
 
     template<typename... Args>
     void write( Level p_level, SourceLoc p_loc, std::format_string<Args...> p_fmt, Args&&... p_args )
     {
-        if (p_level < level)
-            return;
-
-        LogMsg msg;
+        LogMsg msg{};
         msg.channel = name;
         msg.level   = p_level;
         msg.loc     = p_loc;
-        msg.payload = std::format( p_fmt, std::forward<Args>( p_args )... );
-
-        for (auto& sink : sinks) {
-            if (sink->should_log( p_level ))
-                sink->write( msg );
-        }
+        msg.payload = std::vformat( p_fmt.get(), std::make_format_args( p_args... ) );
+        write( msg );
     }
 
     void flush();
     void set_level( Level p_level );
 
+    void set_callback( void ( *p_cb )( const LogMsg& ) );
+
 private:
-    std::string name;
-    Level level = Level::TRACE;
-    std::vector<std::shared_ptr<Sink>> sinks{};
+    String name;
+    Level level = Level::LTRACE;
+    DynamicArray<Ref<Sink>> sinks{};
+    void ( *callback )( const LogMsg& );
 };
 
 } // namespace nc::log

@@ -2,16 +2,24 @@
 
 #include <fstream>
 #include <mutex>
-#include <string>
 
-#include "log_level.h"
+#include <ncore/core/reference.h>
+#include <ncore/utils/log.h>
 
 namespace nc::log {
 
-class Sink {
+/**
+* @brief Output target for log messages.
+*/
+class Sink : public RefCounted {
+    NCLASS( Sink, RefCounted )
+
 public:
     virtual ~Sink();
 
+    /**
+	* @brief Push a new log message, respecting log level.
+	*/
     virtual void write( const LogMsg& msg ) = 0;
     virtual void flush()                    = 0;
 
@@ -25,21 +33,25 @@ public:
     }
 
 protected:
-    std::string current_time();
+    String current_time();
 
 private:
-    Level level = Level::TRACE;
+    Level level = Level::LTRACE;
 };
 
 class ConsoleSink : public Sink {
+    NCLASS( ConsoleSink, Sink )
+
 public:
     void write( const LogMsg& msg ) override;
     void flush() override;
 };
 
 class FileSink : public Sink {
+    NCLASS( FileSink, Sink )
+
 public:
-    FileSink( const std::string& path, size_t max_bytes = 1024 * 1024 * 5, size_t max_files = 3 );
+    FileSink( const String& path, size_t max_bytes = 1024 * 1024 * 5, size_t max_files = 3 );
 
     void write( const LogMsg& msg ) override;
     void flush() override;
@@ -49,7 +61,7 @@ private:
     void open();
 
     std::ofstream m_file;
-    std::string m_path;
+    String m_path;
     std::mutex m_mutex;
     size_t m_max_bytes;
     size_t m_max_files;
