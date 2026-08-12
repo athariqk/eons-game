@@ -109,6 +109,11 @@ EcsEntityBuilder EcsWorld::entity( const String& name )
     return EcsEntityBuilder( *this, name );
 }
 
+EcsEntityBuilder EcsWorld::entity( EcsEntity entity )
+{
+    return EcsEntityBuilder( *this, entity );
+}
+
 EcsEntity EcsWorld::lookup( StringView entity_name, EcsEntity parent ) const
 {
     auto ent = INVALID_ENTITY_ID;
@@ -245,7 +250,7 @@ EcsEntity EcsWorld::register_component_type( const rtti::TypeInfo* type ) const
 
     ecs_component_desc_t desc{};
     desc._canary = 0;
-    desc.entity  = create_entity_impl_( type->name );
+    desc.entity  = 0; // flecs will automatically create the corresponding named component entity for us
     desc.type    = type_info;
 
     auto comp_id = ecs_component_init( pImpl->world, &desc );
@@ -388,7 +393,7 @@ EcsComponent EcsWorld::set_component_( EcsEntity eid, const rtti::TypeInfo* type
 
 void* EcsWorld::emplace_component_( EcsEntity eid, const rtti::TypeInfo* type )
 {
-    NC_ASSERT_RETVAL( type->is_record(), nullptr, "Emplacing a non-record component is not possible." );
+    NC_FAIL_MSG_RETVAL( type->is_record(), nullptr, "Emplacing a non-record component is not possible." );
 
     EcsComponent registered_comp_id = register_component_type( type );
     if (eid == INVALID_ENTITY_ID) {

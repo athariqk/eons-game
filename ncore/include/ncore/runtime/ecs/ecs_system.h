@@ -143,14 +143,14 @@ public:
     }
 
 private:
-    EcsWorld& world_;
-    String name;
-    EcsQueryBuilder qb_;
-
     EcsEntity create_system_( void* callback, void* ctx, void ( *ctx_free )( void* ) );
 
-    struct Impl;
-    std::unique_ptr<Impl> pImpl;
+    EcsWorld& world_;
+    String name; // the system's debug name.
+    EcsQueryBuilder qb_;
+    EcsSystemPhase phase_ = EcsSystemPhase::UPDATE;
+    int32_t order_        = 0;
+    bool built_           = false;
 };
 
 //------------------------------------------------------------------------------

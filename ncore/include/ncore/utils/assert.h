@@ -10,70 +10,75 @@
 #define NC_DEBUGBREAK() ( void ) 0
 #endif
 
-namespace nc::log {
-NCAPI void handle_assert( const char* expr, const char* msg, const char* file, int line );
-}
+namespace nc {
+
+/**
+ * @brief Used to notify than an assertion has failed.
+ */
+NCAPI void assert_fail( const char* expr, const char* msg, const char* file, int line );
+
+} // namespace nc
 
 #ifdef NC_DEBUG
 
 #define NC_ASSERT( expr, msg )                                                                                         \
     do {                                                                                                               \
         if (!( expr )) {                                                                                               \
-            nc::log::handle_assert( #expr, msg, __FILE__, __LINE__ );                                                  \
+            nc::assert_fail( #expr, msg, __FILE__, __LINE__ );                                                         \
             NC_DEBUGBREAK();                                                                                           \
         }                                                                                                              \
     } while (0)
 
-#define NC_ASSERT_RET( expr, msg )                                                                                     \
+#define NC_FAIL_MSG_RET( expr, msg )                                                                                     \
     do {                                                                                                               \
         if (!( expr )) {                                                                                               \
-            nc::log::handle_assert( #expr, msg, __FILE__, __LINE__ );                                                  \
+            nc::assert_fail( #expr, msg, __FILE__, __LINE__ );                                                         \
             NC_DEBUGBREAK();                                                                                           \
             return;                                                                                                    \
         }                                                                                                              \
     } while (0)
 
-#define NC_ASSERT_RETVAL( expr, ret_val, msg )                                                                         \
+#define NC_FAIL_MSG_RETVAL( expr, ret_val, msg )                                                                         \
     do {                                                                                                               \
         if (!( expr )) {                                                                                               \
-            nc::log::handle_assert( #expr, msg, __FILE__, __LINE__ );                                                  \
+            nc::assert_fail( #expr, msg, __FILE__, __LINE__ );                                                         \
             NC_DEBUGBREAK();                                                                                           \
             return ret_val;                                                                                            \
         }                                                                                                              \
     } while (0)
 
-#define NC_ASSERT_NULL_MSG( ptr, msg )                                                                                 \
+#define NC_VERIFY_MSG( ptr, msg )                                                                                 \
     do {                                                                                                               \
         if (ptr == nullptr) {                                                                                          \
-            nc::log::handle_assert( #ptr, msg, __FILE__, __LINE__ );                                                   \
+            nc::assert_fail( #ptr, msg, __FILE__, __LINE__ );                                                          \
             NC_DEBUGBREAK();                                                                                           \
         }                                                                                                              \
     } while (0)
 
-#define NC_VERIFY( ptr ) NC_ASSERT_NULL_MSG( ptr, "pointer to object is null" )
+#define NC_VERIFY( ptr ) NC_VERIFY_MSG( ptr, "pointer to object is null" )
 
 #else
 
 #define NC_ASSERT( expr, msg )                                                                                         \
     do {                                                                                                               \
         if (!( expr )) {                                                                                               \
-            nc::log::handle_assert( #expr, msg, __FILE__, __LINE__ );                                                  \
+            nc::assert_fail( #expr, msg, __FILE__, __LINE__ );                                                         \
             std::abort();                                                                                              \
         }                                                                                                              \
     } while (0)
 
-#define NC_ASSERT_RET( expr, msg )                                                                                     \
+#define NC_FAIL_MSG_RET( expr, msg )                                                                                     \
     do {                                                                                                               \
         if (!( expr )) {                                                                                               \
-            nc::log::handle_assert( #expr, msg, __FILE__, __LINE__ );                                                  \
+            nc::assert_fail( #expr, msg, __FILE__, __LINE__ );                                                         \
             return;                                                                                                    \
         }                                                                                                              \
     } while (0)
 
-#define NC_ASSERT_RETVAL( expr, ret_val, msg )                                                                         \
+#define NC_FAIL_MSG_RETVAL( expr, ret_val, msg )                                                                         \
     do {                                                                                                               \
         if (!( expr )) {                                                                                               \
-            nc::log::handle_assert( #expr, msg, __FILE__, __LINE__ );                                                  \
+            nc::assert_fail( #expr, msg, __FILE__, __LINE__ );                                                         \
             return ret_val;                                                                                            \
         }                                                                                                              \
     } while (0)
@@ -81,7 +86,7 @@ NCAPI void handle_assert( const char* expr, const char* msg, const char* file, i
 #define NC_VERIFY( ptr )                                                                                               \
     do {                                                                                                               \
         if (ptr == nullptr) {                                                                                          \
-            nc::log::handle_assert( #ptr, "pointer is null reference", __FILE__, __LINE__ );                           \
+            nc::assert_fail( #ptr, "pointer is null reference", __FILE__, __LINE__ );                                  \
             std::abort();                                                                                              \
         }                                                                                                              \
     } while (0)

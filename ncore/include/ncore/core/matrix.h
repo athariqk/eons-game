@@ -5,13 +5,37 @@
 namespace nc {
 
 /**
+ * @brief Mat3 is a 3x3 matrix with column-major order.
+ */
+struct NCAPI Mat3 {
+    Vec3 col0, col1, col2;
+
+    Mat3() = default;
+    Mat3( Vec3 pcol0, Vec3 pcol1, Vec3 pcol2 ) : col0( pcol0 ), col1( pcol1 ), col2( pcol2 ) {}
+
+    static Mat3 identity()
+    {
+        // clang-format off
+        return Mat3(
+            Vec3( 1.0f, 0.0f, 0.0f ),
+			Vec3( 0.0f, 1.0f, 0.0f ),
+			Vec3( 0.0f, 0.0f, 1.0f )
+        );
+        // clang-format on
+    }
+
+    NSTRUCTV( Mat3, NC_F( Mat3, col0 ) NC_F( Mat3, col1 ) NC_F( Mat3, col2 ) )
+};
+
+/**
  * @brief Mat4 is a 4x4 matrix with column-major order.
  */
 struct NCAPI Mat4 {
     Vec4 col0, col1, col2, col3;
 
     Mat4() = default;
-    Mat4( Vec4 pcol0, Vec4 pcol1, Vec4 pcol2, Vec4 pcol3 ) : col0( pcol0 ), col1( pcol1 ), col2( pcol2 ), col3( pcol3 )
+    Mat4( const Vec4& pcol0, const Vec4& pcol1, const Vec4& pcol2, const Vec4& pcol3 ) :
+        col0( pcol0 ), col1( pcol1 ), col2( pcol2 ), col3( pcol3 )
     {}
 
     float* data()
@@ -187,7 +211,17 @@ struct NCAPI Mat4 {
         return !( *this == rhs );
     }
 
-    NSTRUCT( Mat4, NC_F( Mat4, col0 ) NC_F( Mat4, col1 ) NC_F( Mat4, col2 ) NC_F( Mat4, col3 ) )
+    static Mat4 ortho_normalize( const Mat4& m )
+    {
+        return Mat4( m.col0.normalize(), m.col1.normalize(), m.col2.normalize(), m.col3 );
+    }
+
+    Mat4 ortho_normalize() const
+    {
+        return Mat4::ortho_normalize( *this );
+    }
+
+    NSTRUCTV( Mat4, NC_F( Mat4, col0 ) NC_F( Mat4, col1 ) NC_F( Mat4, col2 ) NC_F( Mat4, col3 ) )
 };
 
 } // namespace nc

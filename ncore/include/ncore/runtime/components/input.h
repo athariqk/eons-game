@@ -11,7 +11,7 @@ struct NCAPI InputComponent {
     float roll_rate         = 65.0f;  // deg/s.
     float mouse_sensitivity = 0.15f;  // deg/px.
 
-    NSTRUCT(
+    NSTRUCTV(
         InputComponent,
         NC_F( InputComponent, direction ) NC_F( InputComponent, magnitude ) NC_F( InputComponent, angular_delta )
             NC_F( InputComponent, roll_rate ) NC_F( InputComponent, mouse_sensitivity )

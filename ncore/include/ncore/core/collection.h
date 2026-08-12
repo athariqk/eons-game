@@ -94,7 +94,8 @@ private:
 /**
  * @brief PagedPool is a memory pool that pre-allocates objects of type T
  * in fixed-size chunks. See PagedAllocator for the underlying page allocation
- * mechanism. TODO: write clearer docstring later
+ * mechanism. All pooled objects incur a 1-byte validation flag overhead.
+ * TODO: write clearer docstring later
  *
  * This calls the constructor of T when acquiring an object and calls the
  * destructor of T when releasing it.
@@ -147,9 +148,9 @@ public:
 
     void release( T* obj )
     {
-        NC_ASSERT_RET( obj != nullptr, "Cannot release a null object" );
+        NC_FAIL_MSG_RET( obj != nullptr, "Cannot release a null object" );
         Slot* slot = reinterpret_cast<Slot*>( obj );
-        NC_ASSERT_RET( arena.is_bounded_ptr( slot ), "Object does not belong to this pool" );
+        NC_FAIL_MSG_RET( arena.is_bounded_ptr( slot ), "Object does not belong to this pool" );
 
         obj->~T();
         new ( obj ) FreeList{ free_list };
@@ -208,6 +209,12 @@ public:
         T* it = arena.get( i );
         NC_ASSERT( it, "Out of bounds" );
         return *it;
+    }
+
+    bool is_valid( T* obj )
+    {
+        Slot* slot = reinterpret_cast<Slot*>( obj );
+        return slot->is_alive;
     }
 
     using iterator       = SlotIterator<T, Slot, false>;

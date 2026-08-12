@@ -9,7 +9,7 @@ struct NCAPI MeshComponent {
     RID instance            = 0;
     uint32_t instance_count = 1;
 
-    NSTRUCT(
+    NSTRUCTV(
         MeshComponent,
         NC_F( MeshComponent, source ) NC_F( MeshComponent, instance ) NC_F( MeshComponent, instance_count )
     )

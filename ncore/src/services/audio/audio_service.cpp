@@ -47,7 +47,7 @@ RID AudioService::create_stream( const AudioClip& p_clip )
 
 void AudioService::play_sound( RID stream_rid )
 {
-    NC_ASSERT_RET( stream_rid.is_valid(), "Failed to play sound: invalid handle" );
+    NC_FAIL_MSG_RET( stream_rid.is_valid(), "Failed to play sound: invalid handle" );
 
     auto sound = pImpl->sounds.get( stream_rid );
     if (sound) {

@@ -12,7 +12,6 @@
 #include "renderer/renderer_context.h"
 #include "renderer/renderer_storage.h"
 #include "renderer/vertex_format.h"
-#include "renderer/world_renderer.h"
 #include "rhi.h"
 
 namespace nc {
@@ -32,7 +31,7 @@ class NCAPI RenderService : public IService {
 public:
     struct NCAPI RenderSettings {
         bool VSync = true;
-        NSTRUCT( RenderSettings, NC_F( RenderSettings, VSync ) )
+        NSTRUCTV( RenderSettings, NC_F( RenderSettings, VSync ) )
     };
 
     const RenderSettings& get_settings() const
@@ -69,10 +68,13 @@ public:
     void world_camera_set_z_far( float p_far );
     void world_camera_set_transform( const Mat4& transform );
 
-    Mat4  world_camera_get_transform() const;
+    Mat4 world_camera_get_transform() const;
+    Mat4 world_camera_get_projection() const;
     float world_camera_get_fov() const;
     float world_camera_get_z_near() const;
     float world_camera_get_z_far() const;
+
+    Mat4 world_get_view_matrix() const;
 
     /**
      * @brief Push a new mesh draw call to the draw list to be rendered next frame.
@@ -123,6 +125,7 @@ private:
     };
 
     Camera main_cam;
+    Mat4 view_matrix = Mat4::identity();
 
     // Canvas
     Mat4 ortho_proj = Mat4::identity();

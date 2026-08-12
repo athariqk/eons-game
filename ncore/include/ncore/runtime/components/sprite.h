@@ -10,7 +10,7 @@ struct NCAPI SpriteComponent {
     RID texture;
     Color tint{ 255, 255, 255, 255 };
 
-    NSTRUCT(
+    NSTRUCTV(
         SpriteComponent, NC_F( SpriteComponent, source ) NC_F( SpriteComponent, texture ) NC_F( SpriteComponent, tint )
     )
 };

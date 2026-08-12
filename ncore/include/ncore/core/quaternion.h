@@ -21,7 +21,7 @@ struct NCAPI Quaternion {
 
     Quaternion() = default;
 
-    NSTRUCT( Quaternion, NC_F( Quaternion, w ) NC_F( Quaternion, v ) )
+    NSTRUCTV( Quaternion, NC_F( Quaternion, w ) NC_F( Quaternion, v ) )
 
     /**
      * @brief Initialize a new quaternion from angle axis.
@@ -32,6 +32,32 @@ struct NCAPI Quaternion {
 
         w = std::cos( rad * 0.5f );
         v = axis * std::sin( rad * 0.5f );
+    }
+
+    /**
+     * @brief Initialize a new quaternion from euler angles in ZYX sequence.
+     *
+     * Source:
+     * https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Angles_(in_ZYX_sequence)_to_quaternion_conversion
+     */
+    Quaternion( Vec3 euler_angles )
+    {
+        w   = ( std::cos( euler_angles.x * 0.5f ) * std::cos( euler_angles.y * 0.5f ) *
+                std::cos( euler_angles.z * 0.5f ) ) +
+              ( std::sin( euler_angles.x * 0.5f ) * std::sin( euler_angles.y * 0.5f ) *
+                std::sin( euler_angles.z * 0.5f ) );
+        v.x = ( std::sin( euler_angles.x * 0.5f ) * std::cos( euler_angles.y * 0.5f ) *
+                std::cos( euler_angles.z * 0.5f ) ) -
+              ( std::cos( euler_angles.x * 0.5f ) * std::sin( euler_angles.y * 0.5f ) *
+                std::sin( euler_angles.z * 0.5f ) );
+        v.y = ( std::cos( euler_angles.x * 0.5f ) * std::sin( euler_angles.y * 0.5f ) *
+                std::cos( euler_angles.z * 0.5f ) ) +
+              ( std::sin( euler_angles.x * 0.5f ) * std::cos( euler_angles.y * 0.5f ) *
+                std::sin( euler_angles.z * 0.5f ) );
+        v.z = ( std::cos( euler_angles.x * 0.5f ) * std::cos( euler_angles.y * 0.5f ) *
+                std::sin( euler_angles.z * 0.5f ) ) -
+              ( std::sin( euler_angles.x * 0.5f ) * std::sin( euler_angles.y * 0.5f ) *
+                std::cos( euler_angles.z * 0.5f ) );
     }
 
     Quaternion multiply( const Quaternion& q ) const
@@ -77,7 +103,7 @@ struct NCAPI Quaternion {
         float v_len = v.length();
         float v_sin = std::sin( v_len );
         float w_exp = std::expf( w );
-        Vec3 unit_v = v_len > 0 ? Vec3::normalize( v ) : v;
+        Vec3 unit_v = v_len > 0 ? Vec3::normalize( v ) : v; // unit vector
         Quaternion r;
         r.w   = std::cos( v_len ) * w_exp;
         r.v.x = unit_v.x * v_sin * w_exp;
@@ -91,7 +117,7 @@ struct NCAPI Quaternion {
         float m     = length();
         float a     = std::acosf( w / m );
         float v_len = v.length();
-        Vec3 unit_v = v_len > 0 ? Vec3::normalize( v ) : v;
+        Vec3 unit_v = v_len > 0 ? Vec3::normalize( v ) : v; // unit vector
         Quaternion r;
         r.w   = std::log( m );
         r.v.x = unit_v.x * a;
@@ -216,11 +242,92 @@ struct NCAPI Quaternion {
     }
 
     /**
-     * @brief Returns a new Quaternion where all the values are between [0, 1].
+     * @brief Compose a 3x3 rotation matrix from quaternion.
      */
-    Quaternion normalized() const
+    static Mat3 to_rotation_matrix( const Quaternion& q )
+    {
+        // apparently people do this to avoid floating-point errors?
+        // auto uq = Quaternion::normalize( rotation );
+
+        // quaternion-to-matrix conversion
+        // https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation#From_a_quaternion_to_an_orthogonal_matrix
+        // the slow version
+        // auto r00 = ( uq.w * uq.w ) + ( uq.v.x * uq.v.x ) - ( uq.v.y * uq.v.y ) - ( uq.v.z * uq.v.z );
+        // auto r01 = ( 2.0f * ( uq.v.x * uq.v.y ) ) - ( 2.0f * ( uq.w * uq.v.z ) );
+        // auto r02 = ( 2.0f * ( uq.v.x * uq.v.z ) ) + ( 2.0f * ( uq.w * uq.v.y ) );
+        // auto r10 = ( 2.0f * ( uq.v.x * uq.v.y ) ) + ( 2.0f * ( uq.w * uq.v.z ) );
+        // auto r11 = ( uq.w * uq.w ) - ( uq.v.x * uq.v.x ) + ( uq.v.y * uq.v.y ) - ( uq.v.z * uq.v.z );
+        // auto r12 = ( 2.0f * ( uq.v.y * uq.v.z ) ) - ( 2.0f * ( uq.w * uq.v.x ) );
+        // auto r20 = ( 2.0f * ( uq.v.x * uq.v.z ) ) - ( 2.0f * ( uq.w * uq.v.y ) );
+        // auto r21 = ( 2.0f * ( uq.v.y * uq.v.z ) ) + ( 2.0f * ( uq.w * uq.v.x ) );
+        // auto r22 = ( uq.w * uq.w ) - ( uq.v.x * uq.v.x ) - ( uq.v.y * uq.v.y ) + ( uq.v.z * uq.v.z );
+        // the fast version (no unit normalization)
+        auto s   = 2 / ( q.w * q.w + q.v.length_sqr() );
+        auto xs  = q.v.x * s;  // bs
+        auto ys  = q.v.y * s;  // cs
+        auto zs  = q.v.z * s;  // ds
+        auto wx  = q.w * xs;   // ab
+        auto xx  = q.v.x * xs; // bb
+        auto yy  = q.v.y * ys; // cc
+        auto wy  = q.w * ys;   // ac
+        auto xy  = q.v.x * ys; // bc
+        auto yz  = q.v.y * zs; // cd
+        auto wz  = q.w * zs;   // ad
+        auto xz  = q.v.x * zs; // bd
+        auto zz  = q.v.z * zs; // dd
+        auto r00 = 1 - yy - zz;
+        auto r01 = xy - wz;
+        auto r02 = xz + wy;
+        auto r10 = xy + wz;
+        auto r11 = 1 - xx - zz;
+        auto r12 = yz - wx;
+        auto r20 = xz - wy;
+        auto r21 = yz + wx;
+        auto r22 = 1 - xx - yy;
+
+        // clang-format off
+        return Mat3(
+			Vec3( r00, r01, r02 ),
+			Vec3( r10, r11, r12 ),
+			Vec3( r20, r21, r22 )
+		);
+        // clang-format on
+    }
+
+    /**
+     * @brief Convert quaternion to angles in ZYX sequence.
+     *
+     * Source:
+     * https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_angles_(in_ZYX_sequence)_conversion
+     *
+     * @param q Quaternion to be converted. Will be normalized before conversion.
+     * @return The euler angles representation in ZYX sequence.
+     */
+    static Vec3 to_euler_angles( const Quaternion& q )
+    {
+        auto u = Quaternion::normalize( q );
+        auto x = std::atan2f( 2 * ( u.w * u.v.x + u.v.y * u.v.z ), 1 - ( 2 * ( u.v.x * u.v.x + u.v.y * u.v.y ) ) );
+        auto y = -math::kHALF_PI + 2 * std::atan2f(
+                                           std::sqrtf( 1 + ( 2 * ( u.w * u.v.y - u.v.x * u.v.z ) ) ),
+                                           std::sqrtf( 1 - ( 2 * ( u.w * u.v.y - u.v.x * u.v.z ) ) )
+                                       );
+        auto z = std::atan2f( 2 * ( u.w * u.v.z + u.v.x * u.v.y ), 1 - ( 2 * ( u.v.y * u.v.y + u.v.z * u.v.z ) ) );
+        return Vec3( x, y, z );
+    }
+
+    Quaternion normalize() const
     {
         return normalize( *this );
+    }
+
+    Mat3 to_rotation_matrix() const
+    {
+        return to_rotation_matrix( *this );
+    }
+
+    Vec3 to_euler_angles() const
+    {
+        return to_euler_angles( *this );
     }
 };
 

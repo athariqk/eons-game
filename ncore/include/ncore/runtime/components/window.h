@@ -8,52 +8,50 @@
 namespace nc {
 
 struct NCAPI WindowComponent {
-    uint32_t id            = UINT32_MAX; // The window ID, from WindowService
-    std::string_view title = "NCORE Engine";
-    Vec2 resolution{};
-    bool fullscreen        = false;
-    bool visible           = false;
-    bool vsync             = false;
-    float pixels_per_meter = 0;
+    uint32_t SourceId      = UINT32_MAX; // The window ID, from WindowService.
+    std::string_view Title = "NCORE Engine";
+    Vec2 Resolution        = Vec2();
+    bool Fullscreen        = false;
+    bool Visible           = false;
+    bool VSync             = false;
+    float PixelsPerMeter   = 0;
 
-    NSTRUCT(
-        WindowComponent, NC_F( WindowComponent, id ) NC_F( WindowComponent, title ) NC_F( WindowComponent, resolution )
-                             NC_F( WindowComponent, fullscreen ) NC_F( WindowComponent, visible )
-                                 NC_F( WindowComponent, vsync ) NC_F( WindowComponent, pixels_per_meter )
+    NSTRUCTV(
+        WindowComponent,
+        NC_F( WindowComponent, SourceId ) NC_F( WindowComponent, Title ) NC_F( WindowComponent, Resolution )
+            NC_F( WindowComponent, Fullscreen ) NC_F( WindowComponent, Visible ) NC_F( WindowComponent, VSync )
+                NC_F( WindowComponent, PixelsPerMeter )
     )
 };
 
 struct NCAPI SwapChainComponent {
-    RID swapchain{};
-    Vec2 size{};
-    bool vsync = false;
+    RID swapchain = 0;
+    Vec2 size     = Vec2();
+    bool vsync    = false;
 
-    NSTRUCT(
+    NSTRUCTV(
         SwapChainComponent,
         NC_F( SwapChainComponent, swapchain ) NC_F( SwapChainComponent, size ) NC_F( SwapChainComponent, vsync )
     )
 };
 
 struct NCAPI SwapChainResizedComponent {
-    Vec2 size{};
-    NSTRUCT( SwapChainResizedComponent, NC_F( SwapChainResizedComponent, size ) )
+    Vec2 size = Vec2();
+    NSTRUCTV( SwapChainResizedComponent, NC_F( SwapChainResizedComponent, size ) )
 };
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wzero-length-array"
 struct NCAPI MainWindowTag {
-    NSTRUCT( MainWindowTag )
+    NSTRUCT1( MainWindowTag )
 };
-#pragma clang diagnostic pop
 
 struct NCAPI GuiStateComponent {
-    ImGuiContext* imctx = nullptr;
-    HashMap<ImGuiMouseCursor, CursorType> cursor_map;
-    RID material;
-    RID last_tex_id;
-    NSTRUCT(
-        GuiStateComponent,
-        NC_F( GuiStateComponent, imctx ) NC_F( GuiStateComponent, cursor_map ) NC_F( GuiStateComponent, material )
+    ImGuiContext* ImGuiCtx = nullptr;
+    HashMap<ImGuiMouseCursor, CursorType> CursorMap;
+    RID Material;
+    RID LastTexId;
+    NSTRUCTV(
+        GuiStateComponent, NC_F( GuiStateComponent, ImGuiCtx ) NC_F( GuiStateComponent, CursorMap )
+                               NC_F( GuiStateComponent, Material ) NC_F( GuiStateComponent, LastTexId )
     )
 };
 

@@ -139,7 +139,7 @@ types in public header.
 `.self()`, `.expr(dsl)`, `.build()`. `with_pair` takes `EcsEntity` (uint64_t)
 so no Flecs types leak into public headers.
 
-**RTTI (types.h)** — `NSTRUCT(T, ...)` auto-registers types at static init.
+**RTTI (types.h)** — `NSTRUCTV(T, ...)` auto-registers types at static init.
 `TypeInfo` has virtual `to_string()`. `RecordInfo` overrides to format
 `Name(f1=v1, f2=v2)`. `FieldInfo::value_to_string()` dispatches by field
 category and width. Primitives (int, float, bool, etc.) registered in
@@ -194,7 +194,7 @@ category and width. Primitives (int, float, bool, etc.) registered in
 
 ## Component / RTTI Conventions
 
-- All component structs should have `NSTRUCT(T, NC_F(T, field1) NC_F(T, field2) ...)`.
+- All component structs should have `NSTRUCTV(T, NC_F(T, field1) NC_F(T, field2) ...)`.
 - `NSTRUCT` auto-registers at static init via `TypeRegistry::register_type<TRecordInfo<T>, T>(#T)`.
 - Primitives are registered in `TypeRegistry::initialize()` in `ncore/src/core/types.cpp`.
 - If a header is transitively included by `types.h` before the `NSTRUCT` macro

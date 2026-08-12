@@ -36,7 +36,7 @@ struct OrganismAIComponent {
 
     std::string get_current_behavior() const;
 
-    NSTRUCT(
+    NSTRUCTV(
         OrganismAIComponent,
         NC_F( OrganismAIComponent, state ) NC_F( OrganismAIComponent, move_speed )
             NC_F( OrganismAIComponent, absorb_speed ) NC_F( OrganismAIComponent, is_food_found )

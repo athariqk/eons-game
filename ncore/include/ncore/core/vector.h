@@ -272,7 +272,7 @@ public:
         return out;
     }
 
-    Derived normalize()
+    Derived normalize() const
     {
         return normalize( self() );
     }
@@ -310,7 +310,7 @@ struct NCAPI Vec2 : CommonVectorOps<Vec2, float, 2> {
         return &x;
     }
 
-    NSTRUCT( Vec2, NC_F( Vec2, x ) NC_F( Vec2, y ) )
+    NSTRUCTV( Vec2, NC_F( Vec2, x ) NC_F( Vec2, y ) )
 };
 
 /**
@@ -366,7 +366,7 @@ struct NCAPI Vec3 : CommonVectorOps<Vec3, float, 3> {
         return Vec3( -1, 0, 0 );
     }
 
-    NSTRUCT( Vec3, NC_F( Vec3, x ) NC_F( Vec3, y ) NC_F( Vec3, z ) )
+    NSTRUCTV( Vec3, NC_F( Vec3, x ) NC_F( Vec3, y ) NC_F( Vec3, z ) )
 };
 
 /**
@@ -387,7 +387,7 @@ struct NCAPI Vec4 : CommonVectorOps<Vec4, float, 4> {
         return &x;
     }
 
-    NSTRUCT( Vec4, NC_F( Vec4, x ) NC_F( Vec4, y ) NC_F( Vec4, z ) NC_F( Vec4, w ) )
+    NSTRUCTV( Vec4, NC_F( Vec4, x ) NC_F( Vec4, y ) NC_F( Vec4, z ) NC_F( Vec4, w ) )
 };
 
 } // namespace nc

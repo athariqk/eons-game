@@ -59,7 +59,7 @@ public:
         }
 
         auto class_name = rtti::TypeRegistry::get<T>().name;
-        NC_ASSERT_RETVAL( false, nullptr, std::format( "Service '{}' could not be resolved", class_name ).c_str() );
+        NC_FAIL_MSG_RETVAL( false, nullptr, std::format( "Service '{}' could not be resolved", class_name ).c_str() );
     }
 
     /**
@@ -101,7 +101,7 @@ public:
             }
         }
 
-        NC_ASSERT_RETVAL( false, nullptr, std::format( "Service '{}' could not be resolved", name ).c_str() );
+        NC_FAIL_MSG_RETVAL( false, nullptr, std::format( "Service '{}' could not be resolved", name ).c_str() );
     }
 
     Error init_all( ConfFile& cfg_file )

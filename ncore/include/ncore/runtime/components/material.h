@@ -12,7 +12,7 @@ struct NCAPI MaterialComponent {
     RID instance = 0;
     Array<RID, 8> textures{};
 
-    NSTRUCT(
+    NSTRUCTV(
         MaterialComponent,
         NC_F( MaterialComponent, source ) NC_F( MaterialComponent, instance ) NC_F( MaterialComponent, textures )
     )

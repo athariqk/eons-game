@@ -5,19 +5,14 @@
 
 namespace nc {
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wzero-length-array"
-
 struct NCAPI HasResourceTag {
-    NSTRUCT( HasResourceTag )
+    NSTRUCT1( HasResourceTag )
 };
-
-#pragma clang diagnostic pop
 
 struct NCAPI ResourceLoadedComponent {
     RID resource_id;
     ResourceFormatID format_id;
-    NSTRUCT(
+    NSTRUCTV(
         ResourceLoadedComponent, NC_F( ResourceLoadedComponent, resource_id ) NC_F( ResourceLoadedComponent, format_id )
     )
 };

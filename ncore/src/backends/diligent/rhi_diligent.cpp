@@ -911,7 +911,7 @@ Diligent::IDeviceContext* DiligentRHI::get_active_ctx_()
     auto resolve = [this]( auto& defer_map, auto& immediate_ctx, const char* err_msg ) -> Diligent::IDeviceContext* {
         if (is_deferred) {
             auto ref = defer_map.get( active_deferred_id );
-            NC_ASSERT_NULL_MSG( ref, err_msg );
+            NC_VERIFY_MSG( ref, err_msg );
             return ref->RawPtr();
         }
         NC_ASSERT( immediate_ctx, err_msg );

@@ -14,7 +14,7 @@ Node::Node( const String& p_name, Scene* p_scene, Node* p_parent ) : scene( p_sc
     NC_VERIFY( p_parent );
 
     internal_id =
-        scene->get_ecs().entity( p_name ).child_of( p_parent->internal_id ).with<NodeRefComponent>( { this } ).build();
+        scene->get_ecs().entity( p_name ).child_of( p_parent->internal_id ).add<NodeRefComponent>( { this } ).build();
 }
 
 Node::~Node() {}
@@ -36,7 +36,7 @@ bool Node::operator!=( const Node& other ) const
 
 void Node::reparent_to( Node* p_parent )
 {
-    NC_ASSERT_RET(
+    NC_FAIL_MSG_RET(
         !p_parent->is_descendant_of( *this ),
         std::format( "Trying to reparent node `{}` to its descendant `{}`", get_name(), p_parent->get_name() ).c_str()
     );
@@ -196,6 +196,20 @@ bool Node::has_component( const rtti::TypeInfo* type ) const
 void Node::remove_component( const rtti::TypeInfo* type )
 {
     remove_component_( type );
+}
+
+void Node::set_component_enabled( const rtti::TypeInfo* type, bool enabled )
+{
+    auto comp_id = scene->get_ecs().register_component_type( type );
+    auto world   = reinterpret_cast<ecs_world_t*>( scene->get_ecs().get_native_handle() );
+    ecs_enable_id( world, internal_id, comp_id, enabled );
+}
+
+bool Node::is_component_enabled( const rtti::TypeInfo* type ) const
+{
+    auto comp_id = scene->get_ecs().register_component_type( type );
+    auto world   = reinterpret_cast<ecs_world_t*>( scene->get_ecs().get_native_handle() );
+    return ecs_is_enabled_id( world, internal_id, comp_id );
 }
 
 void Node::emit_event_( const rtti::TypeInfo* type, EcsEntity target, const void* data ) const

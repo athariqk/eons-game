@@ -1,15 +1,21 @@
 add_library(ncore_editor SHARED)
 
 target_sources(ncore_editor PRIVATE
-    ncore_editor.h
-    ncore_editor.cpp
-    imgui_style.h
+    include/editor/ncore_editor.h
+    include/editor/imgui_style.h
+    src/editor_state.h
+    src/ncore_editor.cpp
 )
 
-target_link_libraries(ncore_editor PUBLIC ncore)
-target_link_libraries(ncore_editor PRIVATE ImGui freetype)
+set(IMGUIZMO_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
 
-target_include_directories(ncore_editor PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+add_subdirectory(external/imguizmo)
+
+target_link_libraries(ncore_editor PUBLIC ncore)
+target_link_libraries(imguizmo PUBLIC ImGui)
+target_link_libraries(ncore_editor PRIVATE ImGui imguizmo freetype)
+
+target_include_directories(ncore_editor PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 set_target_properties(ncore_editor PROPERTIES
     DEBUG_POSTFIX "_d"

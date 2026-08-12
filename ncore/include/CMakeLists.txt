@@ -63,7 +63,6 @@ target_sources(
          "ncore/services/video/renderer/renderer_context.h"
          "ncore/services/video/renderer/renderer_storage.h"
          "ncore/services/video/renderer/vertex_format.h"
-         "ncore/services/video/renderer/world_renderer.h"
          "ncore/services/video/window/window_event.h"
          "ncore/services/video/window/window_types.h"
          "ncore/services/video/rhi_types.h"

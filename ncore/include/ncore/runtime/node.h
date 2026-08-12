@@ -17,8 +17,8 @@ class Scene;
 struct NCAPI Component {
     EcsComponent EcsId   = 0;
     bool Active          = false;
-    bool CanToggleActive = false;
-    NSTRUCT( Component, NC_F( Component, EcsId ) NC_F( Component, Active ) )
+    bool Toggleable = false;
+    NSTRUCTV( Component, NC_F( Component, EcsId ) NC_F( Component, Active ) )
 };
 
 /**
@@ -198,6 +198,21 @@ public:
     void emit_event( const T& data, EcsEntity target ) const
     {
         emit_event_( rtti::TypeRegistry::find<T>(), target, &data );
+    }
+
+    void set_component_enabled( const rtti::TypeInfo* type, bool enabled );
+    bool is_component_enabled( const rtti::TypeInfo* type ) const;
+
+    template<class T>
+    void set_component_enabled( bool enabled )
+    {
+        set_component_enabled( rtti::TypeRegistry::find<T>(), enabled );
+    }
+
+    template<class T>
+    bool is_component_enabled() const
+    {
+        return is_component_enabled( rtti::TypeRegistry::find<T>() );
     }
 
     StringView get_name() const;

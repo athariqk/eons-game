@@ -37,7 +37,7 @@ struct Log {
     int Level       = 0;
     String FilePath = "logs/engine.log";
     String Overrides;
-    NSTRUCT( Log, NC_F( Log, Level ) NC_F( Log, FilePath ) NC_F( Log, Overrides ) )
+    NSTRUCTV( Log, NC_F( Log, Level ) NC_F( Log, FilePath ) NC_F( Log, Overrides ) )
 };
 
 } // namespace cfg

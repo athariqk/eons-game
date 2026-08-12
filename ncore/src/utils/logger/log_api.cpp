@@ -65,7 +65,7 @@ StringView level_color( Level l )
 
 void log_message( const LogMsg& msg )
 {
-    if (msg.level < g_MIN_LOG_LEVEL.load())
+    if (msg.level < kMIN_LOG_LEVEL.load())
         return;
     log::Logger::get_instance().channel( msg.channel )->write( msg );
 }

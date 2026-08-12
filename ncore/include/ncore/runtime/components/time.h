@@ -10,7 +10,7 @@ struct NCAPI TimeComponent {
     double fps         = 0;
     double accumulator = 0.0;
 
-    NSTRUCT(
+    NSTRUCTV(
         TimeComponent, NC_F( TimeComponent, ticks ) NC_F( TimeComponent, frame_count ) NC_F( TimeComponent, fps )
                            NC_F( TimeComponent, accumulator )
     )

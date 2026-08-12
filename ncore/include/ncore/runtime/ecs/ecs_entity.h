@@ -23,14 +23,15 @@ class EcsWorld;
 
 class NCAPI EcsEntityBuilder {
 public:
-    EcsEntityBuilder( EcsWorld& world, const String& name );
+    EcsEntityBuilder( EcsWorld& p_world, const String& p_name );
+    EcsEntityBuilder( EcsWorld& p_world, EcsEntity p_entity );
     ~EcsEntityBuilder();
 
     EcsEntityBuilder( const EcsEntityBuilder& )            = delete;
     EcsEntityBuilder& operator=( const EcsEntityBuilder& ) = delete;
 
     template<class T>
-    EcsEntityBuilder& with( const T& value )
+    EcsEntityBuilder& add( const T& value )
     {
         auto* type = rtti::TypeRegistry::find<T>();
         NC_ASSERT( type, "component type not reflected via NSTRUCT" );
@@ -44,7 +45,7 @@ public:
      * @brief Append component(s) to the build list.
      */
     template<typename T, typename... Args>
-    EcsEntityBuilder& with( Args&&... args )
+    EcsEntityBuilder& add( Args&&... args )
     {
         auto* type = rtti::TypeRegistry::find<T>();
         NC_ASSERT( type, "component type not reflected via NSTRUCT" );
@@ -59,27 +60,20 @@ public:
      * @brief Append a component pair to the build list.
      */
     template<typename First, typename Second, typename... Args>
-    EcsEntityBuilder& with_pair( Args&&... args )
+    EcsEntityBuilder& add_pair( Args&&... args )
     {
         auto* f_type = rtti::TypeRegistry::find<First>();
         auto* s_type = rtti::TypeRegistry::find<Second>();
         NC_ASSERT( f_type, "pair first type not reflected via NSTRUCT" );
         NC_ASSERT( s_type, "pair second type not reflected via NSTRUCT" );
-        DynamicArray<uint8_t> data( sizeof( First ) );
-        First value{ std::forward<Args>( args )... };
-        std::memcpy( data.data(), &value, sizeof( First ) );
-        add_pair_data_( f_type, s_type, std::move( data ) );
-        return *this;
-    }
-
-    template<typename First, typename Second>
-    EcsEntityBuilder& add_pair()
-    {
-        auto* f_type = rtti::TypeRegistry::find<First>();
-        auto* s_type = rtti::TypeRegistry::find<Second>();
-        NC_ASSERT( f_type, "pair first type not reflected via NSTRUCT" );
-        NC_ASSERT( s_type, "pair second type not reflected via NSTRUCT" );
-        add_pair_tag_( f_type, s_type );
+        if constexpr (sizeof...( Args ) != 0) {
+            DynamicArray<uint8_t> data( sizeof( First ) );
+            First value{ std::forward<Args>( args )... };
+            std::memcpy( data.data(), &value, sizeof( First ) );
+            add_pair_data_( f_type, s_type, std::move( data ) );
+        } else {
+            add_pair_tag_( f_type, s_type );
+        }
         return *this;
     }
 
@@ -94,6 +88,11 @@ public:
     EcsEntityBuilder& alias( StringView alias );
 
     /**
+     * @brief Mark the most recently added component as initially disabled.
+     */
+    EcsEntityBuilder& disabled();
+
+    /**
      * @brief Finalize entity creation and set its components, in order.
      */
     EcsEntity build();
@@ -103,8 +102,25 @@ private:
     void add_pair_data_( const rtti::TypeInfo* first, const rtti::TypeInfo* second, DynamicArray<uint8_t>&& data );
     void add_pair_tag_( const rtti::TypeInfo* first, const rtti::TypeInfo* second );
 
-    struct Impl;
-    std::unique_ptr<Impl> pImpl;
+    struct ComponentEntry {
+        const rtti::TypeInfo* type;
+        DynamicArray<uint8_t> data;
+        bool disabled = false;
+    };
+    struct PairEntry {
+        EcsComponent first_id;
+        EcsComponent second_id;
+        const rtti::TypeInfo* comp_type = nullptr; // if nullptr, means this "component" is tag-only
+        DynamicArray<uint8_t> comp_data;
+    };
+
+    EcsWorld& world;
+    String name;
+    EcsEntity id = 0;
+    String alias_; // TODO: could be a node path :)
+    DynamicArray<ComponentEntry> components;
+    DynamicArray<PairEntry> pairs;
+    bool built = false;
 };
 
 } // namespace nc

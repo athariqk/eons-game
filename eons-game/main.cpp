@@ -1,5 +1,4 @@
-#include <ncore_editor.h>
-
+#include <editor/ncore_editor.h>
 #include <ncore.hpp>
 #include <ncore/runtime/components/camera.h>
 #include <ncore/runtime/components/input.h>
@@ -13,7 +12,7 @@ struct TestSpin {
     bool switch_rot      = true;
     nc::Quaternion start = nc::Quaternion( 180, nc::Vec3::up() );
     nc::Quaternion end   = nc::Quaternion( 0, nc::Vec3::up() );
-    NSTRUCT(
+    NSTRUCTV(
         TestSpin, NC_F( TestSpin, rotation ) NC_F( TestSpin, switch_rot ) NC_F( TestSpin, start ) NC_F( TestSpin, end )
     )
 };
@@ -89,9 +88,9 @@ public:
         auto pmesh_rid = res_svc->add( pmesh );
 
         auto test_model = root()->create_child( "TestModel3D" );
-        test_model->add_component<nc::Transform3DComponent>( nc::Transform3DComponent{
-            nc::Vec3( 0, 0, 0 ), nc::Quaternion( 180, nc::Vec3::up() ), nc::Vec3( 1, 1, 1 )
-        } );
+        test_model->add_component<nc::Transform3DComponent>(
+            nc::Transform3DComponent{ nc::Vec3( 0, 0, 0 ), nc::Quaternion( 180, nc::Vec3::up() ), nc::Vec3( 1, 1, 1 ) }
+        );
         test_model->add_component<TestSpin>();
 
         auto cube_mesh = test_model->create_child( "CubeMesh" );
@@ -148,7 +147,7 @@ public:
                     nc::Quaternion weird_swaying = nc::Quaternion( 30, nc::Vec3::forward() );
                     spin.end                     = spin.start * flip_180 * weird_swaying;
                 }
-                xform.rotation = nc::Quaternion::slerp( spin.start, spin.end, std::min( spin.rotation, 1.0f ) );
+                xform.Rotation = nc::Quaternion::slerp( spin.start, spin.end, std::min( spin.rotation, 1.0f ) );
             },
             nc::EcsSystemPhase::UPDATE
         );

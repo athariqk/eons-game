@@ -11,7 +11,7 @@ struct FoodComponent {
     bool caught = false;
     nc::Vec2 eater_pos;
 
-    NSTRUCT(
+    NSTRUCTV(
         FoodComponent, NC_F( FoodComponent, cur_energy ) NC_F( FoodComponent, caught ) NC_F( FoodComponent, eater_pos )
     )
 };

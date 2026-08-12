@@ -40,7 +40,7 @@ void ResourceService::shutdown()
 
 void ResourceService::register_importer( std::unique_ptr<IResourceImporter>&& importer )
 {
-    NC_ASSERT_RET( num_importers < MAX_IMPORTERS, "Reached number of max importers, won't register" );
+    NC_FAIL_MSG_RET( num_importers < MAX_IMPORTERS, "Reached number of max importers, won't register" );
     importers[num_importers++] = std::move( importer );
 }
 

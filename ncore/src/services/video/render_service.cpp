@@ -178,7 +178,8 @@ void RenderService::frame_end( float delta_time )
     RendererStorage::ShaderConstants constants;
     // precompute the V*P part of M*V*P so we don't have do it on the GPU.
     // here we take the inverse of camera transform to get its view matrix.
-    constants.ViewProjMatrix = main_cam.projection * main_cam.transform.affine_inverse();
+    view_matrix              = main_cam.transform.affine_inverse();
+    constants.ViewProjMatrix = main_cam.projection * view_matrix;
     constants.Time           = time;
     constants.DeltaTime      = delta_time;
 
@@ -264,6 +265,11 @@ Mat4 RenderService::world_camera_get_transform() const
     return main_cam.transform;
 }
 
+Mat4 RenderService::world_camera_get_projection() const
+{
+    return main_cam.projection;
+}
+
 float RenderService::world_camera_get_fov() const
 {
     return main_cam.fov;
@@ -277,6 +283,11 @@ float RenderService::world_camera_get_z_near() const
 float RenderService::world_camera_get_z_far() const
 {
     return main_cam.z_far;
+}
+
+Mat4 RenderService::world_get_view_matrix() const
+{
+    return view_matrix;
 }
 
 void RenderService::world_draw_instance( RID gpu_mesh, const Mat4& transform, RID material, uint32_t instancing )

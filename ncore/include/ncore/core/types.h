@@ -723,7 +723,18 @@ struct NCAPI StringClass : public TRecordInfo<String> {
 
 //------------------------------------------------------------------------------
 
-#define NSTRUCT( T, ... )                                                                                              \
+#define NSTRUCT1( T )                                                                                                  \
+    inline static ::nc::rtti::TRecordInfo<T>& nc_info_##T()                                                            \
+    {                                                                                                                  \
+        static ::nc::rtti::TRecordInfo<T>& ci = []() -> ::nc::rtti::TRecordInfo<T>& {                                  \
+            auto& c = ::nc::rtti::TypeRegistry::register_type<::nc::rtti::TRecordInfo<T>, T>( #T );                    \
+            return c;                                                                                                  \
+        }();                                                                                                           \
+        return ci;                                                                                                     \
+    }                                                                                                                  \
+    inline static const int nc_trig_##T = ( nc_info_##T(), 0 );
+
+#define NSTRUCTV( T, ... )                                                                                             \
     inline static ::nc::rtti::TRecordInfo<T>& nc_info_##T()                                                            \
     {                                                                                                                  \
         static ::nc::rtti::FieldInfo nc_flds_##T[] = { __VA_ARGS__ };                                                  \

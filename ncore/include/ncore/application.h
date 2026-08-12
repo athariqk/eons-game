@@ -29,7 +29,7 @@ struct NCAPI AppVersion {
     int Minor = 0;
     int Patch = 0;
     String Identifier;
-    NSTRUCT(
+    NSTRUCTV(
         AppVersion,
         NC_F( AppVersion, Major ) NC_F( AppVersion, Minor ) NC_F( AppVersion, Patch ) NC_F( AppVersion, Identifier )
     )
@@ -42,7 +42,7 @@ struct NCAPI AppDesc {
     String Name;
     AppVersion Version;
     String ConfigFile;
-    NSTRUCT( AppDesc, NC_F( AppDesc, Name ) NC_F( AppDesc, Version ) NC_F( AppDesc, ConfigFile ) )
+    NSTRUCTV( AppDesc, NC_F( AppDesc, Name ) NC_F( AppDesc, Version ) NC_F( AppDesc, ConfigFile ) )
 };
 
 /**

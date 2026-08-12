@@ -24,7 +24,7 @@ struct NCAPI ResourceFormatID {
     bool is_valid() const;
     std::string to_string() const;
 
-    NSTRUCT( ResourceFormatID, NC_F( ResourceFormatID, id ) )
+    NSTRUCTV( ResourceFormatID, NC_F( ResourceFormatID, id ) )
 };
 
 class NCAPI IResource : public RefCounted {

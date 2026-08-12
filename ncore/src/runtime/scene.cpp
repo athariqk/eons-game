@@ -32,7 +32,7 @@ void Scene::on_enter()
             auto ref   = ctx.get_component<NodeRefComponent>();
             auto world = reinterpret_cast<ecs_world_t*>( ctx.world().get_native_handle() );
             for (auto& comp : ref->node->get_components()) {
-                if (comp.CanToggleActive)
+                if (comp.Toggleable)
                     ecs_enable_id( world, id, comp.EcsId, comp.Active );
             }
         } );
@@ -52,9 +52,9 @@ void Scene::on_enter()
         .with<Transform3DComponent>()
         .up()
         .each( []( QueryContext& ctx, EcsEntity ) {
-            auto self   = ctx.get_component<Transform3DComponent>( 0 );
-            auto parent = ctx.get_component<Transform3DComponent>( 1 );
-            self->world = parent->world * self->get_matrix();
+            auto self    = ctx.get_component<Transform3DComponent>( 0 );
+            auto parent  = ctx.get_component<Transform3DComponent>( 1 );
+            self->Global = parent->Global * self->to_matrix();
         } );
 
     register_core_plugin( *this );
@@ -95,9 +95,14 @@ Node* Scene::root()
     return root_node;
 }
 
+bool Scene::is_node_valid( Node* node )
+{
+    return node && node_pool.is_valid( node ) && !pending_node_deletions.contains( node );
+}
+
 void Scene::queue_destroy_node( Node* node )
 {
-    pending_node_deletions.push_back( node );
+    pending_node_deletions.insert( node );
 }
 
 void Scene::ensure_root_node_exists_()
@@ -109,9 +114,9 @@ void Scene::ensure_root_node_exists_()
     root_node->scene       = this;
     root_node->node_pool   = &node_pool;
     root_node->internal_id = ecs_world.entity( "RootNode" )
-                                 .with<NodeRefComponent>( { root_node } )
-                                 .with<RootNodeTag>()
-                                 .with<Transform3DComponent>()
+                                 .add<NodeRefComponent>( { root_node } )
+                                 .add<RootNodeTag>()
+                                 .add<Transform3DComponent>()
                                  .build();
 
     NC_LOG_TRACE( "Root node was missing but is now created with entity ID {}", root_node->internal_id );

@@ -30,32 +30,26 @@ static void trampoline_each( ecs_iter_t* it )
 // EcsSystemBuilder
 //------------------------------------------------------------------------------
 
-struct EcsSystemBuilder::Impl {
-    EcsSystemPhase phase_ = EcsSystemPhase::UPDATE;
-    int32_t order_        = 0;
-    bool built_           = false;
-};
-
 EcsSystemBuilder::EcsSystemBuilder( EcsWorld& world, const String& p_name ) :
-    world_( world ), name( std::move( p_name ) ), qb_( world, name + "_qb" ), pImpl( std::make_unique<Impl>() )
+    world_( world ), name( std::move( p_name ) ), qb_( world, name + "_qb" )
 {}
 
 EcsSystemBuilder::~EcsSystemBuilder()
 {
-    if (!pImpl->built_) {
+    if (!built_) {
         NC_LOG_WARN_C( log::ECS, "EcsSystemBuilder '{}' discarded without being built", name );
     }
 }
 
 EcsSystemBuilder& EcsSystemBuilder::in( EcsSystemPhase phase )
 {
-    pImpl->phase_ = phase;
+    phase_ = phase;
     return *this;
 }
 
 EcsSystemBuilder& EcsSystemBuilder::order( int32_t priority )
 {
-    pImpl->order_ = priority;
+    order_ = priority;
     return *this;
 }
 
@@ -64,7 +58,7 @@ struct EcsQueryBuilder::Impl : public detail::FlecsQueryBuilder {};
 
 struct SystemOrder {
     int32_t value = 0;
-    NSTRUCT( SystemOrder, NC_F( SystemOrder, value ) )
+    NSTRUCTV( SystemOrder, NC_F( SystemOrder, value ) )
 };
 
 EcsEntity EcsSystemBuilder::run( void ( *callback )( QueryContext& ) )
@@ -86,21 +80,21 @@ EcsEntity EcsSystemBuilder::create_system_( void* callback, void* ctx, void ( *c
     ecs_system_desc_t sdesc{};
     sdesc.entity   = ecs_entity_init( world, &sys_ent_desc );
     sdesc.query    = qb_.pImpl->get_as_descriptor();
-    sdesc.phase    = detail::map_phase( pImpl->phase_ );
+    sdesc.phase    = detail::map_phase( phase_ );
     sdesc.callback = reinterpret_cast<ecs_iter_action_t>( callback );
     sdesc.ctx      = ctx;
     sdesc.ctx_free = reinterpret_cast<ecs_ctx_free_t>( ctx_free );
 
-	ecs_entity_t id = ecs_system_init( world, &sdesc );
+    ecs_entity_t id = ecs_system_init( world, &sdesc );
     NC_ASSERT( id != 0, "Failed to register ECS system" );
 
-    if (pImpl->order_ != 0) {
-        int32_t order_val = pImpl->order_;
-        auto validate     = world_.entity( name ).with<SystemOrder>( order_val ).build();
-        NC_ASSERT( validate == id, "EcsEntityBuilder produces non-matching entity id" );
+    if (order_ != 0) {
+        int32_t order_val = order_;
+        auto comp_id      = world_.register_component_type( rtti::TypeRegistry::find<SystemOrder>() );
+        ecs_set_id( world, id, comp_id, sizeof( order_val ), &order_val );
     }
 
-    pImpl->built_    = true;
+    built_           = true;
     qb_.pImpl->built = true;
     return static_cast<EcsEntity>( id );
 }

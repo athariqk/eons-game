@@ -28,7 +28,7 @@ public:
     float aggresiveness;
     nc::Color membrane_color;
 
-    NSTRUCT(
+    NSTRUCTV(
         Genes, NC_F( Genes, energy_capacity ) NC_F( Genes, speed ) NC_F( Genes, size ) NC_F( Genes, aggresiveness )
                    NC_F( Genes, membrane_color )
     )

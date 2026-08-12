@@ -56,7 +56,7 @@ IncludeCategories:
   - Regex: '^<(generated)[/.]'
     Priority: 3
   # Engine headers
-  - Regex: '^<(ncore|kernel|modules|utils|runtime|scene|shaders)[/.]'
+  - Regex: '^<(ncore|kernel|modules|utils|runtime|scene|shaders|editor)[/.]'
     Priority: 4
   # Game headers
   - Regex: '^<microcosmos[/.]'

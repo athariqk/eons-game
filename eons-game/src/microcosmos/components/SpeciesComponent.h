@@ -20,7 +20,7 @@ struct SpeciesComponent {
 
     [[nodiscard]] std::string get_name_formatted( bool identifier ) const;
 
-    NSTRUCT(
+    NSTRUCTV(
         SpeciesComponent,
         NC_F( SpeciesComponent, population_count ) NC_F( SpeciesComponent, age ) NC_F( SpeciesComponent, name )
             NC_F( SpeciesComponent, genus ) NC_F( SpeciesComponent, epithet ) NC_F( SpeciesComponent, genes )

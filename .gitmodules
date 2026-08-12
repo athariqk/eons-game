@@ -25,3 +25,6 @@
 [submodule "ncore/external/freetype"]
 	path = ncore/external/freetype
 	url = https://github.com/freetype/freetype.git
+[submodule "tools/editor/external/imguizmo"]
+	path = tools/editor/external/imguizmo
+	url = https://github.com/CedricGuillemet/ImGuizmo.git

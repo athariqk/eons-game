@@ -114,20 +114,20 @@ Error Box2DPhysicsImpl::init( ConfFile& cfg_file )
 
 void Box2DPhysicsImpl::step() const
 {
-    NC_ASSERT_RET( b2World_IsValid( world_id ), "Physics world is not initialized" );
+    NC_FAIL_MSG_RET( b2World_IsValid( world_id ), "Physics world is not initialized" );
     b2World_Step( world_id, time_step, sub_step_count );
 }
 
 void Box2DPhysicsImpl::shutdown()
 {
-    NC_ASSERT_RET( b2World_IsValid( world_id ), "Physics world is not initialized" );
+    NC_FAIL_MSG_RET( b2World_IsValid( world_id ), "Physics world is not initialized" );
     b2DestroyWorld( world_id );
     NC_LOG_TRACE_C( log::PHYSICS, "Destroyed physics world" );
 }
 
 RID Box2DPhysicsImpl::create_shape( ShapeType type )
 {
-    NC_ASSERT_RETVAL( b2World_IsValid( world_id ), RID(), "Physics world is not initialized" );
+    NC_FAIL_MSG_RETVAL( b2World_IsValid( world_id ), RID(), "Physics world is not initialized" );
     b2ShapeDef shapeDef = b2DefaultShapeDef();
     shapeDef.density    = 1.0f;
     // shapeDef.friction   = 0.3f;
@@ -136,7 +136,7 @@ RID Box2DPhysicsImpl::create_shape( ShapeType type )
 
 RID Box2DPhysicsImpl::create_rigidbody()
 {
-    NC_ASSERT_RETVAL( b2World_IsValid( world_id ), RID(), "Physics world is not initialized" );
+    NC_FAIL_MSG_RETVAL( b2World_IsValid( world_id ), RID(), "Physics world is not initialized" );
     b2BodyDef bodyDef     = b2DefaultBodyDef();
     bodyDef.type          = b2_dynamicBody;
     bodyDef.position      = b2Vec2{ 0, 0 };
@@ -154,8 +154,8 @@ RID Box2DPhysicsImpl::create_softbody()
 
 void Box2DPhysicsImpl::destroy_body( RID body )
 {
-    NC_ASSERT_RET( b2World_IsValid( world_id ), "Physics world is not initialized" );
-    NC_ASSERT_RET( is_body_valid( body ), "Body is invalid" );
+    NC_FAIL_MSG_RET( b2World_IsValid( world_id ), "Physics world is not initialized" );
+    NC_FAIL_MSG_RET( is_body_valid( body ), "Body is invalid" );
     auto b2id = body_map.at( body );
     b2DestroyBody( b2id );
     body_map.erase( body );
@@ -168,39 +168,39 @@ bool Box2DPhysicsImpl::is_body_valid( RID body ) const
 
 bool Box2DPhysicsImpl::is_body_awake( RID body ) const
 {
-    NC_ASSERT_RETVAL( is_body_valid( body ), false, "Body is invalid" );
+    NC_FAIL_MSG_RETVAL( is_body_valid( body ), false, "Body is invalid" );
     return b2Body_IsAwake( body_map.at( body ) );
 }
 
 Vec2 Box2DPhysicsImpl::get_body_position( RID body ) const
 {
-    NC_ASSERT_RETVAL( is_body_valid( body ), Vec2(), "Body is invalid" );
+    NC_FAIL_MSG_RETVAL( is_body_valid( body ), Vec2(), "Body is invalid" );
     auto pos = b2Body_GetPosition( body_map.at( body ) );
     return Vec2( pos.x, pos.y );
 }
 
 float Box2DPhysicsImpl::get_body_angle( RID body ) const
 {
-    NC_ASSERT_RETVAL( is_body_valid( body ), 0.0f, "Body is invalid" );
+    NC_FAIL_MSG_RETVAL( is_body_valid( body ), 0.0f, "Body is invalid" );
     return b2Rot_GetAngle( b2Body_GetRotation( body_map.at( body ) ) );
 }
 
 Vec2 Box2DPhysicsImpl::get_body_velocity( RID body ) const
 {
-    NC_ASSERT_RETVAL( is_body_valid( body ), Vec2(), "Body is invalid" );
+    NC_FAIL_MSG_RETVAL( is_body_valid( body ), Vec2(), "Body is invalid" );
     auto vel = b2Body_GetLinearVelocity( body_map.at( body ) );
     return Vec2( vel.x, vel.y );
 }
 
 void Box2DPhysicsImpl::apply_linear_impulse( RID body, const Vec2& impulse )
 {
-    NC_ASSERT_RET( is_body_valid( body ), "Body is invalid" );
+    NC_FAIL_MSG_RET( is_body_valid( body ), "Body is invalid" );
     b2Body_ApplyLinearImpulseToCenter( body_map.at( body ), b2Vec2{ impulse.x, impulse.y }, true );
 }
 
 void Box2DPhysicsImpl::apply_linear_force( RID body, const Vec2& force )
 {
-    NC_ASSERT_RET( is_body_valid( body ), "Body is invalid" );
+    NC_FAIL_MSG_RET( is_body_valid( body ), "Body is invalid" );
     b2Body_ApplyForceToCenter( body_map.at( body ), b2Vec2{ force.x, force.y }, true );
 }
 

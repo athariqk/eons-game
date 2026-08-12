@@ -82,20 +82,20 @@ void register_window_plugin( Scene& scene )
 
             auto window_eid = ctx.world()
                                   .entity( "PrimaryWindow" )
-                                  .with<MainWindowTag>()
-                                  .with<WindowComponent>( WindowComponent{
-                                      .title            = app_desc->Name,
-                                      .resolution       = Vec2( 1280.0f, 720.0f ),
-                                      .fullscreen       = gfx->window->get_settings().Fullscreen,
-                                      .visible          = true,
-                                      .vsync            = gfx->renderer->get_settings().VSync,
-                                      .pixels_per_meter = gfx->window->get_settings().PixelsPerMeter
+                                  .add<MainWindowTag>()
+                                  .add<WindowComponent>( WindowComponent{
+                                      .Title          = app_desc->Name,
+                                      .Resolution     = Vec2( 1280.0f, 720.0f ),
+                                      .Fullscreen     = gfx->window->get_settings().Fullscreen,
+                                      .Visible        = true,
+                                      .VSync          = gfx->renderer->get_settings().VSync,
+                                      .PixelsPerMeter = gfx->window->get_settings().PixelsPerMeter
                                   } )
                                   .build();
 
             ctx.world()
                 .entity()
-                .with<SwapChainComponent>( SwapChainComponent{ .vsync = gfx->renderer->get_settings().VSync } )
+                .add<SwapChainComponent>( SwapChainComponent{ .vsync = gfx->renderer->get_settings().VSync } )
                 .child_of( window_eid )
                 .build();
         } );
@@ -107,15 +107,15 @@ void register_window_plugin( Scene& scene )
             auto win = ctx.get_component<WindowComponent>();
             auto gfx = ctx.world().get_singleton<GraphicsServices>();
 
-            if (win->id == UINT32_MAX) {
-                win->id = gfx->window->window_create();
-                gfx->window->window_set_fullscreen( win->id, win->fullscreen );
-                gfx->window->window_set_resolution( win->id, win->resolution );
-                gfx->window->window_set_centered( win->id );
+            if (win->SourceId == UINT32_MAX) {
+                win->SourceId = gfx->window->window_create();
+                gfx->window->window_set_fullscreen( win->SourceId, win->Fullscreen );
+                gfx->window->window_set_resolution( win->SourceId, win->Resolution );
+                gfx->window->window_set_centered( win->SourceId );
             }
 
-            gfx->window->window_set_title( win->id, win->title );
-            gfx->window->window_set_visible( win->id, win->visible );
+            gfx->window->window_set_title( win->SourceId, win->Title );
+            gfx->window->window_set_visible( win->SourceId, win->Visible );
         } );
 
     scene.get_ecs()
@@ -130,9 +130,9 @@ void register_window_plugin( Scene& scene )
             auto gfx = ctx.world().get_singleton<GraphicsServices>();
 
             if (!rd->swapchain.is_valid()) {
-                auto whnd     = gfx->window->get_native_whnd( win->id );
-                rd->swapchain = gfx->renderer->swapchain_create( whnd, win->resolution );
-                rd->size      = win->resolution;
+                auto whnd     = gfx->window->get_native_whnd( win->SourceId );
+                rd->swapchain = gfx->renderer->swapchain_create( whnd, win->Resolution );
+                rd->size      = win->Resolution;
             }
         } );
 
@@ -154,7 +154,7 @@ void register_window_plugin( Scene& scene )
         .each( []( QueryContext& ctx, EcsEntity ) {
             auto win = ctx.get_component<WindowComponent>();
             auto gfx = ctx.world().get_singleton<GraphicsServices>();
-            gfx->window->window_pop( win->id );
+            gfx->window->window_pop( win->SourceId );
         } );
 
     scene.get_ecs()
@@ -181,7 +181,7 @@ void register_window_plugin( Scene& scene )
 
             for (const auto& ev : events) {
                 if (auto resize = std::get_if<WindowResizeEvent>( &ev )) {
-                    if (resize->window_id == win->id) {
+                    if (resize->window_id == win->SourceId) {
                         sc->size = Vec2( static_cast<float>( resize->width ), static_cast<float>( resize->height ) );
                         ctx.world().emit_event<SwapChainResizedComponent>( { sc->size }, id );
                         gfx->renderer->swapchain_set_size( sc->swapchain, sc->size );
@@ -202,7 +202,7 @@ void register_window_plugin( Scene& scene )
 
             for (const auto& ev : events) {
                 if (auto close = std::get_if<WindowCloseEvent>( &ev )) {
-                    if (close->window_id == win->id) {
+                    if (close->window_id == win->SourceId) {
                         ctx.world().destroy_entity( id );
                     }
                 }
@@ -246,10 +246,10 @@ void register_render_plugin( Scene& scene )
             auto gfx   = ctx.world().get_singleton<GraphicsServices>();
             auto cam   = ctx.get_component<CameraComponent>();
             auto xform = ctx.get_component<Transform3DComponent>();
-            gfx->renderer->world_camera_set_fov( cam->fov );
-            gfx->renderer->world_camera_set_z_far( cam->z_far );
-            gfx->renderer->world_camera_set_z_near( cam->z_near );
-            gfx->renderer->world_camera_set_transform( xform->world );
+            gfx->renderer->world_camera_set_fov( cam->FieldOfView );
+            gfx->renderer->world_camera_set_z_far( cam->zFar );
+            gfx->renderer->world_camera_set_z_near( cam->zNear );
+            gfx->renderer->world_camera_set_transform( xform->Global );
         } );
 
     scene.get_ecs()
@@ -310,7 +310,7 @@ void register_render_plugin( Scene& scene )
 
             if (mesh->instance && material->instance) {
                 gfx->renderer->world_draw_instance(
-                    mesh->instance, xform->world, material->instance, mesh->instance_count
+                    mesh->instance, xform->Global, material->instance, mesh->instance_count
                 );
             }
         } );
@@ -453,7 +453,7 @@ void register_inputs_plugin( Scene& scene )
             auto input = ctx.get_component<InputComponent>();
 
             auto dt = static_cast<float>( ctx.delta_time() );
-            xform->translation += xform->rotation * input->direction * input->magnitude * dt;
+            xform->Translation += xform->Rotation * input->direction * input->magnitude * dt;
 
             // 6DOF camera rotation.
             // NOTE: suffers from the so called "holonomy" where if you
@@ -462,7 +462,7 @@ void register_inputs_plugin( Scene& scene )
             // Quaternion yaw( input->angular_delta.x * dt, Vec3::up() );
             // Quaternion pitch( input->angular_delta.y * dt, Vec3::right() );
             // Quaternion roll( input->angular_delta.z * dt, Vec3::forward() );
-            // xform->rotation          = xform->rotation * roll * yaw * pitch;
+            // xform->Rotation          = xform->Rotation * roll * yaw * pitch;
 
             // i can't get the above working correctly without unwanted roll
             // so have the one below for now...
@@ -475,21 +475,21 @@ void register_inputs_plugin( Scene& scene )
 
             // yaw around *world* up
             Quaternion yaw( yaw_amount, Vec3::up() );
-            xform->rotation = yaw * xform->rotation;
+            xform->Rotation = yaw * xform->Rotation;
 
             // pitch around *local* right
             Quaternion pitch( pitch_amount, Vec3::right() );
-            xform->rotation = xform->rotation * pitch;
+            xform->Rotation = xform->Rotation * pitch;
 
             // this roll is useless as it is ignored by the world-up yaw,
             // need to find another solution
             if (!math::is_equal_approx( roll_amount, 0 )) {
                 Quaternion roll( roll_amount, Vec3::forward() );
-                xform->rotation = xform->rotation * roll;
+                xform->Rotation = xform->Rotation * roll;
             }
 
             // good practice
-            xform->rotation = Quaternion::normalize( xform->rotation );
+            xform->Rotation = Quaternion::normalize( xform->Rotation );
         } );
 
     scene.get_ecs()
@@ -506,13 +506,13 @@ void register_inputs_plugin( Scene& scene )
             auto rmb_clicked =
                 !ImGui::GetIO().WantCaptureMouse && io->inputs->is_mouse_button_pressed( ButtonIndex::RIGHT );
             if (io->inputs->is_key_pressed( Key::ESC )) {
-                cam->mouse_locked = false;
+                cam->MouseCaptured = false;
             } else if (rmb_clicked) {
-                cam->mouse_locked = !cam->mouse_locked;
+                cam->MouseCaptured = !cam->MouseCaptured;
             }
-            gfx->window->window_set_mouse_locked( win_id, cam->mouse_locked );
+            gfx->window->window_set_mouse_locked( win_id, cam->MouseCaptured );
 
-            if (cam->mouse_locked) {
+            if (cam->MouseCaptured) {
                 // confine to center each frame
                 gfx->window->window_set_mouse_position( win_id, gfx->window->window_get_resolution( win_id ) / 2 );
             }
@@ -534,7 +534,7 @@ void register_gui_plugin( Scene& scene )
             auto state = ctx.get_component<GuiStateComponent>();
 
             IMGUI_CHECKVERSION();
-            state->imctx      = ImGui::CreateContext();
+            state->ImGuiCtx   = ImGui::CreateContext();
             ImGuiIO& imgui_io = ImGui::GetIO();
             imgui_io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
             imgui_io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors | ImGuiBackendFlags_RendererHasVtxOffset |
@@ -544,19 +544,19 @@ void register_gui_plugin( Scene& scene )
             imgui_io.FontDefault = imgui_io.Fonts->AddFontFromFileTTF( "assets/fonts/SpaceGrotesk-Medium.ttf" );
 
             for (int i = 0; i < ImGuiMouseCursor_COUNT; i++) {
-                auto imgui_cursor               = static_cast<ImGuiMouseCursor>( i );
-                auto cursor_type                = cursor_type_to_imgui_cursor( imgui_cursor );
-                state->cursor_map[imgui_cursor] = cursor_type;
+                auto imgui_cursor              = static_cast<ImGuiMouseCursor>( i );
+                auto cursor_type               = cursor_type_to_imgui_cursor( imgui_cursor );
+                state->CursorMap[imgui_cursor] = cursor_type;
             }
 
-            ImGui::SetCurrentContext( state->imctx );
+            ImGui::SetCurrentContext( state->ImGuiCtx );
 
             auto tmpl_rid = io->resources->load( "materials/canvas.material" );
             auto tmpl     = io->resources->get<MaterialTemplate>( tmpl_rid );
             NC_VERIFY( tmpl );
             auto mat = gfx->renderer->material_create( *tmpl );
 
-            state->material = mat; // TODO: why are we even storing the mat in the global state when
+            state->Material = mat; // TODO: why are we even storing the mat in the global state when
                                    // we're creating a dedicated entity material down below?
 
             // ctx.world()
@@ -588,8 +588,8 @@ void register_gui_plugin( Scene& scene )
                 ImGui::GetIO().Fonts->RemoveFont( font );
             }
 
-            if (state->imctx)
-                ImGui::DestroyContext( state->imctx );
+            if (state->ImGuiCtx)
+                ImGui::DestroyContext( state->ImGuiCtx );
         } );
 
     scene.get_ecs()
@@ -689,15 +689,15 @@ void register_gui_plugin( Scene& scene )
 
             ImGui::Render();
 
-            auto wanted_cursor = state->cursor_map.at( ImGui::GetMouseCursor() );
+            auto wanted_cursor = state->CursorMap.at( ImGui::GetMouseCursor() );
             gfx->window->set_cursor_type( wanted_cursor );
 
             ImDrawData* dd = ImGui::GetDrawData();
-            if (!dd || dd->DisplaySize.x <= 0 || dd->DisplaySize.y <= 0 || !state->material.is_valid()) {
+            if (!dd || dd->DisplaySize.x <= 0 || dd->DisplaySize.y <= 0 || !state->Material.is_valid()) {
                 NC_LOG_TRACE_C(
                     log::GRAPHICS, "SceneGuiPlugin_EndFrame: skip (dd={} disp={:.0f}x{:.0f} mat_valid={})",
                     static_cast<void*>( dd ), dd ? dd->DisplaySize.x : 0, dd ? dd->DisplaySize.y : 0,
-                    state->material.is_valid()
+                    state->Material.is_valid()
                 );
                 return;
             }
@@ -775,12 +775,12 @@ void register_gui_plugin( Scene& scene )
                     auto idx_count  = cmd.ElemCount;
 
                     RID tex_id = reinterpret_cast<uintptr_t>( cmd.GetTexID() );
-                    if (tex_id != state->last_tex_id) {
+                    if (tex_id != state->LastTexId) {
                         NC_LOG_DEBUG_C(
-                            log::GRAPHICS, "  texture change: {} -> {}", state->last_tex_id.value, tex_id.value
+                            log::GRAPHICS, "  texture change: {} -> {}", state->LastTexId.value, tex_id.value
                         );
-                        gfx->renderer->material_set_texture( state->material, tex_id, 0 );
-                        state->last_tex_id = tex_id;
+                        gfx->renderer->material_set_texture( state->Material, tex_id, 0 );
+                        state->LastTexId = tex_id;
                     }
 
                     NC_LOG_TRACE_C(
@@ -788,7 +788,7 @@ void register_gui_plugin( Scene& scene )
                         vert_count, idx_count, clip_rect.x, clip_rect.y, clip_rect.w, clip_rect.h
                     );
                     gfx->renderer->canvas_draw_triangles(
-                        { vtx, vert_count }, { idx, idx_count }, state->material, clip_rect
+                        { vtx, vert_count }, { idx, idx_count }, state->Material, clip_rect
                     );
                 }
             }

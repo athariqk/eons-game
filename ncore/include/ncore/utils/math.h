@@ -6,6 +6,7 @@ namespace nc::math {
 
 static float kPI_OVER_180 = 0.01745329252f;
 static float k180_OVER_PI = 57.2957795131f;
+static float kHALF_PI     = 1.57079632679;
 
 /**
  * @brief Test if a ~= b within a floating-point epsilon error.

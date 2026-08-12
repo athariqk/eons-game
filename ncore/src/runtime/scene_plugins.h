@@ -12,12 +12,12 @@ class Scene;
 struct NCAPI RenderState {
     Vec2 display_size{};
     RID white_texture;
-    NSTRUCT( RenderState, NC_F( RenderState, display_size ) )
+    NSTRUCTV( RenderState, NC_F( RenderState, display_size ) )
 };
 
 struct NCAPI ResourceWatchState {
     DynamicArray<ResourceService::Event> pending_events;
-    NSTRUCT( ResourceWatchState, NC_F( ResourceWatchState, pending_events ) )
+    NSTRUCTV( ResourceWatchState, NC_F( ResourceWatchState, pending_events ) )
 };
 
 /**

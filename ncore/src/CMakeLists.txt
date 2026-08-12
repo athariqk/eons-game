@@ -49,7 +49,6 @@ target_sources(
           "services/io/shader_compiler.cpp"
           "services/video/renderer/vertex_format.cpp"
           "services/video/renderer/renderer_storage.cpp"
-          "services/video/renderer/world_renderer.cpp"
           "services/video/render_service.cpp"
           "services/video/window_service.cpp"
           "utils/logger/log_api.cpp"
@@ -59,8 +58,7 @@ target_sources(
           "utils/logger/logger.cpp"
           "utils/logger/sink.h"
           "utils/logger/sink.cpp"
-          "utils/logger/assert_handler.h"
-          "utils/logger/assert_handler.cpp"
+          "utils/assert.cpp"
           "utils/config.cpp"
           "utils/four_cc.cpp")
 

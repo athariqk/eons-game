@@ -3,58 +3,43 @@
 
 namespace nc {
 
-Mat4 nc::Transform3DComponent::get_matrix() const
+Mat4 nc::Transform3DComponent::to_matrix() const
 {
-    // apparently people do this to avoid floating-point errors?
-    // auto uq = Quaternion::normalize( rotation );
-
-    // quaternion-to-matrix conversion
-    // https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation#From_a_quaternion_to_an_orthogonal_matrix
-    // the slow version
-    // auto r00 = ( uq.w * uq.w ) + ( uq.v.x * uq.v.x ) - ( uq.v.y * uq.v.y ) - ( uq.v.z * uq.v.z );
-    // auto r01 = ( 2.0f * ( uq.v.x * uq.v.y ) ) - ( 2.0f * ( uq.w * uq.v.z ) );
-    // auto r02 = ( 2.0f * ( uq.v.x * uq.v.z ) ) + ( 2.0f * ( uq.w * uq.v.y ) );
-    // auto r10 = ( 2.0f * ( uq.v.x * uq.v.y ) ) + ( 2.0f * ( uq.w * uq.v.z ) );
-    // auto r11 = ( uq.w * uq.w ) - ( uq.v.x * uq.v.x ) + ( uq.v.y * uq.v.y ) - ( uq.v.z * uq.v.z );
-    // auto r12 = ( 2.0f * ( uq.v.y * uq.v.z ) ) - ( 2.0f * ( uq.w * uq.v.x ) );
-    // auto r20 = ( 2.0f * ( uq.v.x * uq.v.z ) ) - ( 2.0f * ( uq.w * uq.v.y ) );
-    // auto r21 = ( 2.0f * ( uq.v.y * uq.v.z ) ) + ( 2.0f * ( uq.w * uq.v.x ) );
-    // auto r22 = ( uq.w * uq.w ) - ( uq.v.x * uq.v.x ) - ( uq.v.y * uq.v.y ) + ( uq.v.z * uq.v.z );
-    // the fast version (no unit normalization)
-    auto s   = 2 / ( rotation.w * rotation.w + rotation.v.length_sqr() );
-    auto xs  = rotation.v.x * s;  // bs
-    auto ys  = rotation.v.y * s;  // cs
-    auto zs  = rotation.v.z * s;  // ds
-    auto wx  = rotation.w * xs;   // ab
-    auto xx  = rotation.v.x * xs; // bb
-    auto yy  = rotation.v.y * ys; // cc
-    auto wy  = rotation.w * ys;   // ac
-    auto xy  = rotation.v.x * ys; // bc
-    auto yz  = rotation.v.y * zs; // cd
-    auto wz  = rotation.w * zs;   // ad
-    auto xz  = rotation.v.x * zs; // bd
-    auto zz  = rotation.v.z * zs; // dd
-    auto r00 = 1 - yy - zz;
-    auto r01 = xy - wz;
-    auto r02 = xz + wy;
-    auto r10 = xy + wz;
-    auto r11 = 1 - xx - zz;
-    auto r12 = yz - wx;
-    auto r20 = xz - wy;
-    auto r21 = yz + wx;
-    auto r22 = 1 - xx - yy;
+    Mat3 r = Rotation.to_rotation_matrix();
 
     // clang-format off
 	// TransformMatrix = Translation * Rotation * Scale
 	Mat4 matrix = Mat4(
-		Vec4( scale.x * r00, scale.x * r10, scale.x * r20, 0 ),
-		Vec4( scale.y * r01, scale.y * r11, scale.y * r21, 0 ),
-		Vec4( scale.z * r02, scale.z * r12, scale.z * r22, 0 ),
-		Vec4( translation.x, translation.y, translation.z, 1 )
+		Vec4( Scale.x * r.col0.x, Scale.x * r.col1.x, Scale.x * r.col2.x, 0 ),
+		Vec4( Scale.y * r.col0.y, Scale.y * r.col1.y, Scale.y * r.col2.y, 0 ),
+		Vec4( Scale.z * r.col0.z, Scale.z * r.col1.z, Scale.z * r.col2.z, 0 ),
+		Vec4( Translation.x, Translation.y, Translation.z, 1 )
 	);
     // clang-format on
 
     return matrix;
+}
+
+void Transform3DComponent::from_matrix( const Mat4& xform )
+{
+    // this is adapted from ImGuizmo::DecomposeMatrixToComponents
+
+    Scale.x = Vec3( xform.col0.x, xform.col0.y, xform.col0.z ).length();
+    Scale.y = Vec3( xform.col1.x, xform.col1.y, xform.col1.z ).length();
+    Scale.z = Vec3( xform.col2.x, xform.col2.y, xform.col2.z ).length();
+
+    Mat4 r = xform.ortho_normalize();
+
+    Vec3 euler;
+    euler.x  = atan2f( r.col1.z, r.col2.z );
+    euler.y  = atan2f( -r.col0.z, sqrtf( r.col1.z * r.col1.z + r.col2.z * r.col2.z ) );
+    euler.z  = atan2f( r.col0.y, r.col0.x );
+    Rotation = Quaternion( euler ); // i've no idea how to extract quaternions directly from transform matrix,
+                                    // so we just convert euler to quaternion here...
+
+    Translation.x = r.col3.x;
+    Translation.y = r.col3.y;
+    Translation.z = r.col3.z;
 }
 
 } // namespace nc

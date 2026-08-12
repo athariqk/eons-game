@@ -46,15 +46,15 @@ struct NCAPI LogMsg {
     String payload;
 };
 
-static std::atomic<Level> g_MIN_LOG_LEVEL = Level::LTRACE;
+static std::atomic<Level> kMIN_LOG_LEVEL = Level::LTRACE;
 
 inline void set_min_level( Level level )
 {
-    g_MIN_LOG_LEVEL.store( level );
+    kMIN_LOG_LEVEL.store( level );
 }
 inline Level get_min_level()
 {
-    return g_MIN_LOG_LEVEL.load();
+    return kMIN_LOG_LEVEL.load();
 }
 
 inline void silence()

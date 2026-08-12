@@ -1,11 +1,13 @@
-#include "ncore_editor.h"
-
+// clang-format off
 #include <imgui_internal.h>
+#include <ImGuizmo.h> // must come after imgui includes
+// clang-format on
 
+#include <editor/imgui_style.h>
+#include <editor/ncore_editor.h>
 #include <ncore/core/color.h>
 #include <ncore/core/quaternion.h>
 #include <ncore/core/rid.h>
-#include <ncore/core/types.h>
 #include <ncore/game_world.h>
 #include <ncore/resources/material_template.h>
 #include <ncore/runtime/components/camera.h>
@@ -22,31 +24,12 @@
 #include <ncore/services/io/resource_service.h>
 #include <ncore/services/video/render_service.h>
 
-#include "imgui_style.h"
+#include "editor_state.h"
 
 namespace nc::editor {
 
-struct EngineEditorState {
-    Scene* current_scene        = nullptr;
-    ImGuiID dockspace_id        = 0;
-    bool stats_window           = false;
-    bool inputs_window          = false;
-    bool logs_window            = false;
-    Node* selected_node         = nullptr;
-    char rename_buffer[256]     = {};
-    Node* renaming_node         = nullptr;
-    bool open_rename            = false;
-    char add_comp_filter[64]    = {};
-    ImGuiTextBuffer logs_buffer = {};
-    ImGuiTextFilter logs_filter = {};
-    ImVector<int> logs_offsets;
-    bool logs_auto_scroll = true;
-    log::ListenerToken log_listener_token; // for automatic de-registration
-    NSTRUCT(
-        EngineEditorState, NC_F( EngineEditorState, current_scene ) NC_F( EngineEditorState, dockspace_id )
-                               NC_F( EngineEditorState, stats_window ) NC_F( EngineEditorState, inputs_window )
-                                   NC_F( EngineEditorState, logs_window ) NC_F( EngineEditorState, selected_node )
-    )
+struct EditorNodeSelectionTag {
+    NSTRUCT1( EditorNodeSelectionTag )
 };
 
 static void draw_scene_tree_node( Node& node, EngineEditorState& state )
@@ -56,7 +39,7 @@ static void draw_scene_tree_node( Node& node, EngineEditorState& state )
     if (node.get_child_count() == 0) {
         flags |= ImGuiTreeNodeFlags_Leaf;
     }
-    if (node == state.selected_node) {
+    if (node == state.SelectedNode) {
         flags |= ImGuiTreeNodeFlags_Selected;
     }
 
@@ -80,26 +63,35 @@ static void draw_scene_tree_node( Node& node, EngineEditorState& state )
         ImGui::EndDragDropTarget();
     }
 
+    auto old_selected = state.SelectedNode;
+
     if (ImGui::BeginPopupContextItem()) {
         if (ImGui::Button( "Rename" )) {
             auto n    = node.get_name();
-            auto nlen = std::min( n.size(), sizeof( state.rename_buffer ) - 1 );
-            std::memcpy( state.rename_buffer, n.data(), nlen );
-            state.rename_buffer[nlen] = '\0';
-            state.renaming_node       = &node;
-            state.open_rename         = true;
+            auto nlen = std::min( n.size(), sizeof( state.NodeRenameBuf ) - 1 );
+            std::memcpy( state.NodeRenameBuf, n.data(), nlen );
+            state.NodeRenameBuf[nlen] = '\0';
+            state.NodeToRename        = &node;
+            state.ShowRenamePopup     = true;
             ImGui::CloseCurrentPopup();
         }
         if (ImGui::Button( "Delete" )) {
             node.destroy();
-            state.selected_node = nullptr; // avoids crashing the ECS
+            state.SelectedNode = nullptr; // avoids crashing the ECS
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
     }
 
     if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
-        state.selected_node = &node;
+        state.SelectedNode = &node;
+    }
+
+    // pointer comparison
+    if (old_selected != state.SelectedNode) {
+        if (state.CurrentScene->is_node_valid( old_selected )) // may have been removed
+            old_selected->set_component_enabled<EditorNodeSelectionTag>( false );
+        node.set_component_enabled<EditorNodeSelectionTag>( true );
     }
 
     if (open) {
@@ -309,27 +301,27 @@ static void draw_field_widget( void* instance, const rtti::FieldInfo& field )
 
 void register_editor_plugin( Scene& scene )
 {
-    auto editor_state           = scene.get_ecs().emplace_singleton<EngineEditorState>();
-    editor_state->current_scene = &scene;
+    auto editor_state          = scene.get_ecs().emplace_singleton<EngineEditorState>();
+    editor_state->CurrentScene = &scene;
 
-    editor_state->log_listener_token = log::add_listener( [editor_state]( const log::LogMsg& msg ) {
-        if (editor_state->logs_offsets.empty()) {
-            editor_state->logs_offsets.push_back( 0 );
+    editor_state->LogsListenerToken = log::add_listener( [editor_state]( const log::LogMsg& msg ) {
+        if (editor_state->LogsOffset.empty()) {
+            editor_state->LogsOffset.push_back( 0 );
         }
 
-        int old_size = editor_state->logs_buffer.size();
-        editor_state->logs_buffer.appendf( msg.payload.c_str(), msg.payload.c_str() + msg.payload.size() );
-        editor_state->logs_buffer.append( "\n" );
+        int old_size = editor_state->LogsBuffer.size();
+        editor_state->LogsBuffer.appendf( msg.payload.c_str(), msg.payload.c_str() + msg.payload.size() );
+        editor_state->LogsBuffer.append( "\n" );
 
-        for (int i = old_size; i < editor_state->logs_buffer.size(); i++) {
-            if (editor_state->logs_buffer[i] == '\n') {
-                editor_state->logs_offsets.push_back( i + 1 );
+        for (int i = old_size; i < editor_state->LogsBuffer.size(); i++) {
+            if (editor_state->LogsBuffer[i] == '\n') {
+                editor_state->LogsOffset.push_back( i + 1 );
             }
         }
     } );
 
     scene.get_ecs()
-        .system( "EngineEditorFeature_Init" )
+        .system( "EngineEditorPlugin_Init" )
         .with<EngineEditorState>()
         .with<GuiStateComponent>()
         .in( EcsSystemPhase::INIT )
@@ -337,8 +329,8 @@ void register_editor_plugin( Scene& scene )
         .run( []( QueryContext& ctx ) {
             auto gui_state = ctx.get_component<GuiStateComponent>();
 
-            if (gui_state->imctx) {
-                ImGui::SetCurrentContext( gui_state->imctx );
+            if (gui_state->ImGuiCtx) {
+                ImGui::SetCurrentContext( gui_state->ImGuiCtx );
             }
 
             StyleColorsEditor();
@@ -347,14 +339,63 @@ void register_editor_plugin( Scene& scene )
             // TODO: make this into a prefab
             ctx.world()
                 .entity( "EditorFlyCam" )
-                .with<Transform3DComponent>( { Vec3(), Quaternion::identity(), Vec3( 1, 1, 1 ) } )
-                .with<CameraComponent>()
-                .with<InputComponent>()
+                .add<Transform3DComponent>( { Vec3(), Quaternion::identity(), Vec3( 1, 1, 1 ) } )
+                .add<CameraComponent>()
+                .add<InputComponent>()
                 .build();
         } );
 
     scene.get_ecs()
-        .observer( "EngineEditorFeature_SwapChainResizedDebug" )
+        .observer( "EngineEditorPlugin_InjectSelectionTag" )
+        .on<NodeRefComponent>( EcsCoreEvent::OnSet )
+        .each( []( QueryContext& ctx, EcsEntity ent ) {
+            ctx.world().entity( ent ).add<EditorNodeSelectionTag>().disabled().build();
+        } );
+
+    scene.get_ecs()
+        .system( "EngineEditorPlugin_BeginFrame" )
+        .with<EngineEditorState>()
+        .with<GuiStateComponent>()
+        .with<GraphicsServices>()
+        .in( EcsSystemPhase::PRE_UPDATE )
+        .run( []( QueryContext& ctx ) {
+            auto state = ctx.get_component<EngineEditorState>();
+            auto gfx   = ctx.get_component<GraphicsServices>();
+
+            auto imgui_io = ImGui::GetIO();
+
+            ImGuizmo::SetOrthographic( false );
+            ImGuizmo::BeginFrame();
+
+            ImGuizmo::SetRect( 0, 0, imgui_io.DisplaySize.x, imgui_io.DisplaySize.y );
+
+            // auto view_matrix = gfx->renderer->world_get_view_matrix().data();
+            // auto proj_matrix = gfx->renderer->world_camera_get_projection().data();
+
+            // ImGuizmo's DrawGrid is verrry buggy
+            // Mat4 grid_matrix;
+            // ImGuizmo::RecomposeMatrixFromComponents(
+            //    state->GridPos.data(), state->GridRotation.data(), state->GridScale.data(), grid_matrix.data()
+            //);
+            // ImGuizmo::DrawGrid( view_matrix, proj_matrix, grid_matrix.data(), 100.0f );
+
+            // Crosshair
+            {
+                auto draw_list = ImGui::GetBackgroundDrawList();
+                ImVec2 center  = { imgui_io.DisplaySize.x * 0.5f, imgui_io.DisplaySize.y * 0.5f };
+                draw_list->AddLine(
+                    ImVec2( center.x - 15.0f, center.y ), ImVec2( center.x + 15.0f, center.y ),
+                    IM_COL32( 255, 255, 255, 255 ), 1.5f
+                );
+                draw_list->AddLine(
+                    ImVec2( center.x, center.y - 15.0f ), ImVec2( center.x, center.y + 15.0f ),
+                    IM_COL32( 255, 255, 255, 255 ), 1.5f
+                );
+            }
+        } );
+
+    scene.get_ecs()
+        .observer( "EngineEditorPlugin_SwapChainResizedDebug" )
         .with<SwapChainComponent>()
         .event<SwapChainResizedComponent>()
         .each( []( QueryContext& ctx, EcsEntity ) {
@@ -365,19 +406,21 @@ void register_editor_plugin( Scene& scene )
         } );
 
     scene.get_ecs()
-        .system( "EngineEditorFeature_ConfigureDocking" )
+        .system( "EngineEditorPlugin_ConfigureDocking" )
         .with<GuiStateComponent>()
         .with<EngineEditorState>()
         .in( EcsSystemPhase::PRE_UPDATE )
         .run( []( QueryContext& ctx ) {
             auto state           = ctx.get_component<EngineEditorState>();
             ImGuiID dockspace_id = ImGui::DockSpaceOverViewport( 0, nullptr, ImGuiDockNodeFlags_PassthruCentralNode );
-            state->dockspace_id  = dockspace_id;
+            state->DockspaceId   = dockspace_id;
             if (!ImGui::DockBuilderGetNode( dockspace_id )) {
                 ImGui::DockBuilderRemoveNode( dockspace_id );
                 ImGui::DockBuilderAddNode( dockspace_id, ImGuiDockNodeFlags_DockSpace );
                 ImGui::DockBuilderSetNodeSize( dockspace_id, ImGui::GetMainViewport()->WorkSize );
                 ImGuiID dock_main = dockspace_id;
+                ImGuiID dock_top  = ImGui::DockBuilderSplitNode( dock_main, ImGuiDir_Up, 0.05f, nullptr, &dock_main );
+                ImGui::DockBuilderDockWindow( "Toolbar", dock_top );
                 ImGuiID dock_left = ImGui::DockBuilderSplitNode( dock_main, ImGuiDir_Left, 0.22f, nullptr, &dock_main );
                 ImGui::DockBuilderDockWindow( "Scene Tree", dock_left );
                 ImGui::DockBuilderFinish( dockspace_id );
@@ -385,58 +428,91 @@ void register_editor_plugin( Scene& scene )
         } );
 
     scene.get_ecs()
-        .system( "EngineEditorFeature_Panels" )
-        .with<SwapChainComponent>()
+        .system( "EngineEditorPlugin_Panels" )
         .with<EngineEditorState>()
         .in( EcsSystemPhase::UPDATE )
         .run( []( QueryContext& ctx ) {
             auto time  = ctx.world().get_singleton<TimeComponent>();
             auto gfx   = ctx.world().get_singleton<GraphicsServices>();
             auto state = ctx.get_component<EngineEditorState>();
-            auto sc    = ctx.get_component<SwapChainComponent>();
 
-            if (ImGui::BeginMainMenuBar()) {
-                if (ImGui::BeginMenu( "File" )) {
-                    if (ImGui::MenuItem( "Quit", "Alt+F4" )) {
-                        state->current_scene->request_quit();
+            // Main Menu Bar
+            {
+                if (ImGui::BeginMainMenuBar()) {
+                    if (ImGui::BeginMenu( "File" )) {
+                        if (ImGui::MenuItem( "Quit", "Alt+F4" )) {
+                            state->CurrentScene->request_quit();
+                        }
+                        ImGui::EndMenu();
                     }
-                    ImGui::EndMenu();
+                    if (ImGui::BeginMenu( "Debug" )) {
+                        if (ImGui::MenuItem( "Logs" )) {
+                            state->ShowLogsWindow = true;
+                        }
+                        if (ImGui::MenuItem( "Stats" )) {
+                            state->ShowStatsWindow = true;
+                        }
+                        if (ImGui::MenuItem( "Inputs" )) {
+                            state->ShowInputsWindow = true;
+                        }
+                        ImGui::EndMenu();
+                    }
+                    ImGui::EndMainMenuBar();
                 }
-                if (ImGui::BeginMenu( "Debug" )) {
-                    if (ImGui::MenuItem( "Logs" )) {
-                        state->logs_window = true;
-                    }
-                    if (ImGui::MenuItem( "Stats" )) {
-                        state->stats_window = true;
-                    }
-                    if (ImGui::MenuItem( "Inputs" )) {
-                        state->inputs_window = true;
-                    }
-                    ImGui::EndMenu();
-                }
-                ImGui::EndMainMenuBar();
             }
 
-            // Crosshair
+            // Toolbar
             {
-                auto draw_list = ImGui::GetBackgroundDrawList();
-                ImVec2 center  = { sc->size.x * 0.5f, sc->size.y * 0.5f };
-                draw_list->AddLine(
-                    ImVec2( center.x - 15.0f, center.y ), ImVec2( center.x + 15.0f, center.y ),
-                    IM_COL32( 255, 255, 255, 255 ), 1.5f
-                );
-                draw_list->AddLine(
-                    ImVec2( center.x, center.y - 15.0f ), ImVec2( center.x, center.y + 15.0f ),
-                    IM_COL32( 255, 255, 255, 255 ), 1.5f
-                );
+                ImGuiWindowClass window_class;
+                window_class.DockingAllowUnclassed = true;
+                window_class.DockNodeFlagsOverrideSet |= ImGuiDockNodeFlags_NoCloseButton;
+                window_class.DockNodeFlagsOverrideSet |=
+                    ImGuiDockNodeFlags_HiddenTabBar; // ImGuiDockNodeFlags_NoTabBar // FIXME: Will need a working Undock
+                                                     // widget for _NoTabBar to work
+                window_class.DockNodeFlagsOverrideSet |= ImGuiDockNodeFlags_NoDockingSplit;
+                window_class.DockNodeFlagsOverrideSet |= ImGuiDockNodeFlags_NoDockingOverMe;
+                window_class.DockNodeFlagsOverrideSet |= ImGuiDockNodeFlags_NoDockingOverOther;
+                ImGui::SetNextWindowClass( &window_class );
+
+                auto flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar;
+                if (ImGui::Begin( "Toolbar", nullptr, flags )) {
+                    if (ImGui::Button( "Run" )) { /* TODO */
+                    }
+                    ImGui::SameLine();
+                    ImGui::Checkbox( "World", &state->GlobalXformGizmo );
+                    ImGui::SameLine();
+                    if (ImGui::RadioButton(
+                            "Universal",
+                            state->XformGizmoOperation == static_cast<int>( ImGuizmo::OPERATION::UNIVERSAL )
+                        ))
+                        state->XformGizmoOperation = static_cast<int>( ImGuizmo::OPERATION::UNIVERSAL );
+                    ImGui::SameLine();
+                    if (ImGui::RadioButton(
+                            "Translate",
+                            state->XformGizmoOperation == static_cast<int>( ImGuizmo::OPERATION::TRANSLATE )
+                        ))
+                        state->XformGizmoOperation = static_cast<int>( ImGuizmo::OPERATION::TRANSLATE );
+                    ImGui::SameLine();
+                    if (ImGui::RadioButton(
+                            "Rotate", state->XformGizmoOperation == static_cast<int>( ImGuizmo::OPERATION::ROTATE )
+                        ))
+                        state->XformGizmoOperation = static_cast<int>( ImGuizmo::OPERATION::ROTATE );
+                    ImGui::SameLine();
+                    if (ImGui::RadioButton(
+                            "Scale", state->XformGizmoOperation == static_cast<int>( ImGuizmo::OPERATION::SCALE )
+                        ))
+                        state->XformGizmoOperation = static_cast<int>( ImGuizmo::OPERATION::SCALE );
+                }
+                ImGui::End();
             }
 
             const ImGuiViewport* viewport = ImGui::GetMainViewport();
             ImVec2 work_pos               = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
             ImVec2 work_size              = viewport->WorkSize;
 
+            // Left panels
             {
-                auto root = state->current_scene->root();
+                auto root = state->CurrentScene->root();
 
                 if (ImGui::Begin( "Scene Tree" )) {
                     if (root) {
@@ -464,51 +540,84 @@ void register_editor_plugin( Scene& scene )
                 }
                 ImGui::End();
 
-                if (state->open_rename) {
+                if (state->ShowRenamePopup) {
                     ImGui::OpenPopup( "Entity Rename" );
-                    state->open_rename = false;
+                    state->ShowRenamePopup = false;
                 }
 
                 if (ImGui::BeginPopupModal( "Entity Rename", nullptr, ImGuiWindowFlags_AlwaysAutoResize )) {
                     ImGui::InputText(
-                        "##rename", state->rename_buffer, sizeof( state->rename_buffer ),
+                        "##rename", state->NodeRenameBuf, sizeof( state->NodeRenameBuf ),
                         ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll
                     );
                     bool confirmed = ImGui::Button( "OK" ) || ImGui::IsKeyPressed( ImGuiKey_Enter );
-                    if (confirmed && state->renaming_node && state->rename_buffer[0]) {
-                        state->renaming_node->set_name( state->rename_buffer );
-                        state->renaming_node = nullptr;
+                    if (confirmed && state->NodeToRename && state->NodeRenameBuf[0]) {
+                        state->NodeToRename->set_name( state->NodeRenameBuf );
+                        state->NodeToRename = nullptr;
                         ImGui::CloseCurrentPopup();
                     }
                     ImGui::SameLine();
                     if (ImGui::Button( "Cancel" )) {
-                        state->renaming_node = nullptr;
+                        state->NodeToRename = nullptr;
                         ImGui::CloseCurrentPopup();
                     }
                     ImGui::EndPopup();
                 }
             }
 
+            // Right panels
             {
+                auto& ecs = state->CurrentScene->get_ecs();
+
                 if (ImGui::Begin( "Inspector" )) {
-                    if (state->selected_node) {
-                        auto name   = state->selected_node->get_name();
-                        auto id     = state->selected_node->get_id();
-                        auto active = state->selected_node->get_active();
+                    if (state->SelectedNode) {
+                        auto name   = state->SelectedNode->get_name();
+                        auto id     = state->SelectedNode->get_id();
+                        auto active = state->SelectedNode->get_active();
 
                         ImGui::Text( "Node: %s", name.data() );
                         ImGui::Text( "ID: %llu", id );
                         ImGui::Checkbox( "Active", active );
+                        ImGui::Separator();
 
-                        auto& ecs = state->current_scene->get_ecs();
-                        for (auto& comp : state->selected_node->get_components()) {
+                        if (ImGui::Button( "+ Add Component", ImVec2( -FLT_MIN, 0 ) ))
+                            ImGui::OpenPopup( "AddComponent" );
+
+                        if (ImGui::BeginPopup( "AddComponent" )) {
+                            ImGui::InputTextWithHint(
+                                "##filter", "Search...", state->AddCompFilter, sizeof( state->AddCompFilter )
+                            );
+
+                            ImGui::BeginChild( "##complist", ImVec2( 0, 200 ), ImGuiChildFlags_Borders );
+                            for (auto type : ecs.get_component_types()) {
+                                if (!type->is_record())
+                                    continue;
+                                if (type == rtti::TypeRegistry::find<NodeRefComponent>())
+                                    continue;
+                                if (state->AddCompFilter[0] && !strstr( type->name, state->AddCompFilter ))
+                                    continue;
+
+                                bool already = state->SelectedNode->has_component( type );
+                                ImGui::BeginDisabled( already );
+                                if (ImGui::Selectable( type->name )) {
+                                    state->SelectedNode->emplace_component( type );
+                                    state->AddCompFilter[0] = '\0';
+                                    ImGui::CloseCurrentPopup();
+                                }
+                                ImGui::EndDisabled();
+                            }
+                            ImGui::EndChild();
+                            ImGui::EndPopup();
+                        }
+
+                        for (auto& comp : state->SelectedNode->get_components()) {
                             auto* type = ecs.resolve_component( comp.EcsId );
                             if (!type)
                                 continue;
                             if (type == rtti::TypeRegistry::find<NodeRefComponent>())
                                 continue;
 
-                            void* comp_data = state->selected_node->get_component( type );
+                            void* comp_data = state->SelectedNode->get_component( type );
                             if (!comp_data)
                                 continue;
 
@@ -525,45 +634,13 @@ void register_editor_plugin( Scene& scene )
 
                                 ImGui::PushID( static_cast<int>( id << 32 | type->id.value ) );
                                 if (ImGui::SmallButton( "Remove" )) {
-                                    state->selected_node->remove_component( type );
+                                    state->SelectedNode->remove_component( type );
                                 }
-                                ImGui::BeginDisabled( !comp.CanToggleActive );
+                                ImGui::BeginDisabled( !comp.Toggleable );
                                 ImGui::Checkbox( "Active", &comp.Active );
                                 ImGui::EndDisabled();
                                 ImGui::PopID();
                             }
-                        }
-
-                        ImGui::Separator();
-
-                        if (ImGui::Button( "+ Add Component", ImVec2( -FLT_MIN, 0 ) ))
-                            ImGui::OpenPopup( "AddComponent" );
-
-                        if (ImGui::BeginPopup( "AddComponent" )) {
-                            ImGui::InputTextWithHint(
-                                "##filter", "Search...", state->add_comp_filter, sizeof( state->add_comp_filter )
-                            );
-
-                            ImGui::BeginChild( "##complist", ImVec2( 0, 200 ), ImGuiChildFlags_Borders );
-                            for (auto type : ecs.get_component_types()) {
-                                if (!type->is_record())
-                                    continue;
-                                if (type == rtti::TypeRegistry::find<NodeRefComponent>())
-                                    continue;
-                                if (state->add_comp_filter[0] && !strstr( type->name, state->add_comp_filter ))
-                                    continue;
-
-                                bool already = state->selected_node->has_component( type );
-                                ImGui::BeginDisabled( already );
-                                if (ImGui::Selectable( type->name )) {
-                                    state->selected_node->emplace_component( type );
-                                    state->add_comp_filter[0] = '\0';
-                                    ImGui::CloseCurrentPopup();
-                                }
-                                ImGui::EndDisabled();
-                            }
-                            ImGui::EndChild();
-                            ImGui::EndPopup();
                         }
                     } else {
                         ImGui::TextDisabled( "No node selected" );
@@ -573,15 +650,15 @@ void register_editor_plugin( Scene& scene )
             }
 
             // Debug console
-            if (state->logs_window) {
-                if (ImGui::Begin( "Logs", &state->logs_window )) {
+            if (state->ShowLogsWindow) {
+                if (ImGui::Begin( "Logs", &state->ShowLogsWindow )) {
                     if (ImGui::SmallButton( "Clear" )) {
-                        state->logs_buffer.clear();
-                        state->logs_offsets.clear();
+                        state->LogsBuffer.clear();
+                        state->LogsOffset.clear();
                     }
                     ImGui::SameLine();
                     if (ImGui::SmallButton( "Copy" ))
-                        ImGui::SetClipboardText( state->logs_buffer.c_str() );
+                        ImGui::SetClipboardText( state->LogsBuffer.c_str() );
                     ImGui::SameLine();
                     if (ImGui::SmallButton( "Say Hello World" ))
                         NC_LOG_INFO( "Hello World" );
@@ -591,22 +668,22 @@ void register_editor_plugin( Scene& scene )
                         ImGuiWindowFlags_AlwaysVerticalScrollbar | ImGuiWindowFlags_AlwaysHorizontalScrollbar
                     );
 
-                    const char* buf     = state->logs_buffer.begin();
-                    const char* buf_end = state->logs_buffer.end();
+                    const char* buf     = state->LogsBuffer.begin();
+                    const char* buf_end = state->LogsBuffer.end();
 
                     ImGuiListClipper clipper;
-                    clipper.Begin( state->logs_offsets.Size );
+                    clipper.Begin( state->LogsOffset.Size );
                     while (clipper.Step()) {
                         for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++) {
-                            const char* line_start = buf + state->logs_offsets[line_no];
-                            const char* line_end   = ( line_no + 1 < state->logs_offsets.Size )
-                                                         ? ( buf + state->logs_offsets[line_no + 1] - 1 )
+                            const char* line_start = buf + state->LogsOffset[line_no];
+                            const char* line_end   = ( line_no + 1 < state->LogsOffset.Size )
+                                                         ? ( buf + state->LogsOffset[line_no + 1] - 1 )
                                                          : buf_end;
                             ImGui::TextUnformatted( line_start, line_end );
                         }
                     }
 
-                    if (state->logs_auto_scroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) {
+                    if (state->LogsAutoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) {
                         ImGui::SetScrollHereY( 1.0f );
                     }
 
@@ -616,44 +693,8 @@ void register_editor_plugin( Scene& scene )
                 }
             }
 
-            {
-                ImGui::SetNextWindowBgAlpha( 0.35f );
-                ImGui::PushStyleVar( ImGuiStyleVar_WindowBorderSize, 0.0f );
-
-                ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
-                                                ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
-                                                ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
-
-                constexpr float PAD = 10.0f;
-
-                float overlay_right_edge = work_pos.x + work_size.x;
-                if (ImGuiDockNode* root = ImGui::DockBuilderGetNode( state->dockspace_id )) {
-                    ImGuiDockNode* node = root;
-                    while (node->IsSplitNode())
-                        node = node->ChildNodes[1] ? node->ChildNodes[1] : node->ChildNodes[0];
-                    if (!node->IsEmpty() && node->Pos.x > work_pos.x + 1.0f)
-                        overlay_right_edge = node->Pos.x;
-                }
-
-                ImGui::SetNextWindowPos(
-                    ImVec2( overlay_right_edge - PAD, work_pos.y + PAD ), ImGuiCond_Always, ImVec2( 1.0f, 0.0f )
-                );
-
-                ImGui::SetNextWindowSize( ImVec2( 200, 0 ) );
-
-                bool open = true;
-                if (ImGui::Begin( "Time", &open, window_flags )) {
-                    ImGui::Text( "Ticks: %u", time->ticks );
-                    ImGui::Text( "FPS: %.3f", time->fps );
-                    ImGui::Text( "Frame count: %d", time->frame_count );
-                }
-                ImGui::End();
-
-                ImGui::PopStyleVar();
-            }
-
-            if (state->stats_window) {
-                if (ImGui::Begin( "Stats", &state->stats_window )) {
+            if (state->ShowStatsWindow) {
+                if (ImGui::Begin( "Stats", &state->ShowStatsWindow )) {
 
                     ImGui::SeparatorText( "RTTI" );
                     ImGui::Text( "Hits: %d", rtti::TypeRegistry::get_rtti_hits() );
@@ -677,34 +718,89 @@ void register_editor_plugin( Scene& scene )
                     if (ImGui::Button( "Spawn Window" )) {
                         ctx.world()
                             .entity()
-                            .with<WindowComponent>( WindowComponent{ .resolution = Vec2( 300, 300 ), .visible = true } )
+                            .add<WindowComponent>( WindowComponent{ .Resolution = Vec2( 300, 300 ), .Visible = true } )
                             .build();
                     }
                 }
                 ImGui::End();
             }
+
+            // Debug overlay
+            {
+                ImGui::SetNextWindowBgAlpha( 0.35f );
+                ImGui::PushStyleVar( ImGuiStyleVar_WindowBorderSize, 0.0f );
+
+                ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+                                                ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+                                                ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
+
+                constexpr float PAD = 10.0f;
+
+                float overlay_right_edge = work_pos.x + work_size.x;
+                if (ImGuiDockNode* root = ImGui::DockBuilderGetNode( state->DockspaceId )) {
+                    ImGuiDockNode* node = root;
+                    while (node->IsSplitNode())
+                        node = node->ChildNodes[1] ? node->ChildNodes[1] : node->ChildNodes[0];
+                    if (!node->IsEmpty() && node->Pos.x > work_pos.x + 1.0f)
+                        overlay_right_edge = node->Pos.x;
+                }
+
+                ImGui::SetNextWindowPos(
+                    ImVec2( overlay_right_edge - PAD, work_pos.y + PAD ), ImGuiCond_Always, ImVec2( 1.0f, 0.0f )
+                );
+
+                ImGui::SetNextWindowSize( ImVec2( 200, 0 ) );
+
+                bool open = true;
+                if (ImGui::Begin( "Time", &open, window_flags )) {
+                    ImGui::Text( "Ticks: %u", time->ticks );
+                    ImGui::Text( "FPS: %.3f", time->fps );
+                    ImGui::Text( "Frame count: %d", time->frame_count );
+                }
+                ImGui::End();
+
+                ImGui::PopStyleVar();
+            }
+        } );
+
+    scene.get_ecs()
+        .system( "EngineEditorPlugin_Transform3D_ManipulateGizmo" )
+        .with<Transform3DComponent>()
+        .with<EditorNodeSelectionTag>()
+        .in( EcsSystemPhase::UPDATE )
+        .each( []( QueryContext& ctx, EcsEntity ) {
+            auto state = ctx.world().get_singleton<EngineEditorState>();
+            auto gfx   = ctx.world().get_singleton<GraphicsServices>();
+            auto xform = ctx.get_component<Transform3DComponent>();
+
+            auto view_matrix = gfx->renderer->world_get_view_matrix().data();
+            auto proj_matrix = gfx->renderer->world_camera_get_projection().data();
+
+            Mat4 local     = xform->to_matrix();
+            auto mode      = state->GlobalXformGizmo ? ImGuizmo::MODE::WORLD : ImGuizmo::MODE::LOCAL;
+            auto operation = static_cast<ImGuizmo::OPERATION>( state->XformGizmoOperation );
+            if (ImGuizmo::Manipulate( view_matrix, proj_matrix, operation, mode, local.data() )) {
+                xform->from_matrix( local );
+            }
         } );
 
 #if !defined( NC_DIST )
-    scene.get_ecs()
-        .system( "EngineEditorFeature_HotReload" )
-        .in( EcsSystemPhase::UPDATE )
-        .run( []( QueryContext& ctx ) {
-            auto io = ctx.world().get_singleton<IoServices>();
+    scene.get_ecs().system( "EngineEditorPlugin_HotReload" ).in( EcsSystemPhase::UPDATE ).run( []( QueryContext& ctx ) {
+        auto io = ctx.world().get_singleton<IoServices>();
 
-            if (ImGui::IsKeyPressed( ImGuiKey_F5 )) {
-                NC_LOG_INFO_C( log::GRAPHICS, "Hot-reloading" );
-                io->resources->load<MaterialTemplate>( "shaders/pbr.slang", true );
-                io->resources->load<MaterialTemplate>( "materials/world_instance.material", true );
-                io->resources->load<MaterialTemplate>( "shaders/canvas.slang", true );
-                io->resources->load<MaterialTemplate>( "materials/canvas.material", true );
-            }
-        } );
+        if (ImGui::IsKeyPressed( ImGuiKey_F5 )) {
+            NC_LOG_INFO_C( log::GRAPHICS, "Hot-reloading" );
+            io->resources->load<MaterialTemplate>( "shaders/world_object.slang", true );
+            io->resources->load<MaterialTemplate>( "materials/world_object.material", true );
+            io->resources->load<MaterialTemplate>( "shaders/canvas.slang", true );
+            io->resources->load<MaterialTemplate>( "materials/canvas.material", true );
+        }
+    } );
 #endif
 
     // TODO: refactor this to use Timers
     scene.get_ecs()
-        .system( "EngineEditorFeature_TitleBarUpdater" )
+        .system( "EngineEditorPlugin_TitleBarUpdater" )
         .with<WindowComponent>()
         .in( EcsSystemPhase::POST_FRAME )
         .each( []( QueryContext& ctx, EcsEntity id ) {
@@ -718,17 +814,17 @@ void register_editor_plugin( Scene& scene )
         } );
 
     scene.get_ecs()
-        .system( "EngineEditorFeature_InputUI" )
+        .system( "EngineEditorPlugin_InputUI" )
         .with<IoServices>()
         .in( EcsSystemPhase::UPDATE )
         .run( []( QueryContext& ctx ) {
             auto state = ctx.world().get_singleton<EngineEditorState>();
-            if (!state->inputs_window)
+            if (!state->ShowInputsWindow)
                 return;
 
             auto io = ctx.world().get_singleton<IoServices>();
 
-            if (ImGui::Begin( "Input Debug", &state->inputs_window )) {
+            if (ImGui::Begin( "Input Debug", &state->ShowInputsWindow )) {
                 {
                     ImGui::SeparatorText( "Actions" );
                     DynamicArray<StringView> actions;

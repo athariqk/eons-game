@@ -43,10 +43,17 @@ public:
     // Entities
 
     /**
-     * @brief Create a new entity.
+     * @brief Create a new named entity OR edit an existing one.
+     * @param name New/existing entity name.
      * @return A fluent builder for registering named entity.
      */
     EcsEntityBuilder entity( const String& name = String() );
+    /**
+     * @brief Create a new entity OR edit an existing one.
+     * @param entity New/existing entity ID.
+     * @return A fluent builder for registering entity.
+     */
+    EcsEntityBuilder entity( EcsEntity entity );
     /**
      * @brief Lookup entity info by its name.
      * @param parent If a valid ID, then a child entity of this entity will be searched.

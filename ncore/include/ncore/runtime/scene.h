@@ -11,17 +11,16 @@ namespace nc {
 struct AppDesc;
 class ServiceRegistry;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wzero-length-array"
-// ECS tag for the root node.
+/**
+ * @brief ECS tag to mark the Scene's root node.
+ */
 struct NCAPI RootNodeTag {
-    NSTRUCT( RootNodeTag )
+    NSTRUCT1( RootNodeTag )
 };
-#pragma clang diagnostic pop
 
 struct NCAPI NodeRefComponent {
     Node* node = nullptr;
-    NSTRUCT( NodeRefComponent, NC_F( NodeRefComponent, node ) )
+    NSTRUCTV( NodeRefComponent, NC_F( NodeRefComponent, node ) )
 };
 
 /**
@@ -106,6 +105,9 @@ public:
      */
     Node* root();
 
+    /**
+     * @brief Checks whether a node is not being destroyed.
+     */
     bool is_node_valid( Node* node );
 
     /**
@@ -121,7 +123,7 @@ private:
     Node::NodePool node_pool;
     Node* root_node       = nullptr;
     size_t system_counter = 0;
-    DynamicArray<Node*> pending_node_deletions; // TODO: any way to do this without DynamicArray would be nice
+    HashSet<Node*> pending_node_deletions; // TODO: any way to do this efficiently would be nice
 };
 
 } // namespace nc
