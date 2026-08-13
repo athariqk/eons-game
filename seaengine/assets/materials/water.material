@@ -1,0 +1,18 @@
+[header]
+debug_name = Water
+
+[shaders]
+composite = shaders/water.slang
+
+[raster]
+fill_mode = Fill
+cull_mode = Back
+depth_test = true
+depth_write = true
+blend = AlphaBlend
+
+[multisample]
+count = 1
+
+[vertex]
+layout = Vertex3D

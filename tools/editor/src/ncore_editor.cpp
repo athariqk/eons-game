@@ -369,8 +369,8 @@ void register_editor_plugin( Scene& scene )
 
             ImGuizmo::SetRect( 0, 0, imgui_io.DisplaySize.x, imgui_io.DisplaySize.y );
 
-            // auto view_matrix = gfx->renderer->world_get_view_matrix().data();
-            // auto proj_matrix = gfx->renderer->world_camera_get_projection().data();
+            // auto view_matrix = gfx->Renderer->world_get_view_matrix().data();
+            // auto proj_matrix = gfx->Renderer->world_camera_get_projection().data();
 
             // ImGuizmo's DrawGrid is verrry buggy
             // Mat4 grid_matrix;
@@ -700,7 +700,7 @@ void register_editor_plugin( Scene& scene )
                     ImGui::Text( "Hits: %d", rtti::TypeRegistry::get_rtti_hits() );
 
                     ImGui::SeparatorText( "Rendering" );
-                    const auto& stats = gfx->renderer->get_stats();
+                    const auto& stats = gfx->Renderer->get_stats();
                     ImGui::Text( "GPU Duration: %.3f ms", stats.gpu_duration_ms );
                     ImGui::Text( "Input Assembler Primitives: %llu", stats.input_primitives );
                     ImGui::Text( "Input Assembler Vertices: %llu", stats.input_vertices );
@@ -724,43 +724,6 @@ void register_editor_plugin( Scene& scene )
                 }
                 ImGui::End();
             }
-
-            // Debug overlay
-            {
-                ImGui::SetNextWindowBgAlpha( 0.35f );
-                ImGui::PushStyleVar( ImGuiStyleVar_WindowBorderSize, 0.0f );
-
-                ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
-                                                ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
-                                                ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
-
-                constexpr float PAD = 10.0f;
-
-                float overlay_right_edge = work_pos.x + work_size.x;
-                if (ImGuiDockNode* root = ImGui::DockBuilderGetNode( state->DockspaceId )) {
-                    ImGuiDockNode* node = root;
-                    while (node->IsSplitNode())
-                        node = node->ChildNodes[1] ? node->ChildNodes[1] : node->ChildNodes[0];
-                    if (!node->IsEmpty() && node->Pos.x > work_pos.x + 1.0f)
-                        overlay_right_edge = node->Pos.x;
-                }
-
-                ImGui::SetNextWindowPos(
-                    ImVec2( overlay_right_edge - PAD, work_pos.y + PAD ), ImGuiCond_Always, ImVec2( 1.0f, 0.0f )
-                );
-
-                ImGui::SetNextWindowSize( ImVec2( 200, 0 ) );
-
-                bool open = true;
-                if (ImGui::Begin( "Time", &open, window_flags )) {
-                    ImGui::Text( "Ticks: %u", time->ticks );
-                    ImGui::Text( "FPS: %.3f", time->fps );
-                    ImGui::Text( "Frame count: %d", time->frame_count );
-                }
-                ImGui::End();
-
-                ImGui::PopStyleVar();
-            }
         } );
 
     scene.get_ecs()
@@ -773,8 +736,8 @@ void register_editor_plugin( Scene& scene )
             auto gfx   = ctx.world().get_singleton<GraphicsServices>();
             auto xform = ctx.get_component<Transform3DComponent>();
 
-            auto view_matrix = gfx->renderer->world_get_view_matrix().data();
-            auto proj_matrix = gfx->renderer->world_camera_get_projection().data();
+            auto view_matrix = gfx->Renderer->world_get_view_matrix().data();
+            auto proj_matrix = gfx->Renderer->world_camera_get_projection().data();
 
             Mat4 local     = xform->to_matrix();
             auto mode      = state->GlobalXformGizmo ? ImGuizmo::MODE::WORLD : ImGuizmo::MODE::LOCAL;
@@ -783,20 +746,6 @@ void register_editor_plugin( Scene& scene )
                 xform->from_matrix( local );
             }
         } );
-
-#if !defined( NC_DIST )
-    scene.get_ecs().system( "EngineEditorPlugin_HotReload" ).in( EcsSystemPhase::UPDATE ).run( []( QueryContext& ctx ) {
-        auto io = ctx.world().get_singleton<IoServices>();
-
-        if (ImGui::IsKeyPressed( ImGuiKey_F5 )) {
-            NC_LOG_INFO_C( log::GRAPHICS, "Hot-reloading" );
-            io->resources->load<MaterialTemplate>( "shaders/world_object.slang", true );
-            io->resources->load<MaterialTemplate>( "materials/world_object.material", true );
-            io->resources->load<MaterialTemplate>( "shaders/canvas.slang", true );
-            io->resources->load<MaterialTemplate>( "materials/canvas.material", true );
-        }
-    } );
-#endif
 
     // TODO: refactor this to use Timers
     scene.get_ecs()
@@ -828,7 +777,7 @@ void register_editor_plugin( Scene& scene )
                 {
                     ImGui::SeparatorText( "Actions" );
                     DynamicArray<StringView> actions;
-                    io->inputs->action_list( actions );
+                    io->Inputs->action_list( actions );
 
                     if (ImGui::BeginTable( "ActionsTable", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg )) {
                         ImGui::TableSetupColumn( "Name" );
@@ -838,9 +787,9 @@ void register_editor_plugin( Scene& scene )
                         ImGui::TableHeadersRow();
 
                         for (const auto& action : actions) {
-                            bool held     = io->inputs->action_is_held( action.data() );
-                            bool pressed  = io->inputs->action_is_pressed( action.data() );
-                            bool released = io->inputs->action_is_released( action.data() );
+                            bool held     = io->Inputs->action_is_held( action.data() );
+                            bool pressed  = io->Inputs->action_is_pressed( action.data() );
+                            bool released = io->Inputs->action_is_released( action.data() );
 
                             ImGui::TableNextRow();
                             ImGui::TableSetColumnIndex( 0 );
@@ -868,15 +817,15 @@ void register_editor_plugin( Scene& scene )
                 {
                     ImGui::SeparatorText( "Mouse Input" );
                     ImGui::DragFloat2(
-                        "Pos", io->inputs->get_mouse_position().data(), 1.0f, 0.0f, 0.0f, "%.3f",
+                        "Pos", io->Inputs->get_mouse_position().data(), 1.0f, 0.0f, 0.0f, "%.3f",
                         ImGuiSliderFlags_NoInput
                     );
                     ImGui::DragFloat2(
-                        "Delta", io->inputs->get_mouse_delta().data(), 1.0f, 0.0f, 0.0f, "%.3f",
+                        "Delta", io->Inputs->get_mouse_delta().data(), 1.0f, 0.0f, 0.0f, "%.3f",
                         ImGuiSliderFlags_NoInput
                     );
                     ImGui::DragFloat2(
-                        "Wheel", io->inputs->get_mouse_wheel().data(), 1.0f, 0.0f, 0.0f, "%.3f",
+                        "Wheel", io->Inputs->get_mouse_wheel().data(), 1.0f, 0.0f, 0.0f, "%.3f",
                         ImGuiSliderFlags_NoInput
                     );
                 }

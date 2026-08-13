@@ -1,7 +1,7 @@
-add_executable(eons-game)
+add_executable(EonsPrototype)
 
 target_sources(
-  eons-game
+  EonsPrototype
   PRIVATE "main.cpp"
           "src/alloc_overrides.cpp"
           "src/microcosmos/Evolution.cpp"
@@ -18,29 +18,29 @@ target_sources(
           "src/microcosmos/systems/SpeciesSystem.cpp"
           "src/experimental/NeuralNetwork/neural_network.cpp")
 
-target_include_directories(eons-game PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_include_directories(EonsPrototype PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
-target_link_libraries(eons-game PRIVATE ncore ncore_editor)
+target_link_libraries(EonsPrototype PRIVATE ncore ncore_editor)
 
-target_precompile_headers(eons-game PRIVATE "pch.h")
+target_precompile_headers(EonsPrototype PRIVATE "pch.h")
 
 set_target_properties(
-  eons-game PROPERTIES DEBUG_POSTFIX "_d" VS_DEBUGGER_WORKING_DIRECTORY
-                                          "$<TARGET_FILE_DIR:eons-game>")
+  EonsPrototype PROPERTIES DEBUG_POSTFIX "_d" VS_DEBUGGER_WORKING_DIRECTORY
+                                          "$<TARGET_FILE_DIR:EonsPrototype>")
 
 target_compile_definitions(
-  eons-game PRIVATE "$<$<CONFIG:Debug>:DEBUG>" "$<$<CONFIG:Release>:RELEASE>"
+  EonsPrototype PRIVATE "$<$<CONFIG:Debug>:DEBUG>" "$<$<CONFIG:Release>:RELEASE>"
                     "$<$<CONFIG:Dist>:DIST>")
 
 add_custom_command(
-  TARGET eons-game
+  TARGET EonsPrototype
   POST_BUILD
   COMMAND
     "${CMAKE_COMMAND}" -E copy_directory_if_different
-    "${CMAKE_SOURCE_DIR}/eons-game/assets" "$<TARGET_FILE_DIR:eons-game>/assets"
+    "${CMAKE_SOURCE_DIR}/eons-game/assets" "$<TARGET_FILE_DIR:EonsPrototype>/assets"
   COMMAND
     "${CMAKE_COMMAND}" -E copy_if_different
     "${CMAKE_SOURCE_DIR}/eons-game/eons.ini"
-    "$<TARGET_FILE_DIR:eons-game>/eons.ini"
+    "$<TARGET_FILE_DIR:EonsPrototype>/eons.ini"
   COMMENT "Copying assets and config files"
   VERBATIM)

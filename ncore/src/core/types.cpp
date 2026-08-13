@@ -46,6 +46,9 @@ void TypeRegistry::initialize()
     TypeRegistry::register_type<uint8_t>( "uint8_t" );
     TypeRegistry::register_type<StringClass, nc::String>( "nc::String" );
     TypeRegistry::register_type<VectorClass<nc::DynamicArray<int>>, nc::DynamicArray<int>>( "nc::DynamicArray<int>" );
+    TypeRegistry::register_type<VectorClass<nc::Array<RID, 8>>, nc::Array<RID, 8>>(
+        "nc::Array<RID, 8>"
+    ); // HACK: temporary placeholder, remove when we got proper auto-reflection
 
     // TODO: should this be here?
     TypeRegistry::register_type<TRecordInfo<nc::NcObject>, nc::NcObject>( "nc::NcObject" );

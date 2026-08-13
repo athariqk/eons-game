@@ -18,16 +18,16 @@ static void DILIGENT_CALL_TYPE DebugMessageCallbackVk(
 {
     switch (Severity) {
         case Diligent::DEBUG_MESSAGE_SEVERITY_INFO:
-            NC_LOG( log::GRAPHICS, log::Level::LINFO, File, Function, Line, "Vulkan: {}", Message );
+            NC_LOG( log::GRAPHICS, log::Level::LINFO, File, Function, Line, "{}", Message );
             break;
         case Diligent::DEBUG_MESSAGE_SEVERITY_WARNING:
-            NC_LOG( log::GRAPHICS, log::Level::LWARN, File, Function, Line, "Vulkan: {}", Message );
+            NC_LOG( log::GRAPHICS, log::Level::LWARN, File, Function, Line, "{}", Message );
             break;
         case Diligent::DEBUG_MESSAGE_SEVERITY_ERROR:
-            NC_LOG( log::GRAPHICS, log::Level::LERROR, File, Function, Line, "Vulkan: {}", Message );
+            NC_LOG( log::GRAPHICS, log::Level::LERROR, File, Function, Line, "{}", Message );
             break;
         case Diligent::DEBUG_MESSAGE_SEVERITY_FATAL_ERROR:
-            NC_LOG( log::GRAPHICS, log::Level::LFATAL, File, Function, Line, "Vulkan: {}", Message );
+            NC_LOG( log::GRAPHICS, log::Level::LFATAL, File, Function, Line, "{}", Message );
             break;
     }
 }
@@ -57,10 +57,14 @@ DiligentRHI::DiligentRHI()
         ci.EnableValidation            = false;
         ci.FeaturesVk.DynamicRendering = Diligent::DEVICE_FEATURE_STATE_ENABLED;
 #endif
-        ci.DynamicHeapSize           = 64 << 20;
-        ci.MainDescriptorPoolSize    = { 8192, 1024, 8192, 8192, 1024, 4096, 4096, 1024, 1024, 256, 256 };
-        ci.DynamicDescriptorPoolSize = { 2048, 256, 2048, 2048, 256, 1024, 1024, 256, 256, 64, 64 };
-        ci.Features.MultiViewport    = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
+        ci.DynamicHeapSize                    = 64 << 20;
+        ci.MainDescriptorPoolSize             = { 8192, 1024, 8192, 8192, 1024, 4096, 4096, 1024, 1024, 256, 256 };
+        ci.DynamicDescriptorPoolSize          = { 2048, 256, 2048, 2048, 256, 1024, 1024, 256, 256, 64, 64 };
+        ci.Features.MultiViewport             = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
+        ci.Features.PipelineStatisticsQueries = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
+        ci.Features.OcclusionQueries          = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
+        ci.Features.TimestampQueries          = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
+        ci.Features.WireframeFill             = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
 
         Diligent::ImmediateContextCreateInfo ctxInfo[3] = {
             { "Graphics", 0, Diligent::QUEUE_PRIORITY_MEDIUM },
@@ -89,26 +93,26 @@ DiligentRHI::DiligentRHI()
         NC_ASSERT( device && ctx_gfx, "Failed to create Vulkan device and contexts" );
     }
 
-    const Diligent::DeviceFeatures& Features = device->GetDeviceInfo().Features;
-    if (Features.PipelineStatisticsQueries) {
+    const Diligent::DeviceFeatures& features = device->GetDeviceInfo().Features;
+    if (features.PipelineStatisticsQueries) {
         Diligent::QueryDesc queryDesc;
         queryDesc.Name = "Pipeline statistics query";
         queryDesc.Type = Diligent::QUERY_TYPE_PIPELINE_STATISTICS;
         pipeline_stats_query.reset( new Diligent::ScopedQueryHelper{ device, queryDesc, 2 } );
     }
 
-    if (Features.OcclusionQueries) {
+    if (features.OcclusionQueries) {
         Diligent::QueryDesc queryDesc;
         queryDesc.Name = "Occlusion query";
         queryDesc.Type = Diligent::QUERY_TYPE_OCCLUSION;
         occlusion_query.reset( new Diligent::ScopedQueryHelper{ device, queryDesc, 2 } );
     }
 
-    if (Features.TimestampQueries) {
+    if (features.TimestampQueries) {
         duration_from_timestamps_query.reset( new Diligent::DurationQueryHelper{ device, 2 } );
     }
 
-    if (Features.DurationQueries) {
+    if (features.DurationQueries) {
         Diligent::QueryDesc queryDesc;
         queryDesc.Name = "Duration query";
         queryDesc.Type = Diligent::QUERY_TYPE_DURATION;
@@ -306,7 +310,7 @@ RID DiligentRHI::gfx_pipeline_create( const GraphicsPSODesc& desc, DynamicArray<
         auto& dsdesc                            = desc.depth_stencil_state;
         auto& bsdesc                            = desc.blend_state.render_targets[0];
         gp.RasterizerDesc.FillMode              = DiligentTypeHelpers::translate_fill_mode( rsdesc.fill );
-        gp.RasterizerDesc.CullMode              = Diligent::CULL_MODE_NONE;
+        gp.RasterizerDesc.CullMode              = DiligentTypeHelpers::translate_cull( rsdesc.cull );
         gp.RasterizerDesc.FrontCounterClockwise = static_cast<Diligent::Bool>( rsdesc.front_ccw );
         gp.RasterizerDesc.DepthBias             = static_cast<Diligent::Int32>( rsdesc.depth_bias_constant );
         gp.RasterizerDesc.SlopeScaledDepthBias  = rsdesc.depth_bias_slope;
@@ -413,7 +417,7 @@ void DiligentRHI::gfx_pipeline_reload( RID pipeline )
 
 // ---------------------------------------------------------------------------
 
-void DiligentRHI::render_target_bind( std::span<const void*> rtvs, void* dsv )
+void DiligentRHI::render_target_bind( Span<const void*> rtvs, void* dsv )
 {
     auto views    = reinterpret_cast<Diligent::ITextureView**>( const_cast<void**>( rtvs.data() ) );
     auto dsv_view = static_cast<Diligent::ITextureView*>( dsv );
@@ -423,7 +427,7 @@ void DiligentRHI::render_target_bind( std::span<const void*> rtvs, void* dsv )
     );
 }
 
-void DiligentRHI::render_target_set_viewport( std::span<const Viewport> p_viewports )
+void DiligentRHI::render_target_set_viewport( Span<const Viewport> p_viewports )
 {
     DynamicArray<Diligent::Viewport> vps;
     for (auto& vp : p_viewports) {
@@ -436,7 +440,7 @@ void DiligentRHI::render_target_set_viewport( std::span<const Viewport> p_viewpo
     get_active_ctx_()->SetViewports( static_cast<Diligent::Uint32>( vps.size() ), vps.data(), 0, 0 );
 }
 
-void DiligentRHI::render_target_set_scissor_rect( std::span<const Rect> p_rects )
+void DiligentRHI::render_target_set_scissor_rect( Span<const Rect> p_rects )
 {
     DynamicArray<Diligent::Rect> rects;
     for (auto r : p_rects) {
@@ -496,7 +500,121 @@ void DiligentRHI::commands_release()
 
 // ---------------------------------------------------------------------------
 
-void DiligentRHI::compute_pipeline_create() {}
+RID DiligentRHI::compute_pipeline_create( const ComputePSODesc& desc )
+{
+    Diligent::RefCntAutoPtr<Diligent::IShader> cs;
+    {
+        auto name = desc.debug_name + "_CS";
+        Diligent::ShaderCreateInfo ci;
+        ci.Desc.Name                       = name.c_str();
+        ci.Desc.ShaderType                 = Diligent::SHADER_TYPE_COMPUTE;
+        ci.Desc.UseCombinedTextureSamplers = false;
+        ci.LoadConstantBufferReflection    = true;
+        ci.ByteCode                        = desc.cs_bytecode.data();
+        ci.ByteCodeSize                    = desc.cs_bytecode.size_bytes();
+        device->CreateShader( ci, &cs );
+    }
+    NC_VERIFY( cs );
+
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pso;
+    {
+        Diligent::ComputePipelineStateCreateInfo ci;
+        ci.PSODesc.Name = desc.debug_name.c_str();
+        ci.pCS          = cs;
+
+        DynamicArray<Diligent::IPipelineResourceSignature*> sigs;
+        for (const auto& rsig : desc.resource_signatures) {
+            auto rid   = resource_signature_create( rsig );
+            auto entry = res_signatures.get( rid );
+            NC_ASSERT( entry && entry->RawPtr(), "Failed to create resource signature for compute PSO" );
+            sigs.push_back( entry->RawPtr() );
+        }
+        if (!sigs.empty()) {
+            ci.ppResourceSignatures    = sigs.data();
+            ci.ResourceSignaturesCount = static_cast<Diligent::Uint32>( sigs.size() );
+        }
+
+        device->CreateComputePipelineState( ci, &pso );
+
+        if (pso) {
+            NC_LOG_INFO_C( log::GRAPHICS, "Compute PSO '{}' created OK. sigs={}", desc.debug_name, sigs.size() );
+        } else {
+            NC_LOG_ERROR_C( log::GRAPHICS, "FAILED to create compute PSO '{}'", desc.debug_name );
+        }
+    }
+    NC_VERIFY( pso );
+
+    RID handle = pipelines.acquire();
+    auto entry = pipelines.get( handle );
+    NC_ASSERT( entry, "Failed to acquire new compute pipeline state object" );
+    *entry = std::move( pso );
+
+    return handle;
+}
+
+void DiligentRHI::compute_pipeline_bind( RID pipeline )
+{
+    auto entry = pipelines.get( pipeline );
+    NC_VERIFY( entry );
+    NC_LOG_TRACE_C( log::GRAPHICS, "compute_pipeline_bind: rid={}", pipeline.value );
+    get_active_ctx_()->SetPipelineState( *entry );
+}
+
+void DiligentRHI::dispatch( uint32_t x, uint32_t y, uint32_t z )
+{
+    NC_LOG_TRACE_C( log::GRAPHICS, "dispatch: {}x{}x{}", x, y, z );
+    Diligent::DispatchComputeAttribs attrs;
+    attrs.ThreadGroupCountX = x;
+    attrs.ThreadGroupCountY = y;
+    attrs.ThreadGroupCountZ = z;
+    get_active_ctx_()->DispatchCompute( attrs );
+}
+
+void DiligentRHI::texture_compute_update( RID texture, RID binding, const char* name, TextureViewType view )
+{
+    auto srb_entry = res_bindings.get( binding );
+    auto tex_entry = textures.get( texture );
+
+    NC_VERIFY( srb_entry );
+    NC_VERIFY( tex_entry );
+
+    Diligent::TEXTURE_VIEW_TYPE dview = Diligent::TEXTURE_VIEW_SHADER_RESOURCE;
+    switch (view) {
+        case TextureViewType::SHADER_RESOURCE:
+            dview = Diligent::TEXTURE_VIEW_SHADER_RESOURCE;
+            break;
+        case TextureViewType::UNORDERED_ACCESS:
+            dview = Diligent::TEXTURE_VIEW_UNORDERED_ACCESS;
+            break;
+        case TextureViewType::RENDER_TARGET:
+            dview = Diligent::TEXTURE_VIEW_RENDER_TARGET;
+            break;
+        case TextureViewType::DEPTH_STENCIL:
+            dview = Diligent::TEXTURE_VIEW_DEPTH_STENCIL;
+            break;
+    }
+    auto tex_view = ( *tex_entry )->GetDefaultView( dview );
+    auto var      = ( *srb_entry )->GetVariableByName( Diligent::SHADER_TYPE_COMPUTE, name );
+    if (!var)
+        NC_LOG_ERROR_C( log::GRAPHICS, "texture_compute_update: var '{}' NOT FOUND in COMPUTE stage", name );
+    NC_VERIFY( var );
+    var->Set( tex_view, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE );
+}
+
+void DiligentRHI::buffer_compute_update( RID buffer, RID binding, const char* name )
+{
+    auto srb_entry = res_bindings.get( binding );
+    auto buf_entry = buffers.get( buffer );
+
+    NC_VERIFY( srb_entry );
+    NC_VERIFY( buf_entry );
+
+    auto var = ( *srb_entry )->GetVariableByName( Diligent::SHADER_TYPE_COMPUTE, name );
+    if (!var)
+        NC_LOG_ERROR_C( log::GRAPHICS, "buffer_compute_update: var '{}' NOT FOUND in COMPUTE stage", name );
+    NC_VERIFY( var );
+    var->Set( *buf_entry );
+}
 
 // ---------------------------------------------------------------------------
 // Textures
@@ -519,11 +637,23 @@ RID DiligentRHI::texture_create( const TextureDesc& desc )
     ddesc.MiscFlags            = Diligent::MISC_TEXTURE_FLAG_NONE;
     ddesc.ImmediateContextMask = 1;
 
-    Diligent::TextureSubResData mip_0{ desc.pixels, static_cast<Diligent::Uint64>( desc.width * 4 ) };
-    Diligent::TextureData init{ &mip_0, 1 };
-
     Diligent::RefCntAutoPtr<Diligent::ITexture> texture;
-    device->CreateTexture( ddesc, &init, &texture );
+
+    if (desc.dimension == ResourceDimension::DIM_CUBE) {
+        NC_ASSERT( desc.width > 0, "Cube texture width must be > 0" );
+        NC_ASSERT( desc.array_size == 6, "Cube texture requires array_size == 6" );
+
+        Diligent::TextureSubResData subres[6];
+        for (int i = 0; i < 6; i++) {
+            subres[i] = Diligent::TextureSubResData{ desc.faces[i], static_cast<Diligent::Uint64>( desc.width ) * 4 };
+        }
+        Diligent::TextureData init{ subres, 6 };
+        device->CreateTexture( ddesc, &init, &texture );
+    } else {
+        Diligent::TextureSubResData mip_0{ desc.pixels, static_cast<Diligent::Uint64>( desc.width * 4 ) };
+        Diligent::TextureData init{ &mip_0, 1 };
+        device->CreateTexture( ddesc, &init, &texture );
+    }
 
     RID handle = textures.acquire();
     auto entry = textures.get( handle );
@@ -683,7 +813,7 @@ void DiligentRHI::buffer_update_binding( RID buffer, RID binding, const char* na
     auto buf_entry = buffers.get( buffer );
     auto var       = ( *srb_entry )->GetVariableByName( Diligent::SHADER_TYPE_VERTEX, name );
     if (!var)
-        NC_LOG_ERROR_C( log::GRAPHICS, "buffer_update_binding: var '{}' NOT FOUND in VERTEX stage", name );
+        NC_LOG_ERROR_C( log::GRAPHICS, "buffer_update_binding: var='{}' NOT FOUND in VERTEX stage", name );
 
     NC_VERIFY( srb_entry );
     NC_VERIFY( buf_entry );
@@ -693,9 +823,7 @@ void DiligentRHI::buffer_update_binding( RID buffer, RID binding, const char* na
     NC_LOG_TRACE_C( log::GRAPHICS, "buffer_update_binding: var='{}' bound to buffer rid={}", name, buffer.value );
 }
 
-void DiligentRHI::vertex_buffers_bind(
-    std::span<const RID> p_buffers, uint32_t slot, std::span<const uint64_t> offsets
-)
+void DiligentRHI::vertex_buffers_bind( Span<const RID> p_buffers, uint32_t slot, Span<const uint64_t> offsets )
 {
     DynamicArray<Diligent::IBuffer*> buffer_arr;
     for (auto& rid : p_buffers) {

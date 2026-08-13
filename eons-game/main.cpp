@@ -19,15 +19,13 @@ struct TestSpin {
 
 class TestScene : public nc::Scene {
 public:
-    TestScene( nc::AppDesc& p_app_desc, nc::ServiceRegistry& p_services ) : Scene( p_app_desc, p_services ) {}
-
     void on_ready() override
     {
 #if defined( DEBUG )
         nc::editor::register_editor_plugin( *this );
 #endif
 
-        auto res_svc = services.resolve<nc::ResourceService>();
+        auto res_svc = get_app_ctx()->Services.resolve<nc::ResourceService>();
 
         // clang-format off
 		nc::Array<nc::Vertex3D, 8> cube_verts = {
@@ -97,7 +95,7 @@ public:
         cube_mesh->add_component<nc::MeshComponent>( nc::MeshComponent{ mesh_rid, nc::RID(), 1 } );
         cube_mesh->add_component<nc::HasResourceTag>();
         cube_mesh->add_component<nc::MaterialComponent>(
-            nc::MaterialComponent{ res_svc->load( "materials/world_instance.material" ) }
+            nc::MaterialComponent{ res_svc->load( "materials/world_object.material" ) }
         );
 
         auto plane = root()->create_child( "Plane" );
@@ -108,7 +106,7 @@ public:
         plane_mesh->add_component<nc::MeshComponent>( nc::MeshComponent{ pmesh_rid, nc::RID(), 1 } );
         plane_mesh->add_component<nc::HasResourceTag>();
         plane_mesh->add_component<nc::MaterialComponent>(
-            nc::MaterialComponent{ res_svc->load( "materials/world_instance.material" ) }
+            nc::MaterialComponent{ res_svc->load( "materials/world_object.material" ) }
         );
 
         auto main_camera = root()->create_child( "MainCamera" );
@@ -171,7 +169,7 @@ public:
 
     std::unique_ptr<nc::IGameWorld> create_world() override
     {
-        return std::make_unique<TestScene>( app_desc, services );
+        return std::make_unique<TestScene>();
     }
 };
 

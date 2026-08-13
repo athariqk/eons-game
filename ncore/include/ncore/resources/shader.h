@@ -34,6 +34,9 @@ struct NCAPI ShaderDesc {
     DynamicArray<uint32_t> bytecode;
     ShaderParamLayout params;
     VertexLayout vert_layout;
+    uint32_t num_threads_x = 1;
+    uint32_t num_threads_y = 1;
+    uint32_t num_threads_z = 1;
 };
 
 class NCAPI Shader : public IResource {

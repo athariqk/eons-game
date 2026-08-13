@@ -10,14 +10,14 @@ namespace nc {
 class Scene;
 
 struct NCAPI RenderState {
-    Vec2 display_size{};
-    RID white_texture;
-    NSTRUCTV( RenderState, NC_F( RenderState, display_size ) )
+    Vec2 DisplaySize{};
+    RID WhiteTexture;
+    NSTRUCTV( RenderState, NC_F( RenderState, DisplaySize ) )
 };
 
 struct NCAPI ResourceWatchState {
-    DynamicArray<ResourceService::Event> pending_events;
-    NSTRUCTV( ResourceWatchState, NC_F( ResourceWatchState, pending_events ) )
+    DynamicArray<ResourceService::Event> PendingEvents;
+    NSTRUCTV( ResourceWatchState, NC_F( ResourceWatchState, PendingEvents ) )
 };
 
 /**
@@ -31,5 +31,6 @@ void NCAPI register_gui_plugin( Scene& scene );
 void NCAPI register_audio_plugin( Scene& scene );
 void NCAPI register_physics_plugin( Scene& scene );
 void NCAPI register_resources_plugin( Scene& scene );
+void NCAPI register_debug_plugin( Scene& scene );
 
 } // namespace nc

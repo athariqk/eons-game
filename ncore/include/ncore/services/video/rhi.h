@@ -53,12 +53,12 @@ public:
         float max_depth = 1;
     };
 
-    virtual void render_target_bind( std::span<const void*> rtvs, void* dsv = nullptr ) = 0;
+    virtual void render_target_bind( Span<const void*> rtvs, void* dsv = nullptr ) = 0;
     /**
      * @brief Set viewport(s) of currently bound render target.
      */
-    virtual void render_target_set_viewport( std::span<const Viewport> viewports )               = 0;
-    virtual void render_target_set_scissor_rect( std::span<const Rect> rect )                    = 0;
+    virtual void render_target_set_viewport( Span<const Viewport> viewports )                    = 0;
+    virtual void render_target_set_scissor_rect( Span<const Rect> rect )                         = 0;
     virtual void render_target_clear_color( void* rtv, const Color& color )                      = 0;
     virtual void render_target_clear_depth( void* dsv, float depth = 1.0f, uint8_t stencil = 0 ) = 0;
 
@@ -69,7 +69,12 @@ public:
 
     // General compute pipeline
 
-    virtual void compute_pipeline_create() = 0;
+    virtual RID compute_pipeline_create( const ComputePSODesc& desc ) = 0;
+    virtual void compute_pipeline_bind( RID pipeline )                = 0;
+    virtual void dispatch( uint32_t x, uint32_t y, uint32_t z )       = 0;
+
+    virtual void texture_compute_update( RID texture, RID binding, const char* name, TextureViewType view ) = 0;
+    virtual void buffer_compute_update( RID buffer, RID binding, const char* name )                         = 0;
 
     // Resources
 
@@ -80,12 +85,11 @@ public:
     virtual RID sampler_create( const SamplerDesc& desc )                             = 0;
     virtual void sampler_update_binding( RID sampler, RID binding, const char* name ) = 0;
 
-    virtual RID buffer_create( const BufferDesc& desc )                             = 0;
-    virtual void buffer_update( RID buffer, const void* data, size_t size )         = 0;
-    virtual void buffer_update_binding( RID buffer, RID binding, const char* name ) = 0;
-    virtual void
-    vertex_buffers_bind( std::span<const RID> buffers, uint32_t slot, std::span<const uint64_t> offsets = {} ) = 0;
-    virtual void index_buffer_bind( RID buffer, uint32_t offset )                                              = 0;
+    virtual RID buffer_create( const BufferDesc& desc )                                                           = 0;
+    virtual void buffer_update( RID buffer, const void* data, size_t size )                                       = 0;
+    virtual void buffer_update_binding( RID buffer, RID binding, const char* name )                               = 0;
+    virtual void vertex_buffers_bind( Span<const RID> buffers, uint32_t slot, Span<const uint64_t> offsets = {} ) = 0;
+    virtual void index_buffer_bind( RID buffer, uint32_t offset )                                                 = 0;
 
     virtual RID resource_signature_create( const ResourceSignatureDesc& desc ) = 0;
 

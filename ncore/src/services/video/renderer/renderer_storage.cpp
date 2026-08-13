@@ -72,6 +72,7 @@ RID RendererStorage::get_pipeline_or_create( const PSOKey& key )
     desc.ps_bytecode                     = key.ps ? key.ps->get_bytecode() : std::span<const uint32_t>();
     desc.vert_layout                     = key.vertex_layout;
     desc.rasterizer_state.cull           = static_cast<CullMode>( ( key.flags >> PSO_CULL_SHIFT ) & 0x3 );
+    desc.rasterizer_state.fill           = static_cast<FillMode>( ( key.flags >> PSO_FILL_SHIFT ) & 0x3 );
     desc.rasterizer_state.scissor_enable = ( key.flags & PSO_SCISSOR ) != 0;
     desc.depth_stencil_state.depth_test  = ( key.flags & PSO_DEPTH_TEST ) != 0;
     desc.depth_stencil_state.depth_write = ( key.flags & PSO_DEPTH_WRITE ) != 0;
@@ -347,7 +348,8 @@ RendererStorage::PSOKey RendererStorage::get_pso_key_( const MaterialTemplate& t
     PSOKey key;
     key.flags = static_cast<PSOFlags>(
         ( static_cast<uint64_t>( TextureFormat::RGBA8_UNORM_SRGB ) << PSO_RT_FMT_SHIFT ) |
-        ( static_cast<uint64_t>( tmpl.cull_mode ) << PSO_CULL_SHIFT ) | ( tmpl.depth_test ? PSO_DEPTH_TEST : 0 ) |
+        ( static_cast<uint64_t>( tmpl.cull_mode ) << PSO_CULL_SHIFT ) |
+        ( static_cast<uint64_t>( tmpl.fill_mode ) << PSO_FILL_SHIFT ) | ( tmpl.depth_test ? PSO_DEPTH_TEST : 0 ) |
         ( tmpl.depth_write ? PSO_DEPTH_WRITE : 0 ) | ( static_cast<uint64_t>( tmpl.blend ) << PSO_BLEND_SHIFT ) |
         ( static_cast<uint64_t>( tmpl.multisample_state.count & 0xF ) << PSO_MSAA_COUNT_SHIFT ) |
         ( static_cast<uint64_t>( tmpl.multisample_state.quality & 0xF ) << PSO_MSAA_QUALITY_SHIFT ) | PSO_SCISSOR
@@ -403,7 +405,7 @@ DynamicArray<ResourceSignatureDesc> RendererStorage::build_resource_signatures_(
         bool has_texture = false;
         bool has_sampler = false;
         for (const auto& f : param.fields) {
-            if (f.type == ShaderValueType::TEXTURE2D)
+            if (f.type & ( ShaderValueType::TEXTURE2D | ShaderValueType::TEXTURECUBED ))
                 has_texture = true;
             else if (f.type == ShaderValueType::SAMPLER)
                 has_sampler = true;
@@ -416,7 +418,7 @@ DynamicArray<ResourceSignatureDesc> RendererStorage::build_resource_signatures_(
             for (const auto& f : param.fields) {
                 PipelineResourceDesc res;
                 res.array_size = 1;
-                if (f.type == ShaderValueType::TEXTURE2D) {
+                if (f.type & ( ShaderValueType::TEXTURE2D | ShaderValueType::TEXTURECUBED )) {
                     res.name          = param.name + "." + f.name;
                     res.resource_type = ResourceType::TEXTURE_SRV;
                     res.stage         = ShaderType::PIXEL;

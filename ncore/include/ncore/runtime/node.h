@@ -15,9 +15,9 @@ class Scene;
  * For use in the Scene API.
  */
 struct NCAPI Component {
-    EcsComponent EcsId   = 0;
-    bool Active          = false;
-    bool Toggleable = false;
+    EcsComponent EcsId = 0;
+    bool Active        = false;
+    bool Toggleable    = false;
     NSTRUCTV( Component, NC_F( Component, EcsId ) NC_F( Component, Active ) )
 };
 
@@ -106,6 +106,10 @@ public:
      */
     void destroy();
 
+    /**
+     * @brief Add a named child to this Node.
+     * @return The new child node instance.
+     */
     Node* create_child( const String& name = String() );
     ChildRange get_children();
     uint32_t get_child_count();

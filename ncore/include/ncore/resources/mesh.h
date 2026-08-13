@@ -28,8 +28,31 @@ public:
     size_t index_count() const;
     uint32_t get_vertex_stride() const;
 
-private:
+protected:
     MeshDesc desc;
+};
+
+/**
+ * @brief A primitve cube mesh.
+ */
+class NCAPI CubeMesh : public Mesh {
+public:
+    CubeMesh();
+};
+
+/**
+ * @brief A primitve plane mesh.
+ *
+ * The plane lies on the XZ plane (normal +Y) with a unit size of 2x2 (-1..1),
+ * subdivided into x_segments * z_segments quads. Limited to 255 segments per
+ * side due to 16-bit indices.
+ */
+class NCAPI PlaneMesh : public Mesh {
+public:
+    PlaneMesh( uint32_t x_segments = 1, uint32_t z_segments = 1 );
+
+private:
+    MeshDesc build_mesh_desc_( uint32_t x_segments, uint32_t z_segments );
 };
 
 } // namespace nc

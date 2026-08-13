@@ -1,12 +1,15 @@
 #pragma once
 
 #include <algorithm>
+#include <numbers>
 
 namespace nc::math {
 
-static float kPI_OVER_180 = 0.01745329252f;
-static float k180_OVER_PI = 57.2957795131f;
-static float kHALF_PI     = 1.57079632679;
+constexpr float PI                = std::numbers::pi_v<float>;
+constexpr float PI_OVER_HALF_CIRC = PI / 180;
+constexpr float HALF_CIRC_OVER_PI = 180 / PI;
+constexpr float HALF_PI           = PI / 2;
+constexpr float DOUBLE_PI         = 2.0f * PI;
 
 /**
  * @brief Test if a ~= b within a floating-point epsilon error.
@@ -21,7 +24,7 @@ static bool is_equal_approx( float a, float b )
  */
 static float deg_to_rad( float degrees )
 {
-    return degrees * kPI_OVER_180;
+    return degrees * PI_OVER_HALF_CIRC;
 }
 
 /**
@@ -29,7 +32,7 @@ static float deg_to_rad( float degrees )
  */
 static float rad_to_deg( float radians )
 {
-    return radians * k180_OVER_PI;
+    return radians * HALF_CIRC_OVER_PI;
 }
 
 } // namespace nc::math

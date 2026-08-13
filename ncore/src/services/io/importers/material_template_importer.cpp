@@ -20,6 +20,13 @@ static CullMode parse_cull_mode( const std::string& str )
     return CullMode::NONE;
 }
 
+static FillMode parse_fill_mode( const std::string& str )
+{
+    if (str == "Wireframe")
+        return FillMode::WIREFRAME;
+    return FillMode::SOLID;
+}
+
 static BlendPreset parse_blend( const std::string& str )
 {
     if (str == "Opaque")
@@ -122,6 +129,9 @@ Ref<IResource> MaterialImporter::import( std::string_view path, Context ctx )
 
         if (raster.find( "cull_mode" ) != raster.end())
             tmpl->cull_mode = parse_cull_mode( raster["cull_mode"].as<std::string>() );
+
+        if (raster.find( "fill_mode" ) != raster.end())
+            tmpl->fill_mode = parse_fill_mode( raster["fill_mode"].as<std::string>() );
 
         if (raster.find( "depth_test" ) != raster.end())
             tmpl->depth_test = raster["depth_test"].as<bool>();

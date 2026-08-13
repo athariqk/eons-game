@@ -8,15 +8,15 @@ class ResourceService;
 class InputService;
 
 struct NCAPI GraphicsServices {
-    WindowService* window   = nullptr;
-    RenderService* renderer = nullptr;
-    NSTRUCTV( GraphicsServices, NC_F( GraphicsServices, window ) NC_F( GraphicsServices, renderer ) )
+    WindowService* Window   = nullptr;
+    RenderService* Renderer = nullptr;
+    NSTRUCTV( GraphicsServices, NC_F( GraphicsServices, Window ) NC_F( GraphicsServices, Renderer ) )
 };
 
 struct NCAPI IoServices {
-    ResourceService* resources;
-    InputService* inputs;
-    NSTRUCTV( IoServices, NC_F( IoServices, resources ) NC_F( IoServices, inputs ) )
+    ResourceService* Resources;
+    InputService* Inputs;
+    NSTRUCTV( IoServices, NC_F( IoServices, Resources ) NC_F( IoServices, Inputs ) )
 };
 
 } // namespace nc

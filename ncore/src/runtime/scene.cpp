@@ -1,20 +1,18 @@
 #include <flecs.h>
 
+#include <ncore/application.h>
 #include <ncore/runtime/components/transform.h>
 #include <ncore/runtime/ecs/ecs_events.h>
 #include <ncore/runtime/node.h>
 #include <ncore/runtime/scene.h>
-#include <ncore/services/service_registry.h>
 
 #include "scene_plugins.h"
 
 namespace nc {
 
-Scene::Scene( AppDesc& p_app_desc, ServiceRegistry& p_services ) : IGameWorld( p_app_desc, p_services ) {}
-
 void Scene::on_enter()
 {
-    ecs_world.set_singleton<AppDesc>( app_desc );
+    ecs_world.set_singleton<AppDesc>( app_ctx->AppDesc );
 
     ecs_world.system( "Scene_NodeActivenessUpdater" )
         .with<NodeRefComponent>()
@@ -63,6 +61,8 @@ void Scene::on_enter()
     register_inputs_plugin( *this );
     register_gui_plugin( *this );
     register_resources_plugin( *this );
+    register_debug_plugin( *this );
+    ecs_world.finalize_ordering();
 
     ensure_root_node_exists_();
     on_ready();

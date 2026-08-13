@@ -46,7 +46,7 @@ class NCAPI Scene : public IGameWorld {
     NCLASS( Scene, IGameWorld )
 
 public:
-    Scene( AppDesc& p_app_desc, ServiceRegistry& p_services );
+    Scene() = default;
 
     Scene( const Scene& )            = delete;
     Scene& operator=( const Scene& ) = delete;
@@ -77,7 +77,7 @@ public:
         ecs_world.system( name )
             .in( EcsSystemPhase::INIT )
             .order( order )
-            .each( [fn = std::forward<Fn>( callback )]( QueryContext& ctx, EcsEntity ) { fn(); } );
+            .run( [fn = std::forward<Fn>( callback )]( QueryContext& ctx ) { fn(); } );
     }
 
     template<typename T, typename Fn>

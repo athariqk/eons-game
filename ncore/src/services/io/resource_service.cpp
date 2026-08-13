@@ -6,7 +6,7 @@
 #include <filesystem>
 
 #include <backends/sdl/sdl_audio_loader.h>
-#include <backends/sdl/sdl_image_loader.h>
+#include <backends/stb/stb_image_loader.h>
 
 #include <ncore/resources/resource.h>
 #include <ncore/services/io/resource_importer.h>
@@ -27,7 +27,7 @@ ResourceService::ResourceService()
 Error ResourceService::init( ConfFile& cfg_file )
 {
     register_importer<SDLAudioLoader>();
-    register_importer<SDLImageLoader>();
+    register_importer<StbImageLoader>();
     register_importer<SlangImporter>();
     register_importer<MaterialImporter>();
     return Error::OK;
@@ -77,8 +77,8 @@ RID ResourceService::load( const std::string_view path, bool skip_cache )
         auto ref = storage.get( cached->second );
         NC_VERIFY( ref );
         LoadEvent e;
-        e.handle    = cached->second;
-        e.format_id = ( *ref )->get_format_id();
+        e.Handle    = cached->second;
+        e.FormatId = ( *ref )->get_format_id();
         events.push( e );
         return cached->second;
     }
@@ -125,8 +125,8 @@ RID ResourceService::load( const std::string_view path, bool skip_cache )
     NC_LOG_INFO_C( log::IO, "Imported a {} from path {}. RID={}", result->get_class_name(), fs_path_str, rid.value );
 
     LoadEvent e;
-    e.handle    = rid;
-    e.format_id = result->get_format_id();
+    e.Handle    = rid;
+    e.FormatId = result->get_format_id();
     events.push( e );
 
     return rid;
@@ -160,8 +160,8 @@ RID ResourceService::add( const Ref<IResource>& res )
     *entry      = res;
 
     LoadEvent e;
-    e.handle    = handle;
-    e.format_id = res->get_format_id();
+    e.Handle    = handle;
+    e.FormatId = res->get_format_id();
     events.push( e );
 
     return handle;

@@ -4,6 +4,7 @@
 #include <string>
 
 #include <ncore/core/collection.h>
+#include <ncore/core/vector.h>
 
 #pragma push_macro( "NONE" )
 #pragma push_macro( "OPAQUE" )
@@ -64,6 +65,9 @@ enum class ResourceAccessFlags : uint8_t {
 enum class TextureFormat {
     RGBA8_UNORM,
     RGBA8_UNORM_SRGB,
+    R32_FLOAT,
+    R32G32_FLOAT,
+    R32G32B32A32_FLOAT,
     D32_FLOAT,
     UNKNOWN,
 };
@@ -203,24 +207,26 @@ enum class PipelineStage : uint8_t {
 enum class ShaderType {
     VERTEX,
     PIXEL,
+    COMPUTE,
     MULTIPLE
 };
 
-enum class ShaderValueType {
-    FLOAT,
-    FLOAT2,
-    FLOAT3,
-    FLOAT4,
-    INT,
-    INT2,
-    INT3,
-    INT4,
-    USHORT4,
-    MAT4,
-    BOOL,
-    UBYTE4_NORM,
-    TEXTURE2D,
-    SAMPLER,
+enum ShaderValueType : uint16_t {
+    FLOAT        = 1 << 0,
+    FLOAT2       = 1 << 1,
+    FLOAT3       = 1 << 2,
+    FLOAT4       = 1 << 3,
+    INT          = 1 << 4,
+    INT2         = 1 << 5,
+    INT3         = 1 << 6,
+    INT4         = 1 << 7,
+    USHORT4      = 1 << 8,
+    MAT4         = 1 << 9,
+    BOOL         = 1 << 10,
+    UBYTE4_NORM  = 1 << 11,
+    TEXTURE2D    = 1 << 12,
+    TEXTURECUBED = 1 << 13,
+    SAMPLER      = 1 << 14,
     UNKNOWN
 };
 
@@ -273,6 +279,8 @@ struct TextureDesc {
     uint32_t mip_levels             = 1;
     uint32_t sample_count           = 1;
     const void* pixels              = nullptr;
+    // Cube faces (+X, -X, +Y, -Y, +Z, -Z). Used when dimension == DIM_CUBE.
+    Array<const void*, 6> faces;
 };
 
 struct VertexLayoutElement {
@@ -361,6 +369,15 @@ struct GraphicsPSODesc {
     DepthStencilStateDesc depth_stencil_state;
     BlendStateDesc blend_state;
     MultisampleStateDesc multisample_state;
+};
+
+struct ComputePSODesc {
+    std::string debug_name;
+    std::span<const uint32_t> cs_bytecode;
+    uint32_t num_threads_x = 1;
+    uint32_t num_threads_y = 1;
+    uint32_t num_threads_z = 1;
+    DynamicArray<ResourceSignatureDesc> resource_signatures;
 };
 
 } // namespace nc

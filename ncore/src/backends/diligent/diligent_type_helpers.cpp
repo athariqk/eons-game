@@ -11,6 +11,12 @@ Diligent::TEXTURE_FORMAT DiligentTypeHelpers::translate_tex_format( TextureForma
             return Diligent::TEX_FORMAT_RGBA8_UNORM;
         case TextureFormat::RGBA8_UNORM_SRGB:
             return Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB;
+        case TextureFormat::R32_FLOAT:
+            return Diligent::TEX_FORMAT_R32_FLOAT;
+        case TextureFormat::R32G32_FLOAT:
+            return Diligent::TEX_FORMAT_RG32_FLOAT;
+        case TextureFormat::R32G32B32A32_FLOAT:
+            return Diligent::TEX_FORMAT_RGBA32_FLOAT;
         case TextureFormat::UNKNOWN:
             return Diligent::TEX_FORMAT_UNKNOWN;
     }
@@ -207,6 +213,7 @@ Diligent::VALUE_TYPE DiligentTypeHelpers::translate_value_type( ShaderValueType 
         case ShaderValueType::MAT4:
             break;
         case ShaderValueType::TEXTURE2D:
+        case ShaderValueType::TEXTURECUBED:
         case ShaderValueType::SAMPLER:
         case ShaderValueType::UNKNOWN:
             break;
@@ -243,6 +250,7 @@ uint32_t DiligentTypeHelpers::translate_value_num_components( ShaderValueType ty
         case ShaderValueType::MAT4:
             break;
         case ShaderValueType::TEXTURE2D:
+        case ShaderValueType::TEXTURECUBED:
         case ShaderValueType::SAMPLER:
         case ShaderValueType::UNKNOWN:
             break;
@@ -258,6 +266,8 @@ Diligent::SHADER_TYPE DiligentTypeHelpers::translate_shader_stage( ShaderType st
             return Diligent::SHADER_TYPE_VERTEX;
         case ShaderType::PIXEL:
             return Diligent::SHADER_TYPE_PIXEL;
+        case ShaderType::COMPUTE:
+            return Diligent::SHADER_TYPE_COMPUTE;
         case ShaderType::MULTIPLE:
             return Diligent::SHADER_TYPE_VS_PS;
     }

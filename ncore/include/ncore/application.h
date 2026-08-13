@@ -5,7 +5,6 @@
 #pragma once
 
 #include <memory>
-#include <string>
 
 #include <ncore/core/types.h>
 
@@ -43,6 +42,17 @@ struct NCAPI AppDesc {
     AppVersion Version;
     String ConfigFile;
     NSTRUCTV( AppDesc, NC_F( AppDesc, Name ) NC_F( AppDesc, Version ) NC_F( AppDesc, ConfigFile ) )
+};
+
+/**
+ * @brief State of an Application object.
+ */
+struct NCAPI AppContext {
+    AppDesc AppDesc;          // Descriptor used to init this application.
+    ServiceRegistry Services; // Registry of engine services.
+    bool IsRunning   = false; // Whether game loop is still looping.
+    uint64_t Ticks   = 0;     // Ticks since first run() frame.
+    double DeltaTime = 0.0;
 };
 
 /**
@@ -87,20 +97,13 @@ public:
     virtual void unregister_services();
 
     /**
-     * @brief Creates a new game world instance.
-     * By default, this creates a new Scene with the default ECS
-     * runtime features.
-     *
-     * See: EcsBaseFeatures
+     * @brief Creates initial game world instance.
+     * By default, this creates a new Scene.
      */
     virtual std::unique_ptr<IGameWorld> create_world();
 
 protected:
-    AppDesc app_desc;
-    ServiceRegistry services;
-    bool is_running   = false;
-    uint64_t ticks    = 0;
-    double delta_time = 0.0;
+    AppContext context; // Current application state.
     std::unique_ptr<IGameWorld> g_world;
 
     ResourceService* resources = nullptr;

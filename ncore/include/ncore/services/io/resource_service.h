@@ -34,8 +34,8 @@ class NCAPI ResourceService : public IService {
 
 public:
     struct LoadEvent {
-        RID handle;
-        ResourceFormatID format_id;
+        RID Handle;
+        ResourceFormatID FormatId;
     };
 
     using Event = std::variant<LoadEvent>;
@@ -55,7 +55,7 @@ public:
      * @param skip_cache Force re-loading from disk rather than from cache. Use this
      * for hot-reloading.
      *
-     * @return Stable opaque handle as RID. Use get(RID) funct to access it.
+     * @return Stable opaque handle as RID. Use get(RID) to access it.
      */
     RID load( const std::string_view path, bool skip_cache = false );
     void unload_resource( RID rid );

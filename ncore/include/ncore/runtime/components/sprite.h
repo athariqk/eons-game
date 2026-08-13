@@ -8,10 +8,10 @@ namespace nc {
 struct NCAPI SpriteComponent {
     RID source;
     RID texture;
-    Color tint{ 255, 255, 255, 255 };
+    Color Tint{ 255, 255, 255, 255 };
 
     NSTRUCTV(
-        SpriteComponent, NC_F( SpriteComponent, source ) NC_F( SpriteComponent, texture ) NC_F( SpriteComponent, tint )
+        SpriteComponent, NC_F( SpriteComponent, source ) NC_F( SpriteComponent, texture ) NC_F( SpriteComponent, Tint )
     )
 };
 

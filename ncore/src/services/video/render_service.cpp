@@ -73,6 +73,24 @@ void RenderService::swapchain_destroy( RID sc )
     std::erase( swapchains, sc );
 }
 
+RID RenderService::texture_2d_create(
+    uint32_t width, uint32_t height, TextureFormat format, ResourceBindFlags bind_mask
+)
+{
+    return ctx.rhi->texture_create(
+        TextureDesc{
+            .debug_name = "RenderService_FloatTexture",
+            .format     = format,
+            .dimension  = ResourceDimension::DIM_2D,
+            .usage      = ResourceUsage::DEFAULT,
+            .bind_mask  = bind_mask,
+            .width      = width,
+            .height     = height,
+            .faces      = {},
+        }
+    );
+}
+
 RID RenderService::texture_2d_create( const Image& image )
 {
     return ctx.rhi->texture_create(
@@ -84,9 +102,26 @@ RID RenderService::texture_2d_create( const Image& image )
             .access_mask = ResourceAccessFlags::WRITE,
             .width       = image.get_width(),
             .height      = image.get_height(),
-            .pixels      = image.get_pixels().data()
+            .pixels      = image.get_pixels().data(),
+            .faces       = {},
         }
     );
+}
+
+RID RenderService::texture_cube_create( Span<const Image*, 6> faces )
+{
+    TextureDesc desc;
+    desc.debug_name = "RenderService_CubeTexture";
+    desc.format     = TextureFormat::RGBA8_UNORM_SRGB;
+    desc.dimension  = ResourceDimension::DIM_CUBE;
+    desc.usage      = ResourceUsage::IMMUTABLE;
+    desc.width      = faces[0]->get_width();
+    desc.height     = faces[0]->get_height();
+    desc.array_size = 6;
+    for (int i = 0; i < 6; i++) {
+        desc.faces[i] = faces[i]->get_pixels().data();
+    }
+    return ctx.rhi->texture_create( desc );
 }
 
 RID RenderService::material_create( const MaterialTemplate& tmpl )
@@ -107,6 +142,58 @@ RID RenderService::gpu_mesh_create( const Mesh& mesh )
 void RenderService::destroy_rid( RID rid )
 {
     ctx.storage.destroy_rid( rid );
+}
+
+RID RenderService::compute_pipeline_create( const ComputePSODesc& desc )
+{
+    return ctx.rhi->compute_pipeline_create( desc );
+}
+
+void RenderService::compute_pipeline_bind( RID pipeline )
+{
+    ctx.rhi->set_queue( IRHI::GpuQueue::Compute );
+    ctx.rhi->compute_pipeline_bind( pipeline );
+}
+
+void RenderService::dispatch( uint32_t x, uint32_t y, uint32_t z )
+{
+    ctx.rhi->set_queue( IRHI::GpuQueue::Compute );
+    ctx.rhi->dispatch( x, y, z );
+}
+
+void RenderService::compute_texture_bind( RID texture, RID binding, const char* name, TextureViewType view )
+{
+    ctx.rhi->texture_compute_update( texture, binding, name, view );
+}
+
+void RenderService::compute_buffer_bind( RID buffer, RID binding, const char* name )
+{
+    ctx.rhi->buffer_compute_update( buffer, binding, name );
+}
+
+RID RenderService::resource_signature_create( const ResourceSignatureDesc& desc )
+{
+    return ctx.rhi->resource_signature_create( desc );
+}
+
+RID RenderService::resource_binding_create( RID signature )
+{
+    return ctx.rhi->resource_binding_create( signature );
+}
+
+void RenderService::resource_binding_commit( RID binding )
+{
+    ctx.rhi->resource_binding_commit( binding );
+}
+
+RID RenderService::buffer_create( const BufferDesc& desc )
+{
+    return ctx.rhi->buffer_create( desc );
+}
+
+void RenderService::buffer_update( RID buffer, const void* data, size_t size )
+{
+    ctx.rhi->buffer_update( buffer, data, size );
 }
 
 void RenderService::frame_begin()
@@ -179,6 +266,7 @@ void RenderService::frame_end( float delta_time )
     // precompute the V*P part of M*V*P so we don't have do it on the GPU.
     // here we take the inverse of camera transform to get its view matrix.
     view_matrix              = main_cam.transform.affine_inverse();
+    constants.CameraMatrix   = main_cam.transform;
     constants.ViewProjMatrix = main_cam.projection * view_matrix;
     constants.Time           = time;
     constants.DeltaTime      = delta_time;
@@ -240,39 +328,14 @@ void RenderService::frame_end( float delta_time )
     ctx.canvas_render_list.release_all(); // CanvasRenderItem is non-POD
 }
 
-void RenderService::world_camera_set_fov( float fov )
-{
-    main_cam.fov = fov;
-}
-
-void RenderService::world_camera_set_z_near( float p_near )
-{
-    main_cam.z_near = p_near;
-}
-
-void RenderService::world_camera_set_z_far( float p_far )
-{
-    main_cam.z_far = p_far;
-}
-
-void RenderService::world_camera_set_transform( const Mat4& transform )
-{
-    main_cam.transform = transform;
-}
-
-Mat4 RenderService::world_camera_get_transform() const
-{
-    return main_cam.transform;
-}
-
-Mat4 RenderService::world_camera_get_projection() const
-{
-    return main_cam.projection;
-}
-
 float RenderService::world_camera_get_fov() const
 {
     return main_cam.fov;
+}
+
+void RenderService::world_camera_set_fov( float fov )
+{
+    main_cam.fov = fov;
 }
 
 float RenderService::world_camera_get_z_near() const
@@ -280,9 +343,34 @@ float RenderService::world_camera_get_z_near() const
     return main_cam.z_near;
 }
 
+void RenderService::world_camera_set_z_near( float p_near )
+{
+    main_cam.z_near = p_near;
+}
+
 float RenderService::world_camera_get_z_far() const
 {
     return main_cam.z_far;
+}
+
+void RenderService::world_camera_set_z_far( float p_far )
+{
+    main_cam.z_far = p_far;
+}
+
+Mat4 RenderService::world_camera_get_transform() const
+{
+    return main_cam.transform;
+}
+
+void RenderService::world_camera_set_transform( const Mat4& transform )
+{
+    main_cam.transform = transform;
+}
+
+Mat4 RenderService::world_camera_get_projection() const
+{
+    return main_cam.projection;
 }
 
 Mat4 RenderService::world_get_view_matrix() const

@@ -78,6 +78,20 @@ inline constexpr const char* IO       = "I/O";
 
 NCAPI void log_message( const LogMsg& msg );
 
+/**
+ * @brief Print basic info message to default channel and sink (stdout).
+ */
+NCAPI void print( const String& msg );
+
+/**
+ * @brief Print formatted info message to default channel and sink (stdout).
+ */
+template<typename... Args>
+void printf( StringView fmt, Args&&... args )
+{
+    print( String( std::vformat( fmt, std::make_format_args( args... ) ) ) );
+}
+
 using LogMsgCallback = std::function<void( const LogMsg& )>;
 using ListenerToken  = std::shared_ptr<LogMsgCallback>;
 
@@ -98,15 +112,10 @@ NCAPI ListenerToken add_listener( const LogMsgCallback& callback );
     } while (0)
 
 #define NC_LOG_TRACE_C( cat, ... ) NC_LOG( cat, nc::log::Level::LTRACE, __FILE__, __func__, __LINE__, __VA_ARGS__ )
-
 #define NC_LOG_DEBUG_C( cat, ... ) NC_LOG( cat, nc::log::Level::LDEBUG, nullptr, nullptr, 0, __VA_ARGS__ )
-
-#define NC_LOG_INFO_C( cat, ... ) NC_LOG( cat, nc::log::Level::LINFO, nullptr, nullptr, 0, __VA_ARGS__ )
-
-#define NC_LOG_WARN_C( cat, ... ) NC_LOG( cat, nc::log::Level::LWARN, nullptr, nullptr, 0, __VA_ARGS__ )
-
+#define NC_LOG_INFO_C( cat, ... )  NC_LOG( cat, nc::log::Level::LINFO, nullptr, nullptr, 0, __VA_ARGS__ )
+#define NC_LOG_WARN_C( cat, ... )  NC_LOG( cat, nc::log::Level::LWARN, nullptr, nullptr, 0, __VA_ARGS__ )
 #define NC_LOG_ERROR_C( cat, ... ) NC_LOG( cat, nc::log::Level::LERROR, __FILE__, __func__, __LINE__, __VA_ARGS__ )
-
 #define NC_LOG_FATAL_C( cat, ... ) NC_LOG( cat, nc::log::Level::LFATAL, __FILE__, __func__, __LINE__, __VA_ARGS__ )
 
 #define NC_LOG_TRACE( ... ) NC_LOG_TRACE_C( NC_LOG_CHANNEL_NAME, __VA_ARGS__ )

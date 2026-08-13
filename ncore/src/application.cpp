@@ -42,18 +42,21 @@ struct Log {
 
 } // namespace cfg
 
-Application::Application( const AppDesc& desc ) : app_desc( desc ) {}
+Application::Application( const AppDesc& desc )
+{
+    context.AppDesc = desc;
+}
 
 Application::~Application()
 {
-    NC_ASSERT( !is_running, "Application destroyed while still running" );
+    NC_ASSERT( !context.IsRunning, "Application destroyed while still running" );
 }
 
 void Application::init()
 {
     rtti::TypeRegistry::initialize();
 
-    auto cfg_file = ConfFile( app_desc.ConfigFile );
+    auto cfg_file = ConfFile( context.AppDesc.ConfigFile );
     auto log_cfg  = cfg_file.read<cfg::Log>();
 
     // Set up logging
@@ -74,9 +77,11 @@ void Application::init()
     }
 
     register_services();
-    services.init_all( cfg_file );
+    context.Services.init_all( cfg_file );
 
     g_world = create_world();
+
+    g_world->app_ctx = &context;
     g_world->on_enter();
 
     NC_LOG_TRACE( "Application initialized" );
@@ -103,16 +108,16 @@ void Application::run()
     auto last_time     = std::chrono::high_resolution_clock::now();
     double accumulator = 0.0;
 
-    is_running = true;
-    while (is_running) {
-        auto cur_time = std::chrono::high_resolution_clock::now();
-        delta_time    = std::chrono::duration<double>( cur_time - last_time ).count();
-        last_time     = cur_time;
+    context.IsRunning = true;
+    while (context.IsRunning) {
+        auto cur_time     = std::chrono::high_resolution_clock::now();
+        context.DeltaTime = std::chrono::duration<double>( cur_time - last_time ).count();
+        last_time         = cur_time;
 
-        if (delta_time > MAX_ACCUMULATOR)
-            delta_time = MAX_ACCUMULATOR;
+        if (context.DeltaTime > MAX_ACCUMULATOR)
+            context.DeltaTime = MAX_ACCUMULATOR;
 
-        accumulator += delta_time;
+        accumulator += context.DeltaTime;
 
         process_events();
 
@@ -121,17 +126,17 @@ void Application::run()
                 break;
             }
             accumulator -= FIXED_DT;
-            ticks++;
+            context.Ticks++;
         }
 
-        if (g_world->on_variable_update( delta_time )) {
+        if (g_world->on_variable_update( context.DeltaTime )) {
             break;
         }
 
         throttle_framerate( cur_time, TARGET_FRAME_TIME );
     }
 
-    is_running = false;
+    context.IsRunning = false;
 }
 
 void Application::process_events()
@@ -157,24 +162,24 @@ void Application::register_services()
         abort(); // TODO: handle this more gracefully
     }
 
-    events    = services.provide<EventBus>();
-    input     = services.provide<InputService>();
-    resources = services.provide<ResourceService>();
-    window    = services.provide<WindowService>();
-    renderer  = services.provide<RenderService>();
-    services.provide<Box2DPhysicsImpl>();
-    services.provide<AudioService>();
+    events    = context.Services.provide<EventBus>();
+    input     = context.Services.provide<InputService>();
+    resources = context.Services.provide<ResourceService>();
+    window    = context.Services.provide<WindowService>();
+    renderer  = context.Services.provide<RenderService>();
+    context.Services.provide<Box2DPhysicsImpl>();
+    context.Services.provide<AudioService>();
 }
 
 void Application::unregister_services()
 {
-    services.clear();
+    context.Services.clear();
     SDL_Quit();
 }
 
 std::unique_ptr<IGameWorld> Application::create_world()
 {
-    return std::make_unique<Scene>( app_desc, services );
+    return std::make_unique<Scene>();
 }
 
 void Application::finish()
@@ -182,7 +187,7 @@ void Application::finish()
     NC_LOG_TRACE( "Application teardown" );
     g_world->on_exit();
     g_world.reset();
-    services.cleanup_all();
+    context.Services.cleanup_all();
     unregister_services();
     rtti::TypeRegistry::shutdown();
 }

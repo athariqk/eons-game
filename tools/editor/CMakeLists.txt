@@ -23,12 +23,7 @@ set_target_properties(ncore_editor PROPERTIES
 )
 
 target_compile_definitions(ncore_editor PRIVATE
-    $<$<CONFIG:Debug>:NC_DEBUG=1>
-    $<$<CONFIG:Release>:NC_RELEASE=1>
-    $<$<CONFIG:Dist>:NC_DIST=1>
-)
-
-add_custom_command(TARGET ncore_editor POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<TARGET_FILE:ncore_editor>" "$<TARGET_FILE_DIR:eons-game>"
+    $<$<CONFIG:Debug>:DEBUG=1>
+    $<$<CONFIG:Release>:RELEASE=1>
+    $<$<CONFIG:Dist>:DIST=1>
 )

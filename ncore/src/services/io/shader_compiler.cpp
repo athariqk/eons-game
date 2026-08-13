@@ -89,8 +89,14 @@ static ShaderValueType translate_slang_type( slang::TypeReflection* type )
 
     if (kind == slang::TypeReflection::Kind::Resource) {
         auto shape = type->getResourceShape();
-        if (shape == SLANG_TEXTURE_2D)
-            return ShaderValueType::TEXTURE2D;
+        switch (shape) {
+            case SLANG_TEXTURE_2D:
+                return ShaderValueType::TEXTURE2D;
+            case SLANG_TEXTURE_CUBE:
+                return ShaderValueType::TEXTURECUBED;
+            default:
+                break;
+        }
     }
 
     if (kind == slang::TypeReflection::Kind::SamplerState) {
@@ -199,6 +205,7 @@ ShaderCompileResult ShaderCompiler::compile( const ShaderCompileDesc& desc )
                 ep->getFunctionReflection()->getName(),
                 ep->getLayout()->getEntryPointByIndex( 0 )->getStage() == SLANG_STAGE_VERTEX     ? "VS"
                 : ep->getLayout()->getEntryPointByIndex( 0 )->getStage() == SLANG_STAGE_FRAGMENT ? "PS"
+                : ep->getLayout()->getEntryPointByIndex( 0 )->getStage() == SLANG_STAGE_COMPUTE  ? "CS"
                                                                                                  : "?",
                 spirv_code->getBufferSize()
             );
@@ -216,6 +223,9 @@ ShaderCompileResult ShaderCompiler::compile( const ShaderCompileDesc& desc )
             case SLANG_STAGE_FRAGMENT:
                 entry_out.stage = ShaderType::PIXEL;
                 break;
+            case SLANG_STAGE_COMPUTE:
+                entry_out.stage = ShaderType::COMPUTE;
+                break;
             default:
                 entry_out.stage = ShaderType::MULTIPLE;
                 break;
@@ -225,6 +235,19 @@ ShaderCompileResult ShaderCompiler::compile( const ShaderCompileDesc& desc )
         auto words   = static_cast<const uint32_t*>( spirv_code->getBufferPointer() );
         size_t count = spirv_code->getBufferSize() / sizeof( uint32_t );
         entry_out.bytecode.assign( words, words + count );
+
+        auto entry_ep_layout = ep->getLayout()->getEntryPointByIndex( 0 );
+        if (entry_out.stage == ShaderType::COMPUTE && entry_ep_layout) {
+            SlangUInt thread_group_sizes[3] = {};
+            entry_ep_layout->getComputeThreadGroupSize( 3, thread_group_sizes );
+            entry_out.num_threads_x = static_cast<uint32_t>( thread_group_sizes[0] );
+            entry_out.num_threads_y = static_cast<uint32_t>( thread_group_sizes[1] );
+            entry_out.num_threads_z = static_cast<uint32_t>( thread_group_sizes[2] );
+            NC_LOG_INFO_C(
+                log::IO, "Compute shader '{}' numthreads=({}, {}, {})", entry_out.entrypoint, entry_out.num_threads_x,
+                entry_out.num_threads_y, entry_out.num_threads_z
+            );
+        }
 
         auto layout = linked->getLayout();
         if (!layout) {

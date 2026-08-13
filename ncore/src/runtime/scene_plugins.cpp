@@ -1,5 +1,7 @@
 #include "scene_plugins.h"
 
+#include <imgui_internal.h>
+
 #include <backends/imgui/imgui_utils.h>
 
 #include <ncore/application.h>
@@ -38,13 +40,13 @@ void NCAPI register_core_plugin( Scene& scene )
         .in( EcsSystemPhase::PRE_FRAME )
         .run( []( QueryContext& ctx ) {
             auto time = ctx.get_component<TimeComponent>();
-            time->ticks++;
-            time->frame_count++;
-            time->accumulator += ctx.delta_time();
-            if (time->accumulator >= 1.0) {
-                time->fps         = static_cast<double>( time->frame_count ) / time->accumulator;
-                time->frame_count = 0;
-                time->accumulator = 0.0;
+            time->Ticks++;
+            time->FrameCount++;
+            time->Accumulator += ctx.delta_time();
+            if (time->Accumulator >= 1.0) {
+                time->FPS         = static_cast<double>( time->FrameCount ) / time->Accumulator;
+                time->FrameCount  = 0;
+                time->Accumulator = 0.0;
             }
         } );
 
@@ -58,10 +60,10 @@ void NCAPI register_core_plugin( Scene& scene )
         .run( [&scene]( QueryContext& ctx ) {
             auto io       = ctx.world().get_singleton<IoServices>();
             auto gfx      = ctx.world().get_singleton<GraphicsServices>();
-            io->resources = scene.get_services().resolve<ResourceService>();
-            io->inputs    = scene.get_services().resolve<InputService>();
-            gfx->window   = scene.get_services().resolve<WindowService>();
-            gfx->renderer = scene.get_services().resolve<RenderService>();
+            io->Resources = scene.get_app_ctx()->Services.resolve<ResourceService>();
+            io->Inputs    = scene.get_app_ctx()->Services.resolve<InputService>();
+            gfx->Window   = scene.get_app_ctx()->Services.resolve<WindowService>();
+            gfx->Renderer = scene.get_app_ctx()->Services.resolve<RenderService>();
         } );
 }
 
@@ -78,7 +80,7 @@ void register_window_plugin( Scene& scene )
             auto io       = ctx.get_component<IoServices>();
             auto gfx      = ctx.get_component<GraphicsServices>();
 
-            gfx->window->set_default_icon( io->resources->load<Image>( "images/default.ico" ) );
+            gfx->Window->set_default_icon( io->Resources->load<Image>( "images/window.ico" ) );
 
             auto window_eid = ctx.world()
                                   .entity( "PrimaryWindow" )
@@ -86,16 +88,16 @@ void register_window_plugin( Scene& scene )
                                   .add<WindowComponent>( WindowComponent{
                                       .Title          = app_desc->Name,
                                       .Resolution     = Vec2( 1280.0f, 720.0f ),
-                                      .Fullscreen     = gfx->window->get_settings().Fullscreen,
+                                      .Fullscreen     = gfx->Window->get_settings().Fullscreen,
                                       .Visible        = true,
-                                      .VSync          = gfx->renderer->get_settings().VSync,
-                                      .PixelsPerMeter = gfx->window->get_settings().PixelsPerMeter
+                                      .VSync          = gfx->Renderer->get_settings().VSync,
+                                      .PixelsPerMeter = gfx->Window->get_settings().PixelsPerMeter
                                   } )
                                   .build();
 
             ctx.world()
                 .entity()
-                .add<SwapChainComponent>( SwapChainComponent{ .vsync = gfx->renderer->get_settings().VSync } )
+                .add<SwapChainComponent>( SwapChainComponent{ .vsync = gfx->Renderer->get_settings().VSync } )
                 .child_of( window_eid )
                 .build();
         } );
@@ -108,14 +110,14 @@ void register_window_plugin( Scene& scene )
             auto gfx = ctx.world().get_singleton<GraphicsServices>();
 
             if (win->SourceId == UINT32_MAX) {
-                win->SourceId = gfx->window->window_create();
-                gfx->window->window_set_fullscreen( win->SourceId, win->Fullscreen );
-                gfx->window->window_set_resolution( win->SourceId, win->Resolution );
-                gfx->window->window_set_centered( win->SourceId );
+                win->SourceId = gfx->Window->window_create();
+                gfx->Window->window_set_fullscreen( win->SourceId, win->Fullscreen );
+                gfx->Window->window_set_resolution( win->SourceId, win->Resolution );
+                gfx->Window->window_set_centered( win->SourceId );
             }
 
-            gfx->window->window_set_title( win->SourceId, win->Title );
-            gfx->window->window_set_visible( win->SourceId, win->Visible );
+            gfx->Window->window_set_title( win->SourceId, win->Title );
+            gfx->Window->window_set_visible( win->SourceId, win->Visible );
         } );
 
     scene.get_ecs()
@@ -129,10 +131,10 @@ void register_window_plugin( Scene& scene )
             auto win = ctx.get_component<WindowComponent>();
             auto gfx = ctx.world().get_singleton<GraphicsServices>();
 
-            if (!rd->swapchain.is_valid()) {
-                auto whnd     = gfx->window->get_native_whnd( win->SourceId );
-                rd->swapchain = gfx->renderer->swapchain_create( whnd, win->Resolution );
-                rd->size      = win->Resolution;
+            if (!rd->Source.is_valid()) {
+                auto whnd  = gfx->Window->get_native_whnd( win->SourceId );
+                rd->Source = gfx->Renderer->swapchain_create( whnd, win->Resolution );
+                rd->Size   = win->Resolution;
             }
         } );
 
@@ -140,11 +142,11 @@ void register_window_plugin( Scene& scene )
         .observer( "SceneWindowPlugin_DestroySwapChains" )
         .on<SwapChainComponent>( EcsCoreEvent::OnRemove )
         .each( []( QueryContext& ctx, EcsEntity ) {
-            auto rd  = ctx.get_component<SwapChainComponent>();
+            auto sc  = ctx.get_component<SwapChainComponent>();
             auto gfx = ctx.world().get_singleton<GraphicsServices>();
-            if (rd->swapchain.is_valid()) {
-                gfx->renderer->swapchain_destroy( rd->swapchain );
-                rd->swapchain = {};
+            if (sc->Source.is_valid()) {
+                gfx->Renderer->swapchain_destroy( sc->Source );
+                sc->Source = {};
             }
         } );
 
@@ -154,7 +156,7 @@ void register_window_plugin( Scene& scene )
         .each( []( QueryContext& ctx, EcsEntity ) {
             auto win = ctx.get_component<WindowComponent>();
             auto gfx = ctx.world().get_singleton<GraphicsServices>();
-            gfx->window->window_pop( win->SourceId );
+            gfx->Window->window_pop( win->SourceId );
         } );
 
     scene.get_ecs()
@@ -163,7 +165,7 @@ void register_window_plugin( Scene& scene )
         .in( EcsSystemPhase::PRE_FRAME )
         .run( []( QueryContext& ctx ) {
             auto gfx = ctx.get_component<GraphicsServices>();
-            gfx->window->pump_events();
+            gfx->Window->pump_events();
         } );
 
     scene.get_ecs()
@@ -177,14 +179,14 @@ void register_window_plugin( Scene& scene )
             auto win    = ctx.get_component<WindowComponent>();
             auto sc     = ctx.get_component<SwapChainComponent>();
             auto gfx    = ctx.world().get_singleton<GraphicsServices>();
-            auto events = gfx->window->window_events();
+            auto events = gfx->Window->window_events();
 
             for (const auto& ev : events) {
                 if (auto resize = std::get_if<WindowResizeEvent>( &ev )) {
                     if (resize->window_id == win->SourceId) {
-                        sc->size = Vec2( static_cast<float>( resize->width ), static_cast<float>( resize->height ) );
-                        ctx.world().emit_event<SwapChainResizedComponent>( { sc->size }, id );
-                        gfx->renderer->swapchain_set_size( sc->swapchain, sc->size );
+                        sc->Size = Vec2( static_cast<float>( resize->width ), static_cast<float>( resize->height ) );
+                        ctx.world().emit_event<SwapChainResizedComponent>( { sc->Size }, id );
+                        gfx->Renderer->swapchain_set_size( sc->Source, sc->Size );
                     }
                 }
             }
@@ -198,7 +200,7 @@ void register_window_plugin( Scene& scene )
         .each( []( QueryContext& ctx, EcsEntity id ) {
             auto win    = ctx.get_component<WindowComponent>();
             auto gfx    = ctx.world().get_singleton<GraphicsServices>();
-            auto events = gfx->window->window_events();
+            auto events = gfx->Window->window_events();
 
             for (const auto& ev : events) {
                 if (auto close = std::get_if<WindowCloseEvent>( &ev )) {
@@ -219,10 +221,10 @@ void register_render_plugin( Scene& scene )
         .with<RenderState>()
         .in( EcsSystemPhase::INIT )
         .run( []( QueryContext& ctx ) {
-            auto state           = ctx.get_component<RenderState>();
-            auto gfx             = ctx.world().get_singleton<GraphicsServices>();
-            uint8_t pixels[4]    = { 255, 255, 255, 255 };
-            state->white_texture = gfx->renderer->texture_2d_create( Image( 1, 1, pixels ) );
+            auto state          = ctx.get_component<RenderState>();
+            auto gfx            = ctx.world().get_singleton<GraphicsServices>();
+            uint8_t pixels[4]   = { 255, 255, 255, 255 };
+            state->WhiteTexture = gfx->Renderer->texture_2d_create( Image( 1, 1, pixels ) );
         } );
 
     scene.get_ecs()
@@ -234,8 +236,8 @@ void register_render_plugin( Scene& scene )
             auto sc  = ctx.get_component<SwapChainComponent>();
             auto gfx = ctx.world().get_singleton<GraphicsServices>();
             auto rs  = ctx.world().get_singleton<RenderState>();
-            gfx->renderer->frame_begin();
-            rs->display_size = sc->size;
+            gfx->Renderer->frame_begin();
+            rs->DisplaySize = sc->Size;
         } );
 
     scene.get_ecs()
@@ -246,10 +248,10 @@ void register_render_plugin( Scene& scene )
             auto gfx   = ctx.world().get_singleton<GraphicsServices>();
             auto cam   = ctx.get_component<CameraComponent>();
             auto xform = ctx.get_component<Transform3DComponent>();
-            gfx->renderer->world_camera_set_fov( cam->FieldOfView );
-            gfx->renderer->world_camera_set_z_far( cam->zFar );
-            gfx->renderer->world_camera_set_z_near( cam->zNear );
-            gfx->renderer->world_camera_set_transform( xform->Global );
+            gfx->Renderer->world_camera_set_fov( cam->FieldOfView );
+            gfx->Renderer->world_camera_set_z_far( cam->zFar );
+            gfx->Renderer->world_camera_set_z_near( cam->zNear );
+            gfx->Renderer->world_camera_set_transform( xform->Global );
         } );
 
     scene.get_ecs()
@@ -257,22 +259,25 @@ void register_render_plugin( Scene& scene )
         .with<MaterialComponent>()
         .event<ResourceLoadedComponent>()
         .each( []( QueryContext& ctx, EcsEntity id ) {
-            auto state    = ctx.world().get_singleton<RenderState>();
-            auto gfx      = ctx.world().get_singleton<GraphicsServices>();
-            auto io       = ctx.world().get_singleton<IoServices>();
-            auto material = ctx.get_component<MaterialComponent>();
-            auto loaded   = ctx.event_payload<ResourceLoadedComponent>();
+            auto state  = ctx.world().get_singleton<RenderState>();
+            auto gfx    = ctx.world().get_singleton<GraphicsServices>();
+            auto io     = ctx.world().get_singleton<IoServices>();
+            auto mat    = ctx.get_component<MaterialComponent>();
+            auto loaded = ctx.event_payload<ResourceLoadedComponent>();
 
-            if (material->source != loaded->resource_id)
+            if (mat->Source != loaded->ResourceId)
                 return;
 
-            if (material->instance)
-                gfx->renderer->destroy_rid( material->instance );
+            if (mat->Instance)
+                gfx->Renderer->destroy_rid( mat->Instance );
 
-            auto res              = io->resources->get<MaterialTemplate>( loaded->resource_id );
-            material->instance    = gfx->renderer->material_create( *res );
-            material->textures[0] = state->white_texture; // TODO: custom textures
-            gfx->renderer->material_set_texture( material->instance, material->textures[0], 0 );
+            auto source   = io->Resources->get<MaterialTemplate>( loaded->ResourceId );
+            mat->Instance = gfx->Renderer->material_create( *source );
+
+            if (mat->TextureCount <= 0)
+                mat->Textures[0] = state->WhiteTexture; // fallback texture.
+
+            gfx->Renderer->material_set_texture( mat->Instance, mat->Textures[0], 0 );
         } );
 
     scene.get_ecs()
@@ -285,14 +290,14 @@ void register_render_plugin( Scene& scene )
             auto mesh   = ctx.get_component<MeshComponent>();
             auto loaded = ctx.event_payload<ResourceLoadedComponent>();
 
-            if (mesh->source != loaded->resource_id)
+            if (mesh->Source != loaded->ResourceId)
                 return;
 
-            if (mesh->instance)
-                gfx->renderer->destroy_rid( mesh->instance );
+            if (mesh->Instance)
+                gfx->Renderer->destroy_rid( mesh->Instance );
 
-            auto res       = io->resources->get<Mesh>( loaded->resource_id );
-            mesh->instance = gfx->renderer->gpu_mesh_create( *res );
+            auto source    = io->Resources->get<Mesh>( loaded->ResourceId );
+            mesh->Instance = gfx->Renderer->gpu_mesh_create( *source );
         } );
 
     scene.get_ecs()
@@ -308,9 +313,9 @@ void register_render_plugin( Scene& scene )
             auto xform    = ctx.get_component<Transform3DComponent>();
             auto gfx      = ctx.world().get_singleton<GraphicsServices>();
 
-            if (mesh->instance && material->instance) {
-                gfx->renderer->world_draw_instance(
-                    mesh->instance, xform->Global, material->instance, mesh->instance_count
+            if (mesh->Instance && material->Instance) {
+                gfx->Renderer->world_draw_instance(
+                    mesh->Instance, xform->Global, material->Instance, mesh->InstanceCount
                 );
             }
         } );
@@ -327,10 +332,10 @@ void register_render_plugin( Scene& scene )
             auto sprite   = ctx.get_component<SpriteComponent>();
             auto gfx      = ctx.world().get_singleton<GraphicsServices>();
 
-            float r = math::deg_to_rad( xform->angle );
+            float r = math::deg_to_rad( xform->Angle );
 
             // clang-format off
-				auto c_local = xform->size * 0.5f;
+				auto c_local = xform->Size * 0.5f;
 				Vec2 local_coords[4] = {
 					{ -c_local.x, -c_local.y },
 					{  c_local.x, -c_local.y },
@@ -351,8 +356,8 @@ void register_render_plugin( Scene& scene )
                 world_coords[i] += c_world;
             }
 
-            if (material->instance)
-                gfx->renderer->canvas_draw_quad( world_coords, material->instance, sprite->tint );
+            if (material->Instance)
+                gfx->Renderer->canvas_draw_quad( world_coords, material->Instance, sprite->Tint );
         } );
 
     scene.get_ecs()
@@ -362,7 +367,7 @@ void register_render_plugin( Scene& scene )
         .order( 10 )
         .each( []( QueryContext& ctx, EcsEntity ) {
             auto gfx = ctx.world().get_singleton<GraphicsServices>();
-            gfx->renderer->frame_end( static_cast<float>( ctx.delta_time() ) );
+            gfx->Renderer->frame_end( static_cast<float>( ctx.delta_time() ) );
         } );
 }
 
@@ -374,17 +379,17 @@ void register_inputs_plugin( Scene& scene )
         .in( EcsSystemPhase::INIT )
         .run( []( QueryContext& ctx ) {
             auto io = ctx.get_component<IoServices>();
-            io->inputs->action_bind_event( InputService::FORWARD_ACTION_NAME, KeyEvent{ .key = Key::W } );
-            io->inputs->action_bind_event( InputService::BACKWARD_ACTION_NAME, KeyEvent{ .key = Key::S } );
-            io->inputs->action_bind_event( InputService::LEFT_ACTION_NAME, KeyEvent{ .key = Key::A } );
-            io->inputs->action_bind_event( InputService::RIGHT_ACTION_NAME, KeyEvent{ .key = Key::D } );
-            io->inputs->action_bind_event( InputService::UP_ACTION_NAME, KeyEvent{ .key = Key::SPACE } );
-            io->inputs->action_bind_event( InputService::DOWN_ACTION_NAME, KeyEvent{ .key = Key::SHIFT } );
+            io->Inputs->action_bind_event( InputService::FORWARD_ACTION_NAME, KeyEvent{ .key = Key::W } );
+            io->Inputs->action_bind_event( InputService::BACKWARD_ACTION_NAME, KeyEvent{ .key = Key::S } );
+            io->Inputs->action_bind_event( InputService::LEFT_ACTION_NAME, KeyEvent{ .key = Key::A } );
+            io->Inputs->action_bind_event( InputService::RIGHT_ACTION_NAME, KeyEvent{ .key = Key::D } );
+            io->Inputs->action_bind_event( InputService::UP_ACTION_NAME, KeyEvent{ .key = Key::SPACE } );
+            io->Inputs->action_bind_event( InputService::DOWN_ACTION_NAME, KeyEvent{ .key = Key::SHIFT } );
 
-            io->inputs->action_register( "G_LeftRoll" );
-            io->inputs->action_register( "G_RightRoll" );
-            io->inputs->action_bind_event( "G_LeftRoll", KeyEvent{ .key = Key::Q } );
-            io->inputs->action_bind_event( "G_RightRoll", KeyEvent{ .key = Key::E } );
+            io->Inputs->action_register( "G_LeftRoll" );
+            io->Inputs->action_register( "G_RightRoll" );
+            io->Inputs->action_bind_event( "G_LeftRoll", KeyEvent{ .key = Key::Q } );
+            io->Inputs->action_bind_event( "G_RightRoll", KeyEvent{ .key = Key::E } );
         } );
 
     scene.get_ecs()
@@ -393,7 +398,7 @@ void register_inputs_plugin( Scene& scene )
         .in( EcsSystemPhase::PRE_UPDATE )
         .run( []( QueryContext& ctx ) {
             auto io = ctx.get_component<IoServices>();
-            io->inputs->update();
+            io->Inputs->update();
         } );
 
     scene.get_ecs()
@@ -404,20 +409,20 @@ void register_inputs_plugin( Scene& scene )
             auto io    = ctx.world().get_singleton<IoServices>();
             auto input = ctx.get_component<InputComponent>();
 
-            input->direction.zero();
+            input->Direction.zero();
 
             if (ImGui::GetIO().WantCaptureKeyboard)
                 return;
 
-            Vec2 xz = io->inputs->action_get_vector(
+            Vec2 xz = io->Inputs->action_get_vector(
                 InputService::LEFT_ACTION_NAME, InputService::RIGHT_ACTION_NAME, InputService::BACKWARD_ACTION_NAME,
                 InputService::FORWARD_ACTION_NAME
             );
-            float y = io->inputs->action_get_axis( InputService::DOWN_ACTION_NAME, InputService::UP_ACTION_NAME );
-            input->direction = Vec3( -xz.x, -y, xz.y ); // (-LeftRight, -UpDown, ForwardBackward)
+            float y = io->Inputs->action_get_axis( InputService::DOWN_ACTION_NAME, InputService::UP_ACTION_NAME );
+            input->Direction = Vec3( -xz.x, -y, xz.y ); // (-LeftRight, -UpDown, ForwardBackward)
 
-            float r                = io->inputs->action_get_axis( "G_LeftRoll", "G_RightRoll" );
-            input->angular_delta.z = -r * input->roll_rate;
+            float r               = io->Inputs->action_get_axis( "G_LeftRoll", "G_RightRoll" );
+            input->AngularDelta.z = -r * input->RollRate;
         } );
 
     scene.get_ecs()
@@ -429,18 +434,18 @@ void register_inputs_plugin( Scene& scene )
             auto gfx   = ctx.world().get_singleton<GraphicsServices>();
             auto input = ctx.get_component<InputComponent>();
 
-            auto win_id = gfx->window->get_main_window_id();
+            auto win_id = gfx->Window->get_main_window_id();
 
             // per-frame deltas, zeroed when the mouse is unlocked
-            if (gfx->window->window_get_mouse_locked( win_id )) {
-                auto md                = io->inputs->get_mouse_delta();
-                auto dt                = static_cast<float>( ctx.delta_time() );
-                float inv_dt           = ( dt > 0.0f ) ? ( 1.0f / dt ) : 0.0f;
-                input->angular_delta.x = -md.x * inv_dt * input->mouse_sensitivity;
-                input->angular_delta.y = -md.y * inv_dt * input->mouse_sensitivity;
+            if (gfx->Window->window_get_mouse_locked( win_id )) {
+                auto md               = io->Inputs->get_mouse_delta();
+                auto dt               = static_cast<float>( ctx.delta_time() );
+                float inv_dt          = ( dt > 0.0f ) ? ( 1.0f / dt ) : 0.0f;
+                input->AngularDelta.x = -md.x * inv_dt * input->MouseSensitivity;
+                input->AngularDelta.y = -md.y * inv_dt * input->MouseSensitivity;
             } else {
-                input->angular_delta.x = 0;
-                input->angular_delta.y = 0;
+                input->AngularDelta.x = 0;
+                input->AngularDelta.y = 0;
             }
         } );
 
@@ -453,7 +458,7 @@ void register_inputs_plugin( Scene& scene )
             auto input = ctx.get_component<InputComponent>();
 
             auto dt = static_cast<float>( ctx.delta_time() );
-            xform->Translation += xform->Rotation * input->direction * input->magnitude * dt;
+            xform->Translation += xform->Rotation * input->Direction * input->Magnitude * dt;
 
             // 6DOF camera rotation.
             // NOTE: suffers from the so called "holonomy" where if you
@@ -467,9 +472,9 @@ void register_inputs_plugin( Scene& scene )
             // i can't get the above working correctly without unwanted roll
             // so have the one below for now...
 
-            const float yaw_amount   = input->angular_delta.x * dt;
-            const float pitch_amount = input->angular_delta.y * dt;
-            const float roll_amount  = input->angular_delta.z * dt;
+            const float yaw_amount   = input->AngularDelta.x * dt;
+            const float pitch_amount = input->AngularDelta.y * dt;
+            const float roll_amount  = input->AngularDelta.z * dt;
 
             // FPS-style cam
 
@@ -501,20 +506,20 @@ void register_inputs_plugin( Scene& scene )
             auto gfx = ctx.world().get_singleton<GraphicsServices>();
             auto io  = ctx.world().get_singleton<IoServices>();
 
-            auto win_id = gfx->window->get_main_window_id();
+            auto win_id = gfx->Window->get_main_window_id();
 
             auto rmb_clicked =
-                !ImGui::GetIO().WantCaptureMouse && io->inputs->is_mouse_button_pressed( ButtonIndex::RIGHT );
-            if (io->inputs->is_key_pressed( Key::ESC )) {
+                !ImGui::GetIO().WantCaptureMouse && io->Inputs->is_mouse_button_pressed( ButtonIndex::RIGHT );
+            if (io->Inputs->is_key_pressed( Key::ESC )) {
                 cam->MouseCaptured = false;
             } else if (rmb_clicked) {
                 cam->MouseCaptured = !cam->MouseCaptured;
             }
-            gfx->window->window_set_mouse_locked( win_id, cam->MouseCaptured );
+            gfx->Window->window_set_mouse_locked( win_id, cam->MouseCaptured );
 
             if (cam->MouseCaptured) {
                 // confine to center each frame
-                gfx->window->window_set_mouse_position( win_id, gfx->window->window_get_resolution( win_id ) / 2 );
+                gfx->Window->window_set_mouse_position( win_id, gfx->Window->window_get_resolution( win_id ) / 2 );
             }
         } );
 }
@@ -551,10 +556,10 @@ void register_gui_plugin( Scene& scene )
 
             ImGui::SetCurrentContext( state->ImGuiCtx );
 
-            auto tmpl_rid = io->resources->load( "materials/canvas.material" );
-            auto tmpl     = io->resources->get<MaterialTemplate>( tmpl_rid );
+            auto tmpl_rid = io->Resources->load( "materials/canvas.material" );
+            auto tmpl     = io->Resources->get<MaterialTemplate>( tmpl_rid );
             NC_VERIFY( tmpl );
-            auto mat = gfx->renderer->material_create( *tmpl );
+            auto mat = gfx->Renderer->material_create( *tmpl );
 
             state->Material = mat; // TODO: why are we even storing the mat in the global state when
                                    // we're creating a dedicated entity material down below?
@@ -576,7 +581,7 @@ void register_gui_plugin( Scene& scene )
             for (ImTextureData* tex : io.Textures) {
                 if (tex->BackendUserData) {
                     RID rid( static_cast<uint64_t>( reinterpret_cast<uintptr_t>( tex->BackendUserData ) ) );
-                    gfx->renderer->destroy_rid( rid );
+                    gfx->Renderer->destroy_rid( rid );
                 }
                 tex->BackendUserData = nullptr;
                 tex->SetTexID( ImTextureID_Invalid );
@@ -603,7 +608,7 @@ void register_gui_plugin( Scene& scene )
             ImGuiIO& gui_io  = ImGui::GetIO();
             gui_io.DeltaTime = static_cast<float>( ctx.delta_time() );
 
-            for (const auto& ev : io->inputs->get_events()) {
+            for (const auto& ev : io->Inputs->get_events()) {
                 std::visit(
                     [&]( auto&& e ) {
                         using T = std::decay_t<decltype( e )>;
@@ -642,7 +647,7 @@ void register_gui_plugin( Scene& scene )
                 );
             }
 
-            for (const auto& ev : gfx->window->window_events()) {
+            for (const auto& ev : gfx->Window->window_events()) {
                 if (auto focus = std::get_if<WindowFocusEvent>( &ev )) {
                     gui_io.AddFocusEvent( focus->focused );
                 }
@@ -656,7 +661,7 @@ void register_gui_plugin( Scene& scene )
         .run( []( QueryContext& ctx ) {
             auto rd = ctx.get_component<SwapChainComponent>();
 
-            Vec2 size = rd->size;
+            Vec2 size = rd->Size;
             if (size.is_zero())
                 return;
 
@@ -669,7 +674,7 @@ void register_gui_plugin( Scene& scene )
             // FIXME: improve this. shouldn't access SDL directly, delegate to InputService/EcsInputFeature
             auto gfx = ctx.world().get_singleton<GraphicsServices>();
             SDL_Window* sdl_window =
-                SDL_GetWindowFromID( static_cast<SDL_WindowID>( gfx->window->get_main_window_id() ) );
+                SDL_GetWindowFromID( static_cast<SDL_WindowID>( gfx->Window->get_main_window_id() ) );
             if (sdl_window) {
                 if (io.WantTextInput) {
                     SDL_StartTextInput( sdl_window );
@@ -690,7 +695,7 @@ void register_gui_plugin( Scene& scene )
             ImGui::Render();
 
             auto wanted_cursor = state->CursorMap.at( ImGui::GetMouseCursor() );
-            gfx->window->set_cursor_type( wanted_cursor );
+            gfx->Window->set_cursor_type( wanted_cursor );
 
             ImDrawData* dd = ImGui::GetDrawData();
             if (!dd || dd->DisplaySize.x <= 0 || dd->DisplaySize.y <= 0 || !state->Material.is_valid()) {
@@ -710,7 +715,7 @@ void register_gui_plugin( Scene& scene )
                 switch (tex->Status) {
                     case ImTextureStatus_WantCreate: {
                         Image image( tex->Width, tex->Height, tex->GetPixels() );
-                        RID rid = gfx->renderer->texture_2d_create( image );
+                        RID rid = gfx->Renderer->texture_2d_create( image );
                         tex->SetTexID( reinterpret_cast<ImTextureID>( static_cast<uintptr_t>( rid.value ) ) );
                         tex->BackendUserData = reinterpret_cast<void*>( static_cast<uintptr_t>( rid.value ) );
                         tex->SetStatus( ImTextureStatus_OK );
@@ -718,7 +723,7 @@ void register_gui_plugin( Scene& scene )
                     }
                     case ImTextureStatus_WantDestroy: {
                         RID rid( reinterpret_cast<uintptr_t>( tex->BackendUserData ) );
-                        gfx->renderer->destroy_rid( rid );
+                        gfx->Renderer->destroy_rid( rid );
                         tex->BackendUserData = nullptr;
                         tex->SetTexID( ImTextureID_Invalid );
                         tex->SetStatus( ImTextureStatus_Destroyed );
@@ -726,9 +731,9 @@ void register_gui_plugin( Scene& scene )
                     }
                     case ImTextureStatus_WantUpdates: {
                         RID old_rid( reinterpret_cast<uintptr_t>( tex->BackendUserData ) );
-                        gfx->renderer->destroy_rid( old_rid );
+                        gfx->Renderer->destroy_rid( old_rid );
                         Image image( tex->Width, tex->Height, tex->GetPixels() );
-                        RID new_rid = gfx->renderer->texture_2d_create( image );
+                        RID new_rid = gfx->Renderer->texture_2d_create( image );
                         tex->SetTexID( reinterpret_cast<ImTextureID>( static_cast<uintptr_t>( new_rid.value ) ) );
                         tex->BackendUserData = reinterpret_cast<void*>( static_cast<uintptr_t>( new_rid.value ) );
                         tex->SetStatus( ImTextureStatus_OK );
@@ -779,7 +784,7 @@ void register_gui_plugin( Scene& scene )
                         NC_LOG_DEBUG_C(
                             log::GRAPHICS, "  texture change: {} -> {}", state->LastTexId.value, tex_id.value
                         );
-                        gfx->renderer->material_set_texture( state->Material, tex_id, 0 );
+                        gfx->Renderer->material_set_texture( state->Material, tex_id, 0 );
                         state->LastTexId = tex_id;
                     }
 
@@ -787,7 +792,7 @@ void register_gui_plugin( Scene& scene )
                         log::GRAPHICS, "  canvas_draw_triangles: {} verts, {} idx, clip={:.0f},{:.0f} {:.0f}x{:.0f}",
                         vert_count, idx_count, clip_rect.x, clip_rect.y, clip_rect.w, clip_rect.h
                     );
-                    gfx->renderer->canvas_draw_triangles(
+                    gfx->Renderer->canvas_draw_triangles(
                         { vtx, vert_count }, { idx, idx_count }, state->Material, clip_rect
                     );
                 }
@@ -806,10 +811,10 @@ void NCAPI register_resources_plugin( Scene& scene )
             auto io    = ctx.world().get_singleton<IoServices>();
             auto state = ctx.world().get_singleton<ResourceWatchState>();
 
-            state->pending_events.clear();
+            state->PendingEvents.clear();
             ResourceService::Event e;
-            while (io->resources->poll_event( &e )) { // has any resource event occurred?
-                state->pending_events.push_back( e );
+            while (io->Resources->poll_event( &e )) { // has any resource event occurred?
+                state->PendingEvents.push_back( e );
             }
         } );
 
@@ -819,15 +824,66 @@ void NCAPI register_resources_plugin( Scene& scene )
         .in( EcsSystemPhase::POST_UPDATE )
         .each( []( QueryContext& ctx, EcsEntity id ) {
             auto state = ctx.world().get_singleton<ResourceWatchState>();
-            for (auto& entry : state->pending_events) {
+            for (auto& entry : state->PendingEvents) {
                 if (auto loaded = std::get_if<ResourceService::LoadEvent>( &entry )) { // handle a resource loaded event
                     NC_LOG_DEBUG(
-                        "ResourceService::LoadEvent: RID={} ResourceFormatID={}", loaded->handle.value,
-                        loaded->format_id.to_string()
+                        "ResourceService::LoadEvent: RID={} ResourceFormatID={}", loaded->Handle.value,
+                        loaded->FormatId.to_string()
                     );
-                    ctx.world().emit_event<ResourceLoadedComponent>( { loaded->handle, loaded->format_id }, id );
+                    ctx.world().emit_event<ResourceLoadedComponent>( { loaded->Handle, loaded->FormatId }, id );
                 }
             }
+        } );
+}
+
+void NCAPI register_debug_plugin( Scene& scene )
+{
+    scene.get_ecs()
+        .system( "SceneRenderPlugin_DebugView" )
+        .with<TimeComponent>()
+        .with<GuiStateComponent>()
+        .with<GraphicsServices>()
+        .in( EcsSystemPhase::UPDATE )
+        .run( []( QueryContext& ctx ) {
+            auto time = ctx.get_component<TimeComponent>();
+            auto gfx  = ctx.get_component<GraphicsServices>();
+
+            const ImGuiViewport* viewport = ImGui::GetMainViewport();
+            ImVec2 work_pos               = viewport->WorkPos;
+            ImVec2 work_size              = viewport->WorkSize;
+
+            ImGui::SetNextWindowBgAlpha( 0.35f );
+            ImGui::PushStyleVar( ImGuiStyleVar_WindowBorderSize, 0.0f );
+
+            ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+                                            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+                                            ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
+
+            constexpr float PAD      = 10.0f;
+            float overlay_right_edge = work_pos.x + work_size.x;
+            ImGui::SetNextWindowPos(
+                ImVec2( overlay_right_edge - PAD, work_pos.y + PAD ), ImGuiCond_Always, ImVec2( 1.0f, 0.0f )
+            );
+
+            ImGui::SetNextWindowSize( ImVec2( 200, 0 ) );
+
+            if (ImGui::Begin( "##overlay", nullptr, window_flags )) {
+                ImGui::Text( "Ticks: %u", time->Ticks );
+                ImGui::Text( "FPS: %.3f", time->FPS );
+                ImGui::Text( "Frame count: %d", time->FrameCount );
+
+                const auto& stats = gfx->Renderer->get_stats();
+                ImGui::Text( "GPU time: %.3f ms", stats.gpu_duration_ms );
+                ImGui::Text( "IA Prims: %llu", stats.input_primitives );
+                ImGui::Text( "IA Verts: %llu", stats.input_vertices );
+                ImGui::Text( "VS Invokes: %llu", stats.vs_invocations );
+                ImGui::Text( "PS Invokes: %llu", stats.ps_invocations );
+                ImGui::Text( "Clipping Prims: %llu", stats.clipping_primitives );
+                ImGui::Text( "Clipping Invokes: %llu", stats.clipping_invocations );
+            }
+            ImGui::End();
+
+            ImGui::PopStyleVar();
         } );
 }
 

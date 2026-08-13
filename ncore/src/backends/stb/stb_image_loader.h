@@ -6,8 +6,8 @@
 
 namespace nc {
 
-class SDLImageLoader : public IResourceImporter {
-    NCLASS( SDLImageLoader, IResourceImporter )
+class StbImageLoader : public IResourceImporter {
+    NCLASS( StbImageLoader, IResourceImporter )
 
 public:
     bool is_handling_extension( const std::string& ext ) override;

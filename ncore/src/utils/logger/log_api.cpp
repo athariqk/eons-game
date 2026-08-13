@@ -70,6 +70,17 @@ void log_message( const LogMsg& msg )
     log::Logger::get_instance().channel( msg.channel )->write( msg );
 }
 
+NCAPI void print( const String& p_msg )
+{
+    if (Level::LINFO < kMIN_LOG_LEVEL.load())
+        return;
+    LogMsg msg;
+    msg.channel = NC_LOG_CHANNEL_NAME;
+    msg.level   = Level::LINFO;
+    msg.payload = p_msg;
+    log_message( msg );
+}
+
 ListenerToken add_listener( const LogMsgCallback& callback )
 {
     return log::Logger::get_instance().add_listener( callback );

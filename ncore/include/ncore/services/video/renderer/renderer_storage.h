@@ -40,6 +40,8 @@ public:
         PSO_MSAA_QUALITY_SHIFT = 23,
         PSO_MSAA_QUALITY_MASK  = 15 << PSO_MSAA_QUALITY_SHIFT,
         PSO_SCISSOR            = 1 << 27,
+        PSO_FILL_SHIFT         = 28,
+        PSO_FILL_MASK          = 3 << PSO_FILL_SHIFT,
     };
 
     struct PSOKey {
@@ -80,6 +82,7 @@ public:
 
     struct ShaderConstants {
         Mat4 ModelMatrix;
+        Mat4 CameraMatrix;
         Mat4 ViewProjMatrix; // This is Projection * View
         float Time;
         float DeltaTime;

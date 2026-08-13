@@ -307,10 +307,10 @@ struct NCAPI Quaternion {
     {
         auto u = Quaternion::normalize( q );
         auto x = std::atan2f( 2 * ( u.w * u.v.x + u.v.y * u.v.z ), 1 - ( 2 * ( u.v.x * u.v.x + u.v.y * u.v.y ) ) );
-        auto y = -math::kHALF_PI + 2 * std::atan2f(
-                                           std::sqrtf( 1 + ( 2 * ( u.w * u.v.y - u.v.x * u.v.z ) ) ),
-                                           std::sqrtf( 1 - ( 2 * ( u.w * u.v.y - u.v.x * u.v.z ) ) )
-                                       );
+        auto y = -math::HALF_PI + 2 * std::atan2f(
+                                          std::sqrtf( 1 + ( 2 * ( u.w * u.v.y - u.v.x * u.v.z ) ) ),
+                                          std::sqrtf( 1 - ( 2 * ( u.w * u.v.y - u.v.x * u.v.z ) ) )
+                                      );
         auto z = std::atan2f( 2 * ( u.w * u.v.z + u.v.x * u.v.y ), 1 - ( 2 * ( u.v.y * u.v.y + u.v.z * u.v.z ) ) );
         return Vec3( x, y, z );
     }

@@ -17,8 +17,9 @@ target_sources(
           "backends/sdl/sdl_render_device.h"
           "backends/sdl/sdl_audio_loader.h"
           "backends/sdl/sdl_audio_loader.cpp"
-          "backends/sdl/sdl_image_loader.h"
-          "backends/sdl/sdl_image_loader.cpp"
+          "backends/stb/stb_image_impl.cpp"
+          "backends/stb/stb_image_loader.h"
+          "backends/stb/stb_image_loader.cpp"
           "resources/audio_clip.cpp"
           "resources/resource.cpp"
           "resources/image.cpp"
@@ -60,6 +61,7 @@ target_sources(
           "utils/logger/sink.cpp"
           "utils/assert.cpp"
           "utils/config.cpp"
+          "utils/equirect.cpp"
           "utils/four_cc.cpp")
 
 target_include_directories(ncore PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

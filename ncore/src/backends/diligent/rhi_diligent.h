@@ -41,9 +41,9 @@ public:
     void gfx_pipeline_bind( RID pipeline ) override;
     void gfx_pipeline_reload( RID pipeline ) override;
 
-    void render_target_bind( std::span<const void*> rtvs, void* dsv = nullptr ) override;
-    void render_target_set_viewport( std::span<const Viewport> viewports ) override;
-    void render_target_set_scissor_rect( std::span<const Rect> rect ) override;
+    void render_target_bind( Span<const void*> rtvs, void* dsv = nullptr ) override;
+    void render_target_set_viewport( Span<const Viewport> viewports ) override;
+    void render_target_set_scissor_rect( Span<const Rect> rect ) override;
     void render_target_clear_color( void* rtv, const Color& color ) override;
     void render_target_clear_depth( void* dsv, float depth = 1.0f, uint8_t stencil = 0 ) override;
 
@@ -52,7 +52,12 @@ public:
     void commands_record_execute( void* p_cmd_list ) override;
     void commands_release() override;
 
-    void compute_pipeline_create() override;
+    RID compute_pipeline_create( const ComputePSODesc& desc ) override;
+    void compute_pipeline_bind( RID pipeline ) override;
+    void dispatch( uint32_t x, uint32_t y, uint32_t z ) override;
+
+    void texture_compute_update( RID texture, RID binding, const char* name, TextureViewType view ) override;
+    void buffer_compute_update( RID buffer, RID binding, const char* name ) override;
 
     RID texture_create( const TextureDesc& desc ) override;
     void texture_binding_update( RID texture, RID binding, const char* name ) override;
@@ -64,8 +69,7 @@ public:
     RID buffer_create( const BufferDesc& desc ) override;
     void buffer_update( RID buffer, const void* data, size_t size ) override;
     void buffer_update_binding( RID buffer, RID binding, const char* name ) override;
-    void
-    vertex_buffers_bind( std::span<const RID> buffers, uint32_t slot, std::span<const uint64_t> offsets = {} ) override;
+    void vertex_buffers_bind( Span<const RID> buffers, uint32_t slot, Span<const uint64_t> offsets = {} ) override;
     void index_buffer_bind( RID buffer, uint32_t offset ) override;
 
     RID resource_signature_create( const ResourceSignatureDesc& desc ) override;

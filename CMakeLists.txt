@@ -52,8 +52,9 @@ foreach(CONFIG Debug Release Dist)
 endforeach()
 
 add_subdirectory(ncore)
-add_subdirectory(eons-game)
 add_subdirectory(tools/editor)
+add_subdirectory(eons-game)
+add_subdirectory(seaengine)
 
 # --- Install rules ---
 install(
@@ -66,9 +67,9 @@ install(
   DESTINATION .
   OPTIONAL)
 
-install(TARGETS eons-game RUNTIME DESTINATION .)
+install(TARGETS EonsPrototype RUNTIME DESTINATION .)
 install(
-  FILES $<TARGET_PDB_FILE:eons-game>
+  FILES $<TARGET_PDB_FILE:EonsPrototype>
   DESTINATION .
   OPTIONAL)
 

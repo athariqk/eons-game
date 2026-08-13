@@ -7,7 +7,7 @@
 #pragma once
 
 #include <array>
-#include <set>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>

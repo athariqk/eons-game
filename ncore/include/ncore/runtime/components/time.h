@@ -5,14 +5,14 @@
 namespace nc {
 
 struct NCAPI TimeComponent {
-    uint32_t ticks     = 0;
-    int frame_count    = 0;
-    double fps         = 0;
-    double accumulator = 0.0;
+    uint32_t Ticks     = 0;
+    int FrameCount    = 0;
+    double FPS         = 0;
+    double Accumulator = 0.0;
 
     NSTRUCTV(
-        TimeComponent, NC_F( TimeComponent, ticks ) NC_F( TimeComponent, frame_count ) NC_F( TimeComponent, fps )
-                           NC_F( TimeComponent, accumulator )
+        TimeComponent, NC_F( TimeComponent, Ticks ) NC_F( TimeComponent, FrameCount ) NC_F( TimeComponent, FPS )
+                           NC_F( TimeComponent, Accumulator )
     )
 };
 

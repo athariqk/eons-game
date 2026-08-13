@@ -25,13 +25,13 @@ struct NCAPI WindowComponent {
 };
 
 struct NCAPI SwapChainComponent {
-    RID swapchain = 0;
-    Vec2 size     = Vec2();
+    RID Source = 0;
+    Vec2 Size     = Vec2();
     bool vsync    = false;
 
     NSTRUCTV(
         SwapChainComponent,
-        NC_F( SwapChainComponent, swapchain ) NC_F( SwapChainComponent, size ) NC_F( SwapChainComponent, vsync )
+        NC_F( SwapChainComponent, Source ) NC_F( SwapChainComponent, Size ) NC_F( SwapChainComponent, vsync )
     )
 };
 

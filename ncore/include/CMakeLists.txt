@@ -69,8 +69,9 @@ target_sources(
          "ncore/services/video/rhi.h"
          "ncore/services/video/render_service.h"
          "ncore/services/video/window_service.h"
-         "ncore/utils/assert.h"
-         "ncore/utils/config.h"
-         "ncore/utils/log.h"
-         "ncore/utils/four_cc.h"
-         "ncore/utils/math.h")
+          "ncore/utils/assert.h"
+          "ncore/utils/config.h"
+          "ncore/utils/equirect.h"
+          "ncore/utils/log.h"
+          "ncore/utils/four_cc.h"
+          "ncore/utils/math.h")

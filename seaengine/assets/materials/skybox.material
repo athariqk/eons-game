@@ -1,0 +1,17 @@
+[header]
+debug_name = Skybox
+
+[shaders]
+composite = shaders/skybox.slang
+
+[raster]
+cull_mode = None
+depth_test = true
+depth_write = false
+blend = Opaque
+
+[multisample]
+count = 1
+
+[vertex]
+layout = Vertex3D

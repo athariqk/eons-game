@@ -25,6 +25,7 @@ public:
     Ref<Shader> ps;
 
     CullMode cull_mode                     = CullMode::NONE;
+    FillMode fill_mode                     = FillMode::SOLID;
     bool depth_test                        = false;
     bool depth_write                       = false;
     BlendPreset blend                      = BlendPreset::ALPHA_BLEND;

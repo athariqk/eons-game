@@ -4,7 +4,8 @@
 
 namespace nc {
 
-struct AppDesc;
+class Application;
+struct AppContext;
 class ServiceRegistry;
 
 /**
@@ -16,7 +17,7 @@ class NCAPI IGameWorld : public NcObject {
     NCLASS( IGameWorld, NcObject )
 
 public:
-    IGameWorld( AppDesc& p_app_desc, ServiceRegistry& p_services ) : app_desc( p_app_desc ), services( p_services ) {}
+    IGameWorld() = default;
 
     // Lifecycle hooks
 
@@ -66,20 +67,18 @@ public:
         return wants_to_quit;
     }
 
-    ServiceRegistry& get_services() const
+    /**
+     * @brief Get the current state of the running application.
+     */
+    AppContext* get_app_ctx() const
     {
-        return services;
-    }
-
-    AppDesc& get_app_desc() const
-    {
-        return app_desc;
+        return app_ctx;
     }
 
 protected:
-    AppDesc& app_desc;
-    ServiceRegistry& services;
-    bool wants_to_quit = false;
+    friend class Application;
+    AppContext* app_ctx = nullptr; // Application state.
+    bool wants_to_quit  = false;
 };
 
 } // namespace nc
