@@ -423,6 +423,7 @@ struct NCAPI EnumElement {
 struct NCAPI EnumInfo : public TypeInfo {
     const EnumElement* elements_begin = nullptr;
     const EnumElement* elements_end   = nullptr;
+    bool is_unsigned                  = false;
 
     EnumInfo() = default;
     EnumInfo( const char* name, TypeId t_id, size_t size, size_t align ) : TypeInfo( name, t_id, size, align )
@@ -912,6 +913,7 @@ struct NCAPI StringClass : public TRecordInfo<String> {
             auto& e          = ::nc::rtti::TypeRegistry::register_type<::nc::rtti::EnumInfo, T>( #T );                  \
             e.elements_begin = nc_enum_elems_##T;                                                                       \
             e.elements_end   = nc_enum_elems_##T + ( sizeof( nc_enum_elems_##T ) / sizeof( ::nc::rtti::EnumElement ) ); \
+            e.is_unsigned    = std::is_unsigned_v<std::underlying_type_t<T>>;                                           \
             return e;                                                                                                   \
         }();                                                                                                            \
         return ei;                                                                                                      \

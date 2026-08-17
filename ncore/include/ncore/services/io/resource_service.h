@@ -68,7 +68,7 @@ public:
      *
      * @return Its newly-assigned RID handle or existing one.
      */
-    RID add( const Ref<IResource>& res );
+    RID add( Ref<IResource> res );
 
     /**
      * @brief Access to the underlying reference by RID.

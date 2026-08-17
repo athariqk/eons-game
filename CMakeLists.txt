@@ -32,7 +32,11 @@ endif()
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   add_compile_options(/W4 /wd4146 /wd4245 /wd5105 /Zc:preprocessor)
   string(APPEND CMAKE_CXX_FLAGS " /std:c++20")
-  set(CMAKE_CXX_FLAGS_DEBUG "/Zi /Ob0 /Od")
+  if(SEA_TRACK_ASAN)
+    set(CMAKE_CXX_FLAGS_DEBUG "/Zi /Ob0 /Od")
+  else()
+    set(CMAKE_CXX_FLAGS_DEBUG "/Zi /Ob0 /Od /RTC1")
+  endif()
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   add_compile_options(-Wno-unknown-argument -Wno-c++98-compat
                       -Wno-c++98-compat-pedantic)
@@ -58,7 +62,7 @@ if(SEA_TRACK_ASAN)
   # appear anywhere in the Debug compile flags (Release/Dist are unchanged).
   set(CMAKE_C_FLAGS_DEBUG "/Zi /Ob0 /Od")
   set(CMAKE_MSVC_RUNTIME_LIBRARY
-      "MultiThreaded$<$<CONFIG:Debug>:>DLL"
+      "MultiThreadedDLL"
       CACHE STRING "MSVC runtime library (Debug uses release CRT for ASAN)"
             FORCE)
 

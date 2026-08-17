@@ -156,7 +156,7 @@ void ResourceService::unload_all()
     path_map.clear();
 }
 
-RID ResourceService::add( const Ref<IResource>& res )
+RID ResourceService::add( Ref<IResource> res )
 {
     if (storage.contains( res->rid )) {
         // already added.
@@ -166,6 +166,7 @@ RID ResourceService::add( const Ref<IResource>& res )
     auto handle = storage.acquire();
     auto entry  = storage.get( handle );
     *entry      = res;
+    res->rid    = handle;
 
     LoadEvent e;
     e.Handle   = handle;

@@ -256,10 +256,8 @@ private:
  * @brief Per-entity input iterator over the entities matched by an EcsQuery.
  *
  * Walks rows across tables (archetypes). Dereferencing yields a copyable
- * EcsIterState with the current row pre-set (the embedded ctx_ is persistent,
- * so term/pair index caches are reused across the whole iteration). Equality
- * is only meaningful against the end sentinel (default-constructed
- * EcsEntityIterator).
+ * EcsIterState with the current row pre-set. Equality is only meaningful
+ * against the end sentinel (default-constructed EcsEntityIterator).
  */
 class NCAPI EcsEntityIterator {
 public:

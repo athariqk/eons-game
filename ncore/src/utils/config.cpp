@@ -36,7 +36,10 @@ void ConfFile::read_into( const rtti::RecordInfo& type_info, void* result )
         if (it == data.end()) {
             continue;
         }
-        switch (field.get_type()->kind) {
+        auto* type = field.get_type();
+        if (!type)
+            continue;
+        switch (type->kind) {
             case rtti::TypeKind::BOOL: {
                 ini::Convert<bool> c;
                 c.decode( it->second.c_str(), *field.get_ptr<bool>( result ) );

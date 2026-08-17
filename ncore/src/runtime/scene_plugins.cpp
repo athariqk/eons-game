@@ -586,8 +586,17 @@ void register_gui_plugin( Scene& scene )
         .observer( "SceneGuiPlugin_Cleanup" )
         .on<GuiStateComponent>( EcsCoreEvent::OnRemove )
         .run( []( EcsIterState& ctx ) {
-            auto state          = ctx.get_component<GuiStateComponent>();
-            auto gfx            = ctx.world().get_singleton<GraphicsServices>();
+            auto state = ctx.get_component<GuiStateComponent>();
+            auto gfx   = ctx.world().get_singleton<GraphicsServices>();
+
+            // The editor plugin may have already nulled the current context
+            // during its own cleanup, so make the GUI context current again
+            // before touching any ImGui global state.
+            if (!state->ImGuiCtx)
+                return;
+
+            ImGui::SetCurrentContext( state->ImGuiCtx );
+
             ImGuiPlatformIO& io = ImGui::GetPlatformIO();
             for (ImTextureData* tex : io.Textures) {
                 if (tex->BackendUserData) {
@@ -603,10 +612,8 @@ void register_gui_plugin( Scene& scene )
             fonts->Clear();
             NC_LOG_DEBUG_C( log::GUI, "Destroying font atlas TexID={}", fonts->TexID.GetTexID() );
 
-            if (state->ImGuiCtx) {
-                NC_LOG_DEBUG_C( log::GUI, "Destroying ImGui context" );
-                ImGui::DestroyContext();
-            }
+            NC_LOG_DEBUG_C( log::GUI, "Destroying ImGui context" );
+            ImGui::DestroyContext();
         } );
 
     scene.get_ecs()

@@ -306,13 +306,17 @@ int64_t EnumInfo::get_value( const void* instance ) const noexcept
 {
     switch (size) {
         case 1:
-            return static_cast<int8_t>( read_as<uint8_t>( instance ) );
+            return is_unsigned ? static_cast<int64_t>( read_as<uint8_t>( instance ) )
+                               : static_cast<int64_t>( static_cast<int8_t>( read_as<uint8_t>( instance ) ) );
         case 2:
-            return static_cast<int16_t>( read_as<uint16_t>( instance ) );
+            return is_unsigned ? static_cast<int64_t>( read_as<uint16_t>( instance ) )
+                               : static_cast<int64_t>( static_cast<int16_t>( read_as<uint16_t>( instance ) ) );
         case 4:
-            return static_cast<int32_t>( read_as<uint32_t>( instance ) );
+            return is_unsigned ? static_cast<int64_t>( read_as<uint32_t>( instance ) )
+                               : static_cast<int64_t>( static_cast<int32_t>( read_as<uint32_t>( instance ) ) );
         case 8:
-            return static_cast<int64_t>( read_as<uint64_t>( instance ) );
+            return is_unsigned ? static_cast<int64_t>( read_as<uint64_t>( instance ) )
+                               : static_cast<int64_t>( read_as<uint64_t>( instance ) );
         default:
             return 0;
     }
