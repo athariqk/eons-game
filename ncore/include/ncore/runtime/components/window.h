@@ -17,21 +17,20 @@ struct NCAPI WindowComponent {
     float PixelsPerMeter   = 0;
 
     NSTRUCTV(
-        WindowComponent,
-        NC_F( WindowComponent, SourceId ) NC_F( WindowComponent, Title ) NC_F( WindowComponent, Resolution )
-            NC_F( WindowComponent, Fullscreen ) NC_F( WindowComponent, Visible ) NC_F( WindowComponent, VSync )
-                NC_F( WindowComponent, PixelsPerMeter )
+        WindowComponent, NC_F( WindowComponent, SourceId ), NC_F( WindowComponent, Title ),
+        NC_F( WindowComponent, Resolution ), NC_F( WindowComponent, Fullscreen ), NC_F( WindowComponent, Visible ),
+        NC_F( WindowComponent, VSync ), NC_F( WindowComponent, PixelsPerMeter )
     )
 };
 
 struct NCAPI SwapChainComponent {
     RID Source = 0;
-    Vec2 Size     = Vec2();
-    bool vsync    = false;
+    Vec2 Size  = Vec2();
+    bool vsync = false;
 
     NSTRUCTV(
-        SwapChainComponent,
-        NC_F( SwapChainComponent, Source ) NC_F( SwapChainComponent, Size ) NC_F( SwapChainComponent, vsync )
+        SwapChainComponent, NC_F( SwapChainComponent, Source ), NC_F( SwapChainComponent, Size ),
+        NC_F( SwapChainComponent, vsync )
     )
 };
 
@@ -45,13 +44,14 @@ struct NCAPI MainWindowTag {
 };
 
 struct NCAPI GuiStateComponent {
+    bool SubmitToGPU              = true;
     ImGuiContext* ImGuiCtx = nullptr;
     HashMap<ImGuiMouseCursor, CursorType> CursorMap;
     RID Material;
     RID LastTexId;
     NSTRUCTV(
-        GuiStateComponent, NC_F( GuiStateComponent, ImGuiCtx ) NC_F( GuiStateComponent, CursorMap )
-                               NC_F( GuiStateComponent, Material ) NC_F( GuiStateComponent, LastTexId )
+        GuiStateComponent, NC_F( GuiStateComponent, SubmitToGPU ), NC_F( GuiStateComponent, ImGuiCtx ),
+        NC_F( GuiStateComponent, CursorMap ), NC_F( GuiStateComponent, Material ), NC_F( GuiStateComponent, LastTexId )
     )
 };
 

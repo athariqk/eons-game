@@ -11,6 +11,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <type_traits>
 
 #include <ncore.h>
 #include <ncore/utils/assert.h>
@@ -146,22 +147,141 @@ constexpr PropertyFlags clear_flag( PropertyFlags f, PropertyFlags bit ) noexcep
 
 //------------------------------------------------------------------------------
 
-enum class NCAPI FieldCategory : uint8_t {
-    SCALAR,
+/**
+ * @brief The kind of a reflected type.
+ *
+ * Populated once at registration (primitive kinds via detail::kind_of<T>(),
+ * records/enums/strings/vectors via their TypeInfo subclass constructors).
+ * This is the single source of truth for type category — fields derive their
+ * category from `field.get_type()->kind` plus the field qualifier.
+ */
+enum class NCAPI TypeKind : uint8_t {
+    INVALID,
+    BOOL,
+    INT8,
+    UINT8,
+    INT16,
+    UINT16,
+    INT32,
+    UINT32,
+    INT64,
+    UINT64,
+    FLOAT,
+    DOUBLE,
     STRING,
-    CONTAINER,
-    AGGREGATE,
     POINTER,
     ENUM,
+    RECORD,
+    VECTOR,
 };
 
 //------------------------------------------------------------------------------
 
 struct NCAPI Qualifier {
-    unsigned array_length : 30;
-    unsigned is_pointer   : 1;
-    unsigned is_array     : 1;
+    uint32_t array_length = 0;
+    uint8_t pointer_count = 0;
+    bool is_cstring       = false;
+
+    bool is_array() const noexcept
+    {
+        return array_length > 0;
+    }
+    bool is_pointer() const noexcept
+    {
+        return pointer_count > 0;
+    }
 };
+
+//------------------------------------------------------------------------------
+
+namespace detail {
+
+/**
+ * @brief Infers the TypeKind for a fundamental type at compile time.
+ */
+template<typename T>
+constexpr TypeKind kind_of() noexcept
+{
+    using raw = std::remove_cvref_t<T>;
+    if constexpr (std::is_same_v<raw, bool>) {
+        return TypeKind::BOOL;
+    } else if constexpr (std::is_floating_point_v<raw>) {
+        if constexpr (sizeof( raw ) == 4)
+            return TypeKind::FLOAT;
+        else if constexpr (sizeof( raw ) == 8)
+            return TypeKind::DOUBLE;
+        else
+            return TypeKind::INVALID;
+    } else if constexpr (std::is_integral_v<raw>) {
+        if constexpr (std::is_signed_v<raw>) {
+            if constexpr (sizeof( raw ) == 1)
+                return TypeKind::INT8;
+            else if constexpr (sizeof( raw ) == 2)
+                return TypeKind::INT16;
+            else if constexpr (sizeof( raw ) == 4)
+                return TypeKind::INT32;
+            else if constexpr (sizeof( raw ) == 8)
+                return TypeKind::INT64;
+            else
+                return TypeKind::INVALID;
+        } else {
+            if constexpr (sizeof( raw ) == 1)
+                return TypeKind::UINT8;
+            else if constexpr (sizeof( raw ) == 2)
+                return TypeKind::UINT16;
+            else if constexpr (sizeof( raw ) == 4)
+                return TypeKind::UINT32;
+            else if constexpr (sizeof( raw ) == 8)
+                return TypeKind::UINT64;
+            else
+                return TypeKind::INVALID;
+        }
+    } else if constexpr (std::is_pointer_v<raw>) {
+        return TypeKind::POINTER;
+    } else if constexpr (std::is_enum_v<raw>) {
+        return TypeKind::ENUM;
+    } else {
+        return TypeKind::INVALID;
+    }
+}
+
+/**
+ * @brief Decomposes a field type into its element type id.
+ *
+ * Pointer and array fields are stripped: the FieldInfo stores the pointee /
+ * element type id, while the field's Qualifier records pointer/array-ness.
+ */
+template<typename F>
+constexpr TypeId field_type_id() noexcept
+{
+    using raw = std::remove_cvref_t<F>;
+    if constexpr (std::is_pointer_v<raw>) {
+        return type_id<std::remove_pointer_t<raw>>();
+    } else if constexpr (std::is_array_v<raw>) {
+        return type_id<std::remove_extent_t<raw>>();
+    } else {
+        return type_id<F>();
+    }
+}
+
+/**
+ * @brief Decomposes a field type into its Qualifier.
+ */
+template<typename F>
+constexpr Qualifier field_qualifier() noexcept
+{
+    using raw = std::remove_cvref_t<F>;
+    Qualifier q;
+    if constexpr (std::is_pointer_v<raw>) {
+        q.pointer_count = 1;
+        q.is_cstring    = std::is_same_v<std::remove_cv_t<std::remove_pointer_t<raw>>, char>;
+    } else if constexpr (std::is_array_v<raw>) {
+        q.array_length = static_cast<uint32_t>( std::extent_v<raw> );
+    }
+    return q;
+}
+
+} // namespace detail
 
 //------------------------------------------------------------------------------
 
@@ -170,9 +290,8 @@ struct NCAPI TypeInfo {
     TypeId id;
     size_t size;
     size_t alignment;
-    FieldCategory category = FieldCategory::SCALAR;
-    bool is_floating       = false;
-    TypeInfo* _next        = nullptr;
+    TypeKind kind   = TypeKind::INVALID;
+    TypeInfo* _next = nullptr;
 
     TypeInfo() : name( nullptr ), id( TypeId::null() ), size( 0 ), alignment( 0 ) {}
     TypeInfo( const char* n, TypeId i, size_t sz, size_t align ) : name( n ), id( i ), size( sz ), alignment( align ) {}
@@ -182,12 +301,55 @@ struct NCAPI TypeInfo {
     /**
      * @brief Returns true if this type is a composite data structure (class, structs, etc).
      */
-    virtual bool is_record() const noexcept
+    bool is_record() const noexcept
     {
-        return false;
+        return kind == TypeKind::RECORD || kind == TypeKind::VECTOR;
+    }
+
+    bool is_primitive() const noexcept
+    {
+        return kind >= TypeKind::BOOL && kind <= TypeKind::DOUBLE;
+    }
+
+    bool is_integral() const noexcept
+    {
+        return kind >= TypeKind::BOOL && kind <= TypeKind::UINT64;
+    }
+
+    bool is_floating() const noexcept
+    {
+        return kind == TypeKind::FLOAT || kind == TypeKind::DOUBLE;
+    }
+
+    bool is_string() const noexcept
+    {
+        return kind == TypeKind::STRING;
+    }
+
+    bool is_enum() const noexcept
+    {
+        return kind == TypeKind::ENUM;
+    }
+
+    bool is_container() const noexcept
+    {
+        return kind == TypeKind::VECTOR;
     }
 
     virtual void to_string( String& out, const void* instance ) const;
+};
+
+/**
+ * @brief TypeInfo specialization for fundamental types.
+ *
+ * Infers the TypeKind at compile time via detail::kind_of<T>().
+ */
+template<typename T>
+struct TTypeInfo : public TypeInfo {
+    TTypeInfo( const char* n, TypeId i, size_t sz, size_t align ) : TypeInfo( n, i, sz, align )
+    {
+        kind = detail::kind_of<T>();
+    }
 };
 
 //------------------------------------------------------------------------------
@@ -198,11 +360,7 @@ struct NCAPI FieldInfo {
     size_t width;
     size_t offset;
     PropertyFlags flags;
-    FieldCategory category;
     Qualifier qualifier;
-
-    static constexpr unsigned FLAGS_SERIALIZED = 0x1;
-    static constexpr unsigned FLAGS_CSTRING    = 0x2;
 
     const TypeInfo* get_type() const;
 
@@ -225,13 +383,13 @@ struct NCAPI FieldInfo {
     template<typename T>
     T* get_ptr( void* instance ) const noexcept
     {
-        return static_cast<T*>( static_cast<uint8_t*>( instance ) + offset );
+        return reinterpret_cast<T*>( static_cast<uint8_t*>( instance ) + offset );
     }
 
     template<typename T>
     const T* get_ptr( const void* instance ) const noexcept
     {
-        return static_cast<const T*>( static_cast<const uint8_t*>( instance ) + offset );
+        return reinterpret_cast<const T*>( static_cast<const uint8_t*>( instance ) + offset );
     }
 
     void* get_void_ptr( void* instance ) const noexcept
@@ -249,7 +407,7 @@ struct NCAPI FieldInfo {
         return has_flag( flags, f );
     }
 
-    void value_to_string( String& out, const void* instance ) const;
+    void to_string( String& out, const void* instance ) const;
 };
 
 //------------------------------------------------------------------------------
@@ -267,7 +425,10 @@ struct NCAPI EnumInfo : public TypeInfo {
     const EnumElement* elements_end   = nullptr;
 
     EnumInfo() = default;
-    EnumInfo( const char* name, TypeId t_id, size_t size, size_t align ) : TypeInfo( name, t_id, size, align ) {}
+    EnumInfo( const char* name, TypeId t_id, size_t size, size_t align ) : TypeInfo( name, t_id, size, align )
+    {
+        kind = TypeKind::ENUM;
+    }
 
     std::span<const EnumElement> elements() const noexcept
     {
@@ -293,6 +454,18 @@ struct NCAPI EnumInfo : public TypeInfo {
         }
         return "<unknown_enum_value>";
     }
+
+    /**
+     * @brief Reads the enum value at instance, honoring the enum's storage width.
+     */
+    int64_t get_value( const void* instance ) const noexcept;
+
+    /**
+     * @brief Writes the enum value at instance, honoring the enum's storage width.
+     */
+    void set_value( void* instance, int64_t value ) const noexcept;
+
+    void to_string( String& out, const void* instance ) const override;
 };
 
 //------------------------------------------------------------------------------
@@ -308,11 +481,9 @@ struct NCAPI RecordInfo : public TypeInfo {
     const FieldInfo* fields_end   = nullptr;
 
     RecordInfo() = default;
-    RecordInfo( const char* name, TypeId t_id, size_t size, size_t align ) : TypeInfo( name, t_id, size, align ) {}
-
-    bool is_record() const noexcept override
+    RecordInfo( const char* name, TypeId t_id, size_t size, size_t align ) : TypeInfo( name, t_id, size, align )
     {
-        return true;
+        kind = TypeKind::RECORD;
     }
 
     size_t field_count() const noexcept
@@ -459,7 +630,7 @@ public:
     template<typename T>
     static TypeInfo& register_type( const char* name ) noexcept
     {
-        return register_type<TypeInfo, T>( name );
+        return register_type<TTypeInfo<T>, T>( name );
     }
 
     // TODO: add register_class<T>() helper method
@@ -599,27 +770,6 @@ private:
     HashMap<TypeId, TypeInfo*> type_cache;
 };
 
-namespace detail {
-
-template<typename F>
-constexpr FieldCategory category_of() noexcept
-{
-    using raw = std::remove_cvref_t<F>;
-    if constexpr (std::is_pointer_v<raw>) {
-        if constexpr (std::is_convertible_v<raw, StringView>)
-            return FieldCategory::STRING;
-        return FieldCategory::POINTER;
-    } else if constexpr (std::is_convertible_v<raw, StringView>) {
-        return FieldCategory::STRING;
-    } else if constexpr (requires { typename raw::value_type; }) {
-        return FieldCategory::CONTAINER;
-    } else {
-        return FieldCategory::SCALAR;
-    }
-}
-
-} // namespace detail
-
 //------------------------------------------------------------------------------
 
 struct NCAPI RecordVisitor {
@@ -641,7 +791,10 @@ struct NCAPI RecordVisitor {
 
 template<typename VecT>
 struct VectorClass : public TRecordInfo<VecT> {
-    VectorClass( const char* n, TypeId i, size_t sz, size_t align ) : TRecordInfo<VecT>( n, i, sz, align ) {}
+    VectorClass( const char* n, TypeId i, size_t sz, size_t align ) : TRecordInfo<VecT>( n, i, sz, align )
+    {
+        this->kind = TypeKind::VECTOR;
+    }
 
     void
     visit( void const* instance, RecordVisitor* visitor, PropertyFlags filter, unsigned depth ) const noexcept override
@@ -670,7 +823,10 @@ struct VectorClass : public TRecordInfo<VecT> {
 //------------------------------------------------------------------------------
 
 struct NCAPI StringClass : public TRecordInfo<String> {
-    StringClass( const char* n, TypeId i, size_t sz, size_t align ) : TRecordInfo( n, i, sz, align ) {}
+    StringClass( const char* n, TypeId i, size_t sz, size_t align ) : TRecordInfo( n, i, sz, align )
+    {
+        this->kind = TypeKind::STRING;
+    }
 
     void to_string( String& out, const void* instance ) const override;
 
@@ -694,32 +850,24 @@ struct NCAPI StringClass : public TRecordInfo<String> {
 
 // TODO: may be better to use attributes after all
 
-#define NC_FIELD_IMPL( T, m, flg, q )                                                                                  \
-    ::nc::rtti::FieldInfo{                                                                                             \
-        #m,                                                                                                            \
-        ::nc::rtti::detail::type_id<decltype( ( ( T* ) 0 )->m )>(),                                                    \
-        sizeof( ( ( T* ) 0 )->m ),                                                                                     \
-        offsetof( T, m ),                                                                                              \
-        flg,                                                                                                           \
-        ::nc::rtti::detail::category_of<decltype( ( ( T* ) 0 )->m )>(),                                                \
-        q,                                                                                                             \
-    },
+#define NC_FIELD_IMPL( T, m, flg )                                                                                     \
+    ::nc::rtti::FieldInfo                                                                                              \
+    {                                                                                                                  \
+        #m, ::nc::rtti::detail::field_type_id<decltype( ( ( T* ) 0 )->m )>(), sizeof( ( ( T* ) 0 )->m ),               \
+            offsetof( T, m ), flg, ::nc::rtti::detail::field_qualifier<decltype( ( ( T* ) 0 )->m )>(),                 \
+    }
 
 #define NC_F( T, m )                                                                                                   \
-    NC_FIELD_IMPL(                                                                                                     \
-        T, m, ( ::nc::rtti::PropertyFlags::SERIALIZABLE | ::nc::rtti::PropertyFlags::EDITABLE ),                       \
-        ::nc::rtti::Qualifier{}                                                                                        \
-    )
+    NC_FIELD_IMPL( T, m, ( ::nc::rtti::PropertyFlags::SERIALIZABLE | ::nc::rtti::PropertyFlags::EDITABLE ) )
 
 #define NC_FR( T, m )                                                                                                  \
     NC_FIELD_IMPL(                                                                                                     \
         T, m,                                                                                                          \
         ( ::nc::rtti::PropertyFlags::SERIALIZABLE | ::nc::rtti::PropertyFlags::EDITABLE |                              \
-          ::nc::rtti::PropertyFlags::READ_ONLY ),                                                                      \
-        ::nc::rtti::Qualifier{}                                                                                        \
+          ::nc::rtti::PropertyFlags::READ_ONLY )                                                                       \
     )
 
-#define NC_FH( T, m ) NC_FIELD_IMPL( T, m, ::nc::rtti::PropertyFlags::SERIALIZABLE, ::nc::rtti::Qualifier{} )
+#define NC_FH( T, m ) NC_FIELD_IMPL( T, m, ::nc::rtti::PropertyFlags::SERIALIZABLE )
 
 //------------------------------------------------------------------------------
 

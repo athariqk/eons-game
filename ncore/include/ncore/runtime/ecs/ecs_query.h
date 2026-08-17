@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <unordered_map>
@@ -12,27 +14,68 @@ namespace nc {
 
 class EcsWorld;
 class EcsQueryBuilder;
+class EcsEntityView;
 class ServiceRegistry;
 
 //------------------------------------------------------------------------------
 
-class NCAPI EcsIterator {
+/**
+ * @brief Table-level input iterator over the archetypes matched by an EcsQuery.
+ */
+class NCAPI EcsTableIterator {
 public:
-    EcsIterator() = default;
-    ~EcsIterator();
+    using iterator_category = std::input_iterator_tag;
+    using value_type        = EcsTableIterator;
+    using difference_type   = std::ptrdiff_t;
+    using pointer           = EcsTableIterator*;
+    using reference         = EcsTableIterator&;
+
+    EcsTableIterator() = default;
+    ~EcsTableIterator();
 
     /**
      * @brief Wraps an implementation detail iterator object (Flecs' ecs_iter_t).
      */
-    EcsIterator( void* internal ) noexcept;
+    EcsTableIterator( void* internal ) noexcept;
 
-    EcsIterator( EcsIterator&& ) noexcept;
-    EcsIterator& operator=( EcsIterator&& ) noexcept;
-    EcsIterator( const EcsIterator& )            = delete;
-    EcsIterator& operator=( const EcsIterator& ) = delete;
+    EcsTableIterator( EcsTableIterator&& ) noexcept;
+    EcsTableIterator& operator=( EcsTableIterator&& ) noexcept;
+    EcsTableIterator( const EcsTableIterator& )            = delete;
+    EcsTableIterator& operator=( const EcsTableIterator& ) = delete;
 
-    bool operator!=( std::nullptr_t ) const;
-    EcsIterator& operator++();
+    reference operator*() noexcept
+    {
+        return *this;
+    }
+    const EcsTableIterator& operator*() const noexcept
+    {
+        return *this;
+    }
+
+    pointer operator->() noexcept
+    {
+        return this;
+    }
+    const EcsTableIterator* operator->() const noexcept
+    {
+        return this;
+    }
+
+    bool operator==( const EcsTableIterator& o ) const noexcept
+    {
+        return done_ == o.done_;
+    }
+    bool operator!=( const EcsTableIterator& o ) const noexcept
+    {
+        return done_ != o.done_;
+    }
+
+    EcsTableIterator& operator++();
+
+    bool is_done() const noexcept
+    {
+        return done_;
+    }
 
     double delta_time() const;
     float delta_time_internal() const;
@@ -43,7 +86,7 @@ public:
     void* event_payload();
     void* user_ctx() const;
 
-    void* get_internal_iter()
+    void* get_internal_iter() const
     {
         return iter_;
     }
@@ -55,7 +98,7 @@ private:
         Query
     };
 
-    EcsIterator( EcsWorld* world_ref, void* world, void* query );
+    EcsTableIterator( EcsWorld* world_ref, void* world, void* query );
 
     void* world_ = nullptr;
     void* query  = nullptr;
@@ -82,8 +125,15 @@ public:
     /**
      * @brief Return iterator for queried tables.
      */
-    EcsIterator begin();
-    static std::nullptr_t end();
+    EcsTableIterator begin();
+    EcsTableIterator end();
+
+    /**
+     * @brief Return a per-entity view over the query (range-for compatible).
+     *
+     * Yields a EcsIterState for every matched entity, across all tables.
+     */
+    EcsEntityView entities();
 
     StringView get_name()
     {
@@ -112,19 +162,21 @@ private:
 //------------------------------------------------------------------------------
 
 /**
- * @brief QueryContext represents the current iteration state of a query.
+ * @brief EcsIterState represents the current state of matched entity.
  *
  * TODO: this feels too tied to Flecs' table-based storage
  */
-class NCAPI QueryContext {
+class NCAPI EcsIterState {
 public:
-    explicit QueryContext( void* iter );
+    EcsIterState() = default;
+    explicit EcsIterState( void* iter );
 
     double delta_time() const;             // The global delta time.
-    float delta_time_internal() const;     // System's own delta time.
+    float delta_time_internal() const;     // This iter's own delta time.
     int32_t count() const;                 // The entity count being iterated.
+    EcsEntity entity() const;              // The current entity.
     EcsEntity entity( int32_t row ) const; // Gets entity ID at given row.
-    EcsWorld& world() const;               // The current world.
+    EcsWorld& world() const;               // The current world (staged).
     EcsEntity event();                     // Returns any event if applicable.
     void* event_payload();                 // Returns the event payload if applicable.
     void* user_ctx() const;
@@ -144,7 +196,7 @@ public:
     }
 
     /**
-     * @brief Retrieve the component by type.
+     * @brief Retrieve the component in this iteration by type.
      */
     template<typename T>
     T* get_component()
@@ -165,6 +217,13 @@ public:
         return static_cast<T*>( get_component_( column, info.size, info.alignment ) );
     }
 
+    template<typename T>
+    void mark_component_modified()
+    {
+        static const auto& info = rtti::TypeRegistry::get<T>();
+        mark_component_modified_( &info );
+    }
+
     template<typename First, typename Second>
     First* get_pair()
     {
@@ -181,6 +240,7 @@ private:
     friend class EcsQuery;
 
     void* get_component_( int32_t column, size_t size, size_t alignment ) const;
+    void mark_component_modified_( const rtti::TypeInfo* type ) const;
     int32_t resolve_term_index_( const rtti::TypeInfo& info ) const;
     int32_t resolve_pair_index_( const rtti::TypeInfo& first, const rtti::TypeInfo& second ) const;
     void* it_            = nullptr;
@@ -188,6 +248,71 @@ private:
 
     mutable std::unordered_map<const rtti::TypeInfo*, int32_t> term_cache_;
     mutable std::map<std::pair<const rtti::TypeInfo*, const rtti::TypeInfo*>, int32_t> pair_cache_;
+};
+
+//------------------------------------------------------------------------------
+
+/**
+ * @brief Per-entity input iterator over the entities matched by an EcsQuery.
+ *
+ * Walks rows across tables (archetypes). Dereferencing yields a copyable
+ * EcsIterState with the current row pre-set (the embedded ctx_ is persistent,
+ * so term/pair index caches are reused across the whole iteration). Equality
+ * is only meaningful against the end sentinel (default-constructed
+ * EcsEntityIterator).
+ */
+class NCAPI EcsEntityIterator {
+public:
+    using iterator_category = std::input_iterator_tag;
+    using value_type        = EcsIterState;
+    using difference_type   = std::ptrdiff_t;
+    using pointer           = void;
+    using reference         = EcsIterState;
+
+    EcsEntityIterator() = default;
+
+    explicit EcsEntityIterator( EcsTableIterator table );
+
+    EcsIterState operator*() const
+    {
+        return ctx_;
+    }
+
+    const EcsIterState* operator->() const
+    {
+        return &ctx_;
+    }
+
+    EcsEntityIterator& operator++();
+
+    bool operator==( const EcsEntityIterator& o ) const noexcept
+    {
+        return done_ == o.done_;
+    }
+    bool operator!=( const EcsEntityIterator& o ) const noexcept
+    {
+        return done_ != o.done_;
+    }
+
+private:
+    EcsTableIterator table_;
+    EcsIterState ctx_;
+    int32_t row_ = 0;
+    bool done_   = true;
+};
+
+/**
+ * @brief Lightweight per-entity range view over an EcsQuery.
+ */
+class NCAPI EcsEntityView {
+public:
+    explicit EcsEntityView( EcsQuery& query );
+
+    EcsEntityIterator begin();
+    EcsEntityIterator end();
+
+private:
+    EcsQuery* query_;
 };
 
 //------------------------------------------------------------------------------

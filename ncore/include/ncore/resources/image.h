@@ -11,6 +11,7 @@ class NCAPI Image : public IResource {
 public:
     Image( int w, int h, const void* rgba_pixels );
 
+    ResourceFormatID get_format_id() const override;
     size_t get_size_bytes() const override;
     uint32_t get_width() const;
     uint32_t get_height() const;

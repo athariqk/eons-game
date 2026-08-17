@@ -44,20 +44,20 @@ void ResourceService::register_importer( std::unique_ptr<IResourceImporter>&& im
     importers[num_importers++] = std::move( importer );
 }
 
-static std::string get_extension( const std::string_view path )
+static String get_extension( const StringView path )
 {
     auto dot_pos = path.rfind( '.' );
-    if (dot_pos == std::string_view::npos)
+    if (dot_pos == StringView::npos)
         return {};
-    std::string ext( path.substr( dot_pos ) );
+    String ext( path.substr( dot_pos ) );
     std::transform( ext.begin(), ext.end(), ext.begin(), ::tolower );
     return ext;
 }
 
-RID ResourceService::load( const std::string_view path, bool skip_cache )
+RID ResourceService::load( const String& path, bool skip_cache )
 {
     auto fs_path     = std::filesystem::current_path() / "assets" / path;
-    auto fs_path_str = fs_path.string();
+    auto fs_path_str = String( fs_path.string() );
 
     std::error_code ec;
     if (std::filesystem::exists( fs_path )) {
@@ -66,28 +66,28 @@ RID ResourceService::load( const std::string_view path, bool skip_cache )
         NC_LOG_ERROR_C( log::IO, "OS error evaluating path: {}", ec.message() );
         return RID();
     } else {
-        NC_LOG_ERROR_C( log::IO, "Requested resource does not exist on path: {}", fs_path_str );
+        NC_LOG_ERROR_C( log::IO, "Requested resource does not exist on path: {}", path );
         return RID();
     }
 
-    auto cached     = path_map.find( fs_path_str );
+    auto cached     = path_map.find( path );
     bool has_cached = cached != path_map.end();
     if (!skip_cache && has_cached) {
         NC_LOG_DEBUG_C( log::IO, "load: cache HIT, RID={} filepath={}", cached->second.value, cached->first );
         auto ref = storage.get( cached->second );
         NC_VERIFY( ref );
         LoadEvent e;
-        e.Handle    = cached->second;
+        e.Handle   = cached->second;
         e.FormatId = ( *ref )->get_format_id();
         events.push( e );
         return cached->second;
     }
 
-    NC_LOG_DEBUG_C( log::IO, "Importing resource from path: {}", fs_path_str );
+    NC_LOG_DEBUG_C( log::IO, "Importing resource from path: {}", path );
 
-    std::string ext = get_extension( path );
+    String ext = get_extension( path );
     if (ext.empty()) {
-        NC_LOG_ERROR_C( log::IO, "Cannot determine file extension for path: '{}'", fs_path_str );
+        NC_LOG_ERROR_C( log::IO, "Cannot determine file extension for path: '{}'", path );
         return RID();
     }
 
@@ -105,31 +105,34 @@ RID ResourceService::load( const std::string_view path, bool skip_cache )
     }
 
     IResourceImporter::Context ctx;
-    ctx.load       = [&]( const std::string_view path_ ) { return load( path_, skip_cache ); };
+    ctx.load       = [&]( const String& path_ ) { return load( path_, skip_cache ); };
     ctx.get        = [&]( RID handle_ ) { return get( handle_ ); };
     ctx.skip_cache = skip_cache;
 
     auto result = handler->import( fs_path_str, ctx );
     if (!result) {
-        NC_LOG_ERROR_C( log::IO, "Importer failed to load resource from '{}'", fs_path_str );
+        NC_LOG_ERROR_C( log::IO, "Importer failed to load resource from '{}'", path );
         return RID();
     }
-    result->filepath = fs_path_str;
+    result->filepath = path;
 
-    auto rid    = has_cached ? cached->second : storage.acquire();
-    auto pooled = storage.get( rid );
+    result->rid = has_cached ? cached->second : storage.acquire();
+    auto pooled = storage.get( result->rid );
     NC_VERIFY( pooled );
 
-    *pooled               = result;
-    path_map[fs_path_str] = rid;
-    NC_LOG_INFO_C( log::IO, "Imported a {} from path {}. RID={}", result->get_class_name(), fs_path_str, rid.value );
+    *pooled        = result;
+    path_map[path] = result->rid;
+    NC_LOG_INFO_C(
+        log::IO, "Imported {} from path '{}', RID={} ({} KB)", result->get_class_name(), path, result->rid.value,
+        math::bytes_to_kb( result->get_size_bytes() )
+    );
 
     LoadEvent e;
-    e.Handle    = rid;
+    e.Handle   = result->rid;
     e.FormatId = result->get_format_id();
     events.push( e );
 
-    return rid;
+    return result->rid;
 }
 
 void ResourceService::unload_resource( RID rid )
@@ -155,12 +158,17 @@ void ResourceService::unload_all()
 
 RID ResourceService::add( const Ref<IResource>& res )
 {
+    if (storage.contains( res->rid )) {
+        // already added.
+        return res->rid;
+    }
+
     auto handle = storage.acquire();
     auto entry  = storage.get( handle );
     *entry      = res;
 
     LoadEvent e;
-    e.Handle    = handle;
+    e.Handle   = handle;
     e.FormatId = res->get_format_id();
     events.push( e );
 

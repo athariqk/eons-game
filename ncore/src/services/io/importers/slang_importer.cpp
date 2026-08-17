@@ -7,7 +7,7 @@
 
 namespace nc {
 
-Ref<IResource> SlangImporter::import( std::string_view path, Context ctx )
+Ref<IResource> SlangImporter::import( const String& path, Context ctx )
 {
     auto slang = compiler.compile( ShaderCompileDesc{ .filepath = path, .recreate_session = ctx.skip_cache } );
     if (!slang.diagnostics.empty()) {

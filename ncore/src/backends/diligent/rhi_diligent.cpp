@@ -11,7 +11,7 @@
 
 namespace nc {
 
-static void DILIGENT_CALL_TYPE DebugMessageCallbackVk(
+static void DILIGENT_CALL_TYPE OutputMessageCallbackDiligent(
     enum Diligent::DEBUG_MESSAGE_SEVERITY Severity, const Diligent::Char* Message, const Diligent::Char* Function,
     const Diligent::Char* File, int Line
 )
@@ -41,7 +41,7 @@ DiligentRHI::DiligentRHI()
     Diligent::SetRawAllocator( &allocator );
 
     engine_factory = Diligent::LoadAndGetEngineFactoryVk();
-    engine_factory->SetMessageCallback( DebugMessageCallbackVk );
+    engine_factory->SetMessageCallback( OutputMessageCallbackDiligent );
 
     auto vk_version = engine_factory->GetVulkanVersion();
     NC_LOG_INFO_C( log::GRAPHICS, "Vulkan version: {}.{}", vk_version.Major, vk_version.Minor );
@@ -78,7 +78,6 @@ DiligentRHI::DiligentRHI()
         engine_factory->CreateDeviceAndContextsVk( ci, &device, rawCtx );
         if (device && rawCtx[0]) {
             ctx_gfx.Attach( rawCtx[0] );
-            ctx_gfx->AddRef();
             ctx_comp.Attach( rawCtx[1] );
             ctx_tx.Attach( rawCtx[2] );
         } else {
@@ -773,7 +772,7 @@ RID DiligentRHI::buffer_create( const BufferDesc& p_desc )
     desc.BindFlags      = static_cast<Diligent::BIND_FLAGS>( p_desc.bind_mask );
     desc.Usage          = static_cast<Diligent::USAGE>( p_desc.usage );
     desc.CPUAccessFlags = static_cast<Diligent::CPU_ACCESS_FLAGS>( p_desc.access_mask );
-    desc.Mode           = Diligent::BUFFER_MODE_RAW;
+    desc.Mode           = static_cast<Diligent::BUFFER_MODE>( p_desc.mode );
 
     Diligent::BufferData init_data{ p_desc.initial_data, static_cast<Diligent::Uint32>( p_desc.size ) };
     Diligent::RefCntAutoPtr<Diligent::IBuffer> buffer;

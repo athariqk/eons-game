@@ -9,16 +9,16 @@
 namespace nc {
 
 //------------------------------------------------------------------------------
-// EcsQuery::Iterator
+// EcsTableIterator
 //------------------------------------------------------------------------------
 
-EcsIterator::EcsIterator( void* internal ) noexcept
+EcsTableIterator::EcsTableIterator( void* internal ) noexcept
 {
     iter_ = internal;
     done_ = false;
 }
 
-EcsIterator::EcsIterator( EcsWorld*, void* world, void* p_query ) :
+EcsTableIterator::EcsTableIterator( EcsWorld*, void* world, void* p_query ) :
     world_( world ), query( p_query ), kind_( Kind::Query )
 {
     auto w = static_cast<ecs_world_t*>( world );
@@ -30,7 +30,7 @@ EcsIterator::EcsIterator( EcsWorld*, void* world, void* p_query ) :
     done_ = !ecs_query_next( static_cast<ecs_iter_t*>( iter_ ) );
 }
 
-EcsIterator::~EcsIterator()
+EcsTableIterator::~EcsTableIterator()
 {
     auto it = static_cast<ecs_iter_t*>( iter_ );
     if (!done_) {
@@ -39,14 +39,14 @@ EcsIterator::~EcsIterator()
     delete it;
 }
 
-EcsIterator::EcsIterator( EcsIterator&& other ) noexcept :
+EcsTableIterator::EcsTableIterator( EcsTableIterator&& other ) noexcept :
     world_( other.world_ ), query( other.query ), iter_( other.iter_ ), kind_( other.kind_ ), done_( other.done_ )
 {
     other.iter_ = nullptr;
     other.done_ = true;
 }
 
-EcsIterator& EcsIterator::operator=( EcsIterator&& other ) noexcept
+EcsTableIterator& EcsTableIterator::operator=( EcsTableIterator&& other ) noexcept
 {
     if (this != &other) {
         delete static_cast<ecs_iter_t*>( iter_ );
@@ -61,61 +61,56 @@ EcsIterator& EcsIterator::operator=( EcsIterator&& other ) noexcept
     return *this;
 }
 
-bool EcsIterator::operator!=( std::nullptr_t ) const
-{
-    return !done_;
-}
-
-EcsIterator& EcsIterator::operator++()
+EcsTableIterator& EcsTableIterator::operator++()
 {
     auto* it = static_cast<ecs_iter_t*>( iter_ );
     done_    = !ecs_query_next( it );
     return *this;
 }
 
-double EcsIterator::delta_time() const
+double EcsTableIterator::delta_time() const
 {
     auto it = static_cast<ecs_iter_t*>( iter_ );
     return static_cast<double>( it->delta_time );
 }
 
-float EcsIterator::delta_time_internal() const
+float EcsTableIterator::delta_time_internal() const
 {
     auto it = static_cast<ecs_iter_t*>( iter_ );
     return it->delta_system_time;
 }
 
-int32_t EcsIterator::count() const
+int32_t EcsTableIterator::count() const
 {
     auto it = static_cast<ecs_iter_t*>( iter_ );
     return static_cast<int32_t>( it->count );
 }
 
-EcsEntity EcsIterator::entity( int32_t row ) const
+EcsEntity EcsTableIterator::entity( int32_t row ) const
 {
     auto it = static_cast<ecs_iter_t*>( iter_ );
     return static_cast<EcsEntity>( it->entities[row] );
 }
 
-EcsWorld& EcsIterator::world() const
+EcsWorld& EcsTableIterator::world() const
 {
     auto it = static_cast<ecs_iter_t*>( iter_ );
     return *static_cast<EcsWorld*>( ecs_get_binding_ctx( it->world ) );
 }
 
-EcsEntity EcsIterator::event()
+EcsEntity EcsTableIterator::event()
 {
     auto it = static_cast<ecs_iter_t*>( iter_ );
     return it->event;
 }
 
-void* EcsIterator::event_payload()
+void* EcsTableIterator::event_payload()
 {
     auto it = static_cast<ecs_iter_t*>( iter_ );
     return it->param;
 }
 
-void* EcsIterator::user_ctx() const
+void* EcsTableIterator::user_ctx() const
 {
     auto it = static_cast<ecs_iter_t*>( iter_ );
     return it->ctx;
@@ -129,14 +124,19 @@ EcsQuery::EcsQuery( const String& p_name, EcsWorld* p_world_ref, void* p_world_h
     name( p_name ), world_ref( p_world_ref ), world( p_world_handle ), query( query_handle )
 {}
 
-EcsIterator EcsQuery::begin()
+EcsTableIterator EcsQuery::begin()
 {
-    return EcsIterator( world_ref, world, query );
+    return EcsTableIterator( world_ref, world, query );
 }
 
-std::nullptr_t EcsQuery::end()
+EcsTableIterator EcsQuery::end()
 {
-    return nullptr;
+    return EcsTableIterator{};
+}
+
+EcsEntityView EcsQuery::entities()
+{
+    return EcsEntityView( *this );
 }
 
 bool EcsQuery::is_valid()
@@ -148,60 +148,112 @@ bool EcsQuery::is_valid()
 }
 
 //------------------------------------------------------------------------------
-// QueryContext
+// EcsEntityIterator
 //------------------------------------------------------------------------------
 
-QueryContext::QueryContext( void* iter ) : it_( iter ) {}
+EcsEntityIterator::EcsEntityIterator( EcsTableIterator table ) : table_( std::move( table ) )
+{
+    done_ = table_.is_done();
+    if (!done_) {
+        ctx_ = EcsIterState( table_.get_internal_iter() );
+        ctx_.set_row( 0 );
+    }
+}
 
-double QueryContext::delta_time() const
+EcsEntityIterator& EcsEntityIterator::operator++()
+{
+    ++row_;
+    if (row_ >= table_.count()) {
+        ++table_;
+        row_ = 0;
+        if (table_.is_done()) {
+            done_ = true;
+        } else {
+            ctx_ = EcsIterState( table_.get_internal_iter() );
+            ctx_.set_row( 0 );
+        }
+    } else {
+        ctx_.set_row( row_ );
+    }
+    return *this;
+}
+
+//------------------------------------------------------------------------------
+// EcsEntityView
+//------------------------------------------------------------------------------
+
+EcsEntityView::EcsEntityView( EcsQuery& query ) : query_( &query ) {}
+
+EcsEntityIterator EcsEntityView::begin()
+{
+    return EcsEntityIterator( query_->begin() );
+}
+
+EcsEntityIterator EcsEntityView::end()
+{
+    return EcsEntityIterator{};
+}
+
+//------------------------------------------------------------------------------
+// EcsIterState
+//------------------------------------------------------------------------------
+
+EcsIterState::EcsIterState( void* iter ) : it_( iter ) {}
+
+double EcsIterState::delta_time() const
 {
     auto it = static_cast<ecs_iter_t*>( it_ );
     return static_cast<double>( it->delta_time );
 }
 
-float QueryContext::delta_time_internal() const
+float EcsIterState::delta_time_internal() const
 {
     auto it = static_cast<ecs_iter_t*>( it_ );
     return it->delta_system_time;
 }
 
-int32_t QueryContext::count() const
+int32_t EcsIterState::count() const
 {
     auto it = static_cast<ecs_iter_t*>( it_ );
     return static_cast<int32_t>( it->count );
 }
 
-EcsEntity QueryContext::entity( int32_t row ) const
+EcsEntity EcsIterState::entity() const
+{
+    return entity( current_row_ );
+}
+
+EcsEntity EcsIterState::entity( int32_t row ) const
 {
     auto it = static_cast<ecs_iter_t*>( it_ );
     return static_cast<EcsEntity>( it->entities[row] );
 }
 
-EcsWorld& QueryContext::world() const
+EcsWorld& EcsIterState::world() const
 {
     auto it = static_cast<ecs_iter_t*>( it_ );
     return *static_cast<EcsWorld*>( ecs_get_binding_ctx( it->world ) );
 }
 
-EcsEntity QueryContext::event()
+EcsEntity EcsIterState::event()
 {
     auto it = static_cast<ecs_iter_t*>( it_ );
     return it->event;
 }
 
-void* QueryContext::event_payload()
+void* EcsIterState::event_payload()
 {
     auto it = static_cast<ecs_iter_t*>( it_ );
     return it->param;
 }
 
-void* QueryContext::user_ctx() const
+void* EcsIterState::user_ctx() const
 {
     auto it = static_cast<ecs_iter_t*>( it_ );
     return it->ctx;
 }
 
-void* QueryContext::get_component_( int32_t column, size_t size, size_t alignment ) const
+void* EcsIterState::get_component_( int32_t column, size_t size, size_t alignment ) const
 {
     ( void ) alignment;
     auto it   = static_cast<ecs_iter_t*>( it_ );
@@ -209,7 +261,15 @@ void* QueryContext::get_component_( int32_t column, size_t size, size_t alignmen
     return reinterpret_cast<char*>( base ) + size * current_row_;
 }
 
-int32_t QueryContext::resolve_term_index_( const rtti::TypeInfo& info ) const
+void EcsIterState::mark_component_modified_( const rtti::TypeInfo* type ) const
+{
+    auto it    = static_cast<ecs_iter_t*>( it_ );
+    auto world = static_cast<EcsWorld*>( ecs_get_binding_ctx( it->world ) );
+    auto comp  = world->register_component_type( type );
+    ecs_modified_id( it->world, entity( current_row_ ), comp );
+}
+
+int32_t EcsIterState::resolve_term_index_( const rtti::TypeInfo& info ) const
 {
     auto cached = term_cache_.find( &info );
     if (cached != term_cache_.end()) {
@@ -237,7 +297,7 @@ int32_t QueryContext::resolve_term_index_( const rtti::TypeInfo& info ) const
     return -1;
 }
 
-int32_t QueryContext::resolve_pair_index_( const rtti::TypeInfo& first, const rtti::TypeInfo& second ) const
+int32_t EcsIterState::resolve_pair_index_( const rtti::TypeInfo& first, const rtti::TypeInfo& second ) const
 {
     auto key    = std::pair{ &first, &second };
     auto cached = pair_cache_.find( key );

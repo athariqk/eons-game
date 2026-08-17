@@ -108,10 +108,13 @@ RID RenderService::texture_2d_create( const Image& image )
     );
 }
 
-RID RenderService::texture_cube_create( Span<const Image*, 6> faces )
+RID RenderService::texture_cube_create( const CubeMap& cube_map )
 {
+    auto faces = cube_map.get_faces();
+
     TextureDesc desc;
-    desc.debug_name = "RenderService_CubeTexture";
+    auto name       = std::format( "CubeTexture_{}_{}", cube_map.rid.value, cube_map.filepath );
+    desc.debug_name = name;
     desc.format     = TextureFormat::RGBA8_UNORM_SRGB;
     desc.dimension  = ResourceDimension::DIM_CUBE;
     desc.usage      = ResourceUsage::IMMUTABLE;
@@ -132,6 +135,11 @@ RID RenderService::material_create( const MaterialTemplate& tmpl )
 void RenderService::material_set_texture( RID material, RID texture, uint32_t slot )
 {
     ctx.storage.material_set_texture( material, texture, slot );
+}
+
+void RenderService::material_set_draw_mode( RID material, FillMode mode )
+{
+    ctx.storage.material_set_draw_mode( material, mode );
 }
 
 RID RenderService::gpu_mesh_create( const Mesh& mesh )
@@ -276,8 +284,9 @@ void RenderService::frame_end( float delta_time )
         NC_LOG_TRACE_C(
             log::GRAPHICS, "world_items_flush: gpu_mesh_rid={} instances={}", item.gpu_mesh.value, item.instancing
         );
-        auto mesh             = ctx.storage.get_gpu_mesh( item.gpu_mesh );
-        constants.ModelMatrix = item.transform;
+        auto mesh                = ctx.storage.get_gpu_mesh( item.gpu_mesh );
+        constants.ModelMatrix    = item.transform;
+        constants.ModelMatrixInv = item.transform.affine_inverse();
         ctx.storage.material_bind( item.material, constants );
         ctx.storage.gpu_mesh_bind( item.gpu_mesh );
         ctx.rhi->draw_indexed( mesh->index_count, 0, 0, item.instancing );

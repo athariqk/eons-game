@@ -62,7 +62,7 @@ public:
     {
         auto name = std::format( "Scene_Sys_{}", ++system_counter );
         ecs_world.system( name ).with<NodeRefComponent, Comps...>().in( phase ).order( order ).each(
-            [fn = std::forward<Fn>( callback )]( QueryContext& ctx, EcsEntity ) {
+            [fn = std::forward<Fn>( callback )]( EcsIterState& ctx ) {
                 auto ref = ctx.get_component<NodeRefComponent>();
                 NC_ASSERT( ref && ref->node, "Entity missing NodeRefComponent" );
                 fn( *ref->node, ( *ctx.get_component<Comps>() )..., ctx.delta_time() );
@@ -77,7 +77,7 @@ public:
         ecs_world.system( name )
             .in( EcsSystemPhase::INIT )
             .order( order )
-            .run( [fn = std::forward<Fn>( callback )]( QueryContext& ctx ) { fn(); } );
+            .run( [fn = std::forward<Fn>( callback )]( EcsIterState& ctx ) { fn(); } );
     }
 
     template<typename T, typename Fn>
@@ -86,7 +86,7 @@ public:
         ecs_world.observer( std::format( "Scene_Obs_{}", ++system_counter ) )
             .with<NodeRefComponent>()
             .on<T>( event )
-            .each( [fn = std::forward<Fn>( callback )]( QueryContext& ctx, EcsEntity ) {
+            .each( [fn = std::forward<Fn>( callback )]( EcsIterState& ctx ) {
                 auto ref = ctx.get_component<NodeRefComponent>();
                 fn( *ref->node, *ctx.get_component<T>() );
             } );

@@ -42,10 +42,10 @@ bool RendererStorage::PSOKey::operator==( const PSOKey& o ) const
         if (std::strcmp( sa, sb ) != 0)
             return false;
     }
-    if (resource_signatures.size() != o.resource_signatures.size())
+    if (res_signatures.size() != o.res_signatures.size())
         return false;
-    for (size_t i = 0; i < resource_signatures.size(); ++i) {
-        if (resource_signatures[i] != o.resource_signatures[i])
+    for (size_t i = 0; i < res_signatures.size(); ++i) {
+        if (res_signatures[i] != o.res_signatures[i])
             return false;
     }
     return true;
@@ -53,15 +53,19 @@ bool RendererStorage::PSOKey::operator==( const PSOKey& o ) const
 
 RID RendererStorage::get_pipeline_or_create( const PSOKey& key )
 {
+    auto hash = PSOKeyHasher()( key ); // TODO: find a way to cache this somehow
+
     auto it = pso_cache.find( key );
     if (it != pso_cache.end()) {
         NC_LOG_DEBUG_C(
-            log::GRAPHICS, "get_pipeline_or_create: '{}' cache HIT (rid={})", key.debug_name, it->second.value
+            log::GRAPHICS, "get_pipeline_or_create: '{}_{}' cache HIT (rid={})", key.debug_name, hash, it->second.value
         );
         return it->second;
     }
 
-    NC_LOG_DEBUG_C( log::GRAPHICS, "get_pipeline_or_create: '{}' cache MISS -> creating new PSO", key.debug_name );
+    NC_LOG_DEBUG_C(
+        log::GRAPHICS, "get_pipeline_or_create: '{}_{}' cache MISS -> creating new PSO", key.debug_name, hash
+    );
     NC_VERIFY( rhi );
 
     GraphicsPSODesc desc;
@@ -113,8 +117,8 @@ RID RendererStorage::get_pipeline_or_create( const PSOKey& key )
     desc.multisample_state.count   = static_cast<uint8_t>( ( key.flags >> PSO_MSAA_COUNT_SHIFT ) & 0xF );
     desc.multisample_state.quality = static_cast<uint8_t>( ( key.flags >> PSO_MSAA_QUALITY_SHIFT ) & 0xF );
 
-    auto rid = rhi->gfx_pipeline_create( desc, key.resource_signatures );
-    pso_cache.emplace( std::move( key ), rid );
+    auto rid = rhi->gfx_pipeline_create( desc, key.res_signatures );
+    pso_cache.emplace( key, rid );
     return rid;
 }
 
@@ -136,7 +140,7 @@ size_t RendererStorage::PSOKeyHasher::operator()( const PSOKey& p ) const
         h = combine( h, static_cast<size_t>( e.frequency ) );
         h = combine( h, e.instance_step_rate );
     }
-    for (auto& sig : p.resource_signatures) {
+    for (auto& sig : p.res_signatures) {
         h = combine( h, std::hash<uint64_t>{}( sig.value ) );
     }
     return h;
@@ -156,16 +160,17 @@ RID RendererStorage::material_create( const MaterialTemplate& tmpl )
         sig_rids.push_back( rhi->resource_signature_create( desc ) );
     }
 
-    auto key                = get_pso_key_( tmpl );
-    key.resource_signatures = sig_rids;
-    RID pso                 = get_pipeline_or_create( key );
+    auto key           = get_pso_key_( tmpl );
+    key.res_signatures = sig_rids;
+    RID pso            = get_pipeline_or_create( key );
 
     RID rid  = materials.acquire();
     auto mat = materials.get( rid );
     NC_VERIFY( mat );
 
-    mat->pso                 = pso;
-    mat->resource_signatures = sig_rids;
+    mat->pso            = pso;
+    mat->pso_key        = key;
+    mat->res_signatures = sig_rids;
 
     mat->srbs.reserve( sig_rids.size() );
     for (auto& sig_rid : sig_rids) {
@@ -237,6 +242,19 @@ void RendererStorage::material_set_texture( RID handle, RID texture, uint32_t sl
         rhi->texture_binding_update( texture, mat->srbs[ts.srb_index], ts.name.c_str() );
 }
 
+void RendererStorage::material_set_draw_mode( RID handle, FillMode mode )
+{
+    NC_VERIFY( rhi );
+
+    auto mat = get_material_( handle );
+    NC_VERIFY( mat );
+
+    auto& key = mat->pso_key;
+    key.flags =
+        static_cast<PSOFlags>( ( key.flags & ~PSO_FILL_MASK ) | ( static_cast<uint64_t>( mode ) << PSO_FILL_SHIFT ) );
+    mat->pso = get_pipeline_or_create( key );
+}
+
 void RendererStorage::material_bind( RID handle, const ShaderConstants& constants )
 {
     NC_VERIFY( rhi );
@@ -272,7 +290,7 @@ RID RendererStorage::gpu_mesh_create( const Mesh& mesh )
     auto result = gpu_meshes.get( rid );
     NC_VERIFY( result );
 
-    auto basename = std::string( mesh.get_class_name() ) + "_" + mesh.filepath + "_";
+    auto basename = std::format( "{}_{}_", mesh.get_class_name(), rid.value );
 
     NC_LOG_DEBUG_C(
         log::GRAPHICS, "gpu_mesh_create: RID={} vert_count={} idx_count={}", rid.value, mesh.vertex_count(),
@@ -357,7 +375,7 @@ RendererStorage::PSOKey RendererStorage::get_pso_key_( const MaterialTemplate& t
     key.vs = tmpl.vs.get();
     key.ps = tmpl.ps.get();
     if (!tmpl.vertex_layout_name.empty()) {
-        key.vertex_layout = get_vertex_layout_by_name( tmpl.vertex_layout_name );
+        key.vertex_layout = get_vertex_layout_by_name( std::string( tmpl.vertex_layout_name.c_str() ) );
         NC_LOG_DEBUG_C(
             log::GRAPHICS, "get_pso_key: '{}' using explicit layout '{}' ({} elements)", tmpl.debug_name,
             tmpl.vertex_layout_name, key.vertex_layout.size()

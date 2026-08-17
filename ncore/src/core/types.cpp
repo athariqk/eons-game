@@ -1,5 +1,4 @@
 #include <ncore/core/collection.h>
-#include <ncore/core/object.h>
 #include <ncore/core/types.h>
 #include <ncore/utils/assert.h>
 
@@ -39,11 +38,9 @@ void TypeRegistry::initialize()
     TypeRegistry::register_type<float>( "float" );
     TypeRegistry::register_type<double>( "double" );
 
-    const_cast<TypeInfo*>( TypeRegistry::find<float>() )->is_floating  = true;
-    const_cast<TypeInfo*>( TypeRegistry::find<double>() )->is_floating = true;
-
     TypeRegistry::register_type<size_t>( "size_t" );
     TypeRegistry::register_type<uint8_t>( "uint8_t" );
+    TypeRegistry::register_type<char>( "char" );
     TypeRegistry::register_type<StringClass, nc::String>( "nc::String" );
     TypeRegistry::register_type<VectorClass<nc::DynamicArray<int>>, nc::DynamicArray<int>>( "nc::DynamicArray<int>" );
     TypeRegistry::register_type<VectorClass<nc::Array<RID, 8>>, nc::Array<RID, 8>>(
@@ -57,7 +54,7 @@ void TypeRegistry::initialize()
     auto& rid_info              = TypeRegistry::register_type<TRecordInfo<nc::RID>, nc::RID>( "nc::RID" );
     static FieldInfo rid_flds[] = {
         { "value", detail::type_id<uint64_t>(), sizeof( uint64_t ), offsetof( nc::RID, value ),
-          PropertyFlags::SERIALIZABLE | PropertyFlags::EDITABLE, detail::category_of<uint64_t>(), Qualifier{} },
+          PropertyFlags::SERIALIZABLE | PropertyFlags::EDITABLE, Qualifier{} },
     };
     rid_info.fields_begin = rid_flds;
     rid_info.fields_end   = rid_flds + 1;
@@ -65,14 +62,11 @@ void TypeRegistry::initialize()
     for (auto* c = type_list_head; c; c = c->_next) {
         get_instance().type_cache[c->id] = c;
     }
-
-    NC_LOG_DEBUG( "TypeRegistry initialized" );
 }
 
 void TypeRegistry::shutdown()
 {
     get_instance().type_cache.clear();
-    NC_LOG_DEBUG( "TypeRegistry shutdown" );
 }
 
 // ======================================================================
@@ -100,7 +94,7 @@ void RecordInfo::visit(
     visitor->class_begin( this, static_cast<int>( depth ) );
     for (auto& f : fields()) {
         auto* ptr = f.get_void_ptr( instance );
-        if (f.qualifier.is_array)
+        if (f.qualifier.is_array())
             visit_array( ptr, &f, visitor, filter, depth + 1 );
         else
             visit_field( ptr, &f, visitor, filter, static_cast<int>( depth + 1 ) );
@@ -122,14 +116,17 @@ void RecordInfo::visit_field(
     auto& q = field->qualifier;
     auto t  = field->get_type();
 
-    if (q.is_array)
+    if (!t)
+        return;
+
+    if (q.is_array())
         visitor->array_element( t, depth, array_elem );
     else
         visitor->class_member( field, depth );
 
     if (t->is_record()) {
         auto* c = static_cast<const RecordInfo*>( t );
-        if (q.is_pointer) {
+        if (q.is_pointer()) {
             auto* p = *static_cast<void const* const*>( ptr );
             if (p)
                 c->visit( p, visitor, filter, static_cast<unsigned>( depth ) );
@@ -137,7 +134,7 @@ void RecordInfo::visit_field(
             c->visit( ptr, visitor, filter, static_cast<unsigned>( depth ) );
         }
     } else {
-        if (field->category == FieldCategory::STRING)
+        if (t->is_string() || q.is_cstring)
             visitor->string( t, ptr );
         else
             visitor->primitive( t, ptr );
@@ -164,7 +161,7 @@ void RecordInfo::visit_array(
     auto* cursor = static_cast<const uint8_t*>( ptr );
     for (unsigned i = 0; i < q.array_length; ++i) {
         visit_field( cursor, field, visitor, filter, static_cast<int>( depth + 1 ), static_cast<int>( i ) );
-        cursor += field->width;
+        cursor += t->size;
     }
 
     visitor->array_end( t, static_cast<int>( depth ) );
@@ -174,6 +171,18 @@ void RecordInfo::visit_array(
 // to_string
 // ======================================================================
 
+namespace {
+
+template<typename V>
+V read_as( const void* instance )
+{
+    V v;
+    std::memcpy( &v, instance, sizeof( V ) );
+    return v;
+}
+
+} // namespace
+
 void TypeInfo::to_string( String& out, const void* instance ) const
 {
     if (!instance) {
@@ -181,25 +190,39 @@ void TypeInfo::to_string( String& out, const void* instance ) const
         return;
     }
 
-    switch (category) {
-        case FieldCategory::SCALAR:
-            if (is_floating) {
-                if (size == 4)
-                    out += std::format( "{}", *static_cast<const float*>( instance ) );
-                if (size == 8)
-                    out += std::format( "{}", *static_cast<const double*>( instance ) );
-            }
-            if (size == 1)
-                out += std::format( "{}", *static_cast<const int8_t*>( instance ) );
-            if (size == 2)
-                out += std::format( "{}", *static_cast<const int16_t*>( instance ) );
-            if (size == 4)
-                out += std::format( "{}", *static_cast<const int32_t*>( instance ) );
-            if (size == 8)
-                out += std::format( "{}", *static_cast<const int64_t*>( instance ) );
+    switch (kind) {
+        case TypeKind::BOOL:
+            out += read_as<bool>( instance ) ? "true" : "false";
             break;
-        case FieldCategory::POINTER:
-            out += std::format( "{}", *static_cast<const void* const*>( instance ) );
+        case TypeKind::INT8:
+            out += std::format( "{}", read_as<int8_t>( instance ) );
+            break;
+        case TypeKind::UINT8:
+            out += std::format( "{}", read_as<uint8_t>( instance ) );
+            break;
+        case TypeKind::INT16:
+            out += std::format( "{}", read_as<int16_t>( instance ) );
+            break;
+        case TypeKind::UINT16:
+            out += std::format( "{}", read_as<uint16_t>( instance ) );
+            break;
+        case TypeKind::INT32:
+            out += std::format( "{}", read_as<int32_t>( instance ) );
+            break;
+        case TypeKind::UINT32:
+            out += std::format( "{}", read_as<uint32_t>( instance ) );
+            break;
+        case TypeKind::INT64:
+            out += std::format( "{}", read_as<int64_t>( instance ) );
+            break;
+        case TypeKind::UINT64:
+            out += std::format( "{}", read_as<uint64_t>( instance ) );
+            break;
+        case TypeKind::FLOAT:
+            out += std::format( "{}", read_as<float>( instance ) );
+            break;
+        case TypeKind::DOUBLE:
+            out += std::format( "{}", read_as<double>( instance ) );
             break;
         default:
             out += std::format( "{}", instance );
@@ -222,7 +245,7 @@ void RecordInfo::to_string( String& out, const void* instance ) const
             out += ", ";
         out += f.name;
         out += "=";
-        f.value_to_string( out, instance );
+        f.to_string( out, instance );
     }
     out += ")";
 }
@@ -238,39 +261,99 @@ void StringClass::to_string( String& out, const void* instance ) const
     out += std::format( "\"{}\"", *str );
 }
 
-void FieldInfo::value_to_string( String& out, const void* instance ) const
+void FieldInfo::to_string( String& out, const void* instance ) const
 {
-    auto* field_ptr = get_void_ptr( instance );
-    auto* type      = get_type();
+    auto field_ptr = get_void_ptr( instance );
+    auto& q        = qualifier;
 
-    if (type)
-        return type->to_string( out, field_ptr );
+    if (q.is_cstring) {
+        out += std::format( "\"{}\"", *static_cast<const char* const*>( field_ptr ) );
+        return;
+    }
 
-    switch (category) {
-        case FieldCategory::SCALAR:
-            if (width == 4)
-                out += std::format( "{}", *static_cast<const float*>( field_ptr ) );
-            if (width == 8)
-                out += std::format( "{}", *static_cast<const double*>( field_ptr ) );
-            if (width == 1)
-                out += std::format( "{}", *static_cast<const uint8_t*>( field_ptr ) );
-            if (width == 2)
-                out += std::format( "{}", *static_cast<const uint16_t*>( field_ptr ) );
-            if (width == 4)
-                out += std::format( "{}", *static_cast<const uint32_t*>( field_ptr ) );
-            if (width == 8)
-                out += std::format( "{}", *static_cast<const uint64_t*>( field_ptr ) );
-            break;
-        case FieldCategory::STRING:
-            out += std::format( "\"{}\"", *static_cast<const char* const*>( field_ptr ) );
-            break;
-        case FieldCategory::POINTER:
-            out += std::format( "{}", *static_cast<const void* const*>( field_ptr ) );
-            break;
+    auto type = get_type();
+    if (!type) {
+        out += "<unregistered>";
+        return;
+    }
+
+    if (q.is_pointer()) {
+        out += std::format( "{}", *static_cast<const void* const*>( field_ptr ) );
+        return;
+    }
+
+    if (q.is_array()) {
+        auto* cursor = static_cast<const uint8_t*>( field_ptr );
+        out += "[";
+        for (unsigned i = 0; i < q.array_length; ++i) {
+            if (i)
+                out += ", ";
+            type->to_string( out, cursor );
+            cursor += type->size;
+        }
+        out += "]";
+        return;
+    }
+
+    type->to_string( out, field_ptr );
+}
+
+// ======================================================================
+// EnumInfo
+// ======================================================================
+
+int64_t EnumInfo::get_value( const void* instance ) const noexcept
+{
+    switch (size) {
+        case 1:
+            return static_cast<int8_t>( read_as<uint8_t>( instance ) );
+        case 2:
+            return static_cast<int16_t>( read_as<uint16_t>( instance ) );
+        case 4:
+            return static_cast<int32_t>( read_as<uint32_t>( instance ) );
+        case 8:
+            return static_cast<int64_t>( read_as<uint64_t>( instance ) );
         default:
-            out += std::format( "{}", field_ptr );
+            return 0;
+    }
+}
+
+void EnumInfo::set_value( void* instance, int64_t value ) const noexcept
+{
+    switch (size) {
+        case 1: {
+            uint8_t v = static_cast<uint8_t>( value );
+            std::memcpy( instance, &v, sizeof( v ) );
+            break;
+        }
+        case 2: {
+            uint16_t v = static_cast<uint16_t>( value );
+            std::memcpy( instance, &v, sizeof( v ) );
+            break;
+        }
+        case 4: {
+            uint32_t v = static_cast<uint32_t>( value );
+            std::memcpy( instance, &v, sizeof( v ) );
+            break;
+        }
+        case 8: {
+            uint64_t v = static_cast<uint64_t>( value );
+            std::memcpy( instance, &v, sizeof( v ) );
+            break;
+        }
+        default:
             break;
     }
+}
+
+void EnumInfo::to_string( String& out, const void* instance ) const
+{
+    if (!instance) {
+        out += "null";
+        return;
+    }
+
+    out += get_name( get_value( instance ) );
 }
 
 } // namespace nc::rtti

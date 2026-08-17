@@ -8,6 +8,11 @@ Image::Image( int w, int h, const void* rgba_pixels ) : width( w ), height( h )
     pixels.assign( p, p + static_cast<size_t>( w * h * 4 ) );
 }
 
+ResourceFormatID Image::get_format_id() const
+{
+    return "img1";
+}
+
 size_t Image::get_size_bytes() const
 {
     return pixels.size();

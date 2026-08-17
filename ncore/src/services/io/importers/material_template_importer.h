@@ -10,12 +10,12 @@ class MaterialImporter : public IResourceImporter {
     NCLASS( MaterialImporter, IResourceImporter )
 
 public:
-    bool is_handling_extension( const std::string& ext ) override
+    bool is_handling_extension( const String& ext ) override
     {
         return ext == ".material";
     }
 
-    Ref<IResource> import( std::string_view path, Context ctx ) override;
+    Ref<IResource> import( const String& path, Context ctx ) override;
 };
 
 } // namespace nc

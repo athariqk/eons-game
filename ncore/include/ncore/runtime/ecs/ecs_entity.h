@@ -10,7 +10,13 @@
 
 namespace nc {
 
-using EcsEntity    = uint64_t;
+/**
+ * @brief Represents an entity as integer ID.
+ */
+using EcsEntity = uint64_t;
+/**
+ * @brief Represents a component as integer ID.
+ */
 using EcsComponent = EcsEntity;
 
 inline constexpr EcsEntity INVALID_ENTITY_ID = static_cast<EcsEntity>( -1 );

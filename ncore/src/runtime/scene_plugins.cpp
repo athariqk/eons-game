@@ -38,7 +38,7 @@ void NCAPI register_core_plugin( Scene& scene )
         .system( "SceneCorePlugin_FPSTracker" )
         .with<TimeComponent>()
         .in( EcsSystemPhase::PRE_FRAME )
-        .run( []( QueryContext& ctx ) {
+        .run( []( EcsIterState& ctx ) {
             auto time = ctx.get_component<TimeComponent>();
             time->Ticks++;
             time->FrameCount++;
@@ -57,7 +57,7 @@ void NCAPI register_core_plugin( Scene& scene )
         .system( "Scene_Init" )
         .with<IoServices, GraphicsServices>()
         .in( EcsSystemPhase::INIT )
-        .run( [&scene]( QueryContext& ctx ) {
+        .run( [&scene]( EcsIterState& ctx ) {
             auto io       = ctx.world().get_singleton<IoServices>();
             auto gfx      = ctx.world().get_singleton<GraphicsServices>();
             io->Resources = scene.get_app_ctx()->Services.resolve<ResourceService>();
@@ -75,7 +75,7 @@ void register_window_plugin( Scene& scene )
         .with<IoServices>()
         .with<GraphicsServices>()
         .in( EcsSystemPhase::INIT )
-        .run( []( QueryContext& ctx ) {
+        .run( []( EcsIterState& ctx ) {
             auto app_desc = ctx.get_component<AppDesc>();
             auto io       = ctx.get_component<IoServices>();
             auto gfx      = ctx.get_component<GraphicsServices>();
@@ -105,7 +105,7 @@ void register_window_plugin( Scene& scene )
     scene.get_ecs()
         .observer( "SceneWindowPlugin_ConfigureWindows" )
         .on<WindowComponent>( EcsCoreEvent::OnSet )
-        .each( []( QueryContext& ctx, EcsEntity entity_id ) {
+        .each( []( EcsIterState& ctx ) {
             auto win = ctx.get_component<WindowComponent>();
             auto gfx = ctx.world().get_singleton<GraphicsServices>();
 
@@ -126,7 +126,7 @@ void register_window_plugin( Scene& scene )
         .with<WindowComponent>()
         .up()
         .event( EcsCoreEvent::OnAdd )
-        .each( []( QueryContext& ctx, EcsEntity ) {
+        .each( []( EcsIterState& ctx ) {
             auto rd  = ctx.get_component<SwapChainComponent>();
             auto win = ctx.get_component<WindowComponent>();
             auto gfx = ctx.world().get_singleton<GraphicsServices>();
@@ -141,29 +141,30 @@ void register_window_plugin( Scene& scene )
     scene.get_ecs()
         .observer( "SceneWindowPlugin_DestroySwapChains" )
         .on<SwapChainComponent>( EcsCoreEvent::OnRemove )
-        .each( []( QueryContext& ctx, EcsEntity ) {
-            auto sc  = ctx.get_component<SwapChainComponent>();
-            auto gfx = ctx.world().get_singleton<GraphicsServices>();
+        .each( []( EcsIterState& ctx ) {
+            auto sc = ctx.get_component<SwapChainComponent>();
             if (sc->Source.is_valid()) {
+                auto gfx = ctx.world().get_singleton<GraphicsServices>();
                 gfx->Renderer->swapchain_destroy( sc->Source );
-                sc->Source = {};
             }
         } );
 
     scene.get_ecs()
         .observer( "SceneWindowPlugin_DestroyWindows" )
         .on<WindowComponent>( EcsCoreEvent::OnRemove )
-        .each( []( QueryContext& ctx, EcsEntity ) {
+        .each( []( EcsIterState& ctx ) {
             auto win = ctx.get_component<WindowComponent>();
             auto gfx = ctx.world().get_singleton<GraphicsServices>();
-            gfx->Window->window_pop( win->SourceId );
+            NC_ASSERT(
+                gfx->Window->window_pop( win->SourceId ), "Error happened on window destroy (from component removal)"
+            );
         } );
 
     scene.get_ecs()
         .system( "SceneWindowPlugin_PumpEvents" )
         .with<GraphicsServices>()
         .in( EcsSystemPhase::PRE_FRAME )
-        .run( []( QueryContext& ctx ) {
+        .run( []( EcsIterState& ctx ) {
             auto gfx = ctx.get_component<GraphicsServices>();
             gfx->Window->pump_events();
         } );
@@ -175,7 +176,7 @@ void register_window_plugin( Scene& scene )
         .up()
         .in( EcsSystemPhase::PRE_FRAME )
         .order( 5 )
-        .each( []( QueryContext& ctx, EcsEntity id ) {
+        .each( []( EcsIterState& ctx ) {
             auto win    = ctx.get_component<WindowComponent>();
             auto sc     = ctx.get_component<SwapChainComponent>();
             auto gfx    = ctx.world().get_singleton<GraphicsServices>();
@@ -185,7 +186,7 @@ void register_window_plugin( Scene& scene )
                 if (auto resize = std::get_if<WindowResizeEvent>( &ev )) {
                     if (resize->window_id == win->SourceId) {
                         sc->Size = Vec2( static_cast<float>( resize->width ), static_cast<float>( resize->height ) );
-                        ctx.world().emit_event<SwapChainResizedComponent>( { sc->Size }, id );
+                        ctx.world().emit_event<SwapChainResizedComponent>( { sc->Size }, ctx.entity() );
                         gfx->Renderer->swapchain_set_size( sc->Source, sc->Size );
                     }
                 }
@@ -197,7 +198,7 @@ void register_window_plugin( Scene& scene )
         .with<WindowComponent>()
         .in( EcsSystemPhase::POST_FRAME )
         .order( 100 )
-        .each( []( QueryContext& ctx, EcsEntity id ) {
+        .each( []( EcsIterState& ctx ) {
             auto win    = ctx.get_component<WindowComponent>();
             auto gfx    = ctx.world().get_singleton<GraphicsServices>();
             auto events = gfx->Window->window_events();
@@ -205,7 +206,7 @@ void register_window_plugin( Scene& scene )
             for (const auto& ev : events) {
                 if (auto close = std::get_if<WindowCloseEvent>( &ev )) {
                     if (close->window_id == win->SourceId) {
-                        ctx.world().destroy_entity( id );
+                        ctx.world().destroy_entity( ctx.entity() );
                     }
                 }
             }
@@ -220,7 +221,7 @@ void register_render_plugin( Scene& scene )
         .system( "SceneRenderPlugin_Init" )
         .with<RenderState>()
         .in( EcsSystemPhase::INIT )
-        .run( []( QueryContext& ctx ) {
+        .run( []( EcsIterState& ctx ) {
             auto state          = ctx.get_component<RenderState>();
             auto gfx            = ctx.world().get_singleton<GraphicsServices>();
             uint8_t pixels[4]   = { 255, 255, 255, 255 };
@@ -232,7 +233,7 @@ void register_render_plugin( Scene& scene )
         .with<SwapChainComponent>()
         .in( EcsSystemPhase::PRE_FRAME )
         .order( 10 )
-        .each( []( QueryContext& ctx, EcsEntity ) {
+        .each( []( EcsIterState& ctx ) {
             auto sc  = ctx.get_component<SwapChainComponent>();
             auto gfx = ctx.world().get_singleton<GraphicsServices>();
             auto rs  = ctx.world().get_singleton<RenderState>();
@@ -244,7 +245,7 @@ void register_render_plugin( Scene& scene )
         .system( "SceneRenderPlugin_Update3DCamera" )
         .with<ActiveCameraTag, CameraComponent, Transform3DComponent>()
         .in( EcsSystemPhase::UPDATE )
-        .each( []( QueryContext& ctx, EcsEntity ) {
+        .each( []( EcsIterState& ctx ) {
             auto gfx   = ctx.world().get_singleton<GraphicsServices>();
             auto cam   = ctx.get_component<CameraComponent>();
             auto xform = ctx.get_component<Transform3DComponent>();
@@ -258,7 +259,7 @@ void register_render_plugin( Scene& scene )
         .observer( "SceneRenderPlugin_MaterialInstanceIniter" )
         .with<MaterialComponent>()
         .event<ResourceLoadedComponent>()
-        .each( []( QueryContext& ctx, EcsEntity id ) {
+        .each( []( EcsIterState& ctx ) {
             auto state  = ctx.world().get_singleton<RenderState>();
             auto gfx    = ctx.world().get_singleton<GraphicsServices>();
             auto io     = ctx.world().get_singleton<IoServices>();
@@ -281,10 +282,20 @@ void register_render_plugin( Scene& scene )
         } );
 
     scene.get_ecs()
+        .observer( "SceneRenderPlugin_MaterialInstanceUpdater" )
+        .on<MaterialComponent>( EcsCoreEvent::OnSet )
+        .each( []( EcsIterState& ctx ) {
+            auto gfx = ctx.world().get_singleton<GraphicsServices>();
+            auto mat = ctx.get_component<MaterialComponent>();
+            if (mat->Instance)
+                gfx->Renderer->material_set_draw_mode( mat->Instance, mat->DrawMode );
+        } );
+
+    scene.get_ecs()
         .observer( "SceneRenderPlugin_MeshInstanceIniter" )
         .with<MeshComponent>()
         .event<ResourceLoadedComponent>()
-        .each( []( QueryContext& ctx, EcsEntity ) {
+        .each( []( EcsIterState& ctx ) {
             auto gfx    = ctx.world().get_singleton<GraphicsServices>();
             auto io     = ctx.world().get_singleton<IoServices>();
             auto mesh   = ctx.get_component<MeshComponent>();
@@ -307,7 +318,7 @@ void register_render_plugin( Scene& scene )
         .with<Transform3DComponent>()
         .up()
         .in( EcsSystemPhase::UPDATE )
-        .each( []( QueryContext& ctx, EcsEntity ) {
+        .each( []( EcsIterState& ctx ) {
             auto mesh     = ctx.get_component<MeshComponent>();
             auto material = ctx.get_component<MaterialComponent>();
             auto xform    = ctx.get_component<Transform3DComponent>();
@@ -326,7 +337,7 @@ void register_render_plugin( Scene& scene )
         .with<MaterialComponent>()
         .with<SpriteComponent>()
         .in( EcsSystemPhase::UPDATE )
-        .each( []( QueryContext& ctx, EcsEntity ) {
+        .each( []( EcsIterState& ctx ) {
             auto xform    = ctx.get_component<Transform2DComponent>();
             auto material = ctx.get_component<MaterialComponent>();
             auto sprite   = ctx.get_component<SpriteComponent>();
@@ -365,7 +376,7 @@ void register_render_plugin( Scene& scene )
         .with<SwapChainComponent>()
         .in( EcsSystemPhase::POST_FRAME )
         .order( 10 )
-        .each( []( QueryContext& ctx, EcsEntity ) {
+        .each( []( EcsIterState& ctx ) {
             auto gfx = ctx.world().get_singleton<GraphicsServices>();
             gfx->Renderer->frame_end( static_cast<float>( ctx.delta_time() ) );
         } );
@@ -377,7 +388,7 @@ void register_inputs_plugin( Scene& scene )
         .system( "SceneInputPlugin_Init" )
         .with<IoServices>()
         .in( EcsSystemPhase::INIT )
-        .run( []( QueryContext& ctx ) {
+        .run( []( EcsIterState& ctx ) {
             auto io = ctx.get_component<IoServices>();
             io->Inputs->action_bind_event( InputService::FORWARD_ACTION_NAME, KeyEvent{ .key = Key::W } );
             io->Inputs->action_bind_event( InputService::BACKWARD_ACTION_NAME, KeyEvent{ .key = Key::S } );
@@ -396,7 +407,7 @@ void register_inputs_plugin( Scene& scene )
         .system( "SceneInputPlugin_Update" )
         .with<IoServices>()
         .in( EcsSystemPhase::PRE_UPDATE )
-        .run( []( QueryContext& ctx ) {
+        .run( []( EcsIterState& ctx ) {
             auto io = ctx.get_component<IoServices>();
             io->Inputs->update();
         } );
@@ -405,7 +416,7 @@ void register_inputs_plugin( Scene& scene )
         .system( "SceneInputPlugin_InputComponent_KeyController" )
         .with<InputComponent>()
         .in( EcsSystemPhase::PRE_UPDATE )
-        .each( []( QueryContext& ctx, EcsEntity ) {
+        .each( []( EcsIterState& ctx ) {
             auto io    = ctx.world().get_singleton<IoServices>();
             auto input = ctx.get_component<InputComponent>();
 
@@ -429,7 +440,7 @@ void register_inputs_plugin( Scene& scene )
         .system( "SceneInputPlugin_InputComponent_MouseController" )
         .with<InputComponent>()
         .in( EcsSystemPhase::PRE_UPDATE )
-        .each( []( QueryContext& ctx, EcsEntity ) {
+        .each( []( EcsIterState& ctx ) {
             auto io    = ctx.world().get_singleton<IoServices>();
             auto gfx   = ctx.world().get_singleton<GraphicsServices>();
             auto input = ctx.get_component<InputComponent>();
@@ -453,7 +464,7 @@ void register_inputs_plugin( Scene& scene )
         .system( "SceneInputPlugin_FlyCamUpdater" )
         .with<ActiveCameraTag, Transform3DComponent, CameraComponent, InputComponent>()
         .in( EcsSystemPhase::UPDATE )
-        .each( []( QueryContext& ctx, EcsEntity ) {
+        .each( []( EcsIterState& ctx ) {
             auto xform = ctx.get_component<Transform3DComponent>();
             auto input = ctx.get_component<InputComponent>();
 
@@ -501,7 +512,7 @@ void register_inputs_plugin( Scene& scene )
         .system( "SceneInputPlugin_MouseVisibilityHandler" )
         .with<ActiveCameraTag, CameraComponent>()
         .in( EcsSystemPhase::UPDATE )
-        .each( []( QueryContext& ctx, EcsEntity ) {
+        .each( []( EcsIterState& ctx ) {
             auto cam = ctx.get_component<CameraComponent>();
             auto gfx = ctx.world().get_singleton<GraphicsServices>();
             auto io  = ctx.world().get_singleton<IoServices>();
@@ -533,7 +544,7 @@ void register_gui_plugin( Scene& scene )
         .with<GuiStateComponent>()
         .in( EcsSystemPhase::INIT )
         .order( 10 )
-        .run( []( QueryContext& ctx ) {
+        .run( []( EcsIterState& ctx ) {
             auto io    = ctx.world().get_singleton<IoServices>();
             auto gfx   = ctx.world().get_singleton<GraphicsServices>();
             auto state = ctx.get_component<GuiStateComponent>();
@@ -574,7 +585,7 @@ void register_gui_plugin( Scene& scene )
     scene.get_ecs()
         .observer( "SceneGuiPlugin_Cleanup" )
         .on<GuiStateComponent>( EcsCoreEvent::OnRemove )
-        .run( []( QueryContext& ctx ) {
+        .run( []( EcsIterState& ctx ) {
             auto state          = ctx.get_component<GuiStateComponent>();
             auto gfx            = ctx.world().get_singleton<GraphicsServices>();
             ImGuiPlatformIO& io = ImGui::GetPlatformIO();
@@ -588,20 +599,21 @@ void register_gui_plugin( Scene& scene )
                 tex->SetStatus( ImTextureStatus_Destroyed );
             }
 
-            auto& fonts = ImGui::GetIO().Fonts->Fonts;
-            for (auto font : fonts) {
-                ImGui::GetIO().Fonts->RemoveFont( font );
-            }
+            auto fonts = ImGui::GetIO().Fonts;
+            fonts->Clear();
+            NC_LOG_DEBUG_C( log::GUI, "Destroying font atlas TexID={}", fonts->TexID.GetTexID() );
 
-            if (state->ImGuiCtx)
-                ImGui::DestroyContext( state->ImGuiCtx );
+            if (state->ImGuiCtx) {
+                NC_LOG_DEBUG_C( log::GUI, "Destroying ImGui context" );
+                ImGui::DestroyContext();
+            }
         } );
 
     scene.get_ecs()
         .system( "SceneGuiPlugin_ProcessEvents" )
         .in( EcsSystemPhase::PRE_FRAME )
         .with<GuiStateComponent>()
-        .run( []( QueryContext& ctx ) {
+        .run( []( EcsIterState& ctx ) {
             auto io  = ctx.world().get_singleton<IoServices>();
             auto gfx = ctx.world().get_singleton<GraphicsServices>();
 
@@ -652,13 +664,24 @@ void register_gui_plugin( Scene& scene )
                     gui_io.AddFocusEvent( focus->focused );
                 }
             }
+
+            // FIXME: improve this. shouldn't access SDL directly, delegate to InputService/EcsInputFeature
+            SDL_Window* sdl_window =
+                SDL_GetWindowFromID( static_cast<SDL_WindowID>( gfx->Window->get_main_window_id() ) );
+            if (sdl_window) {
+                if (gui_io.WantTextInput) {
+                    SDL_StartTextInput( sdl_window );
+                } else {
+                    SDL_StopTextInput( sdl_window );
+                }
+            }
         } );
 
     scene.get_ecs()
         .system( "SceneGuiPlugin_PrepareFrame" )
         .in( EcsSystemPhase::PRE_UPDATE )
         .with<SwapChainComponent>()
-        .run( []( QueryContext& ctx ) {
+        .run( []( EcsIterState& ctx ) {
             auto rd = ctx.get_component<SwapChainComponent>();
 
             Vec2 size = rd->Size;
@@ -670,25 +693,13 @@ void register_gui_plugin( Scene& scene )
             io.DisplaySize.y = size.y;
 
             ImGui::NewFrame();
-
-            // FIXME: improve this. shouldn't access SDL directly, delegate to InputService/EcsInputFeature
-            auto gfx = ctx.world().get_singleton<GraphicsServices>();
-            SDL_Window* sdl_window =
-                SDL_GetWindowFromID( static_cast<SDL_WindowID>( gfx->Window->get_main_window_id() ) );
-            if (sdl_window) {
-                if (io.WantTextInput) {
-                    SDL_StartTextInput( sdl_window );
-                } else {
-                    SDL_StopTextInput( sdl_window );
-                }
-            }
         } );
 
     scene.get_ecs()
         .system( "SceneGuiPlugin_EndFrame" )
         .in( EcsSystemPhase::POST_UPDATE )
         .with<SwapChainComponent>()
-        .run( []( QueryContext& ctx ) {
+        .run( []( EcsIterState& ctx ) {
             auto gfx   = ctx.world().get_singleton<GraphicsServices>();
             auto state = ctx.world().get_singleton<GuiStateComponent>();
 
@@ -711,7 +722,7 @@ void register_gui_plugin( Scene& scene )
                 dd->TotalVtxCount
             );
 
-            auto handle_tex = [&gfx]( ImTextureData* tex ) {
+            auto handle_tex = [gfx]( ImTextureData* tex ) {
                 switch (tex->Status) {
                     case ImTextureStatus_WantCreate: {
                         Image image( tex->Width, tex->Height, tex->GetPixels() );
@@ -792,9 +803,12 @@ void register_gui_plugin( Scene& scene )
                         log::GRAPHICS, "  canvas_draw_triangles: {} verts, {} idx, clip={:.0f},{:.0f} {:.0f}x{:.0f}",
                         vert_count, idx_count, clip_rect.x, clip_rect.y, clip_rect.w, clip_rect.h
                     );
-                    gfx->Renderer->canvas_draw_triangles(
-                        { vtx, vert_count }, { idx, idx_count }, state->Material, clip_rect
-                    );
+
+                    if (state->SubmitToGPU) {
+                        gfx->Renderer->canvas_draw_triangles(
+                            { vtx, vert_count }, { idx, idx_count }, state->Material, clip_rect
+                        );
+                    }
                 }
             }
         } );
@@ -807,7 +821,7 @@ void NCAPI register_resources_plugin( Scene& scene )
     scene.get_ecs()
         .system( "Scene_ResourceWatcher_Poll" )
         .in( EcsSystemPhase::POST_UPDATE )
-        .run( []( QueryContext& ctx ) {
+        .run( []( EcsIterState& ctx ) {
             auto io    = ctx.world().get_singleton<IoServices>();
             auto state = ctx.world().get_singleton<ResourceWatchState>();
 
@@ -822,7 +836,7 @@ void NCAPI register_resources_plugin( Scene& scene )
         .system( "Scene_ResourceWatcher_Emit" )
         .with<HasResourceTag>()
         .in( EcsSystemPhase::POST_UPDATE )
-        .each( []( QueryContext& ctx, EcsEntity id ) {
+        .each( []( EcsIterState& ctx ) {
             auto state = ctx.world().get_singleton<ResourceWatchState>();
             for (auto& entry : state->PendingEvents) {
                 if (auto loaded = std::get_if<ResourceService::LoadEvent>( &entry )) { // handle a resource loaded event
@@ -830,7 +844,9 @@ void NCAPI register_resources_plugin( Scene& scene )
                         "ResourceService::LoadEvent: RID={} ResourceFormatID={}", loaded->Handle.value,
                         loaded->FormatId.to_string()
                     );
-                    ctx.world().emit_event<ResourceLoadedComponent>( { loaded->Handle, loaded->FormatId }, id );
+                    ctx.world().emit_event<ResourceLoadedComponent>(
+                        { loaded->Handle, loaded->FormatId }, ctx.entity()
+                    );
                 }
             }
         } );
@@ -844,7 +860,7 @@ void NCAPI register_debug_plugin( Scene& scene )
         .with<GuiStateComponent>()
         .with<GraphicsServices>()
         .in( EcsSystemPhase::UPDATE )
-        .run( []( QueryContext& ctx ) {
+        .run( []( EcsIterState& ctx ) {
             auto time = ctx.get_component<TimeComponent>();
             auto gfx  = ctx.get_component<GraphicsServices>();
 
@@ -884,7 +900,19 @@ void NCAPI register_debug_plugin( Scene& scene )
             ImGui::End();
 
             ImGui::PopStyleVar();
+
+            auto gui_state = ctx.world().get_singleton<GuiStateComponent>();
+            if (ImGui::IsKeyPressed( ImGuiKey_F2 )) {
+                gui_state->SubmitToGPU = !gui_state->SubmitToGPU;
+            }
         } );
+}
+
+//------------------------------------------------------------------------------
+
+void NCAPI unregister_gui_plugin( Scene& scene )
+{
+    scene.get_ecs().remove_singleton<GuiStateComponent>();
 }
 
 } // namespace nc

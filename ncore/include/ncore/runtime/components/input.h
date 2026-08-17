@@ -13,8 +13,9 @@ struct NCAPI InputComponent {
 
     NSTRUCTV(
         InputComponent,
-        NC_F( InputComponent, Direction ) NC_F( InputComponent, Magnitude ) NC_F( InputComponent, AngularDelta )
-            NC_F( InputComponent, RollRate ) NC_F( InputComponent, MouseSensitivity )
+        NC_F( InputComponent, Direction ), NC_F( InputComponent, Magnitude ),
+        NC_F( InputComponent, AngularDelta ), NC_F( InputComponent, RollRate ),
+        NC_F( InputComponent, MouseSensitivity )
     )
 };
 

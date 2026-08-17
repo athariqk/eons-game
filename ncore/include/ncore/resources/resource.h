@@ -8,6 +8,7 @@
 
 #include <ncore/core/object.h>
 #include <ncore/core/reference.h>
+#include <ncore/core/rid.h>
 
 namespace nc {
 
@@ -46,7 +47,8 @@ public:
         return 0;
     }
 
-    std::string filepath = "generated";
+    String filepath = "generated";
+    RID rid         = 0;
 };
 
 } // namespace nc

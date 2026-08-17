@@ -33,4 +33,8 @@ void NCAPI register_physics_plugin( Scene& scene );
 void NCAPI register_resources_plugin( Scene& scene );
 void NCAPI register_debug_plugin( Scene& scene );
 
+//------------------------------------------------------------------------------
+
+void NCAPI unregister_gui_plugin( Scene& scene );
+
 } // namespace nc

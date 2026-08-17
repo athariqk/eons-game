@@ -1,17 +1,13 @@
-#include <ncore/core/vector.h>
+#include <ncore/resources/cube_map.h>
 #include <ncore/resources/image.h>
-#include <ncore/utils/equirect.h>
-#include <ncore/utils/math.h>
 
 namespace nc {
-
-namespace {
 
 struct RGBA8 {
     uint8_t channels[4];
 };
 
-RGBA8 bilinear_sample_( const uint8_t* pixels, int w, int h, float eu, float ev )
+static RGBA8 bilinear_sample_( const uint8_t* pixels, int w, int h, float eu, float ev )
 {
     float fx = eu * static_cast<float>( w ) - 0.5f;
     float fy = ev * static_cast<float>( h ) - 0.5f;
@@ -41,7 +37,7 @@ RGBA8 bilinear_sample_( const uint8_t* pixels, int w, int h, float eu, float ev 
     return out;
 }
 
-Vec3 face_direction_( int face, float u, float v )
+static Vec3 face_direction_( int face, float u, float v )
 {
     switch (face) {
         case 0:
@@ -59,16 +55,15 @@ Vec3 face_direction_( int face, float u, float v )
     }
 }
 
-} // namespace
-
-Array<Ref<Image>, 6> equirect_to_cube( const Image& equirect, uint32_t face_size )
+CubeMap::CubeMap( const Ref<Image>& equirect, uint32_t face_size )
 {
-    Array<Ref<Image>, 6> faces;
+    const int ew   = static_cast<int>( equirect->get_width() );
+    const int eh   = static_cast<int>( equirect->get_height() );
+    const auto src = reinterpret_cast<const uint8_t*>( equirect->get_pixels().data() );
 
-    const int ew    = static_cast<int>( equirect.get_width() );
-    const int eh    = static_cast<int>( equirect.get_height() );
-    const auto* src = reinterpret_cast<const uint8_t*>( equirect.get_pixels().data() );
-
+    if (face_size <= 0) {
+        face_size = equirect->get_width() / 4;
+    }
     const uint32_t n = face_size;
 
     for (int face = 0; face < 6; face++) {
@@ -96,7 +91,24 @@ Array<Ref<Image>, 6> equirect_to_cube( const Image& equirect, uint32_t face_size
 
         faces[face] = Ref<Image>::create( static_cast<int>( n ), static_cast<int>( n ), buffer.data() );
     }
+}
 
+ResourceFormatID CubeMap::get_format_id() const
+{
+    return "cubm";
+}
+
+size_t CubeMap::get_size_bytes() const
+{
+    size_t total = 0;
+    for (auto& face : faces) {
+        total += face->get_size_bytes();
+    }
+    return total;
+}
+
+Span<const Ref<Image>, 6> CubeMap::get_faces() const
+{
     return faces;
 }
 

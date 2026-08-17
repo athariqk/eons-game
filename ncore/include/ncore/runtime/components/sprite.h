@@ -11,7 +11,8 @@ struct NCAPI SpriteComponent {
     Color Tint{ 255, 255, 255, 255 };
 
     NSTRUCTV(
-        SpriteComponent, NC_F( SpriteComponent, source ) NC_F( SpriteComponent, texture ) NC_F( SpriteComponent, Tint )
+        SpriteComponent, NC_F( SpriteComponent, source ), NC_F( SpriteComponent, texture ),
+        NC_F( SpriteComponent, Tint )
     )
 };
 

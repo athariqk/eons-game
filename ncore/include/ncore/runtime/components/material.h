@@ -2,6 +2,7 @@
 
 #include <ncore/core/collection.h>
 #include <ncore/core/rid.h>
+#include <ncore/services/video/rhi_types.h>
 
 namespace nc {
 
@@ -14,6 +15,7 @@ struct NCAPI MaterialComponent {
     RID Instance                                  = 0;
     Array<RID, MAXIMUM_MATERIAL_TEXTURE> Textures = {};
     int TextureCount                              = 0;
+    FillMode DrawMode                             = FillMode::SOLID;
 
     /**
      * @brief Add a GPU texture to this material.
@@ -27,8 +29,9 @@ struct NCAPI MaterialComponent {
     }
 
     NSTRUCTV(
-        MaterialComponent, NC_F( MaterialComponent, Source ) NC_F( MaterialComponent, Instance )
-                               NC_F( MaterialComponent, Textures ) NC_F( MaterialComponent, TextureCount )
+        MaterialComponent,
+        NC_F( MaterialComponent, Source ), NC_F( MaterialComponent, Instance ), NC_F( MaterialComponent, Textures ),
+        NC_F( MaterialComponent, TextureCount ), NC_F( MaterialComponent, DrawMode )
     )
 };
 

@@ -80,6 +80,8 @@ void FileSink::open()
     m_file.open( m_path, std::ios::app );
     if (m_file.fail()) {
         NC_LOG_WARN( "FileSink failed to open file on path: {}", m_path );
+    } else {
+        NC_LOG_INFO( "FileSink path='{}'", filepath.string() );
     }
     m_bytes_written = m_file.tellp();
 }

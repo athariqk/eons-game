@@ -10,15 +10,15 @@
 namespace nc {
 
 struct ShaderCompileDesc {
-    std::string_view filepath;
+    String filepath;
     bool recreate_session = false;
 };
 
 struct ShaderCompileResult {
-    std::string_view shader_name;
+    String shader_name;
     DynamicArray<ShaderDesc> programs;
     bool ok = false;
-    std::string diagnostics;
+    String diagnostics;
 };
 
 // struct CustomSlangFileSystem : public ISlangFileSystem {

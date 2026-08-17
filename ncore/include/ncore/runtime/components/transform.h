@@ -20,7 +20,8 @@ struct NCAPI Transform2DComponent {
 
     NSTRUCTV(
         Transform2DComponent,
-        NC_F( Transform2DComponent, position ) NC_F( Transform2DComponent, Size ) NC_F( Transform2DComponent, Angle )
+        NC_F( Transform2DComponent, position ), NC_F( Transform2DComponent, Size ),
+        NC_F( Transform2DComponent, Angle )
     )
 };
 
@@ -42,8 +43,8 @@ struct NCAPI Transform3DComponent {
     void from_matrix( const Mat4& xform );
 
     NSTRUCTV(
-        Transform3DComponent, NC_F( Transform3DComponent, Translation ) NC_F( Transform3DComponent, Rotation )
-                                  NC_F( Transform3DComponent, Scale ) NC_F( Transform3DComponent, Global )
+        Transform3DComponent, NC_F( Transform3DComponent, Translation ), NC_F( Transform3DComponent, Rotation ),
+        NC_F( Transform3DComponent, Scale ), NC_F( Transform3DComponent, Global )
     )
 };
 

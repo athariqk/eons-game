@@ -9,17 +9,22 @@ ResourceFormatID Shader::get_format_id() const
     return "shad";
 }
 
+size_t Shader::get_size_bytes() const
+{
+    return desc.bytecode.size() * sizeof( uint32_t );
+}
+
 ShaderType Shader::get_stage() const
 {
     return desc.stage;
 }
 
-std::string_view Shader::get_entry_point() const
+StringView Shader::get_entry_point() const
 {
     return desc.entrypoint;
 }
 
-std::span<const uint32_t> Shader::get_bytecode() const
+Span<const uint32_t> Shader::get_bytecode() const
 {
     return desc.bytecode;
 }
@@ -32,6 +37,15 @@ const ShaderDesc& Shader::get_desc() const
 ResourceFormatID CompositeShader::get_format_id() const
 {
     return "cshd";
+}
+
+size_t CompositeShader::get_size_bytes() const
+{
+    size_t total = 0;
+    for (auto& shader : shaders) {
+        total += shader.second->get_size_bytes();
+	}
+    return total;
 }
 
 Ref<Shader> CompositeShader::get_shader( ShaderType stage )

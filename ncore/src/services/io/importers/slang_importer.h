@@ -10,12 +10,12 @@ class SlangImporter : public IResourceImporter {
     NCLASS( SlangImporter, IResourceImporter )
 
 public:
-    bool is_handling_extension( const std::string& ext ) override
+    bool is_handling_extension( const String& ext ) override
     {
         return ext == ".slang";
     }
 
-    Ref<IResource> import( std::string_view path, Context ctx ) override;
+    Ref<IResource> import( const String& path, Context ctx ) override;
 
 private:
     ShaderCompiler compiler;

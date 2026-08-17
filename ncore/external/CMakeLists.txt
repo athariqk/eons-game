@@ -150,6 +150,19 @@ set(DILIGENT_NO_HLSL
 
 add_subdirectory(diligent-core SYSTEM)
 
+# The ASAN Debug config uses the release CRT (/MD), which cannot link the
+# CRT-debug-heap calls (_CrtSetDbgFlag, _malloc_dbg) that Diligent's
+# BuildSettings enables via _DEBUG. Drop the _DEBUG/DEBUG defines from their
+# interface — Diligent's own debug paths key off DILIGENT_DEBUG and
+# DILIGENT_DEVELOPMENT (separate interface), so nothing is lost, and
+# _ITERATOR_DEBUG_LEVEL stays consistent across all static libs.
+if(TARGET Diligent-BuildSettings)
+  set_property(
+    TARGET Diligent-BuildSettings
+    PROPERTY INTERFACE_COMPILE_DEFINITIONS
+            "$<$<CONFIG:Release>:NDEBUG>")
+endif()
+
 # Slang
 if(NCORE_STATIC_DEPS)
   # Static build from source via ExternalProject (Dist)

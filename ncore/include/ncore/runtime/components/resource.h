@@ -13,7 +13,8 @@ struct NCAPI ResourceLoadedComponent {
     RID ResourceId;
     ResourceFormatID format_id;
     NSTRUCTV(
-        ResourceLoadedComponent, NC_F( ResourceLoadedComponent, ResourceId ) NC_F( ResourceLoadedComponent, format_id )
+        ResourceLoadedComponent, NC_F( ResourceLoadedComponent, ResourceId ),
+        NC_F( ResourceLoadedComponent, format_id )
     )
 };
 

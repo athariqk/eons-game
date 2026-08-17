@@ -7,6 +7,7 @@ namespace sea {
 class WorldScene : public nc::Scene {
 public:
     void on_ready() override;
+    void on_exit() override;
 
 private:
     void create_environment();

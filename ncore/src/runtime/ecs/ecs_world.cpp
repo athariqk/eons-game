@@ -262,6 +262,8 @@ EcsEntity EcsWorld::register_component_type( const rtti::TypeInfo* type ) const
     pImpl->comp_id_to_type[comp_id] = type;
     pImpl->registered_comp_types.push_back( type );
 
+    NC_LOG_DEBUG_C( log::ECS, "Registered component type_name='{}' eid={}", type->name, comp_id );
+
     return static_cast<EcsEntity>( comp_id );
 }
 

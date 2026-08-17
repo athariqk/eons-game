@@ -212,6 +212,13 @@ bool Node::is_component_enabled( const rtti::TypeInfo* type ) const
     return ecs_is_enabled_id( world, internal_id, comp_id );
 }
 
+void Node::mark_component_modified( const rtti::TypeInfo* type ) const
+{
+    auto comp_id = scene->get_ecs().register_component_type( type );
+    auto world   = reinterpret_cast<ecs_world_t*>( scene->get_ecs().get_native_handle() );
+    ecs_modified_id( world, internal_id, comp_id );
+}
+
 void Node::emit_event_( const rtti::TypeInfo* type, EcsEntity target, const void* data ) const
 {
     scene->get_ecs().emit_event_( type, target, data );
@@ -230,16 +237,16 @@ Node::ChildRange::Iterator Node::ChildRange::begin()
 
 Node::ChildRange::Iterator Node::ChildRange::end()
 {
-    return Iterator( EcsIterator{}, scene_, true );
+    return Iterator( EcsTableIterator{}, scene_, true );
 }
 
-Node::ChildRange::Iterator::Iterator( EcsIterator iter, Scene* p_scene, bool end ) :
+Node::ChildRange::Iterator::Iterator( EcsTableIterator iter, Scene* p_scene, bool end ) :
     iter_( std::move( iter ) ), scene_( p_scene ), done_( end )
 {
     if (end)
         return;
 
-    if (iter_ != nullptr) {
+    if (!iter_.is_done()) {
         count_ = iter_.count();
         index_ = 0;
         if (count_ == 0) {
@@ -265,7 +272,7 @@ Node::ChildRange::Iterator& Node::ChildRange::Iterator::operator++()
     ++index_;
     if (index_ >= count_) {
         ++iter_;
-        if (iter_ != nullptr) {
+        if (!iter_.is_done()) {
             count_ = iter_.count();
             index_ = 0;
         } else {

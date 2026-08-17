@@ -8,7 +8,7 @@
 namespace nc {
 
 struct NCAPI MaterialTextureSlot {
-    std::string name;
+    String name;
     uint32_t binding;
 };
 
@@ -17,9 +17,10 @@ class NCAPI MaterialTemplate : public IResource {
 
 public:
     ResourceFormatID get_format_id() const override;
+    size_t get_size_bytes() const override;
 
-    std::string debug_name;
-    std::string vertex_layout_name;
+    String debug_name;
+    String vertex_layout_name;
 
     Ref<Shader> vs;
     Ref<Shader> ps;

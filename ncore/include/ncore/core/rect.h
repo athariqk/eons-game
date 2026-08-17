@@ -93,7 +93,7 @@ struct NCAPI Rect {
         return !( *this == other );
     }
 
-    NSTRUCTV( Rect, NC_F( Rect, x ) NC_F( Rect, y ) NC_F( Rect, w ) NC_F( Rect, h ) )
+    NSTRUCTV( Rect, NC_F( Rect, x ), NC_F( Rect, y ), NC_F( Rect, w ), NC_F( Rect, h ) )
 };
 
 } // namespace nc

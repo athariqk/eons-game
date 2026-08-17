@@ -4,7 +4,6 @@
 
 #include <ncore/resources/material_template.h>
 #include <ncore/resources/shader.h>
-#include <ncore/services/io/resource_service.h>
 #include <ncore/utils/log.h>
 
 namespace nc {
@@ -38,13 +37,11 @@ static BlendPreset parse_blend( const std::string& str )
     return BlendPreset::ALPHA_BLEND;
 }
 
-Ref<IResource> MaterialImporter::import( std::string_view path, Context ctx )
+Ref<IResource> MaterialImporter::import( const String& path, Context ctx )
 {
-    std::string path_str( path );
-
     ini::IniFile ini_file;
     try {
-        ini_file.load( path_str );
+        ini_file.load( path.c_str() );
     } catch (const std::exception& e) {
         NC_LOG_ERROR_C( log::IO, "MaterialImporter: failed to parse '{}': {}", path, e.what() );
         return nullptr;
@@ -57,9 +54,9 @@ Ref<IResource> MaterialImporter::import( std::string_view path, Context ctx )
         if (header.find( "debug_name" ) != header.end())
             tmpl->debug_name = header["debug_name"].as<std::string>();
         else
-            tmpl->debug_name = path_str;
+            tmpl->debug_name = path;
     } else {
-        tmpl->debug_name = path_str;
+        tmpl->debug_name = path;
     }
 
     Ref<Shader> vs_shader;
@@ -70,29 +67,29 @@ Ref<IResource> MaterialImporter::import( std::string_view path, Context ctx )
 
         // Prefer single composite shader file over separate vs/ps
         if (shaders.find( "composite" ) != shaders.end()) {
-            std::string comp_path = shaders["composite"].as<std::string>();
-            RID comp_rid          = ctx.load( comp_path );
-            auto comp_raw         = ctx.get( comp_rid );
-            auto comp_shader      = comp_raw.as<CompositeShader>();
+            String comp_path( shaders["composite"].as<std::string>() );
+            RID comp_rid     = ctx.load( comp_path );
+            auto comp_raw    = ctx.get( comp_rid );
+            auto comp_shader = comp_raw.as<CompositeShader>();
             if (comp_shader) {
                 vs_shader = comp_shader->get_shader( ShaderType::VERTEX );
                 ps_shader = comp_shader->get_shader( ShaderType::PIXEL );
             }
         } else {
             if (shaders.find( "vs" ) != shaders.end()) {
-                std::string vs_path = shaders["vs"].as<std::string>();
-                RID vs_rid          = ctx.load( vs_path );
-                auto vs_raw         = ctx.get( vs_rid );
-                auto vs_composite   = vs_raw.as<CompositeShader>();
+                String vs_path( shaders["vs"].as<std::string>() );
+                RID vs_rid        = ctx.load( vs_path );
+                auto vs_raw       = ctx.get( vs_rid );
+                auto vs_composite = vs_raw.as<CompositeShader>();
                 if (vs_composite)
                     vs_shader = vs_composite->get_shader( ShaderType::VERTEX );
             }
 
             if (shaders.find( "ps" ) != shaders.end()) {
-                std::string ps_path = shaders["ps"].as<std::string>();
-                RID ps_rid          = ctx.load( ps_path );
-                auto ps_raw         = ctx.get( ps_rid );
-                auto ps_composite   = ps_raw.as<CompositeShader>();
+                String ps_path( shaders["ps"].as<std::string>() );
+                RID ps_rid        = ctx.load( ps_path );
+                auto ps_raw       = ctx.get( ps_rid );
+                auto ps_composite = ps_raw.as<CompositeShader>();
                 if (ps_composite)
                     ps_shader = ps_composite->get_shader( ShaderType::PIXEL );
             }

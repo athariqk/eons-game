@@ -31,18 +31,18 @@ struct SystemDelegate {
 
     static void invoke_run( void* raw_iter )
     {
-        QueryContext qctx( raw_iter );
+        EcsIterState qctx( raw_iter );
         auto* self = static_cast<SystemDelegate*>( qctx.user_ctx() );
         self->func( qctx );
     }
 
     static void invoke_each( void* raw_iter )
     {
-        QueryContext qctx( raw_iter );
+        EcsIterState qctx( raw_iter );
         auto* self = static_cast<SystemDelegate*>( qctx.user_ctx() );
         for (int32_t row = 0; row < qctx.count(); row++) {
             qctx.set_row( row );
-            self->func( qctx, qctx.entity( row ) );
+            self->func( qctx );
         }
     }
 
@@ -123,8 +123,8 @@ public:
 
     EcsSystemBuilder& order( int32_t priority );
 
-    EcsEntity run( void ( *callback )( QueryContext& ) );
-    EcsEntity each( void ( *callback )( QueryContext&, EcsEntity ) );
+    EcsEntity run( void ( *callback )( EcsIterState& ) );
+    EcsEntity each( void ( *callback )( EcsIterState& ) );
 
     template<typename Fn>
     EcsEntity run( Fn&& callback )
@@ -216,8 +216,8 @@ public:
         return *this;
     }
 
-    EcsEntity run( void ( *callback )( QueryContext& ) );
-    EcsEntity each( void ( *callback )( QueryContext&, EcsEntity ) );
+    EcsEntity run( void ( *callback )( EcsIterState& ) );
+    EcsEntity each( void ( *callback )( EcsIterState& ) );
 
     template<typename Fn>
     EcsEntity run( Fn&& callback )

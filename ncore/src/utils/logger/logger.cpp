@@ -9,6 +9,7 @@ Logger::Logger()
 
 void Logger::add_sink( const Ref<Sink>& p_sink )
 {
+    //NC_LOG_DEBUG( "Adding global sink '{}'", p_sink->get_class_name() );
     global_sinks.push_back( p_sink );
 }
 

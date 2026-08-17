@@ -29,7 +29,7 @@ NCAPI void assert_fail( const char* expr, const char* msg, const char* file, int
         }                                                                                                              \
     } while (0)
 
-#define NC_FAIL_MSG_RET( expr, msg )                                                                                     \
+#define NC_FAIL_MSG_RET( expr, msg )                                                                                   \
     do {                                                                                                               \
         if (!( expr )) {                                                                                               \
             nc::assert_fail( #expr, msg, __FILE__, __LINE__ );                                                         \
@@ -38,7 +38,7 @@ NCAPI void assert_fail( const char* expr, const char* msg, const char* file, int
         }                                                                                                              \
     } while (0)
 
-#define NC_FAIL_MSG_RETVAL( expr, ret_val, msg )                                                                         \
+#define NC_FAIL_MSG_RETVAL( expr, ret_val, msg )                                                                       \
     do {                                                                                                               \
         if (!( expr )) {                                                                                               \
             nc::assert_fail( #expr, msg, __FILE__, __LINE__ );                                                         \
@@ -47,7 +47,7 @@ NCAPI void assert_fail( const char* expr, const char* msg, const char* file, int
         }                                                                                                              \
     } while (0)
 
-#define NC_VERIFY_MSG( ptr, msg )                                                                                 \
+#define NC_VERIFY_MSG( ptr, msg )                                                                                      \
     do {                                                                                                               \
         if (ptr == nullptr) {                                                                                          \
             nc::assert_fail( #ptr, msg, __FILE__, __LINE__ );                                                          \
@@ -67,7 +67,7 @@ NCAPI void assert_fail( const char* expr, const char* msg, const char* file, int
         }                                                                                                              \
     } while (0)
 
-#define NC_FAIL_MSG_RET( expr, msg )                                                                                     \
+#define NC_FAIL_MSG_RET( expr, msg )                                                                                   \
     do {                                                                                                               \
         if (!( expr )) {                                                                                               \
             nc::assert_fail( #expr, msg, __FILE__, __LINE__ );                                                         \
@@ -75,7 +75,7 @@ NCAPI void assert_fail( const char* expr, const char* msg, const char* file, int
         }                                                                                                              \
     } while (0)
 
-#define NC_FAIL_MSG_RETVAL( expr, ret_val, msg )                                                                         \
+#define NC_FAIL_MSG_RETVAL( expr, ret_val, msg )                                                                       \
     do {                                                                                                               \
         if (!( expr )) {                                                                                               \
             nc::assert_fail( #expr, msg, __FILE__, __LINE__ );                                                         \
@@ -83,12 +83,14 @@ NCAPI void assert_fail( const char* expr, const char* msg, const char* file, int
         }                                                                                                              \
     } while (0)
 
-#define NC_VERIFY( ptr )                                                                                               \
+#define NC_VERIFY_MSG( ptr, msg )                                                                                      \
     do {                                                                                                               \
         if (ptr == nullptr) {                                                                                          \
-            nc::assert_fail( #ptr, "pointer is null reference", __FILE__, __LINE__ );                                  \
+            nc::assert_fail( #ptr, msg, __FILE__, __LINE__ );                                                          \
             std::abort();                                                                                              \
         }                                                                                                              \
     } while (0)
+
+#define NC_VERIFY( ptr ) NC_VERIFY_MSG( ptr, "pointer is null reference" )
 
 #endif

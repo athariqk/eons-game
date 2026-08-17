@@ -24,7 +24,7 @@ struct NCAPI Mat3 {
         // clang-format on
     }
 
-    NSTRUCTV( Mat3, NC_F( Mat3, col0 ) NC_F( Mat3, col1 ) NC_F( Mat3, col2 ) )
+    NSTRUCTV( Mat3, NC_F( Mat3, col0 ), NC_F( Mat3, col1 ), NC_F( Mat3, col2 ) )
 };
 
 /**
@@ -221,7 +221,7 @@ struct NCAPI Mat4 {
         return Mat4::ortho_normalize( *this );
     }
 
-    NSTRUCTV( Mat4, NC_F( Mat4, col0 ) NC_F( Mat4, col1 ) NC_F( Mat4, col2 ) NC_F( Mat4, col3 ) )
+    NSTRUCTV( Mat4, NC_F( Mat4, col0 ), NC_F( Mat4, col1 ), NC_F( Mat4, col2 ), NC_F( Mat4, col3 ) )
 };
 
 } // namespace nc

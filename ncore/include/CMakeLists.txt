@@ -24,6 +24,7 @@ target_sources(
          "ncore/core/types.h"
          "ncore/core/vector.h"
          "ncore/resources/audio_clip.h"
+         "ncore/resources/cube_map.h"
          "ncore/resources/resource.h"
          "ncore/resources/image.h"
          "ncore/resources/material_template.h"
@@ -69,9 +70,8 @@ target_sources(
          "ncore/services/video/rhi.h"
          "ncore/services/video/render_service.h"
          "ncore/services/video/window_service.h"
-          "ncore/utils/assert.h"
-          "ncore/utils/config.h"
-          "ncore/utils/equirect.h"
-          "ncore/utils/log.h"
-          "ncore/utils/four_cc.h"
-          "ncore/utils/math.h")
+         "ncore/utils/assert.h"
+         "ncore/utils/config.h"
+         "ncore/utils/log.h"
+         "ncore/utils/four_cc.h"
+         "ncore/utils/math.h")

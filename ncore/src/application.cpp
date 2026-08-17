@@ -37,7 +37,7 @@ struct Log {
     int Level       = 0;
     String FilePath = "logs/engine.log";
     String Overrides;
-    NSTRUCTV( Log, NC_F( Log, Level ) NC_F( Log, FilePath ) NC_F( Log, Overrides ) )
+    NSTRUCTV( Log, NC_F( Log, Level ), NC_F( Log, FilePath ), NC_F( Log, Overrides ) )
 };
 
 } // namespace cfg
@@ -62,8 +62,7 @@ void Application::init()
     // Set up logging
     log::Logger::get_instance().add_sink( Ref<log::FileSink>::create( log_cfg.FilePath ) );
     log::Logger::get_instance().set_level( log::Level( log_cfg.Level ) );
-    std::string_view overrides( log_cfg.Overrides );
-    if (!overrides.empty()) {
+    if (!log_cfg.Overrides.empty()) {
         std::istringstream stream( log_cfg.Overrides );
         std::string pair;
         while (std::getline( stream, pair, ',' )) {
@@ -186,7 +185,7 @@ void Application::finish()
 {
     NC_LOG_TRACE( "Application teardown" );
     g_world->on_exit();
-    g_world.reset();
+    g_world.reset(); // destroy heap allocations.
     context.Services.cleanup_all();
     unregister_services();
     rtti::TypeRegistry::shutdown();

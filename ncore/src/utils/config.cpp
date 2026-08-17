@@ -17,6 +17,7 @@ void ConfFile::load( const String& p_path )
             data[qualified_name.c_str()] = field.as<std::string>();
         }
     }
+    inifile.clear();
 
     std::string summary;
     std::for_each( data.begin(), data.end(), [&summary]( const auto& pair ) {
@@ -35,18 +36,28 @@ void ConfFile::read_into( const rtti::RecordInfo& type_info, void* result )
         if (it == data.end()) {
             continue;
         }
-        auto field_ptr = field.get_void_ptr( result );
-        if (field.type_id == rtti::TypeRegistry::get_type_id<bool>()) {
-            ini::Convert<bool> c;
-            c.decode( it->second.c_str(), *static_cast<bool*>( field_ptr ) );
-        } else if (field.type_id == rtti::TypeRegistry::get_type_id<int>()) {
-            ini::Convert<int> c;
-            c.decode( it->second.c_str(), *static_cast<int*>( field_ptr ) );
-        } else if (field.type_id == rtti::TypeRegistry::get_type_id<float>()) {
-            ini::Convert<float> c;
-            c.decode( it->second.c_str(), *static_cast<float*>( field_ptr ) );
-        } else if (field.type_id == rtti::TypeRegistry::get_type_id<std::string>()) {
-            *static_cast<std::string*>( field_ptr ) = it->second;
+        switch (field.get_type()->kind) {
+            case rtti::TypeKind::BOOL: {
+                ini::Convert<bool> c;
+                c.decode( it->second.c_str(), *field.get_ptr<bool>( result ) );
+                break;
+            }
+            case rtti::TypeKind::INT32: {
+                ini::Convert<int> c;
+                c.decode( it->second.c_str(), *field.get_ptr<int>( result ) );
+                break;
+            }
+            case rtti::TypeKind::FLOAT: {
+                ini::Convert<float> c;
+                c.decode( it->second.c_str(), *field.get_ptr<float>( result ) );
+                break;
+            }
+            case rtti::TypeKind::STRING: {
+                *field.get_ptr<String>( result ) = it->second;
+                break;
+            }
+            default:
+                break;
         }
     }
 }

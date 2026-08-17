@@ -18,7 +18,7 @@ struct NCAPI Component {
     EcsComponent EcsId = 0;
     bool Active        = false;
     bool Toggleable    = false;
-    NSTRUCTV( Component, NC_F( Component, EcsId ) NC_F( Component, Active ) )
+    NSTRUCTV( Component, NC_F( Component, EcsId ), NC_F( Component, Active ) )
 };
 
 /**
@@ -65,9 +65,9 @@ public:
 
         private:
             friend class ChildRange;
-            Iterator( EcsIterator iter, Scene* scene, bool end );
+            Iterator( EcsTableIterator iter, Scene* scene, bool end );
 
-            EcsIterator iter_;
+            EcsTableIterator iter_;
             Scene* scene_  = nullptr;
             int32_t index_ = 0;
             int32_t count_ = 0;
@@ -116,16 +116,18 @@ public:
     void destroy_children();
 
     /**
-     * @return Immutable component pointer to instance, no staging.
+     * @brief Get immutable pointer to component instance, no staging.
      */
     const void* get_component_const( const rtti::TypeInfo* type ) const;
     /**
-     * @return Mutable component pointer to instance.
+     * @brief Get mutable pointer to component instance.
+     * @return The matching component owned by this node.
      */
     void* get_component( const rtti::TypeInfo* type ) const;
 
     /**
-     * @brief Return a read-only component of type T owned by this Node.
+     * @brief Get read-only pointer to component instance of type T.
+     * @return The matching component owned by this node.
      */
     template<class T>
     const T* get_component() const
@@ -135,7 +137,8 @@ public:
     }
 
     /**
-     * @brief Return a read-write singleton component of type T owned by this Node.
+     * @brief Get read-write pointer to component instance of type T.
+     * @return The matching component owned by this node.
      */
     template<class T>
     T* get_component()
@@ -217,6 +220,13 @@ public:
     bool is_component_enabled() const
     {
         return is_component_enabled( rtti::TypeRegistry::find<T>() );
+    }
+
+    void mark_component_modified( const rtti::TypeInfo* type ) const;
+    template<class T>
+    void mark_component_modified()
+    {
+        mark_component_modified( rtti::TypeRegistry::find<T>() );
     }
 
     StringView get_name() const;

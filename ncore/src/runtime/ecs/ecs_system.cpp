@@ -11,18 +11,18 @@ namespace nc {
 
 static void trampoline_run( ecs_iter_t* it )
 {
-    auto fn = reinterpret_cast<void ( * )( QueryContext& )>( it->ctx );
-    QueryContext qctx( it );
-    fn( qctx );
+    auto fn = reinterpret_cast<void ( * )( EcsIterState& )>( it->ctx );
+    EcsIterState s( it );
+    fn( s );
 }
 
 static void trampoline_each( ecs_iter_t* it )
 {
-    auto fn = reinterpret_cast<void ( * )( QueryContext&, EcsEntity )>( it->ctx );
-    QueryContext qctx( it );
-    for (int32_t row = 0; row < qctx.count(); row++) {
-        qctx.set_row( row );
-        fn( qctx, qctx.entity( row ) );
+    auto fn = reinterpret_cast<void ( * )( EcsIterState& )>( it->ctx );
+    EcsIterState s( it );
+    for (int32_t row = 0; row < s.count(); row++) {
+        s.set_row( row );
+        fn( s );
     }
 }
 
@@ -61,12 +61,12 @@ struct SystemOrder {
     NSTRUCTV( SystemOrder, NC_F( SystemOrder, value ) )
 };
 
-EcsEntity EcsSystemBuilder::run( void ( *callback )( QueryContext& ) )
+EcsEntity EcsSystemBuilder::run( void ( *callback )( EcsIterState& ) )
 {
     return create_system_( reinterpret_cast<void*>( trampoline_run ), reinterpret_cast<void*>( callback ), nullptr );
 }
 
-EcsEntity EcsSystemBuilder::each( void ( *callback )( QueryContext&, EcsEntity ) )
+EcsEntity EcsSystemBuilder::each( void ( *callback )( EcsIterState& ) )
 {
     return create_system_( reinterpret_cast<void*>( trampoline_each ), reinterpret_cast<void*>( callback ), nullptr );
 }
@@ -109,12 +109,12 @@ nc::EcsObserverBuilder::EcsObserverBuilder( EcsWorld& world, const String& p_nam
 
 EcsObserverBuilder::~EcsObserverBuilder() {}
 
-EcsEntity EcsObserverBuilder::run( void ( *callback )( QueryContext& ) )
+EcsEntity EcsObserverBuilder::run( void ( *callback )( EcsIterState& ) )
 {
     return create_observer_( reinterpret_cast<void*>( trampoline_run ), reinterpret_cast<void*>( callback ), nullptr );
 }
 
-EcsEntity EcsObserverBuilder::each( void ( *callback )( QueryContext&, EcsEntity ) )
+EcsEntity EcsObserverBuilder::each( void ( *callback )( EcsIterState& ) )
 {
     return create_observer_( reinterpret_cast<void*>( trampoline_each ), reinterpret_cast<void*>( callback ), nullptr );
 }

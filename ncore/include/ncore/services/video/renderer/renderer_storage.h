@@ -19,7 +19,10 @@ struct ShaderParamInfo;
 using ShaderParamLayout = DynamicArray<ShaderParamInfo>;
 
 /**
- * @brief For reference see https://github.com/DiligentGraphics/DiligentFX/blob/master/PBR/interface/PBR_Renderer.hpp
+ * @brief RendererStorage is responsible for managing RenderService
+ * resources such as material variants, shaders and meshes.
+ *
+ * For reference see https://github.com/DiligentGraphics/DiligentFX/blob/master/PBR/interface/PBR_Renderer.hpp
  */
 class RendererStorage {
 public:
@@ -44,13 +47,17 @@ public:
         PSO_FILL_MASK          = 3 << PSO_FILL_SHIFT,
     };
 
+    /**
+     * @brief POD of literally a key to a PSO.
+     * Contains PSO traits and can be used to define one.
+     */
     struct PSOKey {
         PSOFlags flags   = PSOFlags::NONE;
         const Shader* vs = nullptr;
         const Shader* ps = nullptr;
         VertexLayout vertex_layout;
-        DynamicArray<RID> resource_signatures;
-        std::string debug_name;
+        DynamicArray<RID> res_signatures;
+        String debug_name;
 
         bool operator==( const PSOKey& o ) const;
     };
@@ -59,18 +66,24 @@ public:
         std::size_t operator()( const PSOKey& p ) const;
     };
 
+    /**
+     * @brief Instance of a MaterialTemplate.
+     *
+     * This is our implementation of the material system concept
+     * typically found in games/engines.
+     */
     struct Material {
         RID pso;
-        DynamicArray<RID> resource_signatures;
+        PSOKey pso_key;
+        DynamicArray<RID> res_signatures;
         DynamicArray<RID> srbs;
         RID sampler;
         RID constant_buffer;
 
         struct TextureSlot {
-            std::string name;
+            String name;
             size_t srb_index;
         };
-
         DynamicArray<TextureSlot> texture_slots;
     };
 
@@ -82,6 +95,7 @@ public:
 
     struct ShaderConstants {
         Mat4 ModelMatrix;
+        Mat4 ModelMatrixInv;
         Mat4 CameraMatrix;
         Mat4 ViewProjMatrix; // This is Projection * View
         float Time;
@@ -95,15 +109,34 @@ public:
 
     RID get_pipeline_or_create( const PSOKey& key );
 
+    /**
+     * @brief Create GPU-side material instance from MaterialTemplate.
+     */
     RID material_create( const MaterialTemplate& tmpl );
     void material_set_texture( RID handle, RID texture, uint32_t slot );
+    void material_set_draw_mode( RID handle, FillMode mode );
+    /**
+     * @brief Bind material instance to the current gfx pipeline.
+     */
     void material_bind( RID handle, const ShaderConstants& constants );
 
+    /**
+     * @brief Creates vertex/index buffer objects from Mesh resource.
+     *
+     * Currently the access mode for the buffers is immutable, so we
+     * can't update GPU-side meshes dynamically.
+     */
     RID gpu_mesh_create( const Mesh& mesh );
+    /**
+     * @brief Bind GPU mesh to the current gfx pipeline.
+     */
     void gpu_mesh_bind( RID handle );
     GPUMesh* get_gpu_mesh( RID handle );
 
     void destroy_rid( RID rid );
+    /**
+     * @brief Commit all deferred destroy_rid(RID) calls.
+     */
     void flush_pending_destroys();
 
 private:

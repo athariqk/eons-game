@@ -12,6 +12,7 @@ struct FoodComponent {
     nc::Vec2 eater_pos;
 
     NSTRUCTV(
-        FoodComponent, NC_F( FoodComponent, cur_energy ) NC_F( FoodComponent, caught ) NC_F( FoodComponent, eater_pos )
+        FoodComponent, NC_F( FoodComponent, cur_energy ), NC_F( FoodComponent, caught ),
+        NC_F( FoodComponent, eater_pos )
     )
 };

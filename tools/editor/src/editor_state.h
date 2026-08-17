@@ -25,11 +25,12 @@ struct EngineEditorState {
 
     bool GlobalXformGizmo   = false;
     int XformGizmoOperation = 14463; // default = universal op
+    bool DrawWireframe      = 0;
 
     NSTRUCTV(
-        EngineEditorState, NC_F( EngineEditorState, CurrentScene ) NC_F( EngineEditorState, DockspaceId )
-                               NC_F( EngineEditorState, ShowStatsWindow ) NC_F( EngineEditorState, ShowInputsWindow )
-                                   NC_F( EngineEditorState, ShowLogsWindow ) NC_F( EngineEditorState, SelectedNode )
+        EngineEditorState, NC_F( EngineEditorState, CurrentScene ), NC_F( EngineEditorState, DockspaceId ),
+        NC_F( EngineEditorState, ShowStatsWindow ), NC_F( EngineEditorState, ShowInputsWindow ),
+        NC_F( EngineEditorState, ShowLogsWindow ), NC_F( EngineEditorState, SelectedNode )
     )
 };
 

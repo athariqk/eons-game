@@ -111,6 +111,10 @@ public:
      */
     Span<const rtti::TypeInfo*> get_component_types() const;
 
+    /**
+     * @brief Remove a component from entity.
+     * @param eid The entity with the component to remove.
+     */
     template<class T>
     void remove_component( EcsEntity eid )
     {
@@ -145,6 +149,11 @@ public:
      * This is not for setting a component value for a particular entity,
      * for that use entity() builder.
      *
+     * NOTE: On world teardown, OnRemove observers are removed before singleton
+     * components. As such, cleanup logic depending on such observers WON'T fire.
+     * Created singletons MUST be removed manually via remove_singleton() before
+     * world destruction.
+     *
      * @return The handle to the EcsWorld-owned singleton component.
      */
     template<class T>
@@ -156,6 +165,12 @@ public:
 
     /**
      * @brief Create in-place a singleton component owned by EcsWorld.
+     *
+     * NOTE: On world teardown, OnRemove observers are removed before singleton
+     * components. As such, cleanup logic depending on such observers WON'T fire.
+     * Created singletons MUST be removed manually via remove_singleton() before
+     * world destruction.
+     *
      * @return The typed pointer to the constructed singleton component.
      */
     template<class T>
@@ -163,6 +178,13 @@ public:
     {
         auto type = rtti::TypeRegistry::find<T>();
         return reinterpret_cast<T*>( emplace_component_( INVALID_ENTITY_ID, type ) );
+    }
+
+    template<class T>
+    void remove_singleton()
+    {
+        auto type = rtti::TypeRegistry::find<T>();
+        remove_component_( INVALID_ENTITY_ID, type );
     }
 
     template<class T>

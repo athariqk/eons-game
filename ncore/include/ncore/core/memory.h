@@ -1,12 +1,20 @@
 #pragma once
 
 #include <bit>
-#include <cmath>
-#include <new>
 #include <utility>
 #include <vector>
 
 #include <ncore.h>
+
+// AddressSanitizer builds bypass mimalloc so every engine allocation is
+// tracked by the sanitizer (redzones, use-after-free, leak reports).
+// NC_ASAN is defined by CMake for the Debug config; __has_feature is the
+// automatic fallback for ad-hoc clang invocations.
+#if defined( NC_ASAN ) || ( defined( __has_feature ) && __has_feature( address_sanitizer ) )
+#define NC_ASAN_ENABLED 1
+#else
+#define NC_ASAN_ENABLED 0
+#endif
 
 namespace nc {
 

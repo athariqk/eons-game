@@ -8,12 +8,12 @@
 
 namespace nc {
 
-bool SDLAudioLoader::is_handling_extension( const std::string& ext )
+bool SDLAudioLoader::is_handling_extension( const String& ext )
 {
     return ext == ".wav";
 }
 
-Ref<IResource> SDLAudioLoader::import( const std::string_view path, Context ctx )
+Ref<IResource> SDLAudioLoader::import( const String& path, Context ctx )
 {
     uint8_t* raw_buf = nullptr;
     uint32_t wav_len = 0;

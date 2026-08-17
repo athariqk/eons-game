@@ -1,7 +1,10 @@
 #include "world_scene.h"
 
+#if defined( DEBUG )
 #include <editor/ncore_editor.h>
+#endif
 #include <ncore/application.h>
+#include <ncore/resources/cube_map.h>
 #include <ncore/resources/image.h>
 #include <ncore/resources/material_template.h>
 #include <ncore/resources/mesh.h>
@@ -17,16 +20,15 @@
 #include <ncore/services/io/resource_service.h>
 #include <ncore/services/service_registry.h>
 #include <ncore/services/video/render_service.h>
-#include <ncore/utils/equirect.h>
 
 namespace sea {
 
 void WorldScene::on_ready()
 {
+#if defined( DEBUG )
     nc::editor::register_editor_plugin( *this );
 
-#if defined( DEBUG )
-    get_ecs().system( "HotReload" ).in( nc::EcsSystemPhase::UPDATE ).run( []( nc::QueryContext& ctx ) {
+    get_ecs().system( "HotReload" ).in( nc::EcsSystemPhase::UPDATE ).run( []( nc::EcsIterState& ctx ) {
         auto io = ctx.world().get_singleton<nc::IoServices>();
 
         if (io->Inputs->is_key_pressed( nc::Key::F5 )) {
@@ -50,6 +52,16 @@ void WorldScene::on_ready()
     main_camera->add_component<nc::CameraComponent>();
     main_camera->add_component<nc::InputComponent>();
 }
+
+void WorldScene::on_exit()
+{
+#if defined( DEBUG )
+    nc::editor::unregister_editor_plugin( *this ); // must come before subsequent ImGui context destruction
+#endif
+    Scene::on_exit();
+}
+
+//------------------------------------------------------------------------------
 
 void WorldScene::create_environment()
 {
@@ -88,14 +100,9 @@ void WorldScene::create_environment()
     );
     auto skybox_mesh_rid = res->add( skybox_mesh );
 
-    auto equirect = res->get<nc::Image>( res->load( "images/skybox.png" ) );
-    auto faces    = nc::equirect_to_cube( *equirect, equirect->get_width() / 4 );
-
-    const nc::Image* face_ptrs[6];
-    for (int i = 0; i < 6; i++)
-        face_ptrs[i] = faces[i].get();
-
-    auto skybox_tex = rd->texture_cube_create( face_ptrs );
+    auto equirect = res->load<nc::Image>( "images/skybox.png" );
+    auto cube_map = nc::Ref<nc::CubeMap>::create( equirect, equirect->get_width() / 4 );
+    auto skybox_tex = rd->texture_cube_create( *cube_map );
 
     nc::MaterialComponent skybox_mat;
     skybox_mat.Source = res->load( "materials/skybox.material" );
@@ -115,7 +122,7 @@ void WorldScene::create_water()
     auto mesh_rid = res_svc->add( mesh );
     auto plane    = root()->create_child( "WaterPlane" );
     plane->add_component<nc::Transform3DComponent>(
-        nc::Transform3DComponent{ nc::Vec3( 0, -1, 0 ), nc::Quaternion::identity(), nc::Vec3( 5, 1, 5 ) }
+        nc::Transform3DComponent{ nc::Vec3( 0, -3, 0 ), nc::Quaternion::identity(), nc::Vec3( 5, 1, 5 ) }
     );
     auto plane_mesh = plane->create_child( "WaterMesh" );
     plane_mesh->add_component<nc::HasResourceTag>();

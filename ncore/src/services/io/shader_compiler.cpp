@@ -1,5 +1,7 @@
 #include "shader_compiler.h"
 
+#include <filesystem>
+
 #include <ncore/services/video/rhi_types.h>
 #include <ncore/utils/log.h>
 
@@ -142,13 +144,26 @@ ShaderCompileResult ShaderCompiler::compile( const ShaderCompileDesc& desc )
         return result;
     }
 
+    const auto assets_root = std::filesystem::current_path() / "assets";
+
+    auto fs_path = std::filesystem::path( desc.filepath.c_str() );
+    if (fs_path.is_relative())
+        fs_path = assets_root / fs_path;
+    auto fs_path_str = String( fs_path.string() );
+
+    String path_key = desc.filepath;
+    std::error_code rel_ec;
+    auto rel_path = std::filesystem::relative( fs_path, assets_root, rel_ec );
+    if (!rel_ec && !rel_path.empty())
+        path_key = String( rel_path.generic_string() );
+
     if (!ensure_session( desc.recreate_session ))
         return result;
 
     slang::IModule* module = nullptr;
     {
         Slang::ComPtr<slang::IBlob> diags;
-        module = compile_session->loadModule( desc.filepath.data(), diags.writeRef() );
+        module = compile_session->loadModule( fs_path_str.data(), diags.writeRef() );
 
         if (diags && diags->getBufferSize() > 0) {
             auto diags_str     = static_cast<const char*>( diags->getBufferPointer() );
@@ -201,7 +216,7 @@ ShaderCompileResult ShaderCompiler::compile( const ShaderCompileDesc& desc )
                 continue;
 
             NC_LOG_INFO_C(
-                log::IO, "Shader '{}' entry point '{}' compiled (stage={}, {} bytes)", desc.filepath,
+                log::IO, "Shader '{}' entry point '{}' compiled (stage={}, {} bytes)", path_key,
                 ep->getFunctionReflection()->getName(),
                 ep->getLayout()->getEntryPointByIndex( 0 )->getStage() == SLANG_STAGE_VERTEX     ? "VS"
                 : ep->getLayout()->getEntryPointByIndex( 0 )->getStage() == SLANG_STAGE_FRAGMENT ? "PS"
@@ -416,7 +431,7 @@ ShaderCompileResult ShaderCompiler::compile( const ShaderCompileDesc& desc )
         result.programs.push_back( std::move( entry_out ) );
     }
 
-    result.shader_name = desc.filepath;
+    result.shader_name = path_key;
     result.ok          = true;
     return result;
 }

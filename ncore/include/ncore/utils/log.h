@@ -10,7 +10,7 @@
 #define NC_CONCAT( a, b )      NC_CONCAT_IMPL( a, b )
 
 #ifndef NC_LOG_CHANNEL_NAME
-#define NC_LOG_CHANNEL_NAME "NCORE"
+#define NC_LOG_CHANNEL_NAME "NCE"
 #endif
 
 namespace nc::log {
@@ -46,15 +46,15 @@ struct NCAPI LogMsg {
     String payload;
 };
 
-static std::atomic<Level> kMIN_LOG_LEVEL = Level::LTRACE;
+static std::atomic<Level> g_min_log_level = Level::LTRACE;
 
 inline void set_min_level( Level level )
 {
-    kMIN_LOG_LEVEL.store( level );
+    g_min_log_level.store( level );
 }
 inline Level get_min_level()
 {
-    return kMIN_LOG_LEVEL.load();
+    return g_min_log_level.load();
 }
 
 inline void silence()

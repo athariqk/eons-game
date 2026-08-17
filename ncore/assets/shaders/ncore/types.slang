@@ -2,6 +2,7 @@ public struct ShaderConstants
 {
     // The object's current transform. Is just an ident matrix during 2D pass.
     public float4x4 ModelMatrix;
+    public float4x4 ModelMatrixInv;
     // The camera's current transform.
     public float4x4 CameraMatrix;
     // This is pre-multiplied with projection matrix in the CPU.
@@ -11,6 +12,8 @@ public struct ShaderConstants
     public float Time;
     // Elapsed time between frames.
     public float DeltaTime;
+
+
 }
 
 public struct Vertex2D
@@ -39,3 +42,8 @@ public struct VSOut
     public float4 Color : TEXCOORD1;
     public float2 UV : TEXCOORD2;
 };
+
+public struct Light
+{
+
+}

@@ -26,6 +26,11 @@ if(MSVC)
   target_sources(ncore PRIVATE "${CMAKE_SOURCE_DIR}/ncore/ncore.natvis")
 endif()
 
+if(WIN32)
+  # dbghelp: PDB symbolization for the ASAN leak reporter
+  target_link_libraries(ncore PRIVATE Dbghelp.lib)
+endif()
+
 # todo: add this back later set_property(TARGET ncore PROPERTY UNITY_BUILD ON)
 # set_property(TARGET ncore PROPERTY UNITY_BUILD_MODE BATCH)
 

@@ -32,8 +32,8 @@ public:
         bool Fullscreen      = false;
         float PixelsPerMeter = 32.0f;
         NSTRUCTV(
-            VideoSettings, NC_F( VideoSettings, SizeWidth ) NC_F( VideoSettings, SizeHeight )
-                               NC_F( VideoSettings, Fullscreen ) NC_F( VideoSettings, PixelsPerMeter )
+            VideoSettings, NC_F( VideoSettings, SizeWidth ), NC_F( VideoSettings, SizeHeight ),
+            NC_F( VideoSettings, Fullscreen ), NC_F( VideoSettings, PixelsPerMeter )
         )
     };
 

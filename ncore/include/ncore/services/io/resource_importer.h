@@ -20,20 +20,20 @@ class IResourceImporter : public NcObject {
 
 public:
     struct Context {
-        std::function<RID( const std::string_view filepath )> load;
+        std::function<RID( const String& filepath )> load;
         std::function<Ref<IResource>( RID handle )> get;
         bool skip_cache;
     };
 
-    virtual bool is_handling_extension( const std::string& ext ) = 0;
+    virtual bool is_handling_extension( const String& ext ) = 0;
 
-    Ref<IResource> operator()( const std::string_view path, Context ctx )
+    Ref<IResource> operator()( const String& path, Context ctx )
     {
         auto resource = import( path, ctx );
         return resource;
     }
 
-    virtual Ref<IResource> import( const std::string_view path, Context ctx ) = 0;
+    virtual Ref<IResource> import( const String& path, Context ctx ) = 0;
 };
 
 } // namespace nc

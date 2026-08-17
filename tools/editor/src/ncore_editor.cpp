@@ -263,40 +263,84 @@ static const WidgetDrawFn* find_widget( rtti::TypeId id )
     return nullptr;
 }
 
-static void draw_field_widget( void* instance, const rtti::FieldInfo& field )
+// Returns true if the field has been edited by interaction.
+static bool draw_field_widget( void* instance, const rtti::FieldInfo& field )
 {
-    auto* type = field.get_type();
+    auto type = field.get_type();
     if (!type)
-        return;
+        return false;
 
     void* ptr = field.get_void_ptr( instance );
     if (!ptr)
-        return;
+        return false;
 
     bool is_editable  = field.is( rtti::PropertyFlags::EDITABLE ) && !field.is( rtti::PropertyFlags::READ_ONLY );
     const char* label = field.name.data();
 
+    if (field.qualifier.is_cstring) {
+        ImGui::Text( "%s: \"%s\"", label, *static_cast<const char* const*>( ptr ) );
+        return false;
+    }
+    if (field.qualifier.is_pointer()) {
+        ImGui::Text( "%s: %p", label, *static_cast<const void* const*>( ptr ) );
+        return false;
+    }
+    if (field.qualifier.is_array()) {
+        ImGui::Text( "%s: [array x%d]", label, static_cast<int>( field.qualifier.array_length ) );
+        return false;
+    }
+
     auto* draw = find_widget( field.type_id );
     if (draw) {
         ( *draw )( label, ptr, is_editable );
-        return;
+        return false;
     }
 
-    if (type->category == rtti::FieldCategory::STRING) {
-        ImGui::Text( "%s: \"%s\"", label, static_cast<const char*>( ptr ) );
-    } else if (type->is_record()) {
-        auto* record = static_cast<const rtti::RecordInfo*>( type );
-        if (ImGui::TreeNode( label )) {
-            for (auto& sub_field : record->fields()) {
-                ImGui::PushID( sub_field.name.data() );
-                draw_field_widget( ptr, sub_field );
-                ImGui::PopID();
-            }
-            ImGui::TreePop();
+    bool edited = false;
+    switch (type->kind) {
+        case rtti::TypeKind::STRING: {
+            String str;
+            type->to_string( str, ptr );
+            ImGui::Text( "%s: %s", label, str.c_str() );
+            break;
         }
-    } else {
-        ImGui::Text( "%s: <?>", label );
+        case rtti::TypeKind::ENUM: {
+            auto* enum_t = static_cast<const rtti::EnumInfo*>( type );
+            auto cur_val = enum_t->get_value( ptr );
+            if (ImGui::BeginCombo( label, enum_t->get_name( cur_val ).data() )) {
+                for (auto& elem : enum_t->elements()) {
+                    const bool is_selected = ( cur_val == elem.value );
+                    if (is_editable && ImGui::Selectable( elem.name.data(), is_selected )) {
+                        enum_t->set_value( ptr, elem.value );
+                        edited = true;
+                    }
+                    if (is_selected) {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            break;
+        }
+        case rtti::TypeKind::RECORD:
+        case rtti::TypeKind::VECTOR: {
+            auto* record = static_cast<const rtti::RecordInfo*>( type );
+            if (ImGui::TreeNode( label )) {
+                for (auto& sub_field : record->fields()) {
+                    ImGui::PushID( sub_field.name.data() );
+                    draw_field_widget( ptr, sub_field );
+                    ImGui::PopID();
+                }
+                ImGui::TreePop();
+            }
+            break;
+        }
+        default:
+            ImGui::Text( "%s: <?>", label );
+            break;
     }
+
+    return edited;
 }
 
 void register_editor_plugin( Scene& scene )
@@ -326,7 +370,7 @@ void register_editor_plugin( Scene& scene )
         .with<GuiStateComponent>()
         .in( EcsSystemPhase::INIT )
         .order( 20 )
-        .run( []( QueryContext& ctx ) {
+        .run( []( EcsIterState& ctx ) {
             auto gui_state = ctx.get_component<GuiStateComponent>();
 
             if (gui_state->ImGuiCtx) {
@@ -346,10 +390,15 @@ void register_editor_plugin( Scene& scene )
         } );
 
     scene.get_ecs()
+        .observer( "EngineEditorPlugin_Cleanup" )
+        .on<EngineEditorState>( EcsCoreEvent::OnRemove )
+        .run( []( EcsIterState& it ) { ImGui::SetCurrentContext( nullptr ); } );
+
+    scene.get_ecs()
         .observer( "EngineEditorPlugin_InjectSelectionTag" )
         .on<NodeRefComponent>( EcsCoreEvent::OnSet )
-        .each( []( QueryContext& ctx, EcsEntity ent ) {
-            ctx.world().entity( ent ).add<EditorNodeSelectionTag>().disabled().build();
+        .each( []( EcsIterState& ctx ) {
+            ctx.world().entity( ctx.entity() ).add<EditorNodeSelectionTag>().disabled().build();
         } );
 
     scene.get_ecs()
@@ -358,7 +407,7 @@ void register_editor_plugin( Scene& scene )
         .with<GuiStateComponent>()
         .with<GraphicsServices>()
         .in( EcsSystemPhase::PRE_UPDATE )
-        .run( []( QueryContext& ctx ) {
+        .run( []( EcsIterState& ctx ) {
             auto state = ctx.get_component<EngineEditorState>();
             auto gfx   = ctx.get_component<GraphicsServices>();
 
@@ -398,7 +447,7 @@ void register_editor_plugin( Scene& scene )
         .observer( "EngineEditorPlugin_SwapChainResizedDebug" )
         .with<SwapChainComponent>()
         .event<SwapChainResizedComponent>()
-        .each( []( QueryContext& ctx, EcsEntity ) {
+        .each( []( EcsIterState& ctx ) {
             auto resized = ctx.event_payload<SwapChainResizedComponent>();
             String stringified;
             rtti::TypeRegistry::to_string<Vec2>( stringified, &resized->size );
@@ -410,7 +459,7 @@ void register_editor_plugin( Scene& scene )
         .with<GuiStateComponent>()
         .with<EngineEditorState>()
         .in( EcsSystemPhase::PRE_UPDATE )
-        .run( []( QueryContext& ctx ) {
+        .run( []( EcsIterState& ctx ) {
             auto state           = ctx.get_component<EngineEditorState>();
             ImGuiID dockspace_id = ImGui::DockSpaceOverViewport( 0, nullptr, ImGuiDockNodeFlags_PassthruCentralNode );
             state->DockspaceId   = dockspace_id;
@@ -431,7 +480,7 @@ void register_editor_plugin( Scene& scene )
         .system( "EngineEditorPlugin_Panels" )
         .with<EngineEditorState>()
         .in( EcsSystemPhase::UPDATE )
-        .run( []( QueryContext& ctx ) {
+        .run( []( EcsIterState& ctx ) {
             auto time  = ctx.world().get_singleton<TimeComponent>();
             auto gfx   = ctx.world().get_singleton<GraphicsServices>();
             auto state = ctx.get_component<EngineEditorState>();
@@ -476,8 +525,11 @@ void register_editor_plugin( Scene& scene )
 
                 auto flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar;
                 if (ImGui::Begin( "Toolbar", nullptr, flags )) {
-                    if (ImGui::Button( "Run" )) { /* TODO */
+                    if (ImGui::Button( "Run" )) {
+                        /* TODO */
                     }
+                    ImGui::SameLine();
+                    ImGui::SeparatorEx( ImGuiSeparatorFlags_Vertical );
                     ImGui::SameLine();
                     ImGui::Checkbox( "World", &state->GlobalXformGizmo );
                     ImGui::SameLine();
@@ -502,6 +554,17 @@ void register_editor_plugin( Scene& scene )
                             "Scale", state->XformGizmoOperation == static_cast<int>( ImGuizmo::OPERATION::SCALE )
                         ))
                         state->XformGizmoOperation = static_cast<int>( ImGuizmo::OPERATION::SCALE );
+                    ImGui::SameLine();
+                    ImGui::SeparatorEx( ImGuiSeparatorFlags_Vertical );
+                    ImGui::SameLine();
+                    if (ImGui::Checkbox( "Wireframe", &state->DrawWireframe )) {
+                        auto q = ctx.world().query( "MaterialComponentOwners" ).with<MaterialComponent>().build();
+                        for (auto ctx : q.entities()) {
+                            auto mat      = ctx.get_component<MaterialComponent>();
+                            mat->DrawMode = state->DrawWireframe ? FillMode::WIREFRAME : FillMode::SOLID;
+                            ctx.mark_component_modified<MaterialComponent>();
+                        }
+                    }
                 }
                 ImGui::End();
             }
@@ -627,7 +690,9 @@ void register_editor_plugin( Scene& scene )
                                     auto* record = static_cast<const rtti::RecordInfo*>( type );
                                     for (auto& field : record->fields()) {
                                         ImGui::PushID( field.name.data() );
-                                        draw_field_widget( comp_data, field );
+                                        if (draw_field_widget( comp_data, field )) {
+                                            state->SelectedNode->mark_component_modified( type );
+                                        }
                                         ImGui::PopID();
                                     }
                                 }
@@ -731,18 +796,18 @@ void register_editor_plugin( Scene& scene )
         .with<Transform3DComponent>()
         .with<EditorNodeSelectionTag>()
         .in( EcsSystemPhase::UPDATE )
-        .each( []( QueryContext& ctx, EcsEntity ) {
+        .each( []( EcsIterState& ctx ) {
             auto state = ctx.world().get_singleton<EngineEditorState>();
             auto gfx   = ctx.world().get_singleton<GraphicsServices>();
             auto xform = ctx.get_component<Transform3DComponent>();
 
-            auto view_matrix = gfx->Renderer->world_get_view_matrix().data();
-            auto proj_matrix = gfx->Renderer->world_camera_get_projection().data();
+            Mat4 view_matrix = gfx->Renderer->world_get_view_matrix();
+            Mat4 proj_matrix = gfx->Renderer->world_camera_get_projection();
 
             Mat4 local     = xform->to_matrix();
             auto mode      = state->GlobalXformGizmo ? ImGuizmo::MODE::WORLD : ImGuizmo::MODE::LOCAL;
             auto operation = static_cast<ImGuizmo::OPERATION>( state->XformGizmoOperation );
-            if (ImGuizmo::Manipulate( view_matrix, proj_matrix, operation, mode, local.data() )) {
+            if (ImGuizmo::Manipulate( view_matrix.data(), proj_matrix.data(), operation, mode, local.data() )) {
                 xform->from_matrix( local );
             }
         } );
@@ -752,13 +817,13 @@ void register_editor_plugin( Scene& scene )
         .system( "EngineEditorPlugin_TitleBarUpdater" )
         .with<WindowComponent>()
         .in( EcsSystemPhase::POST_FRAME )
-        .each( []( QueryContext& ctx, EcsEntity id ) {
+        .each( []( EcsIterState& ctx ) {
             // auto gfx  = ctx.world().get_singleton<GraphicsServices>();
             // auto time = ctx.world().get_singleton<TimeComponent>();
 
             // auto window = ctx.get_component<WindowComponent>();
             // if (time->accumulator >= 0.5) {
-            //     update_window_title( gfx->window, id, window, time->fps, ctx.delta_time() );
+            //     update_window_title( gfx->window, ctx.entity(), window, time->fps, ctx.delta_time() );
             // }
         } );
 
@@ -766,7 +831,7 @@ void register_editor_plugin( Scene& scene )
         .system( "EngineEditorPlugin_InputUI" )
         .with<IoServices>()
         .in( EcsSystemPhase::UPDATE )
-        .run( []( QueryContext& ctx ) {
+        .run( []( EcsIterState& ctx ) {
             auto state = ctx.world().get_singleton<EngineEditorState>();
             if (!state->ShowInputsWindow)
                 return;
@@ -832,6 +897,11 @@ void register_editor_plugin( Scene& scene )
             }
             ImGui::End();
         } );
+}
+
+void unregister_editor_plugin( Scene& scene )
+{
+    scene.get_ecs().remove_singleton<EngineEditorState>();
 }
 
 } // namespace nc::editor

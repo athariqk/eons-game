@@ -228,13 +228,14 @@ public:
      *
      * @return A typed Ref<T> handle to it.
      */
-    template<typename... TArgs>
+    template<class... TArgs>
+        requires std::constructible_from<T, TArgs...>
     static Ref<T> create( TArgs&&... args )
     {
         T* ptr = static_cast<T*>( allocator.allocate( 1 ) );
 
         try {
-            new ( ptr ) T( std::forward<TArgs>( args )... );
+            std::construct_at( ptr, std::forward<TArgs>( args )... );
         } catch (...) {
             allocator.deallocate( ptr, 1 );
             throw;

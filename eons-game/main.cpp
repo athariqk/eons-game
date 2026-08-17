@@ -13,18 +13,25 @@ struct TestSpin {
     nc::Quaternion start = nc::Quaternion( 180, nc::Vec3::up() );
     nc::Quaternion end   = nc::Quaternion( 0, nc::Vec3::up() );
     NSTRUCTV(
-        TestSpin, NC_F( TestSpin, rotation ) NC_F( TestSpin, switch_rot ) NC_F( TestSpin, start ) NC_F( TestSpin, end )
+        TestSpin, NC_F( TestSpin, rotation ), NC_F( TestSpin, switch_rot ), NC_F( TestSpin, start ), NC_F( TestSpin, end )
     )
 };
 
 class TestScene : public nc::Scene {
 public:
+    void on_exit() override
+    {
+#if defined( DEBUG )
+        nc::editor::unregister_editor_plugin( *this ); // must come before ImGui context destroy below
+#endif
+        nc::Scene::on_exit();
+    }
+
     void on_ready() override
     {
 #if defined( DEBUG )
         nc::editor::register_editor_plugin( *this );
 #endif
-
         auto res_svc = get_app_ctx()->Services.resolve<nc::ResourceService>();
 
         // clang-format off

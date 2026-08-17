@@ -38,11 +38,11 @@ struct OrganismAIComponent {
 
     NSTRUCTV(
         OrganismAIComponent,
-        NC_F( OrganismAIComponent, state ) NC_F( OrganismAIComponent, move_speed )
-            NC_F( OrganismAIComponent, absorb_speed ) NC_F( OrganismAIComponent, is_food_found )
-                NC_F( OrganismAIComponent, has_moved ) NC_F( OrganismAIComponent, is_absorbing )
-                    NC_F( OrganismAIComponent, reproduced ) NC_F( OrganismAIComponent, act_interval )
-                        NC_F( OrganismAIComponent, moving_interval ) NC_F( OrganismAIComponent, act_timer )
-                            NC_F( OrganismAIComponent, reproduce_interval )
+        NC_F( OrganismAIComponent, state ), NC_F( OrganismAIComponent, move_speed ),
+        NC_F( OrganismAIComponent, absorb_speed ), NC_F( OrganismAIComponent, is_food_found ),
+        NC_F( OrganismAIComponent, has_moved ), NC_F( OrganismAIComponent, is_absorbing ),
+        NC_F( OrganismAIComponent, reproduced ), NC_F( OrganismAIComponent, act_interval ),
+        NC_F( OrganismAIComponent, moving_interval ), NC_F( OrganismAIComponent, act_timer ),
+        NC_F( OrganismAIComponent, reproduce_interval )
     )
 };

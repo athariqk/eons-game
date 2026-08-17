@@ -57,16 +57,16 @@ public:
      *
      * @return Stable opaque handle as RID. Use get(RID) to access it.
      */
-    RID load( const std::string_view path, bool skip_cache = false );
+    RID load( const String& path, bool skip_cache = false );
     void unload_resource( RID rid );
     void unload_all();
 
     /**
-     * @brief Insert a dynamically generated resource to storage.
+     * @brief Insert a procedurally generated resource to storage.
      * It can then have access to the whole resource system.
      * A LoadEvent will be generated.
      *
-     * @return Its assigned RID handle.
+     * @return Its newly-assigned RID handle or existing one.
      */
     RID add( const Ref<IResource>& res );
 
@@ -103,7 +103,7 @@ public:
      * @brief Loads a resource format from disk at given path as a blocking operation.
      * Cache the result in memory by filepath. Standard stuff.
      *
-     * This is the same as calling non-generic load(const std::string_view, bool) function
+     * This is the same as calling non-generic load(const String&, bool) function
      * and then calling get(RID) on the returned RID.
      *
      * @param path The relative path from the `assets` folder, NOT absolute path.
@@ -113,7 +113,7 @@ public:
      * @return Typed reference to the loaded resource.
      */
     template<class T>
-    Ref<T> load( const std::string_view path, bool skip_cache = false )
+    Ref<T> load( const String& path, bool skip_cache = false )
     {
         RID handle = load( path, skip_cache );
         return get<T>( handle );
@@ -138,7 +138,7 @@ private:
     int num_importers = 0;
     std::array<std::unique_ptr<IResourceImporter>, MAX_IMPORTERS> importers;
 
-    HashMap<std::string, RID> path_map;
+    HashMap<String, RID> path_map;
     ResourcePool<Ref<IResource>> storage;
     RingBuffer<Event> events;
 };

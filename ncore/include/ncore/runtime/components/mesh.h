@@ -10,8 +10,8 @@ struct NCAPI MeshComponent {
     uint32_t InstanceCount = 1;
 
     NSTRUCTV(
-        MeshComponent,
-        NC_F( MeshComponent, Source ) NC_F( MeshComponent, Instance ) NC_F( MeshComponent, InstanceCount )
+        MeshComponent, NC_F( MeshComponent, Source ), NC_F( MeshComponent, Instance ),
+        NC_F( MeshComponent, InstanceCount )
     )
 };
 

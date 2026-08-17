@@ -4,6 +4,7 @@
 #include <string>
 
 #include <ncore/core/collection.h>
+#include <ncore/core/types.h>
 #include <ncore/core/vector.h>
 
 #pragma push_macro( "NONE" )
@@ -17,6 +18,12 @@ enum class PrimitiveTopology {
     TRIANGLE_LIST,
     POINT_LIST,
 };
+
+enum class FillMode {
+    SOLID,
+    WIREFRAME
+};
+NENUM( FillMode, NENUM_ELEMENT( FillMode, SOLID ), NENUM_ELEMENT( FillMode, WIREFRAME ) )
 
 enum class ResourceBindFlags : uint32_t {
     NONE               = 0,
@@ -141,11 +148,6 @@ enum class StencilOp {
     DECR_WRAP
 };
 
-enum class FillMode {
-    SOLID,
-    WIREFRAME
-};
-
 enum class SamplerFilter {
     NEAREST,
     LINEAR,
@@ -180,6 +182,16 @@ enum class ResourceFlags {
     NO_DYNAMIC_BUFFERS = 1,
     COMBINED_SAMPLER   = 2,
     FORMATTED_BUFFER   = 3,
+};
+
+/**
+ * @brief This relates to how buffers are interpreted for read operations.
+ */
+enum class BufferMode : uint8_t {
+    NONE = 0,
+    FORMATTED,
+    STRUCTURED,
+    RAW
 };
 
 enum class SwapChainUsage : uint32_t {
@@ -241,7 +253,7 @@ struct SwapChainDesc {
 };
 
 struct PipelineResourceDesc {
-    std::string name;
+    String name;
     ShaderType stage           = ShaderType::MULTIPLE;
     ResourceType resource_type = ResourceType::CONSTANT_BUFFER;
     ResourceVarType var_type   = ResourceVarType::DYNAMIC;
@@ -250,7 +262,7 @@ struct PipelineResourceDesc {
 };
 
 struct ResourceSignatureDesc {
-    std::string name;
+    String name;
     uint8_t set = 0;
     DynamicArray<PipelineResourceDesc> resources;
 };
@@ -258,16 +270,17 @@ struct ResourceSignatureDesc {
 using ResourceLayoutDesc = DynamicArray<ResourceSignatureDesc>;
 
 struct BufferDesc {
-    std::string debug_name;
+    String debug_name;
     ResourceBindFlags bind_mask;
     size_t size;
     const void* initial_data        = nullptr;
     ResourceUsage usage             = ResourceUsage::DEFAULT;
     ResourceAccessFlags access_mask = ResourceAccessFlags::NONE;
+    BufferMode mode                 = BufferMode::RAW;
 };
 
 struct TextureDesc {
-    std::string debug_name;
+    String debug_name;
     TextureFormat format            = TextureFormat::RGBA8_UNORM_SRGB;
     ResourceDimension dimension     = ResourceDimension::DIM_2D;
     ResourceUsage usage             = ResourceUsage::DEFAULT;
@@ -347,7 +360,7 @@ struct MultisampleStateDesc {
 };
 
 struct SamplerDesc {
-    std::string debug_name;
+    String debug_name;
     SamplerFilter mag_filter     = SamplerFilter::LINEAR;
     SamplerFilter min_filter     = SamplerFilter::LINEAR;
     SamplerFilter mip_filter     = SamplerFilter::LINEAR;
@@ -357,7 +370,7 @@ struct SamplerDesc {
 };
 
 struct GraphicsPSODesc {
-    std::string debug_name;
+    String debug_name;
     TextureFormat render_target_format   = TextureFormat::RGBA8_UNORM_SRGB;
     TextureFormat depth_stencil_format   = TextureFormat::D32_FLOAT;
     PrimitiveTopology primitive_topology = PrimitiveTopology::TRIANGLE_LIST;
@@ -372,7 +385,7 @@ struct GraphicsPSODesc {
 };
 
 struct ComputePSODesc {
-    std::string debug_name;
+    String debug_name;
     std::span<const uint32_t> cs_bytecode;
     uint32_t num_threads_x = 1;
     uint32_t num_threads_y = 1;

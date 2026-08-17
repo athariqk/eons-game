@@ -2,6 +2,7 @@ target_sources(
   ncore
   PRIVATE "application.cpp"
           "core/memory.cpp"
+          "core/asan_leaks.cpp"
           "core/object.cpp"
           "core/types.cpp"
           "backends/box2d/box2d_physics_impl.h"
@@ -21,9 +22,10 @@ target_sources(
           "backends/stb/stb_image_loader.h"
           "backends/stb/stb_image_loader.cpp"
           "resources/audio_clip.cpp"
+		  "resources/cube_map.cpp"
           "resources/resource.cpp"
           "resources/image.cpp"
-          "resources/material.cpp"
+          "resources/material_template.cpp"
           "resources/mesh.cpp"
           "resources/shader.cpp"
           "runtime/components/transform.cpp"
@@ -61,7 +63,6 @@ target_sources(
           "utils/logger/sink.cpp"
           "utils/assert.cpp"
           "utils/config.cpp"
-          "utils/equirect.cpp"
           "utils/four_cc.cpp")
 
 target_include_directories(ncore PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

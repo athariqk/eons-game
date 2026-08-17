@@ -9,6 +9,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+option(SEA_TRACK_ASAN "Compile SeaEngine project with Address Sanitizer" OFF)
+
 set(CMAKE_CONFIGURATION_TYPES
     "Debug;Release;Dist"
     CACHE STRING "Configs" FORCE)
@@ -29,11 +31,83 @@ endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   add_compile_options(/W4 /wd4146 /wd4245 /wd5105 /Zc:preprocessor)
-  set(CMAKE_CXX_FLAGS_DEBUG "/MDd /ZI /Ob0 /Od /RTC1")
+  string(APPEND CMAKE_CXX_FLAGS " /std:c++20")
+  set(CMAKE_CXX_FLAGS_DEBUG "/Zi /Ob0 /Od")
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   add_compile_options(-Wno-unknown-argument -Wno-c++98-compat
                       -Wno-c++98-compat-pedantic)
-  set(CMAKE_CXX_FLAGS_DEBUG "/MDd /Zi /Ob0 /Od")
+  string(APPEND CMAKE_CXX_FLAGS " /std:c++20")
+  set(CMAKE_CXX_FLAGS_DEBUG "/Zi /Ob0 /Od")
+endif()
+
+if(SEA_TRACK_ASAN)
+  # this will cause mimalloc bypass, which routes to ASAN-tracked malloc
+  # instead.
+  add_compile_definitions(NC_ASAN=1)
+
+  # The /fsanitize=address flag lives in target-level compile options (not in
+  # the global *_FLAGS_DEBUG), so CMake try_compile checks — e.g. abseil's
+  # _MSVC_LANG probe, which builds in the Debug config — do not inherit it. They
+  # would otherwise hit "invalid argument '-MDd' not allowed with
+  # '-fsanitize=address'" and poison the whole configure.
+  add_compile_options(/fsanitize=address)
+
+  # clang-cl rejects the debug CRT (/MDd) with /fsanitize=address, so the Debug
+  # config uses the release dynamic CRT (/MD) for all targets. CMake injects the
+  # runtime flag per-target from CMAKE_MSVC_RUNTIME_LIBRARY, so no /MDd may
+  # appear anywhere in the Debug compile flags (Release/Dist are unchanged).
+  set(CMAKE_C_FLAGS_DEBUG "/Zi /Ob0 /Od")
+  set(CMAKE_MSVC_RUNTIME_LIBRARY
+      "MultiThreaded$<$<CONFIG:Debug>:>DLL"
+      CACHE STRING "MSVC runtime library (Debug uses release CRT for ASAN)"
+            FORCE)
+
+  # AddressSanitizer runtime wiring.
+  #
+  # clang-cl: CMake invokes lld-link directly, which has no /fsanitize flag, so
+  # replicate exactly what the clang driver adds (runtime import lib, SEH
+  # interceptor, and the whole-archive thunk lib that redirects CRT malloc/free
+  # to the sanitizer). ASAN also requires non-incremental linking. MSVC cl.exe:
+  # link.exe supports /fsanitize=address natively.
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
+     AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    get_filename_component(_llvm_bin "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    set(_asan_rt_dir
+        "${_llvm_bin}/../lib/clang/${CMAKE_CXX_COMPILER_VERSION_MAJOR}/lib/windows"
+    )
+    if(NOT EXISTS "${_asan_rt_dir}/clang_rt.asan_dynamic-x86_64.lib")
+      # CMAKE_CXX_COMPILER_VERSION_MAJOR may be empty for clang-cl — fall back
+      # to the first clang resource dir that ships the runtime lib.
+      file(
+        GLOB
+        _asan_rt_candidates
+        "${_llvm_bin}/../lib/clang/*/lib/windows/clang_rt.asan_dynamic-x86_64.lib"
+      )
+      list(LENGTH _asan_rt_candidates _asan_rt_count)
+      if(_asan_rt_count GREATER 0)
+        list(GET _asan_rt_candidates 0 _asan_rt_lib)
+        get_filename_component(_asan_rt_dir "${_asan_rt_lib}" DIRECTORY)
+      endif()
+    endif()
+    if(EXISTS "${_asan_rt_dir}/clang_rt.asan_dynamic-x86_64.lib")
+      add_link_options(
+        /libpath:${_asan_rt_dir}
+        clang_rt.asan_dynamic-x86_64.lib
+        -include:__asan_seh_interceptor
+        -wholearchive:${_asan_rt_dir}/clang_rt.asan_dynamic_runtime_thunk-x86_64.lib
+      )
+      string(APPEND CMAKE_EXE_LINKER_FLAGS_DEBUG " /INCREMENTAL:NO")
+      string(APPEND CMAKE_SHARED_LINKER_FLAGS_DEBUG " /INCREMENTAL:NO")
+    else()
+      message(
+        WARNING
+          "ASAN runtime libs not found at ${_asan_rt_dir} — Debug links will fail"
+      )
+    endif()
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    string(APPEND CMAKE_EXE_LINKER_FLAGS_DEBUG " /fsanitize=address")
+    string(APPEND CMAKE_SHARED_LINKER_FLAGS_DEBUG " /fsanitize=address")
+  endif()
 endif()
 
 if(MINGW)
@@ -73,7 +147,8 @@ install(
   DESTINATION .
   OPTIONAL)
 
-install(TARGETS ncore_editor
+install(
+  TARGETS ncore_editor
   RUNTIME DESTINATION .
   ARCHIVE DESTINATION .
   LIBRARY DESTINATION .)

@@ -48,7 +48,7 @@ struct NCAPI Color {
         return !( *this == other );
     }
 
-    NSTRUCTV( Color, NC_F( Color, r ) NC_F( Color, g ) NC_F( Color, b ) NC_F( Color, a ) )
+    NSTRUCTV( Color, NC_F( Color, r ), NC_F( Color, g ), NC_F( Color, b ), NC_F( Color, a ) )
 };
 
 } // namespace nc

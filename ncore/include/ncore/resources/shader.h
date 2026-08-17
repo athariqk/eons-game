@@ -6,7 +6,7 @@
 namespace nc {
 
 struct NCAPI ShaderParamField {
-    std::string name;
+    String name;
     uint32_t offset;
     uint32_t size;
     size_t stride;
@@ -14,8 +14,8 @@ struct NCAPI ShaderParamField {
 };
 
 struct NCAPI ShaderParamInfo {
-    std::string name;
-    std::string semantic_name;
+    String name;
+    String semantic_name;
     ResourceType resource_type = ResourceType::CONSTANT_BUFFER;
     ShaderValueType value_type = ShaderValueType::UNKNOWN;
     uint32_t binding_idx       = 0;
@@ -30,7 +30,7 @@ using ShaderParamLayout = DynamicArray<ShaderParamInfo>;
 
 struct NCAPI ShaderDesc {
     ShaderType stage;
-    std::string entrypoint;
+    String entrypoint;
     DynamicArray<uint32_t> bytecode;
     ShaderParamLayout params;
     VertexLayout vert_layout;
@@ -46,10 +46,11 @@ public:
     Shader( const ShaderDesc& p_desc );
 
     ResourceFormatID get_format_id() const override;
+    size_t get_size_bytes() const override;
 
     ShaderType get_stage() const;
-    std::string_view get_entry_point() const;
-    std::span<const uint32_t> get_bytecode() const;
+    StringView get_entry_point() const;
+    Span<const uint32_t> get_bytecode() const;
     const ShaderDesc& get_desc() const;
 
 private:
@@ -62,6 +63,7 @@ class NCAPI CompositeShader : public IResource {
 
 public:
     ResourceFormatID get_format_id() const override;
+    size_t get_size_bytes() const override;
     Ref<Shader> get_shader( ShaderType stage );
     void set_shader( ShaderType stage, const Ref<Shader>& shader );
 

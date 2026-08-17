@@ -8,6 +8,10 @@
 // (memalloc / memfree / memalloc_aligned / memfree_align), which is backed by
 // mimalloc.
 //
+// In AddressSanitizer builds (NC_ASAN_ENABLED) this header is a no-op: the
+// default CRT operator new/delete are left in place so ASAN's allocator
+// intercepts all C++ allocations (with allocation stacks for leak reports).
+//
 // IMPORTANT: This header must be included in exactly ONE translation unit per
 // module (DLL or EXE). These are non-inline definitions; including it in
 // multiple .cpp files in the same module will cause linker errors (duplicate
@@ -21,6 +25,8 @@
 #include <new>
 
 #include <ncore/core/memory.h>
+
+#if !NC_ASAN_ENABLED
 
 // ============================================================================
 // Scalar new / delete
@@ -149,3 +155,5 @@ void operator delete[]( void* p, std::align_val_t al, const std::nothrow_t& ) no
 {
     nc::memfree_align( p, static_cast<size_t>( al ) );
 }
+
+#endif // !NC_ASAN_ENABLED

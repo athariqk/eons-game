@@ -7,13 +7,13 @@
 
 namespace nc {
 
-bool StbImageLoader::is_handling_extension( const std::string& ext )
+bool StbImageLoader::is_handling_extension( const String& ext )
 {
     return ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tga" || ext == ".gif" ||
            ext == ".hdr" || ext == ".psd" || ext == ".pic" || ext == ".pgm" || ext == ".ppm";
 }
 
-Ref<IResource> StbImageLoader::import( const std::string_view path, Context ctx )
+Ref<IResource> StbImageLoader::import( const String& path, Context ctx )
 {
     int width       = 0;
     int height      = 0;
@@ -28,9 +28,7 @@ Ref<IResource> StbImageLoader::import( const std::string_view path, Context ctx 
     auto result = Ref<Image>::create( width, height, pixels );
     stbi_image_free( pixels );
 
-    NC_LOG_DEBUG_C(
-        log::IO, "Imported image '{}': {}x{} (channels={})", path, width, height, channels
-    );
+    NC_LOG_DEBUG_C( log::IO, "Imported image '{}': {}x{} (channels={})", path, width, height, channels );
 
     return result.as<IResource>();
 }

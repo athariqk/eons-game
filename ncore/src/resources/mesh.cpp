@@ -9,6 +9,11 @@ ResourceFormatID Mesh::get_format_id() const
     return "mesh";
 }
 
+size_t Mesh::get_size_bytes() const
+{
+    return desc.vertices.size() + desc.indices.size();
+}
+
 std::span<const std::byte> Mesh::get_vertices() const
 {
     return desc.vertices;

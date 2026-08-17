@@ -21,9 +21,7 @@ struct WindowService::Impl {
     SDL_Window* get_sdl_window( uint32_t id )
     {
         auto window = SDL_GetWindowFromID( static_cast<SDL_WindowID>( id ) );
-        NC_VERIFY_MSG(
-            window, std::format( "Failed to get SDL window with ID {}: {}", id, SDL_GetError() ).c_str()
-        );
+        NC_VERIFY_MSG( window, std::format( "Failed to get SDL window with ID {}: {}", id, SDL_GetError() ).c_str() );
         return window;
     }
 

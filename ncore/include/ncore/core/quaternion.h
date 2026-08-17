@@ -21,7 +21,7 @@ struct NCAPI Quaternion {
 
     Quaternion() = default;
 
-    NSTRUCTV( Quaternion, NC_F( Quaternion, w ) NC_F( Quaternion, v ) )
+    NSTRUCTV( Quaternion, NC_F( Quaternion, w ), NC_F( Quaternion, v ) )
 
     /**
      * @brief Initialize a new quaternion from angle axis.

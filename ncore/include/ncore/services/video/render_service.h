@@ -7,6 +7,7 @@
 #include <ncore/core/matrix.h>
 #include <ncore/core/rid.h>
 #include <ncore/core/vector.h>
+#include <ncore/resources/cube_map.h>
 #include <ncore/services/service.h>
 
 #include "renderer/renderer_context.h"
@@ -53,10 +54,18 @@ public:
     );
     RID texture_2d_create( const Image& image );
 
-    RID texture_cube_create( Span<const Image*, 6> faces );
+    /**
+     * @brief Create a cube mapped texture from 6 separate images (faces).
+     */
+    RID texture_cube_create( const CubeMap& cube_map );
 
+    /**
+     * @brief Instantiates a material from its template.
+     * A material has its own textures.
+     */
     RID material_create( const MaterialTemplate& tmpl );
     void material_set_texture( RID material, RID texture, uint32_t slot );
+    void material_set_draw_mode( RID material, FillMode mode );
 
     /**
      * @brief Uploads a CPU Mesh resource into the current GPU device.
@@ -64,16 +73,9 @@ public:
      */
     RID gpu_mesh_create( const Mesh& mesh );
 
-    /**
-     * @brief Destroy any previously allocated RIDs from methods
-     * in this class that return RID.
-     */
-    void destroy_rid( RID rid );
-
     RID compute_pipeline_create( const ComputePSODesc& desc );
     void compute_pipeline_bind( RID pipeline );
     void dispatch( uint32_t x, uint32_t y, uint32_t z );
-
     void compute_texture_bind( RID texture, RID binding, const char* name, TextureViewType view );
     void compute_buffer_bind( RID buffer, RID binding, const char* name );
 
@@ -83,6 +85,12 @@ public:
 
     RID buffer_create( const BufferDesc& desc );
     void buffer_update( RID buffer, const void* data, size_t size );
+
+    /**
+     * @brief Destroy any previously allocated RIDs from methods
+     * in this class that return RID.
+     */
+    void destroy_rid( RID rid );
 
     /**
      * @brief Begin a new frame.

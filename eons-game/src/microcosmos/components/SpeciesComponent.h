@@ -22,8 +22,8 @@ struct SpeciesComponent {
 
     NSTRUCTV(
         SpeciesComponent,
-        NC_F( SpeciesComponent, population_count ) NC_F( SpeciesComponent, age ) NC_F( SpeciesComponent, name )
-            NC_F( SpeciesComponent, genus ) NC_F( SpeciesComponent, epithet ) NC_F( SpeciesComponent, genes )
-                NC_F( SpeciesComponent, generation )
+        NC_F( SpeciesComponent, population_count ), NC_F( SpeciesComponent, age ), NC_F( SpeciesComponent, name ),
+        NC_F( SpeciesComponent, genus ), NC_F( SpeciesComponent, epithet ), NC_F( SpeciesComponent, genes ),
+        NC_F( SpeciesComponent, generation )
     )
 };
