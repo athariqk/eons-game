@@ -5,7 +5,7 @@
 
 #include <SDL3/SDL_events.h>
 
-#include <ncore/services/input/input_event.h>
+#include <ncore/services/io/input_event.h>
 #include <ncore/services/video/window/window_types.h>
 
 namespace nc {

@@ -21,6 +21,10 @@ struct NCAPI Component {
     NSTRUCTV( Component, NC_F( Component, EcsId ), NC_F( Component, Active ) )
 };
 
+struct NCAPI NodeAddedEvent {
+    NSTRUCT1( NodeAddedEvent )
+};
+
 /**
  * @brief Node is a lightweight wrapper over an EcsEntity. Node provides
  * first-class operations for Scene hierarchy and relationships. You can
@@ -153,7 +157,7 @@ public:
      * @brief Create in-place (default-constructs) a component owned by this Node.
      * @return Mutable pointer to constructed component instance, or existing one.
      */
-    void* emplace_component( const rtti::TypeInfo* type );
+    void* add_component( const rtti::TypeInfo* type );
 
     /**
      * @brief Create and set (copy-constructs) a component owned by this Node.
@@ -176,7 +180,7 @@ public:
             T val( std::forward<Args>( args )... );
             return static_cast<T*>( add_component( type, &val ) );
         } else {
-            return static_cast<T*>( emplace_component( type ) );
+            return static_cast<T*>( add_component( type ) );
         }
     }
 
@@ -207,6 +211,12 @@ public:
         emit_event_( rtti::TypeRegistry::find<T>(), target, &data );
     }
 
+    template<class T>
+    void emit_event( EcsEntity target ) const
+    {
+        emit_event_( rtti::TypeRegistry::find<T>(), target, nullptr );
+    }
+
     void set_component_enabled( const rtti::TypeInfo* type, bool enabled );
     bool is_component_enabled( const rtti::TypeInfo* type ) const;
 
@@ -222,6 +232,9 @@ public:
         return is_component_enabled( rtti::TypeRegistry::find<T>() );
     }
 
+    /**
+     * @brief Signal that a component has been modified.
+     */
     void mark_component_modified( const rtti::TypeInfo* type ) const;
     template<class T>
     void mark_component_modified()
@@ -251,7 +264,7 @@ private:
     bool active           = true;
     Scene* scene          = nullptr;
     Node* parent          = nullptr;
-    NodePool* node_pool   = nullptr; // owned by Scene.
+    NodePool* node_pool   = nullptr; // owned by a Scene instance.
     EcsEntity internal_id = INVALID_ENTITY_ID;
     EcsQuery child_query{};
     Array<Component, MAX_TRACKED_COMPONENTS> components{};

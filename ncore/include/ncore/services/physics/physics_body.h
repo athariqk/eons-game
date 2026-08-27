@@ -24,7 +24,7 @@ struct PhysicsShape {
 
 struct PhysicsBody {
     BodyType type = BodyType::DYNAMIC;
-    Vec2 initial_pos;
+    Vec2f initial_pos;
     float mass           = 1.0f;
     float linear_damping = 0.5f;
 };

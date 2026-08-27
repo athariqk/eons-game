@@ -107,8 +107,11 @@ EcsEntity EcsEntityBuilder::build()
     for (auto& c : components) {
         EcsComponent comp_id = world.register_component_type( c.type );
         ecs_set_id( world_, ent, comp_id, c.data.size(), c.data.data() );
-        if (c.disabled)
+        if (c.disabled) {
+            // FIXME: can't toggle error due to CanToggle trait not being set? :\
+            // but IT IS already set in register_component_type. potential race condition
             ecs_enable_id( world_, ent, comp_id, false );
+        }
     }
 
     // add pairs

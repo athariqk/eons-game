@@ -119,6 +119,12 @@ public:
         return *this;
     }
 
+    EcsSystemBuilder& src( EcsEntity id )
+    {
+        qb_.src( id );
+        return *this;
+    }
+
     EcsSystemBuilder& in( EcsSystemPhase phase );
 
     EcsSystemBuilder& order( int32_t priority );

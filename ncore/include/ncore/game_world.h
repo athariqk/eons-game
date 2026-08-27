@@ -68,7 +68,7 @@ public:
     }
 
     /**
-     * @brief Get the current state of the running application.
+     * @brief Get current state of the running application.
      */
     AppContext* get_app_ctx() const
     {

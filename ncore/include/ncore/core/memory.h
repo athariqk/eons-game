@@ -1,6 +1,7 @@
 #pragma once
 
 #include <bit>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -70,6 +71,14 @@ bool operator!=( const NcAllocator<T>&, const NcAllocator<U>& )
 {
     return false;
 }
+
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Alias to the C++ standard-library unique pointer.
+ */
+template<typename T, typename D = std::default_delete<T>>
+using Ptr = std::unique_ptr<T, D>;
 
 // ---------------------------------------------------------------------------
 

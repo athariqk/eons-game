@@ -31,8 +31,8 @@ public:
     void sync_queue( GpuQueue queue ) override;
 
     RID swapchain_create( const SwapChainDesc& desc ) override;
-    Vec2 swapchain_get_size( RID sc ) override;
-    void swapchain_set_size( RID sc, Vec2 size ) override;
+    Vec2i swapchain_get_size( RID sc ) override;
+    void swapchain_set_size( RID sc, Vec2i size ) override;
     void swapchain_present( RID sc, bool sync_interval ) override;
     void* swapchain_get_view( RID sc, TextureViewType view ) override;
     void swapchain_destroy( RID sc ) override;
@@ -43,7 +43,7 @@ public:
 
     void render_target_bind( Span<const void*> rtvs, void* dsv = nullptr ) override;
     void render_target_set_viewport( Span<const Viewport> viewports ) override;
-    void render_target_set_scissor_rect( Span<const Rect> rect ) override;
+    void render_target_set_scissor_rect( Span<const Rect2i> rect ) override;
     void render_target_clear_color( void* rtv, const Color& color ) override;
     void render_target_clear_depth( void* dsv, float depth = 1.0f, uint8_t stencil = 0 ) override;
 
@@ -62,6 +62,7 @@ public:
     RID texture_create( const TextureDesc& desc ) override;
     void texture_binding_update( RID texture, RID binding, const char* name ) override;
     void* texture_get_view( RID texture, TextureViewType view ) override;
+    void texture_blit( RID texture_src, RID texture_dest, bool to_swapchain ) override;
 
     RID sampler_create( const SamplerDesc& desc ) override;
     void sampler_update_binding( RID sampler, RID binding, const char* name ) override;
@@ -78,7 +79,7 @@ public:
     void resource_binding_commit( RID binding ) override;
 
     bool is_rid_owned( RID rid ) override;
-    void destroy_resource( RID rid ) override;
+    bool destroy_rid( RID rid ) override;
 
     void draw( uint32_t vertex_count, uint32_t start_vertex = 0, uint32_t instance_count = 1 ) override;
     void draw_indexed(
@@ -103,20 +104,18 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> ctx_comp; // immediate compute context
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> ctx_tx;   // immediate transfer context
 
-    ResourcePool<Diligent::RefCntAutoPtr<Diligent::IDeviceContext>> ctx_gfx_defer;
-    ResourcePool<Diligent::RefCntAutoPtr<Diligent::IDeviceContext>> ctx_comp_defer;
-    ResourcePool<Diligent::RefCntAutoPtr<Diligent::IDeviceContext>> ctx_tx_defer;
-
     Diligent::RefCntAutoPtr<Diligent::ICommandList> cmd_list;
 
-    ResourcePool<Diligent::RefCntAutoPtr<Diligent::ISwapChain>> swapchains;
-    ResourcePool<Diligent::RefCntAutoPtr<Diligent::IPipelineState>> pipelines;
-    ResourcePool<Diligent::RefCntAutoPtr<Diligent::ITexture>> textures;
-    ResourcePool<Diligent::RefCntAutoPtr<Diligent::IBuffer>> buffers;
-    ResourcePool<Diligent::RefCntAutoPtr<Diligent::ISampler>> samplers;
-
-    ResourcePool<Diligent::RefCntAutoPtr<Diligent::IPipelineResourceSignature>> res_signatures;
-    ResourcePool<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> res_bindings;
+    RIDPool<Diligent::RefCntAutoPtr<Diligent::IDeviceContext>> ctx_gfx_defer;
+    RIDPool<Diligent::RefCntAutoPtr<Diligent::IDeviceContext>> ctx_comp_defer;
+    RIDPool<Diligent::RefCntAutoPtr<Diligent::IDeviceContext>> ctx_tx_defer;
+    RIDPool<Diligent::RefCntAutoPtr<Diligent::ISwapChain>> swapchains;
+    RIDPool<Diligent::RefCntAutoPtr<Diligent::IPipelineState>> pipelines;
+    RIDPool<Diligent::RefCntAutoPtr<Diligent::ITexture>> textures;
+    RIDPool<Diligent::RefCntAutoPtr<Diligent::IBuffer>> buffers;
+    RIDPool<Diligent::RefCntAutoPtr<Diligent::ISampler>> samplers;
+    RIDPool<Diligent::RefCntAutoPtr<Diligent::IPipelineResourceSignature>> res_signatures;
+    RIDPool<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> res_bindings;
 
     Diligent::RefCntAutoPtr<Diligent::IVertexPool> vertex_pool;
 

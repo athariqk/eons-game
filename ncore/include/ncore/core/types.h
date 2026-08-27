@@ -99,7 +99,7 @@ constexpr TypeId type_id() noexcept
 
 //------------------------------------------------------------------------------
 
-enum class NCAPI PropertyFlags : uint16_t {
+enum class PropertyFlags : uint16_t {
     NONE         = 0,
     SERIALIZABLE = 1 << 0,
     EDITABLE     = 1 << 1,
@@ -155,7 +155,7 @@ constexpr PropertyFlags clear_flag( PropertyFlags f, PropertyFlags bit ) noexcep
  * This is the single source of truth for type category — fields derive their
  * category from `field.get_type()->kind` plus the field qualifier.
  */
-enum class NCAPI TypeKind : uint8_t {
+enum class TypeKind : uint8_t {
     INVALID,
     BOOL,
     INT8,

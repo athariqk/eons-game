@@ -9,18 +9,17 @@ namespace nc {
 
 // TODO: turn into a 2x3 matrix
 struct NCAPI Transform2DComponent {
-    Vec2 position;
-    Vec2 Size;
+    Vec2f position;
+    Vec2f Size;
     float Angle = 0.0f;
 
-    Vec2 get_world_center_point()
+    Vec2f get_world_center_point()
     {
-        return Vec2( position.x + ( Size.x * 0.5f ), position.y + ( Size.y * 0.5f ) );
+        return Vec2f( position.x + ( Size.x * 0.5f ), position.y + ( Size.y * 0.5f ) );
     }
 
     NSTRUCTV(
-        Transform2DComponent,
-        NC_F( Transform2DComponent, position ), NC_F( Transform2DComponent, Size ),
+        Transform2DComponent, NC_F( Transform2DComponent, position ), NC_F( Transform2DComponent, Size ),
         NC_F( Transform2DComponent, Angle )
     )
 };

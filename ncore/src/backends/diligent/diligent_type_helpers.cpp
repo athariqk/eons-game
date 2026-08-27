@@ -13,9 +13,9 @@ Diligent::TEXTURE_FORMAT DiligentTypeHelpers::translate_tex_format( TextureForma
             return Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB;
         case TextureFormat::R32_FLOAT:
             return Diligent::TEX_FORMAT_R32_FLOAT;
-        case TextureFormat::R32G32_FLOAT:
+        case TextureFormat::RG32_FLOAT:
             return Diligent::TEX_FORMAT_RG32_FLOAT;
-        case TextureFormat::R32G32B32A32_FLOAT:
+        case TextureFormat::RGBA32_FLOAT:
             return Diligent::TEX_FORMAT_RGBA32_FLOAT;
         case TextureFormat::UNKNOWN:
             return Diligent::TEX_FORMAT_UNKNOWN;

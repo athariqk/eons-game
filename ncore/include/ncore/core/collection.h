@@ -12,6 +12,8 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include <ncore/utils/assert.h>
+
 #include "memory.h"
 #include "rid.h"
 
@@ -19,14 +21,26 @@ namespace nc {
 
 using String = std::basic_string<char, std::char_traits<char>, NcAllocator<char>>;
 
+/**
+ * @brief Non-owning view of string.
+ */
 using StringView = std::basic_string_view<char>;
 
+/**
+ * @brief Fixed-size array.
+ */
 template<typename T, size_t S>
 using Array = std::array<T, S>;
 
+/**
+ * @brief Dynamic-size growable array.
+ */
 template<typename T>
 using DynamicArray = std::vector<T, NcAllocator<T>>;
 
+/**
+ * @brief Non-owning view of array.
+ */
 template<typename T, size_t Extent = std::dynamic_extent>
 using Span = std::span<T, Extent>;
 
@@ -160,6 +174,9 @@ public:
         --active_count;
     }
 
+    /**
+     * @brief Free all objects in memory and reset the internal arena. Calls destructors.
+     */
     void release_all()
     {
         for (uint32_t i = 0; i < arena.get_size(); i++) {
@@ -176,6 +193,7 @@ public:
 
     /**
      * @brief Reset the internal arena but does not free memory nor call destructors.
+     * Otherwise, use release_all().
      */
     void reset()
     {
@@ -206,9 +224,9 @@ public:
      */
     T& operator[]( uint32_t i )
     {
-        T* it = arena.get( i );
+        Slot* it = arena.get( i );
         NC_ASSERT( it, "Out of bounds" );
-        return *it;
+        return *reinterpret_cast<T*>( it );
     }
 
     bool is_valid( T* obj )
@@ -246,7 +264,7 @@ private:
 // ---------------------------------------------------------------------------
 
 namespace detail {
-inline std::atomic<uint64_t> g_rid_sequence{ 1 }; // First ResourcePool acquire will get the value 1
+inline std::atomic<uint64_t> g_rid_sequence{ 1 }; // First RIDPool acquire will get the value 1
 inline uint64_t next_rid_sequence() noexcept
 {
     return g_rid_sequence.fetch_add( 1, std::memory_order_relaxed );
@@ -254,7 +272,7 @@ inline uint64_t next_rid_sequence() noexcept
 } // namespace detail
 
 /**
- * @brief ResourcePool is an object pool that provides an
+ * @brief RIDPool is an object pool that provides an
  * RID-based interface for acquiring and releasing objects of
  * type T.
  *
@@ -265,7 +283,7 @@ inline uint64_t next_rid_sequence() noexcept
  * The internal allocator/storage is backed by a PagedAllocator.
  */
 template<typename T>
-class ResourcePool {
+class RIDPool {
     struct Slot {
         alignas( T ) std::byte data[sizeof( T )];
         uint32_t validator = 1; // a.k.a "generation"
@@ -274,9 +292,9 @@ class ResourcePool {
     };
 
 public:
-    ResourcePool( uint32_t page_capacity = PagedAllocator<Slot>::DEFAULT_PAGE_SIZE ) : arena( page_capacity ) {}
+    RIDPool( uint32_t page_capacity = PagedAllocator<Slot>::DEFAULT_PAGE_SIZE ) : arena( page_capacity ) {}
 
-    ~ResourcePool()
+    ~RIDPool()
     {
         release_all();
     }
@@ -318,16 +336,20 @@ public:
         return reinterpret_cast<T*>( &slot->data );
     }
 
-    void release( RID handle )
+    /**
+     * @brief Free object from pool. Invalidating its handle.
+     * @return True if succesfully freed.
+     */
+    bool release( RID handle )
     {
         if (!handle.is_valid())
-            return;
+            return false;
 
         auto [index, validator] = decode_rid( handle );
 
         Slot* slot = arena.get( index );
         if (!slot || slot->validator != validator) {
-            return; // probably already released or not owned by us
+            return false; // probably already released or not owned by us
         }
 
         reinterpret_cast<T*>( &slot->data )->~T();
@@ -335,6 +357,8 @@ public:
         slot->next_free = free_list_head;
         slot->is_alive  = false;
         free_list_head  = index;
+
+        return true;
     }
 
     void release_all()

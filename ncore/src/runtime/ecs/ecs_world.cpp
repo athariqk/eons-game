@@ -7,6 +7,7 @@
 #include <ncore/core/collection.h>
 #include <ncore/core/memory.h>
 #include <ncore/runtime/ecs/ecs_entity.h>
+#include <ncore/runtime/ecs/ecs_events.h>
 #include <ncore/runtime/ecs/ecs_world.h>
 #include <ncore/utils/log.h>
 
@@ -376,87 +377,81 @@ EcsComponent EcsWorld::set_component_( EcsEntity eid, const rtti::TypeInfo* type
 {
     ecs_trace( "setting component value of %s to an entity (ID %d)", type->name, eid );
 
-    EcsComponent registered_comp_id = register_component_type( type );
+    EcsComponent cid = register_component_type( type );
 
     // IF entity ID is invalid, we can use the component ID as entity ID,
     // meaning it is a singleton entity
     if (eid == INVALID_ENTITY_ID) {
-        eid = registered_comp_id;
+        eid = cid;
     }
 
-    if (eid == registered_comp_id) { // is singleton?
+    if (eid == cid) { // is singleton?
         ecs_add_id( pImpl->world, eid, EcsSingleton );
     }
 
-    ecs_set_id( pImpl->world, eid, registered_comp_id, type->size, data );
+    ecs_set_id( pImpl->world, eid, cid, type->size, data );
 
-    return registered_comp_id;
+    return cid;
 }
 
-void* EcsWorld::emplace_component_( EcsEntity eid, const rtti::TypeInfo* type )
+void* EcsWorld::add_component_( EcsEntity eid, const rtti::TypeInfo* type )
 {
-    NC_FAIL_MSG_RETVAL( type->is_record(), nullptr, "Emplacing a non-record component is not possible." );
+    NC_FAIL_MSG_RETVAL( type->is_record(), nullptr, "Adding a non-record component is not possible." );
 
-    EcsComponent registered_comp_id = register_component_type( type );
+    EcsComponent cid = register_component_type( type );
     if (eid == INVALID_ENTITY_ID) {
-        eid = registered_comp_id;
+        eid = cid;
     }
 
-    if (eid == registered_comp_id) { // is singleton?
+    if (eid == cid) { // is singleton?
         ecs_add_id( pImpl->world, eid, EcsSingleton );
     }
 
-    bool is_new = false;
-    auto ptr    = ecs_emplace_id( pImpl->world, eid, registered_comp_id, type->size, &is_new );
-    if (is_new) {
-        static_cast<const rtti::RecordInfo*>( type )->construct( ptr );
-    }
-
-    return ptr;
+    return ecs_ensure_id( pImpl->world, eid, cid, type->size );
 }
 
-void* EcsWorld::get_component_( EcsEntity id, const rtti::TypeInfo* type ) const
+void* EcsWorld::get_component_( EcsEntity cid, const rtti::TypeInfo* type ) const
 {
     auto it = pImpl->comp_type_to_id.find( type );
     if (it == pImpl->comp_type_to_id.end())
         return nullptr;
-    if (id == INVALID_ENTITY_ID) { // is singleton?
-        id = it->second;
+    if (cid == INVALID_ENTITY_ID) { // is singleton?
+        cid = it->second;
     }
-    return ecs_get_mut_id( pImpl->world, id, it->second );
+    return ecs_get_mut_id( pImpl->world, cid, it->second );
 }
 
-const void* EcsWorld::get_component_const_( EcsEntity id, const rtti::TypeInfo* type ) const
+const void* EcsWorld::get_component_const_( EcsEntity cid, const rtti::TypeInfo* type ) const
 {
     auto it = pImpl->comp_type_to_id.find( type );
     if (it == pImpl->comp_type_to_id.end())
         return nullptr;
-    if (id == INVALID_ENTITY_ID) { // is singleton?
-        id = it->second;
+    if (cid == INVALID_ENTITY_ID) { // is singleton?
+        cid = it->second;
     }
-    return ecs_get_id( pImpl->world, id, it->second );
+    return ecs_get_id( pImpl->world, cid, it->second );
 }
 
-bool EcsWorld::has_component_( EcsEntity id, const rtti::TypeInfo* type ) const
+bool EcsWorld::has_component_( EcsEntity cid, const rtti::TypeInfo* type ) const
 {
     auto it = pImpl->comp_type_to_id.find( type );
     if (it == pImpl->comp_type_to_id.end())
         return false;
-    if (id == INVALID_ENTITY_ID) { // is singleton?
-        id = it->second;
+    if (cid == INVALID_ENTITY_ID) { // is singleton?
+        cid = it->second;
     }
-    return ecs_has_id( pImpl->world, id, it->second );
+    return ecs_has_id( pImpl->world, cid, it->second );
 }
 
-void EcsWorld::remove_component_( EcsEntity id, const rtti::TypeInfo* type ) const
+void EcsWorld::remove_component_( EcsEntity cid, const rtti::TypeInfo* type ) const
 {
     auto it = pImpl->comp_type_to_id.find( type );
     if (it == pImpl->comp_type_to_id.end())
         return;
-    if (id == INVALID_ENTITY_ID) { // is singleton?
-        id = it->second;
+    if (cid == INVALID_ENTITY_ID) { // is singleton?
+        cid = it->second;
     }
-    ecs_remove_id( pImpl->world, id, it->second );
+    ecs_remove_id( pImpl->world, cid, it->second );
 }
 
 EcsQuery EcsWorld::create_query_( const String& name, void* data )

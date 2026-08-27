@@ -9,8 +9,7 @@
 namespace nc {
 
 /**
- * @brief IRHI defines a set of APIs for a specific
- * Render Hardware Interface implementation.
+ * @brief IRHI (Render Hardware Interface) defines the implementation contract for Graphics APIs.
  */
 class IRHI : public NcObject {
     NCLASS( IRHI, NcObject )
@@ -33,34 +32,45 @@ public:
     /**
      * @brief Creates a per-window presentation target (swap chain).
      */
-    virtual RID swapchain_create( const SwapChainDesc& desc )        = 0;
-    virtual Vec2 swapchain_get_size( RID sc )                        = 0;
-    virtual void swapchain_set_size( RID sc, Vec2 size )             = 0;
-    virtual void swapchain_present( RID sc, bool sync_interval )     = 0;
-    virtual void* swapchain_get_view( RID sc, TextureViewType view ) = 0;
-    virtual void swapchain_destroy( RID sc )                         = 0;
+    virtual RID swapchain_create( const SwapChainDesc& desc )               = 0;
+    virtual Vec2i swapchain_get_size( RID swapchain )                       = 0;
+    virtual void swapchain_set_size( RID swapchain, Vec2i size )            = 0;
+    virtual void swapchain_present( RID swapchain, bool sync_interval )     = 0;
+    virtual void* swapchain_get_view( RID swapchain, TextureViewType view ) = 0;
+    virtual void swapchain_destroy( RID swapchain )                         = 0;
 
     /**
+     * @brief Create a graphics pipeline state object.
      * @param resource_signatures List of explicitly created resource signature handles.
+     * @return Its RID handle.
      */
     virtual RID gfx_pipeline_create( const GraphicsPSODesc& desc, DynamicArray<RID> resource_signatures = {} ) = 0;
-    virtual void gfx_pipeline_bind( RID pipeline )                                                             = 0;
-    virtual void gfx_pipeline_reload( RID pipeline )                                                           = 0;
+    /**
+     * @brief Bind a graphics PSO to current context.
+     */
+    virtual void gfx_pipeline_bind( RID pipeline )   = 0;
+    virtual void gfx_pipeline_reload( RID pipeline ) = 0;
 
     struct Viewport {
-        Rect rect;
+        Rect2f rect;
         float min_depth = 0;
         float max_depth = 1;
     };
 
-    virtual void render_target_bind( Span<const void*> rtvs, void* dsv = nullptr ) = 0;
+    /**
+     * @brief Binds one or more render targets and the depth-stencil buffer to the context.
+     */
+    virtual void render_target_bind( Span<const void*> render_target_views, void* depth_stencil_view = nullptr ) = 0;
     /**
      * @brief Set viewport(s) of currently bound render target.
      */
-    virtual void render_target_set_viewport( Span<const Viewport> viewports )                    = 0;
-    virtual void render_target_set_scissor_rect( Span<const Rect> rect )                         = 0;
-    virtual void render_target_clear_color( void* rtv, const Color& color )                      = 0;
-    virtual void render_target_clear_depth( void* dsv, float depth = 1.0f, uint8_t stencil = 0 ) = 0;
+    virtual void render_target_set_viewport( Span<const Viewport> viewports ) = 0;
+    /**
+     * @brief Sets active scissor rects for currently bound render target.
+     */
+    virtual void render_target_set_scissor_rect( Span<const Rect2i> rect )                                      = 0;
+    virtual void render_target_clear_color( void* render_target_view, const Color& color )                      = 0;
+    virtual void render_target_clear_depth( void* depth_stencil_view, float depth = 1.0f, uint8_t stencil = 0 ) = 0;
 
     virtual void commands_record_begin()                     = 0;
     virtual void* commands_record_end()                      = 0;
@@ -81,6 +91,13 @@ public:
     virtual RID texture_create( const TextureDesc& desc )                             = 0;
     virtual void texture_binding_update( RID texture, RID binding, const char* name ) = 0;
     virtual void* texture_get_view( RID texture, TextureViewType view )               = 0;
+    /**
+     * @brief Copy data from one texture to another.
+     * @param texture_src RID handle of source tex.
+     * @param texture_dest RID handle of destination tex.
+     * @param to_swapchain If true, texture_dest will be interpreted as a swapchain backbuffer RTV texture.
+     */
+    virtual void texture_blit( RID texture_src, RID texture_dest, bool to_swapchain = false ) = 0;
 
     virtual RID sampler_create( const SamplerDesc& desc )                             = 0;
     virtual void sampler_update_binding( RID sampler, RID binding, const char* name ) = 0;
@@ -88,6 +105,7 @@ public:
     virtual RID buffer_create( const BufferDesc& desc )                                                           = 0;
     virtual void buffer_update( RID buffer, const void* data, size_t size )                                       = 0;
     virtual void buffer_update_binding( RID buffer, RID binding, const char* name )                               = 0;
+
     virtual void vertex_buffers_bind( Span<const RID> buffers, uint32_t slot, Span<const uint64_t> offsets = {} ) = 0;
     virtual void index_buffer_bind( RID buffer, uint32_t offset )                                                 = 0;
 
@@ -96,12 +114,18 @@ public:
     virtual RID resource_binding_create( RID signature ) = 0;
     virtual void resource_binding_commit( RID binding )  = 0;
 
-    virtual bool is_rid_owned( RID rid )     = 0;
-    virtual void destroy_resource( RID rid ) = 0;
+    virtual bool is_rid_owned( RID rid ) = 0;
+    virtual bool destroy_rid( RID rid )  = 0;
 
     // Drawing
 
+    /**
+     * @brief Submit draw call to the GPU.
+     */
     virtual void draw( uint32_t vertex_count, uint32_t start_vertex = 0, uint32_t instance_count = 1 ) = 0;
+    /**
+     * @brief Submit draw call with index info to the GPU.
+     */
     virtual void draw_indexed(
         uint32_t index_count, uint32_t start_index = 0, int32_t base_vertex = 0, uint32_t instance_count = 1
     ) = 0;

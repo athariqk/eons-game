@@ -45,12 +45,12 @@ public:
 
     virtual bool is_body_valid( RID body ) const     = 0;
     virtual bool is_body_awake( RID body ) const     = 0;
-    virtual Vec2 get_body_position( RID body ) const = 0;
+    virtual Vec2f get_body_position( RID body ) const = 0;
     virtual float get_body_angle( RID body ) const   = 0;
-    virtual Vec2 get_body_velocity( RID body ) const = 0;
+    virtual Vec2f get_body_velocity( RID body ) const = 0;
 
-    virtual void apply_linear_impulse( RID body, const Vec2& impulse ) = 0;
-    virtual void apply_linear_force( RID body, const Vec2& force )     = 0;
+    virtual void apply_linear_impulse( RID body, const Vec2f& impulse ) = 0;
+    virtual void apply_linear_force( RID body, const Vec2f& force )     = 0;
 
     virtual void update_debug_draw()           = 0;
     virtual PhysicsDebugDraw& get_debug_draw() = 0;

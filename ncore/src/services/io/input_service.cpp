@@ -3,7 +3,7 @@
 #include <SDL3/SDL_events.h>
 #include <backends/sdl/sdl_type_helpers.h>
 
-#include <ncore/services/input/input_service.h>
+#include <ncore/services/io/input_service.h>
 
 namespace nc {
 
@@ -66,13 +66,13 @@ float InputService::action_get_axis( const char* neg_action, const char* pos_act
     return negative->state.strength - positive->state.strength;
 }
 
-Vec2 InputService::action_get_vector(
+Vec2f InputService::action_get_vector(
     const char* neg_action_x, const char* pos_action_x, const char* neg_action_y, const char* pos_action_y
 )
 {
     float x = action_get_axis( neg_action_x, pos_action_x );
     float y = action_get_axis( neg_action_y, pos_action_y );
-    return Vec2( x, y );
+    return Vec2f( x, y );
 }
 
 bool InputService::is_anything_held() const
@@ -85,17 +85,17 @@ bool InputService::is_anything_pressed() const
     return is_any_pressed;
 }
 
-Vec2 InputService::get_mouse_position() const
+Vec2f InputService::get_mouse_position() const
 {
     return mouse_pos;
 }
 
-Vec2 InputService::get_mouse_delta() const
+Vec2f InputService::get_mouse_delta() const
 {
     return mouse_delta;
 }
 
-Vec2 InputService::get_mouse_wheel() const
+Vec2f InputService::get_mouse_wheel() const
 {
     return mouse_wheel;
 }
@@ -249,7 +249,7 @@ void InputService::pump_events_()
             case SDL_EVENT_MOUSE_BUTTON_UP: {
                 auto action = SDLTypeHelpers::MapSDLEventTypeToAction( e.type );
                 auto btn    = SDLTypeHelpers::MapSDLButtonToButtonIndex( e.button.button );
-                Vec2 pos( e.button.x, e.button.y );
+                Vec2f pos( e.button.x, e.button.y );
                 event_queue.emplace(
                     MouseButtonEvent{
                         e.button.windowID,
@@ -261,8 +261,8 @@ void InputService::pump_events_()
                 break;
             }
             case SDL_EVENT_MOUSE_MOTION: {
-                Vec2 pos( e.motion.x, e.motion.y );
-                Vec2 delta( e.motion.xrel, e.motion.yrel );
+                Vec2f pos( e.motion.x, e.motion.y );
+                Vec2f delta( e.motion.xrel, e.motion.yrel );
                 event_queue.emplace(
                     MouseMotionEvent{
                         e.motion.windowID,

@@ -4,13 +4,13 @@
 #include <ncore/resources/material_template.h>
 #include <ncore/resources/mesh.h>
 #include <ncore/resources/shader.h>
-#include <ncore/services/video/renderer/renderer_storage.h>
+#include <ncore/services/video/renderer/render_storage.h>
 #include <ncore/services/video/renderer/vertex_format.h>
 #include <ncore/services/video/rhi.h>
 
 namespace nc {
 
-bool RendererStorage::PSOKey::operator==( const PSOKey& o ) const
+bool RenderStorage::PSOKey::operator==( const PSOKey& o ) const
 {
     if (flags != o.flags)
         return false;
@@ -51,7 +51,12 @@ bool RendererStorage::PSOKey::operator==( const PSOKey& o ) const
     return true;
 }
 
-RID RendererStorage::get_pipeline_or_create( const PSOKey& key )
+void RenderStorage::set_graphics_api( IRHI* p_gfx_api )
+{
+    gfx_api = p_gfx_api;
+}
+
+RID RenderStorage::get_pipeline_or_create( const PSOKey& key )
 {
     auto hash = PSOKeyHasher()( key ); // TODO: find a way to cache this somehow
 
@@ -66,21 +71,22 @@ RID RendererStorage::get_pipeline_or_create( const PSOKey& key )
     NC_LOG_DEBUG_C(
         log::GRAPHICS, "get_pipeline_or_create: '{}_{}' cache MISS -> creating new PSO", key.debug_name, hash
     );
-    NC_VERIFY( rhi );
+    NC_VERIFY( gfx_api );
 
     GraphicsPSODesc desc;
     desc.debug_name                      = key.debug_name;
-    desc.render_target_format            = static_cast<TextureFormat>( ( key.flags >> PSO_RT_FMT_SHIFT ) & 0x7F );
-    desc.primitive_topology              = static_cast<PrimitiveTopology>( ( key.flags >> PSO_TOPOLOGY_SHIFT ) & 0xF );
+    desc.render_target_format            = static_cast<TextureFormat>( ( key.flags >> PSO_RT_FMT_SHIFT ) & 7 );
+    desc.depth_stencil_format            = static_cast<TextureFormat>( ( key.flags >> PSO_DST_FMT_SHIFT ) & 15 );
+    desc.primitive_topology              = static_cast<PrimitiveTopology>( ( key.flags >> PSO_TOPOLOGY_SHIFT ) & 15 );
     desc.vs_bytecode                     = key.vs ? key.vs->get_bytecode() : std::span<const uint32_t>();
     desc.ps_bytecode                     = key.ps ? key.ps->get_bytecode() : std::span<const uint32_t>();
     desc.vert_layout                     = key.vertex_layout;
-    desc.rasterizer_state.cull           = static_cast<CullMode>( ( key.flags >> PSO_CULL_SHIFT ) & 0x3 );
-    desc.rasterizer_state.fill           = static_cast<FillMode>( ( key.flags >> PSO_FILL_SHIFT ) & 0x3 );
+    desc.rasterizer_state.cull           = static_cast<CullMode>( ( key.flags >> PSO_CULL_SHIFT ) & 3 );
+    desc.rasterizer_state.fill           = static_cast<FillMode>( ( key.flags >> PSO_FILL_SHIFT ) & 3 );
     desc.rasterizer_state.scissor_enable = ( key.flags & PSO_SCISSOR ) != 0;
     desc.depth_stencil_state.depth_test  = ( key.flags & PSO_DEPTH_TEST ) != 0;
     desc.depth_stencil_state.depth_write = ( key.flags & PSO_DEPTH_WRITE ) != 0;
-    auto blend_state                     = static_cast<BlendPreset>( ( key.flags >> PSO_BLEND_SHIFT ) & 0xF );
+    auto blend_state                     = static_cast<BlendPreset>( ( key.flags >> PSO_BLEND_SHIFT ) & 15 );
     auto& rt0                            = desc.blend_state.render_targets[0]; // TODO: multiple render targets
     switch (blend_state) {
         case BlendPreset::OPAQUE:
@@ -114,15 +120,15 @@ RID RendererStorage::get_pipeline_or_create( const PSOKey& key )
             rt0.op_alpha  = BlendOp::ADD;
             break;
     }
-    desc.multisample_state.count   = static_cast<uint8_t>( ( key.flags >> PSO_MSAA_COUNT_SHIFT ) & 0xF );
-    desc.multisample_state.quality = static_cast<uint8_t>( ( key.flags >> PSO_MSAA_QUALITY_SHIFT ) & 0xF );
+    desc.multisample_state.count   = static_cast<uint8_t>( ( key.flags >> PSO_MSAA_COUNT_SHIFT ) & 15 );
+    desc.multisample_state.quality = static_cast<uint8_t>( ( key.flags >> PSO_MSAA_QUALITY_SHIFT ) & 15 );
 
-    auto rid = rhi->gfx_pipeline_create( desc, key.res_signatures );
+    auto rid = gfx_api->gfx_pipeline_create( desc, key.res_signatures );
     pso_cache.emplace( key, rid );
     return rid;
 }
 
-size_t RendererStorage::PSOKeyHasher::operator()( const PSOKey& p ) const
+size_t RenderStorage::PSOKeyHasher::operator()( const PSOKey& p ) const
 {
     auto combine = []( size_t a, size_t b ) -> size_t { return a ^ ( b + 0x9e3779b9 + ( a << 6 ) + ( a >> 2 ) ); };
 
@@ -148,16 +154,16 @@ size_t RendererStorage::PSOKeyHasher::operator()( const PSOKey& p ) const
 
 // ---------------------------------------------------------------------------
 
-RID RendererStorage::material_create( const MaterialTemplate& tmpl )
+RID RenderStorage::material_create( const MaterialTemplate& tmpl )
 {
-    NC_VERIFY( rhi );
+    NC_VERIFY( gfx_api );
 
     auto sig_descs = build_resource_signatures_( tmpl );
 
     DynamicArray<RID> sig_rids;
     sig_rids.reserve( sig_descs.size() );
     for (auto& desc : sig_descs) {
-        sig_rids.push_back( rhi->resource_signature_create( desc ) );
+        sig_rids.push_back( gfx_api->resource_signature_create( desc ) );
     }
 
     auto key           = get_pso_key_( tmpl );
@@ -174,7 +180,7 @@ RID RendererStorage::material_create( const MaterialTemplate& tmpl )
 
     mat->srbs.reserve( sig_rids.size() );
     for (auto& sig_rid : sig_rids) {
-        mat->srbs.push_back( rhi->resource_binding_create( sig_rid ) );
+        mat->srbs.push_back( gfx_api->resource_binding_create( sig_rid ) );
     }
 
     SamplerDesc sdesc;
@@ -185,7 +191,7 @@ RID RendererStorage::material_create( const MaterialTemplate& tmpl )
     sdesc.address_u  = TextureAddressMode::CLAMP;
     sdesc.address_v  = TextureAddressMode::CLAMP;
     sdesc.address_w  = TextureAddressMode::CLAMP;
-    mat->sampler     = rhi->sampler_create( sdesc );
+    mat->sampler     = gfx_api->sampler_create( sdesc );
 
     BufferDesc bdesc;
     bdesc.debug_name     = tmpl.debug_name + "_Constants";
@@ -193,7 +199,7 @@ RID RendererStorage::material_create( const MaterialTemplate& tmpl )
     bdesc.usage          = ResourceUsage::DYNAMIC;
     bdesc.access_mask    = ResourceAccessFlags::WRITE;
     bdesc.bind_mask      = ResourceBindFlags::UNIFORM_BUFFER;
-    mat->constant_buffer = rhi->buffer_create( bdesc );
+    mat->constant_buffer = gfx_api->buffer_create( bdesc );
 
     for (size_t si = 0; si < sig_descs.size(); si++) {
         auto& sig_desc = sig_descs[si];
@@ -208,12 +214,12 @@ RID RendererStorage::material_create( const MaterialTemplate& tmpl )
                     log::GRAPHICS, "material_create '{}': sampler binding SRB[{}] var='{}'", tmpl.debug_name, si,
                     res.name
                 );
-                rhi->sampler_update_binding( mat->sampler, srb, res.name.c_str() );
+                gfx_api->sampler_update_binding( mat->sampler, srb, res.name.c_str() );
             } else if (res.resource_type == ResourceType::CONSTANT_BUFFER && mat->constant_buffer.is_valid()) {
                 NC_LOG_DEBUG_C(
                     log::GRAPHICS, "material_create '{}': CB binding SRB[{}] var='{}'", tmpl.debug_name, si, res.name
                 );
-                rhi->buffer_update_binding( mat->constant_buffer, srb, res.name.c_str() );
+                gfx_api->buffer_update_binding( mat->constant_buffer, srb, res.name.c_str() );
             } else if (res.resource_type == ResourceType::TEXTURE_SRV) {
                 NC_LOG_DEBUG_C(
                     log::GRAPHICS, "material_create '{}': texture slot SRB[{}] var='{}'", tmpl.debug_name, si, res.name
@@ -229,22 +235,28 @@ RID RendererStorage::material_create( const MaterialTemplate& tmpl )
     return rid;
 }
 
-void RendererStorage::material_set_texture( RID handle, RID texture, uint32_t slot )
+void RenderStorage::material_set_texture( RID handle, RID texture, uint32_t slot )
 {
-    NC_VERIFY( rhi );
+    NC_VERIFY( gfx_api );
+
+    ensure_fallback_texture_();
+    if (!texture || !gfx_api->is_rid_owned( texture )) {
+        texture = white_texture; // fallback texture.
+    }
 
     auto mat = get_material_( handle );
     if (!mat || slot >= mat->texture_slots.size())
         return;
 
     auto& ts = mat->texture_slots[slot];
-    if (ts.srb_index < mat->srbs.size() && mat->srbs[ts.srb_index].is_valid())
-        rhi->texture_binding_update( texture, mat->srbs[ts.srb_index], ts.name.c_str() );
+    if (ts.srb_index < mat->srbs.size() && mat->srbs[ts.srb_index]) {
+        gfx_api->texture_binding_update( texture, mat->srbs[ts.srb_index], ts.name.c_str() );
+    }
 }
 
-void RendererStorage::material_set_draw_mode( RID handle, FillMode mode )
+void RenderStorage::material_set_draw_mode( RID handle, FillMode mode )
 {
-    NC_VERIFY( rhi );
+    NC_VERIFY( gfx_api );
 
     auto mat = get_material_( handle );
     NC_VERIFY( mat );
@@ -255,9 +267,9 @@ void RendererStorage::material_set_draw_mode( RID handle, FillMode mode )
     mat->pso = get_pipeline_or_create( key );
 }
 
-void RendererStorage::material_bind( RID handle, const ShaderConstants& constants )
+void RenderStorage::material_bind( RID handle, const ShaderConstants& constants )
 {
-    NC_VERIFY( rhi );
+    NC_VERIFY( gfx_api );
 
     auto mat = get_material_( handle );
     NC_VERIFY( mat );
@@ -267,9 +279,9 @@ void RendererStorage::material_bind( RID handle, const ShaderConstants& constant
         mat->srbs.size()
     );
 
-    rhi->gfx_pipeline_bind( mat->pso );
+    gfx_api->gfx_pipeline_bind( mat->pso );
 
-    rhi->buffer_update( mat->constant_buffer, &constants, sizeof( ShaderConstants ) );
+    gfx_api->buffer_update( mat->constant_buffer, &constants, sizeof( ShaderConstants ) );
     NC_LOG_TRACE_C(
         log::GRAPHICS, "material_bind: CB updated ({} bytes, [{:.4f}, {:.4f}, {:.4f}, {:.4f} ...])",
         sizeof( constants.ViewProjMatrix ), constants.ViewProjMatrix.data()[0], constants.ViewProjMatrix.data()[1],
@@ -278,19 +290,19 @@ void RendererStorage::material_bind( RID handle, const ShaderConstants& constant
 
     for (auto& srb : mat->srbs) {
         if (srb.is_valid())
-            rhi->resource_binding_commit( srb );
+            gfx_api->resource_binding_commit( srb );
     }
 }
 
 // ---------------------------------------------------------------------------
 
-RID RendererStorage::gpu_mesh_create( const Mesh& mesh )
+RID RenderStorage::gpu_mesh_create( const Mesh& mesh )
 {
     auto rid    = gpu_meshes.acquire();
     auto result = gpu_meshes.get( rid );
     NC_VERIFY( result );
 
-    auto basename = std::format( "{}_{}_", mesh.get_class_name(), rid.value );
+    auto basename = std::format( "{}_{}", mesh.get_class_name(), rid.value );
 
     NC_LOG_DEBUG_C(
         log::GRAPHICS, "gpu_mesh_create: RID={} vert_count={} idx_count={}", rid.value, mesh.vertex_count(),
@@ -298,33 +310,33 @@ RID RendererStorage::gpu_mesh_create( const Mesh& mesh )
     );
 
     BufferDesc vdesc;
-    vdesc.debug_name   = basename + "VertexBuffer";
+    vdesc.debug_name   = basename + "_VBO";
     vdesc.size         = mesh.get_vertices().size();
     vdesc.usage        = ResourceUsage::IMMUTABLE;
     vdesc.bind_mask    = ResourceBindFlags::VERTEX_BUFFER;
     vdesc.initial_data = mesh.get_vertices().data();
-    result->vertices   = rhi->buffer_create( vdesc );
+    result->vertices   = gfx_api->buffer_create( vdesc );
 
     BufferDesc idesc;
-    idesc.debug_name    = basename + "IndexBuffer";
+    idesc.debug_name    = basename + "_IBO";
     idesc.size          = mesh.get_indices().size_bytes();
     idesc.usage         = ResourceUsage::IMMUTABLE;
     idesc.bind_mask     = ResourceBindFlags::INDEX_BUFFER;
     idesc.initial_data  = mesh.get_indices().data();
-    result->indices     = rhi->buffer_create( idesc );
+    result->indices     = gfx_api->buffer_create( idesc );
     result->index_count = static_cast<uint32_t>( mesh.index_count() );
 
     return rid;
 }
 
-void RendererStorage::gpu_mesh_bind( RID handle )
+void RenderStorage::gpu_mesh_bind( RID handle )
 {
     auto mesh = get_gpu_mesh( handle );
-    rhi->vertex_buffers_bind( { &mesh->vertices, 1 }, 0 );
-    rhi->index_buffer_bind( mesh->indices, 0 );
+    gfx_api->vertex_buffers_bind( { &mesh->vertices, 1 }, 0 );
+    gfx_api->index_buffer_bind( mesh->indices, 0 );
 }
 
-RendererStorage::GPUMesh* RendererStorage::get_gpu_mesh( RID handle )
+RenderStorage::GPUMesh* RenderStorage::get_gpu_mesh( RID handle )
 {
     auto result = gpu_meshes.get( handle );
     NC_VERIFY( result );
@@ -333,16 +345,21 @@ RendererStorage::GPUMesh* RendererStorage::get_gpu_mesh( RID handle )
 
 // ---------------------------------------------------------------------------
 
-void RendererStorage::destroy_rid( RID rid )
+bool RenderStorage::is_rid_owned( RID rid )
+{
+    return materials.contains( rid ) || gpu_meshes.contains( rid );
+}
+
+bool RenderStorage::destroy_rid( RID rid )
 {
     if (materials.contains( rid ) || gpu_meshes.contains( rid )) {
         pending_destroys.push_back( rid );
-        return;
+        return true;
     }
-    rhi->destroy_resource( rid );
+    return false;
 }
 
-void RendererStorage::flush_pending_destroys()
+void RenderStorage::flush_pending_destroys()
 {
     for (RID rid : pending_destroys) {
         NC_LOG_DEBUG_C( log::GRAPHICS, "Flushing pending destroys: RID={}", rid.value );
@@ -354,16 +371,35 @@ void RendererStorage::flush_pending_destroys()
 
 // ---------------------------------------------------------------------------
 
-RendererStorage::Material* RendererStorage::get_material_( RID handle )
+void RenderStorage::ensure_fallback_texture_()
+{
+    if (gfx_api->is_rid_owned( white_texture ))
+        return;
+
+    uint8_t pixels[4] = { 255, 255, 255, 255 };
+    TextureDesc desc{};
+    desc.debug_name  = "WhiteTexture";
+    desc.format      = TextureFormat::RGBA8_UNORM_SRGB;
+    desc.dimension   = ResourceDimension::DIM_2D;
+    desc.usage       = ResourceUsage::DYNAMIC;
+    desc.access_mask = ResourceAccessFlags::WRITE;
+    desc.width       = 1;
+    desc.height      = 1;
+    desc.subresources.emplace_back( pixels );
+    white_texture = gfx_api->texture_create( desc );
+}
+
+RenderStorage::Material* RenderStorage::get_material_( RID handle )
 {
     auto result = materials.get( handle );
     NC_VERIFY( result );
     return result;
 }
 
-RendererStorage::PSOKey RendererStorage::get_pso_key_( const MaterialTemplate& tmpl )
+RenderStorage::PSOKey RenderStorage::get_pso_key_( const MaterialTemplate& tmpl )
 {
     PSOKey key;
+
     key.flags = static_cast<PSOFlags>(
         ( static_cast<uint64_t>( TextureFormat::RGBA8_UNORM_SRGB ) << PSO_RT_FMT_SHIFT ) |
         ( static_cast<uint64_t>( tmpl.cull_mode ) << PSO_CULL_SHIFT ) |
@@ -372,8 +408,18 @@ RendererStorage::PSOKey RendererStorage::get_pso_key_( const MaterialTemplate& t
         ( static_cast<uint64_t>( tmpl.multisample_state.count & 0xF ) << PSO_MSAA_COUNT_SHIFT ) |
         ( static_cast<uint64_t>( tmpl.multisample_state.quality & 0xF ) << PSO_MSAA_QUALITY_SHIFT ) | PSO_SCISSOR
     );
+    bool require_depth = tmpl.depth_test || tmpl.depth_write;
+    if (require_depth) {
+        key.flags =
+            static_cast<PSOFlags>( key.flags | static_cast<uint64_t>( TextureFormat::D32_FLOAT ) << PSO_DST_FMT_SHIFT );
+    } else {
+        key.flags =
+            static_cast<PSOFlags>( key.flags | static_cast<uint64_t>( TextureFormat::UNKNOWN ) << PSO_DST_FMT_SHIFT );
+    }
+
     key.vs = tmpl.vs.get();
     key.ps = tmpl.ps.get();
+
     if (!tmpl.vertex_layout_name.empty()) {
         key.vertex_layout = get_vertex_layout_by_name( std::string( tmpl.vertex_layout_name.c_str() ) );
         NC_LOG_DEBUG_C(
@@ -387,17 +433,20 @@ RendererStorage::PSOKey RendererStorage::get_pso_key_( const MaterialTemplate& t
             key.vertex_layout.size()
         );
     }
+
     for (auto& e : key.vertex_layout) {
         NC_LOG_TRACE_C(
             log::GRAPHICS, "  layout: slot={} loc={} type={} offset={} stride={} semantic='{}'", e.buffer_slot,
             e.location, static_cast<int>( e.type ), e.relative_offset, e.stride, e.hlsl_semantic ? e.hlsl_semantic : ""
         );
     }
+
     key.debug_name = tmpl.debug_name;
+
     return key;
 }
 
-DynamicArray<ResourceSignatureDesc> RendererStorage::build_resource_signatures_( const MaterialTemplate& tmpl )
+DynamicArray<ResourceSignatureDesc> RenderStorage::build_resource_signatures_( const MaterialTemplate& tmpl )
 {
     HashMap<uint8_t, ResourceSignatureDesc> sets;
 

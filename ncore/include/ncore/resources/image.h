@@ -15,7 +15,7 @@ public:
     size_t get_size_bytes() const override;
     uint32_t get_width() const;
     uint32_t get_height() const;
-    std::span<const std::byte> get_pixels() const;
+    Span<const std::byte> get_pixels() const;
     void* get_raw();
 
 private:

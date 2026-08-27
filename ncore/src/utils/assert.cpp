@@ -5,7 +5,7 @@ namespace nc {
 
 void assert_fail( const char* expr, const char* msg, const char* file, int line )
 {
-    if (log::Level::LFATAL < log::g_min_log_level.load())
+    if (log::Level::LFATAL < log::g_MinLogLevel.load())
         return;
     auto channel = log::Logger::get_instance().channel();
     channel->write(

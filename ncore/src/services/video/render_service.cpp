@@ -23,11 +23,12 @@ Error RenderService::init( ConfFile& cfg_file )
 {
     settings = cfg_file.read<RenderSettings>();
 
-    ctx.rhi = new DiligentRHI();
-    ctx.rhi->load_pso_cache();
-    ctx.storage.set_rhi( ctx.rhi );
+    gfx_api = std::make_unique<DiligentRHI>();
+    gfx_api->load_pso_cache();
 
-    ctx.gfx_device_ctx = ctx.rhi->create_deferred_context( IRHI::GpuQueue::Graphics );
+    ctx.gfx_device_ctx = gfx_api->create_deferred_context( IRHI::GpuQueue::Graphics );
+
+    storage.set_graphics_api( gfx_api.get() );
 
     return Error::OK;
 }
@@ -35,85 +36,80 @@ Error RenderService::init( ConfFile& cfg_file )
 void RenderService::shutdown()
 {
     for (auto& sc : swapchains) {
-        ctx.rhi->swapchain_destroy( sc );
+        gfx_api->swapchain_destroy( sc );
     }
     swapchains.clear();
 
     if (canvas_vb.is_valid())
-        ctx.rhi->destroy_resource( canvas_vb );
+        gfx_api->destroy_rid( canvas_vb );
     if (canvas_ib.is_valid())
-        ctx.rhi->destroy_resource( canvas_ib );
+        gfx_api->destroy_rid( canvas_ib );
 
-    ctx.storage.flush_pending_destroys();
-    ctx.rhi->save_pso_cache();
-    delete ctx.rhi;
+    storage.flush_pending_destroys();
+    gfx_api->save_pso_cache();
+
+    gfx_api.reset();
 }
 
-RID RenderService::swapchain_create( void* whnd, Vec2 size )
+// ---------------------------------------------------------------------------
+
+RID RenderService::swapchain_create( void* whnd, Vec2i size, TextureFormat color_format, TextureFormat depth_format )
 {
-    RID rid =
-        ctx.rhi->swapchain_create( SwapChainDesc{ .native_whnd = whnd, .initial_size = size, .is_primary = true } );
+    SwapChainDesc desc{
+        .native_whnd  = whnd,
+        .initial_size = size,
+        .is_primary   = true,
+        .color_format = color_format,
+        .depth_format = depth_format
+    };
+    RID rid = gfx_api->swapchain_create( desc );
     swapchains.push_back( rid );
     return rid;
 }
 
-void RenderService::swapchain_set_size( RID sc, Vec2 size )
+void RenderService::swapchain_set_size( RID swapchain, Vec2i size )
 {
-    ctx.rhi->swapchain_set_size( sc, size );
+    gfx_api->swapchain_set_size( swapchain, size );
 }
 
-Vec2 RenderService::swapchain_get_size( RID sc )
+Vec2i RenderService::swapchain_get_size( RID swapchain )
 {
-    return ctx.rhi->swapchain_get_size( sc );
+    return gfx_api->swapchain_get_size( swapchain );
 }
 
-void RenderService::swapchain_destroy( RID sc )
+RID RenderService::swapchain_get_primary() const
 {
-    ctx.rhi->swapchain_destroy( sc );
-    std::erase( swapchains, sc );
+    return swapchains.empty() ? RID() : swapchains[0];
 }
 
-RID RenderService::texture_2d_create(
-    uint32_t width, uint32_t height, TextureFormat format, ResourceBindFlags bind_mask
-)
+void RenderService::swapchain_destroy( RID swapchain )
 {
-    return ctx.rhi->texture_create(
-        TextureDesc{
-            .debug_name = "RenderService_FloatTexture",
-            .format     = format,
-            .dimension  = ResourceDimension::DIM_2D,
-            .usage      = ResourceUsage::DEFAULT,
-            .bind_mask  = bind_mask,
-            .width      = width,
-            .height     = height,
-            .faces      = {},
-        }
-    );
+    gfx_api->swapchain_destroy( swapchain );
+    std::erase( swapchains, swapchain );
 }
+
+// ---------------------------------------------------------------------------
 
 RID RenderService::texture_2d_create( const Image& image )
 {
-    return ctx.rhi->texture_create(
-        TextureDesc{
-            .debug_name  = image.filepath,
-            .format      = TextureFormat::RGBA8_UNORM_SRGB,
-            .dimension   = ResourceDimension::DIM_2D,
-            .usage       = ResourceUsage::DYNAMIC,
-            .access_mask = ResourceAccessFlags::WRITE,
-            .width       = image.get_width(),
-            .height      = image.get_height(),
-            .pixels      = image.get_pixels().data(),
-            .faces       = {},
-        }
-    );
+    TextureDesc desc{};
+    desc.debug_name  = image.filepath;
+    desc.format      = TextureFormat::RGBA8_UNORM_SRGB;
+    desc.dimension   = ResourceDimension::DIM_2D;
+    desc.usage       = ResourceUsage::DYNAMIC;
+    desc.access_mask = ResourceAccessFlags::WRITE;
+    desc.width       = image.get_width();
+    desc.height      = image.get_height();
+    desc.subresources.emplace_back( image.get_pixels().data() );
+    return gfx_api->texture_create( desc );
 }
 
-RID RenderService::texture_cube_create( const CubeMap& cube_map )
+RID RenderService::texture_cube_create( const CubeMap& cubemap )
 {
-    auto faces = cube_map.get_faces();
+    auto faces = cubemap.get_faces();
 
     TextureDesc desc;
-    auto name       = std::format( "CubeTexture_{}_{}", cube_map.rid.value, cube_map.filepath );
+    auto name       = std::format( "CubeTexture_{}_{}", cubemap.rid.value, cubemap.filepath );
     desc.debug_name = name;
     desc.format     = TextureFormat::RGBA8_UNORM_SRGB;
     desc.dimension  = ResourceDimension::DIM_CUBE;
@@ -121,273 +117,326 @@ RID RenderService::texture_cube_create( const CubeMap& cube_map )
     desc.width      = faces[0]->get_width();
     desc.height     = faces[0]->get_height();
     desc.array_size = 6;
-    for (int i = 0; i < 6; i++) {
-        desc.faces[i] = faces[i]->get_pixels().data();
+    for (auto& face : faces) {
+        desc.subresources.emplace_back( face->get_pixels().data() );
     }
-    return ctx.rhi->texture_create( desc );
+    return gfx_api->texture_create( desc );
 }
+
+RID RenderService::texture_render_create( Vec2i size, TextureFormat format )
+{
+    ResourceBindFlags bind_mask = ResourceBindFlags::NONE;
+    if (format == TextureFormat::D32_FLOAT) {
+        bind_mask = ResourceBindFlags::DEPTH_STENCIL;
+    } else {
+        bind_mask = ResourceBindFlags::RENDER_TARGET | ResourceBindFlags::SHADER_RESOURCE;
+    }
+
+    TextureDesc desc{};
+    desc.debug_name = "RenderTexture";
+    desc.format     = format;
+    desc.dimension  = ResourceDimension::DIM_2D;
+    desc.usage      = ResourceUsage::DEFAULT;
+    desc.bind_mask  = bind_mask;
+    desc.width      = size.x;
+    desc.height     = size.y;
+    return gfx_api->texture_create( desc );
+}
+
+void* RenderService::texture_get_view( RID texture, TextureViewType view )
+{
+    return gfx_api->texture_get_view( texture, view );
+}
+
+void RenderService::texture_blit( RID tex_src, RID tex_dest )
+{
+    bool to_swapchain = !tex_dest;
+    if (to_swapchain) {
+        NC_FAIL_MSG_RET( swapchains.size() > 0, "Target texture is set to default (primary swapchain) but none exist" );
+        tex_dest = swapchains[0];
+    }
+    gfx_api->texture_blit( tex_src, tex_dest, to_swapchain );
+}
+
+//------------------------------------------------------------------------------
 
 RID RenderService::material_create( const MaterialTemplate& tmpl )
 {
-    return ctx.storage.material_create( tmpl );
+    return storage.material_create( tmpl );
 }
 
 void RenderService::material_set_texture( RID material, RID texture, uint32_t slot )
 {
-    ctx.storage.material_set_texture( material, texture, slot );
+    storage.material_set_texture( material, texture, slot );
 }
 
 void RenderService::material_set_draw_mode( RID material, FillMode mode )
 {
-    ctx.storage.material_set_draw_mode( material, mode );
+    storage.material_set_draw_mode( material, mode );
 }
+
+//------------------------------------------------------------------------------
 
 RID RenderService::gpu_mesh_create( const Mesh& mesh )
 {
-    return ctx.storage.gpu_mesh_create( mesh );
+    return storage.gpu_mesh_create( mesh );
 }
 
-void RenderService::destroy_rid( RID rid )
-{
-    ctx.storage.destroy_rid( rid );
-}
+//------------------------------------------------------------------------------
 
 RID RenderService::compute_pipeline_create( const ComputePSODesc& desc )
 {
-    return ctx.rhi->compute_pipeline_create( desc );
+    return gfx_api->compute_pipeline_create( desc );
 }
 
 void RenderService::compute_pipeline_bind( RID pipeline )
 {
-    ctx.rhi->set_queue( IRHI::GpuQueue::Compute );
-    ctx.rhi->compute_pipeline_bind( pipeline );
+    gfx_api->set_queue( IRHI::GpuQueue::Compute );
+    gfx_api->compute_pipeline_bind( pipeline );
 }
 
 void RenderService::dispatch( uint32_t x, uint32_t y, uint32_t z )
 {
-    ctx.rhi->set_queue( IRHI::GpuQueue::Compute );
-    ctx.rhi->dispatch( x, y, z );
+    gfx_api->set_queue( IRHI::GpuQueue::Compute );
+    gfx_api->dispatch( x, y, z );
 }
 
 void RenderService::compute_texture_bind( RID texture, RID binding, const char* name, TextureViewType view )
 {
-    ctx.rhi->texture_compute_update( texture, binding, name, view );
+    gfx_api->texture_compute_update( texture, binding, name, view );
 }
 
 void RenderService::compute_buffer_bind( RID buffer, RID binding, const char* name )
 {
-    ctx.rhi->buffer_compute_update( buffer, binding, name );
+    gfx_api->buffer_compute_update( buffer, binding, name );
 }
+
+//------------------------------------------------------------------------------
 
 RID RenderService::resource_signature_create( const ResourceSignatureDesc& desc )
 {
-    return ctx.rhi->resource_signature_create( desc );
+    return gfx_api->resource_signature_create( desc );
 }
 
 RID RenderService::resource_binding_create( RID signature )
 {
-    return ctx.rhi->resource_binding_create( signature );
+    return gfx_api->resource_binding_create( signature );
 }
 
 void RenderService::resource_binding_commit( RID binding )
 {
-    ctx.rhi->resource_binding_commit( binding );
+    gfx_api->resource_binding_commit( binding );
 }
+
+//------------------------------------------------------------------------------
 
 RID RenderService::buffer_create( const BufferDesc& desc )
 {
-    return ctx.rhi->buffer_create( desc );
+    return gfx_api->buffer_create( desc );
 }
 
 void RenderService::buffer_update( RID buffer, const void* data, size_t size )
 {
-    ctx.rhi->buffer_update( buffer, data, size );
+    gfx_api->buffer_update( buffer, data, size );
 }
 
-void RenderService::frame_begin()
+//------------------------------------------------------------------------------
+
+RID RenderService::camera_create()
 {
-    ctx.rhi->set_queue( IRHI::GpuQueue::Graphics );
-    ctx.rhi->set_context_state( false );
-    // ctx.rhi->set_context_state( true, ctx.rhi_ctx );
-    // ctx.rhi->commands_record_begin();
+    return cameras.acquire();
+}
 
-    // TODO: handle multiple swapchains
-    auto rtv = ctx.rhi->swapchain_get_view( swapchains[0], TextureViewType::RENDER_TARGET );
-    auto dsv = ctx.rhi->swapchain_get_view( swapchains[0], TextureViewType::DEPTH_STENCIL );
+RenderService::CameraAttribs& RenderService::camera_get_attribs( RID camera )
+{
+    auto cam = cameras.get( camera );
+    NC_VERIFY( cam );
+    return *cam;
+}
 
-    NC_LOG_TRACE_C(
-        log::GRAPHICS, "frame_begin: rtv={} dsv={}", reinterpret_cast<uintptr_t>( rtv ),
-        reinterpret_cast<uintptr_t>( dsv )
-    );
+Mat4 RenderService::camera_get_perspective( RID camera )
+{
+    auto& attribs = camera_get_attribs( camera );
 
-    auto size = ctx.rhi->swapchain_get_size( swapchains[0] );
-
-    // clang-format off
-    // set ortho proj matrix
-	ortho_proj = Mat4(
-	    Vec4( 2.0f / size.x, 0.0f,           0.0f,  0.0f ),
-	    Vec4( 0.0f,          -2.0f / size.y, 0.0f,  0.0f ),
-	    Vec4( 0.0f,          0.0f,           1.0f,  0.0f ),
-	    Vec4( -1.0f,         1.0f,           0.0f,  1.0f )
-	);
-    // clang-format on
-    // set perspective proj matrix
+    // perspective projection from target size
     // https://www.scratchapixel.com/lessons/3d-basic-rendering/perspective-and-orthographic-projection-matrix//building-basic-perspective-projection-matrix.html
     // https://github.com/DiligentGraphics/DiligentSamples/blob/master/SampleBase/src/SampleBase.cpp
-    auto aspect_ratio = size.x / size.y;
-    float y_scale     = 1.0f / std::tan( main_cam.fov * 0.5f );
-    float x_scale     = y_scale / aspect_ratio;
-    auto n            = main_cam.z_near;
-    auto f            = main_cam.z_far;
-    auto zz           = -f / ( f - n );     // used to remap z to [0,1]
-    auto wz           = -f * n / ( f - n ); // used to remap z [0,1]
-    // clang-format off
-    main_cam.projection = Mat4(
-        Vec4( x_scale, 0,       0,   0  ), // scale the x coordinates of the projected point
-        Vec4( 0,       y_scale, 0,   0  ), // scale the y coordinates of the projected point
-        Vec4( 0,       0,       zz,  -1 ), // set w = -z
-		Vec4( 0,       0,       wz,  0  )  
+    const auto aspect_ratio = static_cast<float>( attribs.DisplaySize.x ) / static_cast<float>( attribs.DisplaySize.y );
+    const float y_scale     = 1.0f / std::tan( attribs.Fov * 0.5f );
+    const float x_scale     = y_scale / aspect_ratio;
+    const auto n            = attribs.zNear;
+    const auto f            = attribs.zFar;
+    const auto zz           = -f / ( f - n );     // used to remap z to [0,1]
+    const auto wz           = -f * n / ( f - n ); // used to remap z [0,1]
+
+    return Mat4(
+        Vec4( x_scale, 0, 0, 0 ), // scale the x coordinates of the projected point
+        Vec4( 0, y_scale, 0, 0 ), // scale the y coordinates of the projected point
+        Vec4( 0, 0, zz, -1 ),     // set w = -z
+        Vec4( 0, 0, wz, 0 )
     );
-    // clang-format on
-
-    Rect full_scissor( 0, 0, size.x, size.y );
-    ctx.rhi->render_target_set_scissor_rect( { &full_scissor, 1 } );
-
-    const void* rtvs[] = { rtv };
-    ctx.rhi->render_target_bind( rtvs, dsv );
-    ctx.rhi->render_target_clear_color( rtv, Color( 0, 0, 0, 255 ) ); // TODO: don't hardcode grey
-    ctx.rhi->render_target_clear_depth( dsv );
-
-    IRHI::Viewport vp{ .rect = Rect( 0, 0, size.x, size.y ) };
-    ctx.rhi->render_target_set_viewport( { &vp, 1 } );
 }
 
-void RenderService::frame_end( float delta_time )
+//------------------------------------------------------------------------------
+
+bool RenderService::is_rid_owned( RID rid )
 {
-    NC_LOG_TRACE_C( log::GRAPHICS, "frame_end: canvas_render_list={}", ctx.canvas_render_list.size() );
+    return cameras.contains( rid ) || storage.is_rid_owned( rid );
+}
 
+bool RenderService::destroy_rid( RID rid )
+{
+    if (storage.destroy_rid( rid ))
+        return true;
+    if (gfx_api->destroy_rid( rid ))
+        return true;
+    return false;
+}
+
+// ---------------------------------------------------------------------------
+
+void RenderService::render_begin( float delta_time )
+{
     time += delta_time;
+    last_dt_ = delta_time;
 
-    ctx.rhi->begin_queries();
+    gfx_api->set_queue( IRHI::GpuQueue::Graphics );
+    gfx_api->set_context_state( false );
+    gfx_api->begin_queries();
+}
 
-    RendererStorage::ShaderConstants constants;
-    // precompute the V*P part of M*V*P so we don't have do it on the GPU.
-    // here we take the inverse of camera transform to get its view matrix.
-    view_matrix              = main_cam.transform.affine_inverse();
-    constants.CameraMatrix   = main_cam.transform;
-    constants.ViewProjMatrix = main_cam.projection * view_matrix;
-    constants.Time           = time;
-    constants.DeltaTime      = delta_time;
+void RenderService::render_pass( const RenderPassDesc& desc )
+{
+    auto target_size = desc.target_rect.size();
 
-    for (auto& item : ctx.world_render_list) {
-        NC_ASSERT( item.material.is_valid(), "A valid material is required to draw a world object." );
-        NC_LOG_TRACE_C(
-            log::GRAPHICS, "world_items_flush: gpu_mesh_rid={} instances={}", item.gpu_mesh.value, item.instancing
-        );
-        auto mesh                = ctx.storage.get_gpu_mesh( item.gpu_mesh );
-        constants.ModelMatrix    = item.transform;
-        constants.ModelMatrixInv = item.transform.affine_inverse();
-        ctx.storage.material_bind( item.material, constants );
-        ctx.storage.gpu_mesh_bind( item.gpu_mesh );
-        ctx.rhi->draw_indexed( mesh->index_count, 0, 0, item.instancing );
+    void* rtv = nullptr;
+    void* dsv = nullptr;
+
+    if (desc.to_screen) {
+        auto primary = swapchain_get_primary();
+        NC_ASSERT( primary, "No primary swapchain exist to render onto" );
+        rtv         = gfx_api->swapchain_get_view( primary, TextureViewType::RENDER_TARGET );
+        dsv         = gfx_api->swapchain_get_view( primary, TextureViewType::DEPTH_STENCIL );
+        target_size = gfx_api->swapchain_get_size( primary );
+    } else if (desc.color_target && gfx_api->is_rid_owned( desc.color_target )) {
+        rtv = gfx_api->texture_get_view( desc.color_target, TextureViewType::RENDER_TARGET );
+        if (desc.depth_target && gfx_api->is_rid_owned( desc.depth_target ))
+            dsv = gfx_api->texture_get_view( desc.depth_target, TextureViewType::DEPTH_STENCIL );
     }
 
-    constants.ModelMatrix    = Mat4::identity();
-    constants.ViewProjMatrix = ortho_proj;
+    if (!rtv)
+        return;
 
-    for (auto& item : ctx.canvas_render_list) {
-        if (item.verts.empty()) {
-            NC_LOG_TRACE_C( log::GRAPHICS, "canvas_items_flush: skipped (empty)" );
-            continue;
-        }
+    NC_LOG_TRACE_C(
+        log::GRAPHICS, "render_pass: size={}x{} rtv={} dsv={}", target_size.x, target_size.y,
+        reinterpret_cast<uintptr_t>( rtv ), reinterpret_cast<uintptr_t>( dsv )
+    );
 
-        NC_LOG_TRACE_C(
-            log::GRAPHICS, "canvas_items_flush: verts={} indices={} material_rid={}", item.verts.size(),
-            item.indices.size(), item.material.value
-        );
+    const void* rtvs[] = { rtv };
+    Rect2i full_rect( desc.target_rect.x, desc.target_rect.y, target_size.x, target_size.y );
+    IRHI::Viewport vp{
+        .rect = Rect2f(
+            static_cast<float>( full_rect.x ), static_cast<float>( full_rect.y ), static_cast<float>( full_rect.w ),
+            static_cast<float>( full_rect.h )
+        )
+    };
 
-        ensure_canvas_vb_( static_cast<uint32_t>( item.verts.size() ) );
-        ensure_canvas_ib_( static_cast<uint32_t>( item.indices.size() ) );
+    gfx_api->render_target_bind( rtvs, dsv );
+    gfx_api->render_target_set_scissor_rect( { &full_rect, 1 } );
+    gfx_api->render_target_set_viewport( { &vp, 1 } );
 
-        ctx.rhi->buffer_update( canvas_vb, item.verts.data(), item.verts.size() * sizeof( Vertex2D ) );
-        ctx.rhi->buffer_update( canvas_ib, item.indices.data(), item.indices.size() * sizeof( uint16_t ) );
-
-        ctx.storage.material_bind( item.material, constants );
-
-        ctx.rhi->vertex_buffers_bind( { &canvas_vb, 1 }, 0 );
-        ctx.rhi->index_buffer_bind( canvas_ib, 0 );
-
-        if (item.clip.x >= 0 && item.clip.y >= 0 && item.clip.w > 0 && item.clip.h > 0) {
-            ctx.rhi->render_target_set_scissor_rect( { &item.clip, 1 } );
-        }
-
-        NC_LOG_TRACE_C( log::GRAPHICS, "canvas_items_flush: draw indexed (indices={})", item.indices.size() );
-        ctx.rhi->draw_indexed( static_cast<uint32_t>( item.indices.size() ), 0, 0 );
+    if (desc.clear) {
+        gfx_api->render_target_clear_color( rtv, desc.clear_color );
+        if (dsv)
+            gfx_api->render_target_clear_depth( dsv );
     }
 
-    ctx.rhi->end_queries();
+    RenderStorage::ShaderConstants constants;
+    constants.Time      = time;
+    constants.DeltaTime = last_dt_;
 
-    ctx.rhi->swapchain_present( swapchains[0], settings.VSync );
+    if (desc.draw_spatial && desc.camera) {
+        auto& cam_attribs = camera_get_attribs( desc.camera );
+        // precompute the V*P part of M*V*P so we don't have do it on the GPU.
+        // here we take the inverse of camera transform to get its view matrix.
+        auto view_matrix         = cam_attribs.Transform.affine_inverse();
+        constants.CameraMatrix   = cam_attribs.Transform;
+        constants.ViewProjMatrix = camera_get_perspective( desc.camera ) * view_matrix;
 
-    // ctx.rhi->commands_release();
+        for (auto& item : ctx.world_render_list) {
+            NC_ASSERT( item.material.is_valid(), "A valid material is required to draw a spatial renderable." );
+            NC_LOG_TRACE_C(
+                log::GRAPHICS, "world_items_flush: gpu_mesh_rid={} instances={}", item.gpu_mesh.value, item.instancing
+            );
+            auto mesh                = storage.get_gpu_mesh( item.gpu_mesh );
+            constants.ModelMatrix    = item.transform;
+            constants.ModelMatrixInv = item.transform.affine_inverse();
+            storage.material_bind( item.material, constants );
+            storage.gpu_mesh_bind( item.gpu_mesh );
+            gfx_api->draw_indexed( mesh->index_count, 0, 0, item.instancing );
+        }
+    }
 
-    ctx.storage.flush_pending_destroys();
+    if (desc.draw_canvas) {
+        constants.ModelMatrix    = Mat4::identity();
+        constants.ModelMatrixInv = Mat4::identity();
+        // clang-format off
+		// ortho projection for canvas items.
+		// size is hardcoded from swapchain
+		constants.ViewProjMatrix = Mat4(
+		    Vec4(  2.0f / static_cast<float>( target_size.x ),  0.0f,                                  0.0f,  0.0f ),
+		    Vec4(  0.0f,                                 -2.0f / static_cast<float>( target_size.y ),  0.0f,  0.0f ),
+		    Vec4(  0.0f,                                  0.0f,                                 1.0f,  0.0f ),
+		    Vec4( -1.0f,                                  1.0f,                                 0.0f,  1.0f )
+		);
+        // clang-format on
 
+        NC_LOG_TRACE_C( log::GRAPHICS, "render_pass: canvas_render_list={}", ctx.canvas_render_list.size() );
+        for (auto& item : ctx.canvas_render_list) {
+            if (item.verts.empty()) {
+                NC_LOG_TRACE_C( log::GRAPHICS, "canvas_items_flush: skipped (empty)" );
+                continue;
+            }
+
+            NC_LOG_TRACE_C(
+                log::GRAPHICS, "canvas_items_flush: verts={} indices={} material_rid={}", item.verts.size(),
+                item.indices.size(), item.material.value
+            );
+
+            ensure_canvas_vb_( static_cast<uint32_t>( item.verts.size() ) );
+            ensure_canvas_ib_( static_cast<uint32_t>( item.indices.size() ) );
+
+            gfx_api->buffer_update( canvas_vb, item.verts.data(), item.verts.size() * sizeof( Vertex2D ) );
+            gfx_api->buffer_update( canvas_ib, item.indices.data(), item.indices.size() * sizeof( uint16_t ) );
+
+            storage.material_set_texture( item.material, item.texture, 0 );
+            storage.material_bind( item.material, constants );
+
+            gfx_api->vertex_buffers_bind( { &canvas_vb, 1 }, 0 );
+            gfx_api->index_buffer_bind( canvas_ib, 0 );
+
+            if (item.clip.x >= 0 && item.clip.y >= 0 && item.clip.w > 0 && item.clip.h > 0) {
+                gfx_api->render_target_set_scissor_rect( { &item.clip, 1 } );
+            }
+
+            NC_LOG_TRACE_C( log::GRAPHICS, "canvas_items_flush: draw indexed (indices={})", item.indices.size() );
+            gfx_api->draw_indexed( static_cast<uint32_t>( item.indices.size() ), 0, 0 );
+        }
+    }
+}
+
+void RenderService::present()
+{
+    gfx_api->end_queries();
+    gfx_api->swapchain_present( swapchains[0], settings.VSync );
+    storage.flush_pending_destroys();
     ctx.world_render_list.reset();
     ctx.canvas_render_list.release_all(); // CanvasRenderItem is non-POD
 }
 
-float RenderService::world_camera_get_fov() const
-{
-    return main_cam.fov;
-}
+// ---------------------------------------------------------------------------
 
-void RenderService::world_camera_set_fov( float fov )
-{
-    main_cam.fov = fov;
-}
-
-float RenderService::world_camera_get_z_near() const
-{
-    return main_cam.z_near;
-}
-
-void RenderService::world_camera_set_z_near( float p_near )
-{
-    main_cam.z_near = p_near;
-}
-
-float RenderService::world_camera_get_z_far() const
-{
-    return main_cam.z_far;
-}
-
-void RenderService::world_camera_set_z_far( float p_far )
-{
-    main_cam.z_far = p_far;
-}
-
-Mat4 RenderService::world_camera_get_transform() const
-{
-    return main_cam.transform;
-}
-
-void RenderService::world_camera_set_transform( const Mat4& transform )
-{
-    main_cam.transform = transform;
-}
-
-Mat4 RenderService::world_camera_get_projection() const
-{
-    return main_cam.projection;
-}
-
-Mat4 RenderService::world_get_view_matrix() const
-{
-    return view_matrix;
-}
-
-void RenderService::world_draw_instance( RID gpu_mesh, const Mat4& transform, RID material, uint32_t instancing )
+void RenderService::spatial_draw_instance( RID gpu_mesh, const Mat4& transform, RID material, uint32_t instancing )
 {
     auto item        = ctx.world_render_list.acquire();
     item->gpu_mesh   = gpu_mesh;
@@ -397,22 +446,25 @@ void RenderService::world_draw_instance( RID gpu_mesh, const Mat4& transform, RI
 }
 
 void RenderService::canvas_draw_triangles(
-    std::span<const Vertex2D> verts, std::span<const uint16_t> indices, RID material, Rect clip
+    std::span<const Vertex2D> verts, std::span<const uint16_t> indices, RID material, RID texture, Rect2i clip
 )
 {
     auto item      = ctx.canvas_render_list.acquire();
     item->material = material;
+    item->texture  = texture;
     item->clip     = clip;
     item->verts.assign( verts.begin(), verts.end() );
     item->indices.assign( indices.begin(), indices.end() );
 }
 
-void RenderService::canvas_draw_quad( Vec2 points[4], RID material, Color tint, Rect uv_rect, Rect clip )
+void RenderService::canvas_draw_quad(
+    Vec2f points[4], RID material, RID texture, Color tint, Rect2i uv_rect, Rect2i clip
+)
 {
-    float u0 = uv_rect.x;
-    float v0 = uv_rect.y;
-    float u1 = uv_rect.w;
-    float v1 = uv_rect.h;
+    float u0 = static_cast<float>( uv_rect.x );
+    float v0 = static_cast<float>( uv_rect.y );
+    float u1 = static_cast<float>( uv_rect.w );
+    float v1 = static_cast<float>( uv_rect.h );
 
     uint32_t c = static_cast<uint32_t>( tint.r ) | ( static_cast<uint32_t>( tint.g ) << 8 ) |
                  ( static_cast<uint32_t>( tint.b ) << 16 ) | ( static_cast<uint32_t>( tint.a ) << 24 );
@@ -428,13 +480,15 @@ void RenderService::canvas_draw_quad( Vec2 points[4], RID material, Color tint, 
 
     uint16_t indices[6] = { 0, 1, 2, 2, 3, 0 };
 
-    canvas_draw_triangles( verts, indices, material, clip );
+    canvas_draw_triangles( verts, indices, material, texture, clip );
 }
 
 IRHI::Stats RenderService::get_stats() const
 {
-    return ctx.rhi->get_stats();
+    return gfx_api->get_stats();
 }
+
+// ---------------------------------------------------------------------------
 
 void RenderService::ensure_canvas_vb_( uint32_t needed )
 {
@@ -450,9 +504,9 @@ void RenderService::ensure_canvas_vb_( uint32_t needed )
     desc.access_mask = ResourceAccessFlags::WRITE;
     desc.bind_mask   = ResourceBindFlags::VERTEX_BUFFER;
 
-    ctx.rhi->destroy_resource( canvas_vb );
+    gfx_api->destroy_rid( canvas_vb );
 
-    canvas_vb      = ctx.rhi->buffer_create( desc );
+    canvas_vb      = gfx_api->buffer_create( desc );
     canvas_vb_size = new_capacity;
 }
 
@@ -470,9 +524,9 @@ void RenderService::ensure_canvas_ib_( uint32_t needed )
     desc.access_mask = ResourceAccessFlags::WRITE;
     desc.bind_mask   = ResourceBindFlags::INDEX_BUFFER;
 
-    ctx.rhi->destroy_resource( canvas_ib );
+    gfx_api->destroy_rid( canvas_ib );
 
-    canvas_ib      = ctx.rhi->buffer_create( desc );
+    canvas_ib      = gfx_api->buffer_create( desc );
     canvas_ib_size = new_capacity;
 }
 

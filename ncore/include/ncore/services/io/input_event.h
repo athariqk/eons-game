@@ -319,13 +319,13 @@ struct MouseButtonEvent {
     uint32_t window_id  = 0;
     ButtonAction action = ButtonAction::UNKNOWN;
     ButtonIndex button  = ButtonIndex::UNKNOWN;
-    Vec2 position       = Vec2();
+    Vec2f position       = Vec2f();
 };
 
 struct MouseMotionEvent {
     uint32_t window_id    = 0;
-    Vec2 position         = Vec2();
-    Vec2 delta            = Vec2();
+    Vec2f position         = Vec2f();
+    Vec2f delta            = Vec2f();
     uint32_t button_state = 0;
 };
 

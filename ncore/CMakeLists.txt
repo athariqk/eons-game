@@ -76,7 +76,8 @@ target_include_directories(
           "${CMAKE_SOURCE_DIR}/ncore/external/sdl/include"
           "${CMAKE_SOURCE_DIR}/ncore/external/stb"
           "${CMAKE_SOURCE_DIR}/ncore/external/inifile-cpp"
-          "${CMAKE_SOURCE_DIR}/ncore/external/flecs/include")
+          "${CMAKE_SOURCE_DIR}/ncore/external/flecs/include"
+          "${CMAKE_SOURCE_DIR}/ncore/external/diligent-core/ThirdParty/Vulkan-Headers/include")
 
 add_subdirectory(external)
 add_subdirectory(include)

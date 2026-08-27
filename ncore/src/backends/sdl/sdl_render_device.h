@@ -21,7 +21,7 @@ public:
     SDLRenderDevice()           = default;
     ~SDLRenderDevice() override = default;
 
-    Ref<IRenderTarget> create_target( void*, Vec2 ) override
+    Ref<IRenderTarget> create_target( void*, Vec2f ) override
     {
         NC_LOG_ERROR_C( log::GRAPHICS, "SDLRenderDevice::create_target is not implemented" );
         return nullptr;
@@ -56,7 +56,7 @@ public:
     {
         return false;
     }
-    void destroy_resource( RID ) override {}
+    void destroy_rid( RID ) override {}
 
     void* get_native_texture_view( RID ) override
     {

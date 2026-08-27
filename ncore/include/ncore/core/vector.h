@@ -170,11 +170,6 @@ public:
         return divide( value );
     }
 
-    Derived operator*( int value ) const
-    {
-        return multiply( static_cast<T>( value ) );
-    }
-
     Derived& operator+=( T value )
     {
         for (std::size_t i = 0; i < N; ++i)
@@ -211,9 +206,19 @@ public:
         return out;
     }
 
+    bool operator==( const Derived& rhs ) const
+    {
+        return is_equal_to( rhs );
+    }
+
+    bool operator!=( const Derived& rhs ) const
+    {
+        return !( *this == rhs );
+    }
+
     /**
-	* @brief Set value of all components to zero.
-	*/
+	 * @brief Set value of all components to zero.
+	 */
     Derived& zero()
     {
         for (std::size_t i = 0; i < N; ++i)
@@ -236,15 +241,33 @@ public:
         return std::sqrt( length_sqr() );
     }
 
+    /**
+	 * @brief Return whether all components are/approximately zero valued.
+	 */
     bool is_zero() const
     {
-        return length_sqr() < std::numeric_limits<T>::epsilon();
+        if constexpr (std::is_floating_point_v<T>) {
+            return length_sqr() < std::numeric_limits<T>::epsilon();
+        } else {
+            return length_sqr() == 0;
+        }
     }
 
-    bool is_equal_approx( const Derived& rhs )
+    /**
+	 * @brief Perform approximate equality comparison if components are floating-point,
+	 * otherwise normal
+     * direct value comparison is used.
+	 */
+    bool is_equal_to( const Derived& rhs ) const
     {
         for (std::size_t i = 0; i < N; ++i) {
-            if (!math::is_equal_approx( self().data()[i], rhs.data()[i] ))
+            bool eq = false;
+            if constexpr (std::is_floating_point_v<T>) {
+                eq = math::is_equal_approx( self().data()[i], rhs.data()[i] );
+            } else {
+                eq = self().data()[i] == rhs.data()[i];
+            }
+            if (!eq)
                 return false;
         }
         return true;
@@ -276,30 +299,16 @@ public:
     {
         return normalize( self() );
     }
-
-    bool operator==( const Derived& rhs ) const
-    {
-        for (std::size_t i = 0; i < N; ++i) {
-            if (self().data()[i] != rhs.data()[i])
-                return false;
-        }
-        return true;
-    }
-
-    bool operator!=( const Derived& rhs ) const
-    {
-        return !( *this == rhs );
-    }
 };
 
 /**
  * @brief 2 components vector of single-precision floating-point numbers.
  */
-struct NCAPI Vec2 : CommonVectorOps<Vec2, float, 2> {
+struct NCAPI Vec2f : CommonVectorOps<Vec2f, float, 2> {
     float x = 0, y = 0;
 
-    Vec2() = default;
-    Vec2( float px, float py ) : x( px ), y( py ) {}
+    Vec2f() = default;
+    Vec2f( float px, float py ) : x( px ), y( py ) {}
 
     float* data()
     {
@@ -310,7 +319,28 @@ struct NCAPI Vec2 : CommonVectorOps<Vec2, float, 2> {
         return &x;
     }
 
-    NSTRUCTV( Vec2, NC_F( Vec2, x ), NC_F( Vec2, y ) )
+    NSTRUCTV( Vec2f, NC_F( Vec2f, x ), NC_F( Vec2f, y ) )
+};
+
+/**
+ * @brief 2 components vector of single-precision integer numbers.
+ */
+struct NCAPI Vec2i : CommonVectorOps<Vec2i, int, 2> {
+    int x = 0, y = 0;
+
+    Vec2i() = default;
+    Vec2i( int px, int py ) : x( px ), y( py ) {}
+
+    int* data()
+    {
+        return &x;
+    }
+    const int* data() const
+    {
+        return &x;
+    }
+
+    NSTRUCTV( Vec2i, NC_F( Vec2i, x ), NC_F( Vec2i, y ) )
 };
 
 /**

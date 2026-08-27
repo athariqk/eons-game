@@ -8,15 +8,15 @@ class ResourceService;
 class InputService;
 
 /**
- * @brief Convenience component containing graphics-related
+ * @brief Convenience component containing video-related
  * services resolved from ServiceRegistry.
  *
  * May be used from ECS systems to interact with the engine.
  */
-struct NCAPI GraphicsServices {
-    WindowService* Window   = nullptr;
-    RenderService* Renderer = nullptr;
-    NSTRUCTV( GraphicsServices, NC_F( GraphicsServices, Window ), NC_F( GraphicsServices, Renderer ) )
+struct NCAPI VideoServices {
+    WindowService* Window = nullptr;
+    RenderService* Gfx    = nullptr;
+    NSTRUCTV( VideoServices, NC_F( VideoServices, Window ), NC_F( VideoServices, Gfx ) )
 };
 
 /**
@@ -25,10 +25,10 @@ struct NCAPI GraphicsServices {
  *
  * May be used from ECS systems to interact with the engine.
  */
-struct NCAPI IoServices {
+struct NCAPI IOServices {
     ResourceService* Resources;
     InputService* Inputs;
-    NSTRUCTV( IoServices, NC_F( IoServices, Resources ), NC_F( IoServices, Inputs ) )
+    NSTRUCTV( IOServices, NC_F( IOServices, Resources ), NC_F( IOServices, Inputs ) )
 };
 
 } // namespace nc

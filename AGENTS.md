@@ -99,7 +99,7 @@ Remove-Job $job
 ncore/                          Engine library (shared, ncore_d.dll)
   include/ncore/
     core/                       Foundation: RTTI types, math (Vec2/3/4, Quaternion, Mat4),
-                                containers (PagedPool, ResourcePool, RingBuffer),
+                                containers (PagedPool, RIDPool, RingBuffer),
                                 memory, Ref<T> (intrusive ref-counted), RID, Color, Rect, errors.
     resources/                  Resource types (Mesh, Image, Shader, MaterialTemplate, AudioClip).
     runtime/                    ECS runtime + Scene/Node.
@@ -203,7 +203,7 @@ registered in `TypeRegistry::initialize()` in `ncore/src/core/types.cpp`.
 - Use `cmake --preset windows-debug` only when the configure stamp is stale.
 - Prefer `ninja -C build/windows-debug <target>` for incremental builds.
 - **NCAPI on template classes is forbidden.** `Ref<T>`, `PagedPool<T>`,
-  `ResourcePool<T>`, `RingBuffer<T>`, `SlotIterator`, `CommonVectorOps`,
+  `RIDPool<T>`, `RingBuffer<T>`, `SlotIterator`, `CommonVectorOps`,
   `VectorClass` are all header-only templates and must NOT have NCAPI
   (DLL export/import). Doing so causes linker errors when game code
   instantiates them.

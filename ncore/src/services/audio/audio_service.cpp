@@ -10,7 +10,7 @@ struct AudioService::Impl {
         int length;
         SDL_AudioStream* stream;
     };
-    ResourcePool<SoundEntry> sounds;
+    RIDPool<SoundEntry> sounds;
 };
 
 AudioService::AudioService() : pImpl( std::make_unique<Impl>() ) {}
@@ -56,7 +56,7 @@ void AudioService::play_sound( RID stream_rid )
     }
 }
 
-void AudioService::destroy_resource( RID handle )
+void AudioService::destroy_rid( RID handle )
 {
     if (auto entry = pImpl->sounds.get( handle )) {
         SDL_DestroyAudioStream( entry->stream );

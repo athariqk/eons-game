@@ -53,11 +53,11 @@ public:
 
     uint32_t window_create( uint8_t flags = DEFAULT_WINDOW_FLAGS );
     void window_set_parent( uint32_t window_id, uint32_t parent ) const;
-    void window_set_position( uint32_t window_id, Vec2 position ) const;
+    void window_set_position( uint32_t window_id, Vec2i position ) const;
     void window_set_centered( uint32_t window_id ) const;
     void window_set_visible( uint32_t window_id, bool visible ) const;
-    Vec2 window_get_resolution( uint32_t window_id ) const;
-    void window_set_resolution( uint32_t window_id, Vec2 resolution );
+    Vec2i window_get_resolution( uint32_t window_id ) const;
+    void window_set_resolution( uint32_t window_id, Vec2i resolution );
     void window_set_icon( uint32_t window_id, const Image& image ) const;
     void window_set_title( uint32_t window_id, std::string_view title ) const;
     void window_set_fullscreen( uint32_t window_id, bool fullscreen );
@@ -69,7 +69,7 @@ public:
      * @param rect Bounds in window coordinates; the rect does not scale with
      * the window, so it must be updated after window resizes.
      */
-    void window_set_mouse_confinement( uint32_t window_id, const Rect& rect ) const;
+    void window_set_mouse_confinement( uint32_t window_id, const Rect2f& rect ) const;
 
     /**
      * @brief Removes the mouse confinement rect set for the window.
@@ -90,7 +90,7 @@ public:
      * Generates a mouse motion event. No-op on some platforms (e.g. Remote
      * Desktop).
      */
-    void window_set_mouse_position( uint32_t window_id, Vec2 position ) const;
+    void window_set_mouse_position( uint32_t window_id, Vec2f position ) const;
 
     bool window_get_mouse_locked( uint32_t window_id ) const;
     void window_set_mouse_locked( uint32_t window_id, bool enabled ) const;
@@ -129,7 +129,7 @@ public:
     /**
      * @return The window's native OS handle.
      */
-    void* get_native_whnd( uint32_t window_id ) const;
+    void* get_native_handle( uint32_t window_id ) const;
 
     /**
      * @brief Updates the internal event queue.

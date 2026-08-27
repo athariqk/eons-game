@@ -25,12 +25,12 @@ public:
 
     bool is_body_valid( RID body ) const override;
     bool is_body_awake( RID body ) const override;
-    Vec2 get_body_position( RID body ) const override;
+    Vec2f get_body_position( RID body ) const override;
     float get_body_angle( RID body ) const override;
-    Vec2 get_body_velocity( RID body ) const override;
+    Vec2f get_body_velocity( RID body ) const override;
 
-    void apply_linear_impulse( RID body, const Vec2& impulse ) override;
-    void apply_linear_force( RID body, const Vec2& force ) override;
+    void apply_linear_impulse( RID body, const Vec2f& impulse ) override;
+    void apply_linear_force( RID body, const Vec2f& force ) override;
 
     void update_debug_draw() override;
     PhysicsDebugDraw& get_debug_draw() override;

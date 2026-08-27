@@ -114,10 +114,10 @@ void WindowService::window_set_parent( uint32_t window_id, uint32_t parent ) con
     }
 }
 
-void WindowService::window_set_position( uint32_t window_id, Vec2 position ) const
+void WindowService::window_set_position( uint32_t window_id, Vec2i position ) const
 {
     auto window = pImpl->get_sdl_window( window_id );
-    if (!SDL_SetWindowPosition( window, static_cast<int>( position.x ), static_cast<int>( position.y ) )) {
+    if (!SDL_SetWindowPosition( window, position.x, position.y )) {
         NC_LOG_ERROR_C( log::GRAPHICS, "Failed to set position for window {}: {}", window_id, SDL_GetError() );
     }
 }
@@ -143,20 +143,20 @@ void WindowService::window_set_visible( uint32_t window_id, bool visible ) const
         NC_LOG_ERROR_C( log::GRAPHICS, "Failed to set visibility for window {}: {}", window_id, SDL_GetError() );
 }
 
-Vec2 WindowService::window_get_resolution( uint32_t window_id ) const
+Vec2i WindowService::window_get_resolution( uint32_t window_id ) const
 {
     int width = 0, height = 0;
     auto window = pImpl->get_sdl_window( window_id );
     if (!SDL_GetWindowSizeInPixels( window, &width, &height )) {
         NC_LOG_ERROR_C( log::GRAPHICS, "Failed to get resolution for window {}: {}", window_id, SDL_GetError() );
     }
-    return Vec2( static_cast<float>( width ), static_cast<float>( height ) );
+    return Vec2i( width, height );
 }
 
-void WindowService::window_set_resolution( uint32_t window_id, Vec2 resolution )
+void WindowService::window_set_resolution( uint32_t window_id, Vec2i resolution )
 {
     auto window = pImpl->get_sdl_window( window_id );
-    if (!SDL_SetWindowSize( window, static_cast<int>( resolution.x ), static_cast<int>( resolution.y ) )) {
+    if (!SDL_SetWindowSize( window, resolution.x, resolution.y )) {
         NC_LOG_ERROR_C( log::GRAPHICS, "Failed to set resolution for window {}: {}", window_id, SDL_GetError() );
     }
 }
@@ -194,7 +194,7 @@ void WindowService::window_set_fullscreen( uint32_t window_id, bool fullscreen )
     }
 }
 
-void WindowService::window_set_mouse_confinement( uint32_t window_id, const Rect& rect ) const
+void WindowService::window_set_mouse_confinement( uint32_t window_id, const Rect2f& rect ) const
 {
     auto window = pImpl->get_sdl_window( window_id );
     SDL_Rect sdl_rect{
@@ -223,7 +223,7 @@ void WindowService::window_set_mouse_grab( uint32_t window_id, bool grabbed ) co
     }
 }
 
-void WindowService::window_set_mouse_position( uint32_t window_id, Vec2 position ) const
+void WindowService::window_set_mouse_position( uint32_t window_id, Vec2f position ) const
 {
     auto window = pImpl->get_sdl_window( window_id );
     SDL_WarpMouseInWindow( window, position.x, position.y );
@@ -301,7 +301,7 @@ bool WindowService::show_message_box( MessageBoxType type, const std::string& ti
     return SDL_ShowSimpleMessageBox( flags, title.c_str(), message.c_str(), window );
 }
 
-void* WindowService::get_native_whnd( uint32_t window_id ) const
+void* WindowService::get_native_handle( uint32_t window_id ) const
 {
     auto window = pImpl->get_sdl_window( window_id );
 

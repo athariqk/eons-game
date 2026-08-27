@@ -139,7 +139,7 @@ private:
     std::array<std::unique_ptr<IResourceImporter>, MAX_IMPORTERS> importers;
 
     HashMap<String, RID> path_map;
-    ResourcePool<Ref<IResource>> storage;
+    RIDPool<Ref<IResource>> storage;
     RingBuffer<Event> events;
 };
 

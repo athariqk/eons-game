@@ -19,7 +19,7 @@
 #include <ncore/runtime/scene.h>
 #include <ncore/services/audio/audio_service.h>
 #include <ncore/services/events/event_bus.h>
-#include <ncore/services/input/input_service.h>
+#include <ncore/services/io/input_service.h>
 #include <ncore/services/io/resource_service.h>
 #include <ncore/services/service_registry.h>
 #include <ncore/services/video/render_service.h>

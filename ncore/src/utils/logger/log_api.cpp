@@ -65,14 +65,14 @@ StringView level_color( Level l )
 
 void log_message( const LogMsg& msg )
 {
-    if (msg.level < g_min_log_level.load())
+    if (msg.level < g_MinLogLevel.load())
         return;
     log::Logger::get_instance().channel( msg.channel )->write( msg );
 }
 
 NCAPI void print( const String& p_msg )
 {
-    if (Level::LINFO < g_min_log_level.load())
+    if (Level::LINFO < g_MinLogLevel.load())
         return;
     LogMsg msg;
     msg.channel = NC_LOG_CHANNEL_NAME;

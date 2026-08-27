@@ -2,10 +2,10 @@
 
 #include <imgui.h>
 
-#include <ncore/services/input/input_event.h>
+#include <ncore/services/io/input_event.h>
 #include <ncore/services/video/window/window_types.h>
 
-namespace nc {
+namespace nc::editor {
 
 static void StyleColorsNcore()
 {
@@ -367,4 +367,4 @@ static ImGuiKey key_to_imgui_key( Key key )
     return ImGuiKey_None;
 }
 
-} // namespace nc
+} // namespace nc::editor

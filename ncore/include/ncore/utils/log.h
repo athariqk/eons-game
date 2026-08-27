@@ -6,9 +6,6 @@
 #include <ncore.h>
 #include <ncore/core/collection.h>
 
-#define NC_CONCAT_IMPL( a, b ) a##b
-#define NC_CONCAT( a, b )      NC_CONCAT_IMPL( a, b )
-
 #ifndef NC_LOG_CHANNEL_NAME
 #define NC_LOG_CHANNEL_NAME "NCE"
 #endif
@@ -46,15 +43,15 @@ struct NCAPI LogMsg {
     String payload;
 };
 
-static std::atomic<Level> g_min_log_level = Level::LTRACE;
+static std::atomic<Level> g_MinLogLevel = Level::LTRACE;
 
 inline void set_min_level( Level level )
 {
-    g_min_log_level.store( level );
+    g_MinLogLevel.store( level );
 }
 inline Level get_min_level()
 {
-    return g_min_log_level.load();
+    return g_MinLogLevel.load();
 }
 
 inline void silence()
@@ -68,12 +65,11 @@ inline void unsilence()
 
 // Engine modules
 inline constexpr const char* DEFAULT  = "NCE";
-inline constexpr const char* AUDIO    = "AUD";
+inline constexpr const char* AUDIO    = "SFX";
 inline constexpr const char* ECS      = "ECS";
-inline constexpr const char* EVENTS   = "EVN";
-inline constexpr const char* GRAPHICS = "GPH";
+inline constexpr const char* GRAPHICS = "GFX";
 inline constexpr const char* GUI      = "GUI";
-inline constexpr const char* PHYSICS  = "PYS";
+inline constexpr const char* PHYSICS  = "PHX";
 inline constexpr const char* IO       = "I/O";
 
 NCAPI void log_message( const LogMsg& msg );
@@ -95,6 +91,11 @@ void printf( StringView fmt, Args&&... args )
 using LogMsgCallback = std::function<void( const LogMsg& )>;
 using ListenerToken  = std::shared_ptr<LogMsgCallback>;
 
+/**
+ * @brief Push new listener for any log messages.
+ * @param callback The function that will get called back when log message happens.
+ * @return Lifecycle-bound token.
+ */
 NCAPI ListenerToken add_listener( const LogMsgCallback& callback );
 
 } // namespace nc::log

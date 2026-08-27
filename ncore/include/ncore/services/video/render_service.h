@@ -10,8 +10,8 @@
 #include <ncore/resources/cube_map.h>
 #include <ncore/services/service.h>
 
-#include "renderer/renderer_context.h"
-#include "renderer/renderer_storage.h"
+#include "renderer/render_context.h"
+#include "renderer/render_storage.h"
 #include "renderer/vertex_format.h"
 #include "rhi.h"
 
@@ -23,8 +23,7 @@ class MaterialTemplate;
 class Mesh;
 
 /**
- * @brief RenderService keeps all funtionalities for rendering stuff on-screen,
- * and perhaps off-screen stuff too later.
+ * @brief RenderService keeps all funtionalities for rendering stuff on-screen and off-screen.
  */
 class NCAPI RenderService : public IService {
     NCLASS( RenderService, IService )
@@ -43,21 +42,44 @@ public:
     Error init( ConfFile& cfg_file ) override;
     void shutdown() override;
 
-    RID swapchain_create( void* whnd, Vec2 size );
-    void swapchain_set_size( RID sc, Vec2 size );
-    Vec2 swapchain_get_size( RID sc );
-    void swapchain_destroy( RID sc );
-
-    RID texture_2d_create(
-        uint32_t width, uint32_t height, TextureFormat format = TextureFormat::RGBA8_UNORM,
-        ResourceBindFlags bind_mask = ResourceBindFlags::SHADER_RESOURCE
+    RID swapchain_create(
+        void* whnd, Vec2i size, TextureFormat color_format = TextureFormat::RGBA8_UNORM_SRGB,
+        TextureFormat depth_format = TextureFormat::D32_FLOAT
     );
-    RID texture_2d_create( const Image& image );
+    /**
+     * @brief Set the width and height of given swapchain.
+     */
+    void swapchain_set_size( RID swapchain, Vec2i size );
+    /**
+     * @brief Return the width and height of given swapchain.
+     */
+    Vec2i swapchain_get_size( RID swapchain );
+    /**
+     * @brief Return the primary swapchain RID.
+     */
+    RID swapchain_get_primary() const;
+    void swapchain_destroy( RID swapchain );
 
+    RID texture_2d_create( const Image& image );
     /**
      * @brief Create a cube mapped texture from 6 separate images (faces).
      */
-    RID texture_cube_create( const CubeMap& cube_map );
+    RID texture_cube_create( const CubeMap& cubemap );
+    /**
+     * @brief Create a new render texture.
+     * @return RenderTexture RID.
+     */
+    RID texture_render_create( Vec2i size, TextureFormat format = TextureFormat::RGBA8_UNORM );
+    /**
+     * @brief Retrieve a texture view.
+     */
+    void* texture_get_view( RID texture, TextureViewType view );
+    /**
+     * @brief Copy data from source texture into destination texture.
+     * @param tex_src Source texture to copy from.
+     * @param tex_dest Destination texture. If none (0), target is the primary swapchain.
+     */
+    void texture_blit( RID tex_src, RID tex_dest = 0 );
 
     /**
      * @brief Instantiates a material from its template.
@@ -86,48 +108,71 @@ public:
     RID buffer_create( const BufferDesc& desc );
     void buffer_update( RID buffer, const void* data, size_t size );
 
+    struct CameraAttribs {
+        Mat4 Transform = Mat4::identity();
+        float Fov      = 1.5708f; // a.k.a angle-of-view (in radians).
+        float zNear    = 0.1f;    // Near clipping plane.
+        float zFar     = 100.0f;  // Far clipping plane.
+        Vec2i DisplaySize;
+    };
+
+    RID camera_create();
+    CameraAttribs& camera_get_attribs( RID camera );
+    Mat4 camera_get_perspective( RID camera );
+
+    bool is_rid_owned( RID rid );
     /**
      * @brief Destroy any previously allocated RIDs from methods
      * in this class that return RID.
+     * @return True if succesfully destroyed.
      */
-    void destroy_rid( RID rid );
+    bool destroy_rid( RID rid );
 
     /**
-     * @brief Begin a new frame.
-     * Clears previous one.
+     * @brief Begin a new frame. Must be called once before render_pass().
      */
-    void frame_begin();
-    /**
-     * @brief Flush current frame.
-     */
-    void frame_end( float delta_time );
-
-    float world_camera_get_fov() const;
-    void world_camera_set_fov( float fov );
-    float world_camera_get_z_near() const;
-    void world_camera_set_z_near( float p_near );
-    float world_camera_get_z_far() const;
-    void world_camera_set_z_far( float p_far );
-    Mat4 world_camera_get_transform() const;
-    void world_camera_set_transform( const Mat4& transform );
-    Mat4 world_camera_get_projection() const;
-
-    Mat4 world_get_view_matrix() const;
+    void render_begin( float delta_time );
 
     /**
-     * @brief Draw meshes.
+     * @brief Describes a single render pass target and camera.
+     */
+    struct RenderPassDesc {
+        RID color_target;   // RenderTexture RID.
+        RID depth_target;   // RenderTexture RID.
+        Rect2i target_rect; // Target dimensions.
+        RID camera;         // A spatial camera. Ignored during canvas draw.
+        Color clear_color = Color( 0, 0, 0, 255 );
+        bool clear        = true;
+        bool draw_canvas  = true; // Skips 2D render if false.
+        bool draw_spatial = true; // Skips 3D render if false.
+        bool to_screen    = false;
+    };
+
+    /**
+     * @brief Execute one render pass into the described target.
+     */
+    void render_pass( const RenderPassDesc& desc );
+
+    /**
+     * @brief Present and end the frame. Must be called after all render_pass() calls.
+     */
+    void present();
+
+    /**
+     * @brief Draw spatial (3D) meshes.
      *
      * Pushes a new 3D draw call to the draw list to be rendered next frame.
      */
-    void world_draw_instance( RID gpu_mesh, const Mat4& transform, RID material, uint32_t instancing = 1 );
+    void spatial_draw_instance( RID gpu_mesh, const Mat4& transform, RID material, uint32_t instancing = 1 );
 
     /**
      * @brief Immediate draw an array of indexed vertices.
      *
-     * Pushes a new Canvas Item draw call to the draw list to be rendered next frame.
+     * Pushes a new Canvas draw call to the draw list to be rendered next frame.
      */
     void canvas_draw_triangles(
-        std::span<const Vertex2D> verts, std::span<const uint16_t> indices, RID material, Rect clip = {}
+        std::span<const Vertex2D> verts, std::span<const uint16_t> indices, RID material, RID texture = 0,
+        Rect2i clip = {}
     );
 
     /**
@@ -136,14 +181,22 @@ public:
      * Pushes a new Canvas Item draw call to the draw list to be rendered next frame.
      */
     void canvas_draw_quad(
-        Vec2 points[4], RID material, Color tint = Color( 255, 255, 255, 255 ),
-        Rect uv_rect = Rect( 0.0f, 0.0f, 1.0f, 1.0f ), Rect clip = {}
+        Vec2f points[4], RID material, RID texture = 0, Color tint = Color( 255, 255, 255, 255 ),
+        Rect2i uv_rect = Rect2i( 0, 0, 1, 1 ), Rect2i clip = {}
     );
 
     /**
-     * @brief Return the internal RHI and storage for advanced use.
+     * @brief Return the internal render hardware interface for advanced use.
      */
-    RendererContext* get_context()
+    IRHI* get_graphics_api()
+    {
+        return gfx_api.get();
+    }
+
+    /**
+     * @brief Return the internal render context for advanced use.
+     */
+    RenderContext* get_context()
     {
         return &ctx;
     }
@@ -158,24 +211,15 @@ private:
     void ensure_canvas_ib_( uint32_t needed );
 
     RenderSettings settings;
-    RendererContext ctx;
-    // WorldRenderer m_world;
+    Ptr<IRHI> gfx_api;
+    RenderContext ctx;
+    RenderStorage storage; // Access to high-level GPU-bound resources.
     DynamicArray<RID> swapchains;
+    RIDPool<CameraAttribs> cameras{ 16 };
     float time;
-
-    struct Camera {
-        Mat4 transform  = Mat4::identity();
-        Mat4 projection = Mat4::identity();
-        float fov       = 1.5708f; // a.k.a angle-of-view (in radians).
-        float z_near    = 0.1f;    // Near clipping plane.
-        float z_far     = 100.0f;  // Far clipping plane.
-    };
-
-    Camera main_cam;
-    Mat4 view_matrix = Mat4::identity();
+    float last_dt_ = 0.0f;
 
     // Canvas
-    Mat4 ortho_proj = Mat4::identity();
     RID canvas_vb;
     RID canvas_ib;
     uint32_t canvas_vb_size = 0;

@@ -15,6 +15,7 @@ Node::Node( const String& p_name, Scene* p_scene, Node* p_parent ) : scene( p_sc
 
     internal_id =
         scene->get_ecs().entity( p_name ).child_of( p_parent->internal_id ).add<NodeRefComponent>( { this } ).build();
+    emit_event<NodeAddedEvent>( internal_id );
 }
 
 Node::~Node() {}
@@ -118,12 +119,12 @@ Span<Component> Node::get_components()
     return { components.data(), component_count };
 }
 
-void* Node::emplace_component( const rtti::TypeInfo* type )
+void* Node::add_component( const rtti::TypeInfo* type )
 {
     if (has_component_( type ))
         return get_component( type );
 
-    void* result = scene->get_ecs().emplace_component_( internal_id, type );
+    void* result = scene->get_ecs().add_component_( internal_id, type );
     auto comp_id = scene->get_ecs().register_component_type( type );
     track_ecs_component( type, comp_id );
     return result;

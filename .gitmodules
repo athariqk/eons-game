@@ -1,9 +1,6 @@
 [submodule "ncore/external/box2d"]
 	path = ncore/external/box2d
 	url = https://github.com/erincatto/box2d.git
-[submodule "ncore/external/imgui"]
-	path = ncore/external/imgui
-	url = https://github.com/ocornut/imgui.git
 [submodule "ncore/external/sdl"]
 	path = ncore/external/sdl
 	url = https://github.com/libsdl-org/SDL
@@ -19,12 +16,12 @@
 [submodule "ncore/external/mimalloc"]
 	path = ncore/external/mimalloc
 	url = https://github.com/microsoft/mimalloc
-[submodule "ncore/external/tracy"]
-	path = ncore/external/tracy
-	url = https://github.com/wolfpld/tracy.git
-[submodule "ncore/external/freetype"]
-	path = ncore/external/freetype
-	url = https://github.com/freetype/freetype.git
 [submodule "tools/editor/external/imguizmo"]
 	path = tools/editor/external/imguizmo
 	url = https://github.com/CedricGuillemet/ImGuizmo.git
+[submodule "tools/editor/external/imgui"]
+	path = tools/editor/external/imgui
+	url = https://github.com/ocornut/imgui.git
+[submodule "tools/editor/external/freetype"]
+	path = tools/editor/external/freetype
+	url = https://github.com/freetype/freetype.git

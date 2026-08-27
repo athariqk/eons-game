@@ -69,16 +69,16 @@ public:
      * @brief This basically perform two-part action_get_axis().
      * @return The normalized values.
      */
-    Vec2 action_get_vector(
+    Vec2f action_get_vector(
         const char* neg_action_x, const char* pos_action_x, const char* neg_action_y, const char* pos_action_y
     );
 
     bool is_anything_held() const;
     bool is_anything_pressed() const;
 
-    Vec2 get_mouse_position() const;
-    Vec2 get_mouse_delta() const;
-    Vec2 get_mouse_wheel() const;
+    Vec2f get_mouse_position() const;
+    Vec2f get_mouse_delta() const;
+    Vec2f get_mouse_wheel() const;
 
     bool is_key_pressed( Key key ) const;
     bool is_mouse_button_pressed( ButtonIndex button ) const;
@@ -115,14 +115,14 @@ private:
     ActionBinding* get_action_( const char* name );
 
     BumpAllocator<InputEvent> event_queue{ 64 };
-    ResourcePool<ActionBinding> actions{ 512 };
+    RIDPool<ActionBinding> actions{ 512 };
     HashMap<String, RID> action_by_name;
 
     Array<ButtonState, KEY_COUNT> key_states;
     Array<ButtonState, MOUSE_BUTTON_COUNT> mb_states; // mouse button states.
-    Vec2 mouse_wheel    = Vec2();                     // accumulated scroll deltas.
-    Vec2 mouse_pos      = Vec2();                     // last absolute position (window coords).
-    Vec2 mouse_delta    = Vec2();                     // accumulated relative motion.
+    Vec2f mouse_wheel    = Vec2f();                     // accumulated scroll deltas.
+    Vec2f mouse_pos      = Vec2f();                     // last absolute position (window coords).
+    Vec2f mouse_delta    = Vec2f();                     // accumulated relative motion.
     bool is_any_held    = false;
     bool is_any_pressed = false;
 };

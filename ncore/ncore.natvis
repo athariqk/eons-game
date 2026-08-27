@@ -141,7 +141,7 @@
 		</Expand>
 	</Type>
 
-	<Type Name="nc::RendererStorage::PSOFlags">
+	<Type Name="nc::RenderStorage::PSOFlags">
 		<DisplayString>
 			Cull={((__int64)$e) &amp; 0x3}
 			Depth=[test={((((__int64)$e) &amp; 0x4) != 0) ? "ON" : "OFF"} write={((((__int64)$e) &amp; 0x8) != 0) ? "ON" : "OFF"}]
@@ -159,7 +159,7 @@
 		</Expand>
 	</Type>
 
-	<Type Name="nc::RendererStorage::PSOKey">
+	<Type Name="nc::RenderStorage::PSOKey">
 		<DisplayString>{debug_name} (vs={vs}, ps={ps})</DisplayString>
 		<Expand>
 			<Item Name="debug_name">debug_name</Item>
@@ -212,8 +212,8 @@
 		</Expand>
 	</Type>
 
-	<Type Name="nc::RendererContext">
-		<DisplayString>RendererContext (canvas: {canvas_verts}/{canvas_vb_size} verts, {canvas_indices}/{canvas_ib_size} indices)</DisplayString>
+	<Type Name="nc::RenderContext">
+		<DisplayString>RenderContext (canvas: {canvas_verts}/{canvas_vb_size} verts, {canvas_indices}/{canvas_ib_size} indices)</DisplayString>
 		<Expand>
 			<Item Name="rhi">rhi</Item>
 			<Item Name="canvas_vb">canvas_vb</Item>

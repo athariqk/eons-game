@@ -37,7 +37,6 @@
 #include <SDL3/SDL_render.h>
 #include <SDL3/SDL_video.h>
 #include <box2d/box2d.h>
-#include <imgui.h>
 #include <inicpp.h>
 
 // === Engine core ===

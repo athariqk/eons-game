@@ -23,7 +23,7 @@ public:
     RID create_stream( const AudioClip& p_clip );
     void play_sound( RID stream_rid );
 
-    void destroy_resource( RID handle );
+    void destroy_rid( RID handle );
 
 private:
     struct Impl;

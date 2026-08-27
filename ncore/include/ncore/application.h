@@ -38,9 +38,9 @@ struct NCAPI AppVersion {
  * @brief AppDesc can be used to initialize an app with the given specification.
  */
 struct NCAPI AppDesc {
-    String Name;
-    AppVersion Version;
-    String ConfigFile;
+    String Name;        // Name of the application.
+    AppVersion Version; // Semantic version of the application.
+    String ConfigFile;  // Relative path to the application's config file.
     NSTRUCTV( AppDesc, NC_F( AppDesc, Name ), NC_F( AppDesc, Version ), NC_F( AppDesc, ConfigFile ) )
 };
 
@@ -49,7 +49,7 @@ struct NCAPI AppDesc {
  */
 struct NCAPI AppContext {
     AppDesc AppDesc;          // Descriptor used to init this application.
-    ServiceRegistry Services; // Registry of engine services.
+    ServiceRegistry Services; // Registry of all registered engine services.
     bool IsRunning   = false; // Whether game loop is still looping.
     uint64_t Ticks   = 0;     // Ticks since first run() frame.
     double DeltaTime = 0.0;
@@ -60,7 +60,7 @@ struct NCAPI AppContext {
  *
  * This class handles initialization, driving the game world,
  * OS event polling, and cleanup. You may override this to
- * implement custom main loop behavior.
+ * implement custom app behavior.
  */
 class NCAPI Application {
 public:
@@ -103,8 +103,8 @@ public:
     virtual std::unique_ptr<IGameWorld> create_world();
 
 protected:
-    AppContext context; // Current application state.
-    std::unique_ptr<IGameWorld> g_world;
+    AppContext context;                  // Current application state.
+    std::unique_ptr<IGameWorld> g_world; // Current active game world.
 
     ResourceService* resources = nullptr;
     EventBus* events           = nullptr;

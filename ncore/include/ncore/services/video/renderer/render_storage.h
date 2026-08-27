@@ -1,8 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <functional>
-#include <string>
 
 #include <ncore/core/matrix.h>
 #include <ncore/core/rid.h>
@@ -19,30 +17,35 @@ struct ShaderParamInfo;
 using ShaderParamLayout = DynamicArray<ShaderParamInfo>;
 
 /**
- * @brief RendererStorage is responsible for managing RenderService
+ * @brief RenderStorage is responsible for managing RenderService
  * resources such as material variants, shaders and meshes.
  *
  * For reference see https://github.com/DiligentGraphics/DiligentFX/blob/master/PBR/interface/PBR_Renderer.hpp
  */
-class RendererStorage {
+class RenderStorage {
 public:
+    /**
+     * @brief A tightly-packed bitfield for encoding PSO permutations.
+     */
     enum PSOFlags : uint64_t {
         NONE                   = 0,
         PSO_CULL_SHIFT         = 0,
-        PSO_CULL_MASK          = 3 << PSO_CULL_SHIFT,
-        PSO_DEPTH_TEST         = 1 << 2,
-        PSO_DEPTH_WRITE        = 1 << 3,
+        PSO_CULL_MASK          = 3 << PSO_CULL_SHIFT,          // enum, 3-value range
+        PSO_DEPTH_TEST         = 1 << 2,                       // bool
+        PSO_DEPTH_WRITE        = 1 << 3,                       // bool
         PSO_BLEND_SHIFT        = 4,
-        PSO_BLEND_MASK         = 15 << PSO_BLEND_SHIFT,
+        PSO_BLEND_MASK         = 15 << PSO_BLEND_SHIFT,        // enum, 15-value range
         PSO_TOPOLOGY_SHIFT     = 8,
-        PSO_TOPOLOGY_MASK      = 15 << PSO_TOPOLOGY_SHIFT,
+        PSO_TOPOLOGY_MASK      = 15 << PSO_TOPOLOGY_SHIFT,     // enum, 15-value range
         PSO_RT_FMT_SHIFT       = 12,
-        PSO_RT_FMT_MASK        = 127 << PSO_RT_FMT_SHIFT,
+        PSO_RT_FMT_MASK        = 7 << PSO_RT_FMT_SHIFT,        // enum, 7-value range
+        PSO_DST_FMT_SHIFT      = 15,
+        PSO_DST_FMT_MASK       = 15 << PSO_RT_FMT_SHIFT,       // enum, 15-value range
         PSO_MSAA_COUNT_SHIFT   = 19,
-        PSO_MSAA_COUNT_MASK    = 15 << PSO_MSAA_COUNT_SHIFT,
+        PSO_MSAA_COUNT_MASK    = 15 << PSO_MSAA_COUNT_SHIFT,   // enum, 15-value range
         PSO_MSAA_QUALITY_SHIFT = 23,
-        PSO_MSAA_QUALITY_MASK  = 15 << PSO_MSAA_QUALITY_SHIFT,
-        PSO_SCISSOR            = 1 << 27,
+        PSO_MSAA_QUALITY_MASK  = 15 << PSO_MSAA_QUALITY_SHIFT, // enum, 15-value range
+        PSO_SCISSOR            = 1 << 27,                      // bool
         PSO_FILL_SHIFT         = 28,
         PSO_FILL_MASK          = 3 << PSO_FILL_SHIFT,
     };
@@ -102,10 +105,7 @@ public:
         float DeltaTime;
     };
 
-    void set_rhi( IRHI* p_rhi )
-    {
-        rhi = p_rhi;
-    }
+    void set_graphics_api( IRHI* p_gfx_api );
 
     RID get_pipeline_or_create( const PSOKey& key );
 
@@ -133,22 +133,25 @@ public:
     void gpu_mesh_bind( RID handle );
     GPUMesh* get_gpu_mesh( RID handle );
 
-    void destroy_rid( RID rid );
+    bool is_rid_owned( RID rid );
+    bool destroy_rid( RID rid );
     /**
      * @brief Commit all deferred destroy_rid(RID) calls.
      */
     void flush_pending_destroys();
 
 private:
+    void ensure_fallback_texture_();
     Material* get_material_( RID handle );
     PSOKey get_pso_key_( const MaterialTemplate& tmpl );
     DynamicArray<ResourceSignatureDesc> build_resource_signatures_( const MaterialTemplate& tmpl );
 
-    IRHI* rhi;
+    IRHI* gfx_api;
     HashMap<PSOKey, RID, PSOKeyHasher> pso_cache;
-    ResourcePool<Material> materials;
-    ResourcePool<GPUMesh> gpu_meshes;
+    RIDPool<Material> materials;
+    RIDPool<GPUMesh> gpu_meshes;
     DynamicArray<RID> pending_destroys;
+    RID white_texture;
 };
 
 } // namespace nc

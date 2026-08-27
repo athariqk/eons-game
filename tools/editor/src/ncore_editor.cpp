@@ -3,15 +3,11 @@
 #include <ImGuizmo.h> // must come after imgui includes
 // clang-format on
 
-#include <editor/imgui_style.h>
 #include <editor/ncore_editor.h>
 #include <ncore/core/color.h>
 #include <ncore/core/quaternion.h>
 #include <ncore/core/rid.h>
 #include <ncore/game_world.h>
-#include <ncore/resources/material_template.h>
-#include <ncore/runtime/components/camera.h>
-#include <ncore/runtime/components/input.h>
 #include <ncore/runtime/components/services.h>
 #include <ncore/runtime/components/time.h>
 #include <ncore/runtime/components/transform.h>
@@ -20,19 +16,16 @@
 #include <ncore/runtime/ecs/ecs_world.h>
 #include <ncore/runtime/node.h>
 #include <ncore/runtime/scene.h>
-#include <ncore/services/input/input_service.h>
-#include <ncore/services/io/resource_service.h>
+#include <ncore/services/io/input_service.h>
 #include <ncore/services/video/render_service.h>
 
+#include "editor_camera.h"
 #include "editor_state.h"
+#include "gui_plugin.h"
 
 namespace nc::editor {
 
-struct EditorNodeSelectionTag {
-    NSTRUCT1( EditorNodeSelectionTag )
-};
-
-static void draw_scene_tree_node( Node& node, EngineEditorState& state )
+static void draw_scene_tree_node( Node& node, EditorState& state )
 {
     ImGuiTreeNodeFlags flags =
         ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_DrawLinesFull;
@@ -63,8 +56,6 @@ static void draw_scene_tree_node( Node& node, EngineEditorState& state )
         ImGui::EndDragDropTarget();
     }
 
-    auto old_selected = state.SelectedNode;
-
     if (ImGui::BeginPopupContextItem()) {
         if (ImGui::Button( "Rename" )) {
             auto n    = node.get_name();
@@ -85,13 +76,6 @@ static void draw_scene_tree_node( Node& node, EngineEditorState& state )
 
     if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
         state.SelectedNode = &node;
-    }
-
-    // pointer comparison
-    if (old_selected != state.SelectedNode) {
-        if (state.CurrentScene->is_node_valid( old_selected )) // may have been removed
-            old_selected->set_component_enabled<EditorNodeSelectionTag>( false );
-        node.set_component_enabled<EditorNodeSelectionTag>( true );
     }
 
     if (open) {
@@ -155,13 +139,23 @@ static void draw_uint8_widget( const char* label, void* ptr, bool editable )
     }
 }
 
-static void draw_vec2_widget( const char* label, void* ptr, bool editable )
+static void draw_vec2f_widget( const char* label, void* ptr, bool editable )
 {
     if (editable)
-        ImGui::DragFloat2( label, static_cast<Vec2*>( ptr )->data(), 0.01f );
+        ImGui::DragFloat2( label, static_cast<Vec2f*>( ptr )->data(), 0.01f );
     else {
-        auto* v = static_cast<Vec2*>( ptr );
+        auto* v = static_cast<Vec2f*>( ptr );
         ImGui::Text( "%s: (%.2f, %.2f)", label, static_cast<double>( v->x ), static_cast<double>( v->y ) );
+    }
+}
+
+static void draw_vec2i_widget( const char* label, void* ptr, bool editable )
+{
+    if (editable)
+        ImGui::DragInt2( label, static_cast<Vec2i*>( ptr )->data(), 0.01f );
+    else {
+        auto* v = static_cast<Vec2i*>( ptr );
+        ImGui::Text( "%s: (%d, %d)", label, v->x, v->y );
     }
 }
 
@@ -249,7 +243,8 @@ static const WidgetDrawFn* find_widget( rtti::TypeId id )
         { rtti::TypeRegistry::find<int32_t>()->id, draw_int32_widget },
         { rtti::TypeRegistry::find<uint32_t>()->id, draw_uint32_widget },
         { rtti::TypeRegistry::find<uint8_t>()->id, draw_uint8_widget },
-        { rtti::TypeRegistry::find<Vec2>()->id, draw_vec2_widget },
+        { rtti::TypeRegistry::find<Vec2f>()->id, draw_vec2f_widget },
+        { rtti::TypeRegistry::find<Vec2i>()->id, draw_vec2i_widget },
         { rtti::TypeRegistry::find<Vec3>()->id, draw_vec3_widget },
         { rtti::TypeRegistry::find<Vec4>()->id, draw_vec4_widget },
         { rtti::TypeRegistry::find<Color>()->id, draw_color_widget },
@@ -345,7 +340,10 @@ static bool draw_field_widget( void* instance, const rtti::FieldInfo& field )
 
 void register_editor_plugin( Scene& scene )
 {
-    auto editor_state          = scene.get_ecs().emplace_singleton<EngineEditorState>();
+    register_gui_plugin( scene );
+    register_editor_camera( scene );
+
+    auto editor_state          = scene.get_ecs().add_singleton<EditorState>();
     editor_state->CurrentScene = &scene;
 
     editor_state->LogsListenerToken = log::add_listener( [editor_state]( const log::LogMsg& msg ) {
@@ -366,60 +364,28 @@ void register_editor_plugin( Scene& scene )
 
     scene.get_ecs()
         .system( "EngineEditorPlugin_Init" )
-        .with<EngineEditorState>()
+        .with<EditorState>()
         .with<GuiStateComponent>()
         .in( EcsSystemPhase::INIT )
         .order( 20 )
-        .run( []( EcsIterState& ctx ) {
-            auto gui_state = ctx.get_component<GuiStateComponent>();
-
-            if (gui_state->ImGuiCtx) {
-                ImGui::SetCurrentContext( gui_state->ImGuiCtx );
-            }
-
-            StyleColorsEditor();
-            StyleSizesEditor();
-
-            // TODO: make this into a prefab
-            ctx.world()
-                .entity( "EditorFlyCam" )
-                .add<Transform3DComponent>( { Vec3(), Quaternion::identity(), Vec3( 1, 1, 1 ) } )
-                .add<CameraComponent>()
-                .add<InputComponent>()
-                .build();
-        } );
-
-    scene.get_ecs()
-        .observer( "EngineEditorPlugin_Cleanup" )
-        .on<EngineEditorState>( EcsCoreEvent::OnRemove )
-        .run( []( EcsIterState& it ) { ImGui::SetCurrentContext( nullptr ); } );
-
-    scene.get_ecs()
-        .observer( "EngineEditorPlugin_InjectSelectionTag" )
-        .on<NodeRefComponent>( EcsCoreEvent::OnSet )
-        .each( []( EcsIterState& ctx ) {
-            ctx.world().entity( ctx.entity() ).add<EditorNodeSelectionTag>().disabled().build();
+        .run( []( EcsIterState& it ) {
+            auto gui = it.get_component<GuiStateComponent>();
+            ImGuizmo::SetImGuiContext( gui->ImGuiCtx );
         } );
 
     scene.get_ecs()
         .system( "EngineEditorPlugin_BeginFrame" )
-        .with<EngineEditorState>()
+        .with<EditorState>()
         .with<GuiStateComponent>()
-        .with<GraphicsServices>()
         .in( EcsSystemPhase::PRE_UPDATE )
-        .run( []( EcsIterState& ctx ) {
-            auto state = ctx.get_component<EngineEditorState>();
-            auto gfx   = ctx.get_component<GraphicsServices>();
-
-            auto imgui_io = ImGui::GetIO();
+        .run( []( EcsIterState& it ) {
+            auto state = it.get_component<EditorState>();
 
             ImGuizmo::SetOrthographic( false );
             ImGuizmo::BeginFrame();
 
-            ImGuizmo::SetRect( 0, 0, imgui_io.DisplaySize.x, imgui_io.DisplaySize.y );
-
-            // auto view_matrix = gfx->Renderer->world_get_view_matrix().data();
-            // auto proj_matrix = gfx->Renderer->world_camera_get_projection().data();
+            // auto view_matrix = vid->Gfx->world_get_view_matrix().data();
+            // auto proj_matrix = vid->Gfx->world_camera_get_projection().data();
 
             // ImGuizmo's DrawGrid is verrry buggy
             // Mat4 grid_matrix;
@@ -429,9 +395,9 @@ void register_editor_plugin( Scene& scene )
             // ImGuizmo::DrawGrid( view_matrix, proj_matrix, grid_matrix.data(), 100.0f );
 
             // Crosshair
-            {
+            /*if (state->ViewportRT) {
                 auto draw_list = ImGui::GetBackgroundDrawList();
-                ImVec2 center  = { imgui_io.DisplaySize.x * 0.5f, imgui_io.DisplaySize.y * 0.5f };
+                ImVec2 center  = { state->ViewportSize.x * 0.5f, state->ViewportSize.y * 0.5f };
                 draw_list->AddLine(
                     ImVec2( center.x - 15.0f, center.y ), ImVec2( center.x + 15.0f, center.y ),
                     IM_COL32( 255, 255, 255, 255 ), 1.5f
@@ -440,27 +406,34 @@ void register_editor_plugin( Scene& scene )
                     ImVec2( center.x, center.y - 15.0f ), ImVec2( center.x, center.y + 15.0f ),
                     IM_COL32( 255, 255, 255, 255 ), 1.5f
                 );
-            }
+            }*/
         } );
 
     scene.get_ecs()
-        .observer( "EngineEditorPlugin_SwapChainResizedDebug" )
-        .with<SwapChainComponent>()
-        .event<SwapChainResizedComponent>()
-        .each( []( EcsIterState& ctx ) {
-            auto resized = ctx.event_payload<SwapChainResizedComponent>();
-            String stringified;
-            rtti::TypeRegistry::to_string<Vec2>( stringified, &resized->size );
-            NC_LOG_DEBUG_C( log::GRAPHICS, "SwapChainResized: size={}", stringified );
+        .system( "EngineEditorPlugin_CanvasSwapchainPass" )
+        .with<EditorState>()
+        .with<VideoServices>()
+        .in( EcsSystemPhase::POST_FRAME )
+        .order( 15 )
+        .run( []( EcsIterState& it ) {
+            auto state = it.get_component<EditorState>();
+            auto vid   = it.get_component<VideoServices>();
+
+            RenderService::RenderPassDesc pass{};
+            pass.camera       = state->EditorCamSource;
+            pass.draw_spatial = false;
+            pass.draw_canvas  = true;
+            pass.to_screen    = true;
+            vid->Gfx->render_pass( pass );
         } );
 
     scene.get_ecs()
         .system( "EngineEditorPlugin_ConfigureDocking" )
         .with<GuiStateComponent>()
-        .with<EngineEditorState>()
+        .with<EditorState>()
         .in( EcsSystemPhase::PRE_UPDATE )
-        .run( []( EcsIterState& ctx ) {
-            auto state           = ctx.get_component<EngineEditorState>();
+        .run( []( EcsIterState& it ) {
+            auto state           = it.get_component<EditorState>();
             ImGuiID dockspace_id = ImGui::DockSpaceOverViewport( 0, nullptr, ImGuiDockNodeFlags_PassthruCentralNode );
             state->DockspaceId   = dockspace_id;
             if (!ImGui::DockBuilderGetNode( dockspace_id )) {
@@ -469,21 +442,148 @@ void register_editor_plugin( Scene& scene )
                 ImGui::DockBuilderSetNodeSize( dockspace_id, ImGui::GetMainViewport()->WorkSize );
                 ImGuiID dock_main = dockspace_id;
                 ImGuiID dock_top  = ImGui::DockBuilderSplitNode( dock_main, ImGuiDir_Up, 0.05f, nullptr, &dock_main );
-                ImGui::DockBuilderDockWindow( "Toolbar", dock_top );
                 ImGuiID dock_left = ImGui::DockBuilderSplitNode( dock_main, ImGuiDir_Left, 0.22f, nullptr, &dock_main );
+                ImGuiID dock_right =
+                    ImGui::DockBuilderSplitNode( dock_main, ImGuiDir_Right, 0.22f, nullptr, &dock_main );
+                ImGui::DockBuilderDockWindow( "Toolbar", dock_top );
                 ImGui::DockBuilderDockWindow( "Scene Tree", dock_left );
+                ImGui::DockBuilderDockWindow( "Scene View", dock_main );
+                ImGui::DockBuilderDockWindow( "Inspector", dock_right );
                 ImGui::DockBuilderFinish( dockspace_id );
             }
         } );
 
     scene.get_ecs()
-        .system( "EngineEditorPlugin_Panels" )
-        .with<EngineEditorState>()
+        .system( "EngineEditorPlugin_SceneView" )
+        .with<EditorState>()
+        .with<VideoServices>()
+        .with<TimeComponent>()
         .in( EcsSystemPhase::UPDATE )
-        .run( []( EcsIterState& ctx ) {
-            auto time  = ctx.world().get_singleton<TimeComponent>();
-            auto gfx   = ctx.world().get_singleton<GraphicsServices>();
-            auto state = ctx.get_component<EngineEditorState>();
+        .run( []( EcsIterState& it ) {
+            auto state = it.get_component<EditorState>();
+            auto vid   = it.get_component<VideoServices>();
+            auto time  = it.get_component<TimeComponent>();
+
+            ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 0, 0 ) );
+            ImGui::PushStyleVar( ImGuiStyleVar_ChildBorderSize, 0.0f );
+            ImGui::Begin( "Scene View", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
+
+            state->ViewportHovered = ImGui::IsWindowHovered();
+            state->ViewportFocused = ImGui::IsWindowFocused( ImGuiFocusedFlags_RootAndChildWindows );
+
+            ImVec2 img_size = ImGui::GetContentRegionAvail();
+            ImVec2 img_pos  = ImGui::GetCursorScreenPos();
+            Vec2f img_size_v( img_size.x, img_size.y );
+
+            // re-create viewport render target everytime size changed
+            if (img_size.x > 0 && img_size.y > 0 && img_size_v != state->ViewportSize) {
+                if (state->ViewportRT)
+                    vid->Gfx->destroy_rid( state->ViewportRT );
+                if (state->ViewportDT)
+                    vid->Gfx->destroy_rid( state->ViewportDT );
+
+                Vec2i vp_size( static_cast<int>( img_size.x ), static_cast<int>( img_size.y ) );
+                state->ViewportRT   = vid->Gfx->texture_render_create( vp_size, TextureFormat::RGBA8_UNORM_SRGB );
+                state->ViewportDT   = vid->Gfx->texture_render_create( vp_size, TextureFormat::D32_FLOAT );
+                state->ViewportSize = img_size_v;
+            }
+
+            if (state->ViewportRT) {
+                ImGuizmo::SetRect( img_pos.x, img_pos.y, img_size.x, img_size.y );
+
+                ImTextureID tex_id = reinterpret_cast<ImTextureID>( static_cast<uintptr_t>( state->ViewportRT.value ) );
+                ImGui::Image( tex_id, img_size );
+            }
+
+            // -- Gizmos --
+
+            // this means we only support single node selection
+            // TODO: node multi-selection
+            auto selected = state->SelectedNode;
+            if (selected && selected->has_component<Transform3DComponent>()) {
+                auto xform = selected->get_component<Transform3DComponent>();
+
+                ImGuizmo::SetDrawlist( ImGui::GetWindowDrawList() );
+
+                auto& cam_attribs   = vid->Gfx->camera_get_attribs( state->EditorCamSource );
+                auto projection_mat = vid->Gfx->camera_get_perspective( state->EditorCamSource );
+                auto view_mat       = cam_attribs.Transform.affine_inverse();
+
+                Mat4 local     = xform->to_matrix();
+                auto mode      = state->GlobalXformGizmo ? ImGuizmo::MODE::WORLD : ImGuizmo::MODE::LOCAL;
+                auto operation = static_cast<ImGuizmo::OPERATION>( state->XformGizmoOperation );
+                if (ImGuizmo::Manipulate( view_mat.data(), projection_mat.data(), operation, mode, local.data() )) {
+                    xform->from_matrix( local );
+                }
+            }
+
+            ImGui::End();
+            ImGui::PopStyleVar( 2 );
+
+            // -- Overlays --
+
+            ImGui::SetNextWindowBgAlpha( 0.35f );
+            ImGui::PushStyleVar( ImGuiStyleVar_WindowBorderSize, 0.0f );
+
+            ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+                                            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+                                            ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
+
+            constexpr float PAD      = 10.0f;
+            float overlay_right_edge = img_pos.x + img_size.x;
+            ImGui::SetNextWindowPos(
+                ImVec2( overlay_right_edge - PAD, img_pos.y + PAD ), ImGuiCond_Always, ImVec2( 1.0f, 0.0f )
+            );
+
+            ImGui::SetNextWindowSize( ImVec2( 200, 0 ) );
+
+            if (ImGui::Begin( "##overlay", nullptr, window_flags )) {
+                ImGui::Text( "Ticks: %u", time->Ticks );
+                ImGui::Text( "FPS: %.3f", time->FPS );
+                ImGui::Text( "Frame count: %d", time->FrameCount );
+
+                const auto& stats = vid->Gfx->get_stats();
+                ImGui::Text( "GPU time: %.3f ms", stats.gpu_duration_ms );
+                ImGui::Text( "IA Prims: %llu", stats.input_primitives );
+                ImGui::Text( "IA Verts: %llu", stats.input_vertices );
+                ImGui::Text( "VS Invokes: %llu", stats.vs_invocations );
+                ImGui::Text( "PS Invokes: %llu", stats.ps_invocations );
+                ImGui::Text( "Clipping Prims: %llu", stats.clipping_primitives );
+                ImGui::Text( "Clipping Invokes: %llu", stats.clipping_invocations );
+            }
+            ImGui::End();
+            ImGui::PopStyleVar();
+        } );
+
+    scene.get_ecs()
+        .system( "EngineEditorPlugin_GameView" )
+        .with<EditorState>()
+        .in( EcsSystemPhase::UPDATE )
+        .run( []( EcsIterState& it ) {
+            auto state = it.get_component<EditorState>();
+
+            ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 0, 0 ) );
+            ImGui::PushStyleVar( ImGuiStyleVar_ChildBorderSize, 0.0f );
+            ImGui::Begin( "Game View", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
+
+            if (state->GameViewRT) {
+                ImVec2 img_size    = ImGui::GetContentRegionAvail();
+                ImTextureID tex_id = reinterpret_cast<ImTextureID>( static_cast<uintptr_t>( state->GameViewRT.value ) );
+                ImGui::Image( tex_id, img_size );
+            }
+
+            ImGui::End();
+            ImGui::PopStyleVar( 2 );
+        } );
+
+    scene.get_ecs()
+        .system( "EngineEditorPlugin_Panels" )
+        .with<EditorState>()
+        .in( EcsSystemPhase::UPDATE )
+        .run( []( EcsIterState& it ) {
+            auto time  = it.world().get_singleton<TimeComponent>();
+            auto vid   = it.world().get_singleton<VideoServices>();
+            auto state = it.get_component<EditorState>();
 
             // Main Menu Bar
             {
@@ -558,11 +658,11 @@ void register_editor_plugin( Scene& scene )
                     ImGui::SeparatorEx( ImGuiSeparatorFlags_Vertical );
                     ImGui::SameLine();
                     if (ImGui::Checkbox( "Wireframe", &state->DrawWireframe )) {
-                        auto q = ctx.world().query( "MaterialComponentOwners" ).with<MaterialComponent>().build();
-                        for (auto ctx : q.entities()) {
-                            auto mat      = ctx.get_component<MaterialComponent>();
+                        auto q = it.world().query( "MaterialComponentOwners" ).with<MaterialComponent>().build();
+                        for (auto it : q.entities()) {
+                            auto mat      = it.get_component<MaterialComponent>();
                             mat->DrawMode = state->DrawWireframe ? FillMode::WIREFRAME : FillMode::SOLID;
-                            ctx.mark_component_modified<MaterialComponent>();
+                            it.mark_component_modified<MaterialComponent>();
                         }
                     }
                 }
@@ -663,7 +763,7 @@ void register_editor_plugin( Scene& scene )
                                 bool already = state->SelectedNode->has_component( type );
                                 ImGui::BeginDisabled( already );
                                 if (ImGui::Selectable( type->name )) {
-                                    state->SelectedNode->emplace_component( type );
+                                    state->SelectedNode->add_component( type );
                                     state->AddCompFilter[0] = '\0';
                                     ImGui::CloseCurrentPopup();
                                 }
@@ -697,7 +797,7 @@ void register_editor_plugin( Scene& scene )
                                     }
                                 }
 
-                                ImGui::PushID( static_cast<int>( id << 32 | type->id.value ) );
+                                ImGui::PushID( static_cast<int>( id << 16 | type->id.value ) );
                                 if (ImGui::SmallButton( "Remove" )) {
                                     state->SelectedNode->remove_component( type );
                                 }
@@ -765,7 +865,7 @@ void register_editor_plugin( Scene& scene )
                     ImGui::Text( "Hits: %d", rtti::TypeRegistry::get_rtti_hits() );
 
                     ImGui::SeparatorText( "Rendering" );
-                    const auto& stats = gfx->Renderer->get_stats();
+                    const auto& stats = vid->Gfx->get_stats();
                     ImGui::Text( "GPU Duration: %.3f ms", stats.gpu_duration_ms );
                     ImGui::Text( "Input Assembler Primitives: %llu", stats.input_primitives );
                     ImGui::Text( "Input Assembler Vertices: %llu", stats.input_vertices );
@@ -776,39 +876,18 @@ void register_editor_plugin( Scene& scene )
 
                     ImGui::SeparatorText( "ECS Debug" );
                     ImGui::Text(
-                        "Entity count:\n Total: %zu\n Alive: %zu", ctx.world().get_entity_count(),
-                        ctx.world().get_entity_count( true )
+                        "Entity count:\n Total: %zu\n Alive: %zu", it.world().get_entity_count(),
+                        it.world().get_entity_count( true )
                     );
 
                     if (ImGui::Button( "Spawn Window" )) {
-                        ctx.world()
+                        it.world()
                             .entity()
-                            .add<WindowComponent>( WindowComponent{ .Resolution = Vec2( 300, 300 ), .Visible = true } )
+                            .add<WindowComponent>( WindowComponent{ .Resolution = Vec2i( 300, 300 ), .Visible = true } )
                             .build();
                     }
                 }
                 ImGui::End();
-            }
-        } );
-
-    scene.get_ecs()
-        .system( "EngineEditorPlugin_Transform3D_ManipulateGizmo" )
-        .with<Transform3DComponent>()
-        .with<EditorNodeSelectionTag>()
-        .in( EcsSystemPhase::UPDATE )
-        .each( []( EcsIterState& ctx ) {
-            auto state = ctx.world().get_singleton<EngineEditorState>();
-            auto gfx   = ctx.world().get_singleton<GraphicsServices>();
-            auto xform = ctx.get_component<Transform3DComponent>();
-
-            Mat4 view_matrix = gfx->Renderer->world_get_view_matrix();
-            Mat4 proj_matrix = gfx->Renderer->world_camera_get_projection();
-
-            Mat4 local     = xform->to_matrix();
-            auto mode      = state->GlobalXformGizmo ? ImGuizmo::MODE::WORLD : ImGuizmo::MODE::LOCAL;
-            auto operation = static_cast<ImGuizmo::OPERATION>( state->XformGizmoOperation );
-            if (ImGuizmo::Manipulate( view_matrix.data(), proj_matrix.data(), operation, mode, local.data() )) {
-                xform->from_matrix( local );
             }
         } );
 
@@ -817,26 +896,26 @@ void register_editor_plugin( Scene& scene )
         .system( "EngineEditorPlugin_TitleBarUpdater" )
         .with<WindowComponent>()
         .in( EcsSystemPhase::POST_FRAME )
-        .each( []( EcsIterState& ctx ) {
-            // auto gfx  = ctx.world().get_singleton<GraphicsServices>();
-            // auto time = ctx.world().get_singleton<TimeComponent>();
+        .each( []( EcsIterState& it ) {
+            // auto vid  = it.world().get_singleton<VideoServices>();
+            // auto time = it.world().get_singleton<TimeComponent>();
 
-            // auto window = ctx.get_component<WindowComponent>();
+            // auto window = it.get_component<WindowComponent>();
             // if (time->accumulator >= 0.5) {
-            //     update_window_title( gfx->window, ctx.entity(), window, time->fps, ctx.delta_time() );
+            //     update_window_title( vid->window, it.entity(), window, time->fps, it.delta_time() );
             // }
         } );
 
     scene.get_ecs()
         .system( "EngineEditorPlugin_InputUI" )
-        .with<IoServices>()
+        .with<IOServices>()
         .in( EcsSystemPhase::UPDATE )
-        .run( []( EcsIterState& ctx ) {
-            auto state = ctx.world().get_singleton<EngineEditorState>();
+        .run( []( EcsIterState& it ) {
+            auto state = it.world().get_singleton<EditorState>();
             if (!state->ShowInputsWindow)
                 return;
 
-            auto io = ctx.world().get_singleton<IoServices>();
+            auto io = it.world().get_singleton<IOServices>();
 
             if (ImGui::Begin( "Input Debug", &state->ShowInputsWindow )) {
                 {
@@ -897,11 +976,30 @@ void register_editor_plugin( Scene& scene )
             }
             ImGui::End();
         } );
+
+    scene.get_ecs()
+        .observer( "EngineEditorPlugin_Cleanup" )
+        .on<EditorState>( EcsCoreEvent::OnRemove )
+        .run( []( EcsIterState& it ) {
+            auto state = it.world().get_singleton<EditorState>();
+            auto vid   = it.world().get_singleton<VideoServices>();
+            if (state && vid) {
+                if (state->ViewportRT)
+                    vid->Gfx->destroy_rid( state->ViewportRT );
+                if (state->ViewportDT)
+                    vid->Gfx->destroy_rid( state->ViewportDT );
+                if (state->GameViewRT)
+                    vid->Gfx->destroy_rid( state->GameViewRT );
+                if (state->GameViewDT)
+                    vid->Gfx->destroy_rid( state->GameViewDT );
+            }
+        } );
 }
 
 void unregister_editor_plugin( Scene& scene )
 {
-    scene.get_ecs().remove_singleton<EngineEditorState>();
+    scene.get_ecs().remove_singleton<EditorState>();
+    unregister_gui_plugin( scene );
 }
 
 } // namespace nc::editor

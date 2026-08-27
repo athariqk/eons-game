@@ -3,16 +3,17 @@
 #include <ncore/core/collection.h>
 
 #include "../rhi.h"
-#include "renderer_storage.h"
+#include "render_storage.h"
 #include "vertex_format.h"
 
 namespace nc {
 
 struct CanvasRenderItem {
     RID material;
+    RID texture;
     DynamicArray<Vertex2D> verts;
     DynamicArray<uint16_t> indices;
-    Rect clip = {};
+    Rect2i clip = {};
 };
 
 struct WorldRenderItem {
@@ -22,10 +23,8 @@ struct WorldRenderItem {
     uint32_t instancing;
 };
 
-struct RendererContext {
-    IRHI* rhi;               // Access to the render hardware interface
-    RendererStorage storage; // Access to shared cross-renderer GPU resources
-    RID gfx_device_ctx;      // The handle of current RHI device context for gfx ops
+struct RenderContext {
+    RID gfx_device_ctx; // The handle of current RHI device context for gfx ops
     PagedPool<WorldRenderItem> world_render_list;
     // List of pending canvas draw calls, cleared at the end of each frame
     PagedPool<CanvasRenderItem> canvas_render_list;

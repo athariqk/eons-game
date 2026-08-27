@@ -9,6 +9,8 @@
 #include "diligent_allocator.h"
 #include "diligent_type_helpers.h"
 
+#include <vulkan/vulkan_core.h>
+
 namespace nc {
 
 static void DILIGENT_CALL_TYPE OutputMessageCallbackDiligent(
@@ -48,6 +50,13 @@ DiligentRHI::DiligentRHI()
 
     {
         Diligent::EngineVkCreateInfo ci;
+
+        // Required for SPIR-V DrawParameters capability emitted by Slang when
+        // shaders use SV_InstanceID / SV_VertexID.
+        VkPhysicalDeviceVulkan11Features vk11_features{};
+        vk11_features.sType                = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+        vk11_features.shaderDrawParameters = VK_TRUE;
+        ci.pDeviceExtensionFeatures        = &vk11_features;
 
 #if defined( NC_DEBUG )
         ci.EnableValidation            = true;
@@ -208,16 +217,16 @@ RID DiligentRHI::swapchain_create( const SwapChainDesc& desc )
     return rid;
 }
 
-Vec2 DiligentRHI::swapchain_get_size( RID sc )
+Vec2i DiligentRHI::swapchain_get_size( RID sc )
 {
     auto entry = swapchains.get( sc );
     NC_VERIFY( entry );
-    auto width  = static_cast<float>( ( *entry )->GetDesc().Width );
-    auto height = static_cast<float>( ( *entry )->GetDesc().Height );
-    return Vec2( width, height );
+    auto width  = ( *entry )->GetDesc().Width;
+    auto height = ( *entry )->GetDesc().Height;
+    return Vec2i( width, height );
 }
 
-void DiligentRHI::swapchain_set_size( RID sc, Vec2 size )
+void DiligentRHI::swapchain_set_size( RID sc, Vec2i size )
 {
     auto entry = swapchains.get( sc );
     NC_VERIFY( entry );
@@ -244,13 +253,11 @@ void* DiligentRHI::swapchain_get_view( RID sc, TextureViewType view )
     auto entry = swapchains.get( sc );
     NC_VERIFY( entry );
     switch (view) {
-        case nc::TextureViewType::SHADER_RESOURCE:
-            break;
         case nc::TextureViewType::RENDER_TARGET:
             return ( *entry )->GetCurrentBackBufferRTV();
         case nc::TextureViewType::DEPTH_STENCIL:
             return ( *entry )->GetDepthBufferDSV();
-        case nc::TextureViewType::UNORDERED_ACCESS:
+        default:
             break;
     }
     return nullptr;
@@ -439,7 +446,7 @@ void DiligentRHI::render_target_set_viewport( Span<const Viewport> p_viewports )
     get_active_ctx_()->SetViewports( static_cast<Diligent::Uint32>( vps.size() ), vps.data(), 0, 0 );
 }
 
-void DiligentRHI::render_target_set_scissor_rect( Span<const Rect> p_rects )
+void DiligentRHI::render_target_set_scissor_rect( Span<const Rect2i> p_rects )
 {
     DynamicArray<Diligent::Rect> rects;
     for (auto r : p_rects) {
@@ -641,16 +648,21 @@ RID DiligentRHI::texture_create( const TextureDesc& desc )
     if (desc.dimension == ResourceDimension::DIM_CUBE) {
         NC_ASSERT( desc.width > 0, "Cube texture width must be > 0" );
         NC_ASSERT( desc.array_size == 6, "Cube texture requires array_size == 6" );
+    }
 
-        Diligent::TextureSubResData subres[6];
-        for (int i = 0; i < 6; i++) {
-            subres[i] = Diligent::TextureSubResData{ desc.faces[i], static_cast<Diligent::Uint64>( desc.width ) * 4 };
-        }
-        Diligent::TextureData init{ subres, 6 };
-        device->CreateTexture( ddesc, &init, &texture );
+    DynamicArray<Diligent::TextureSubResData> subres;
+    for (auto& res : desc.subresources) {
+        auto& it  = subres.emplace_back();
+        it.pData  = res.pixels;
+        it.Stride = static_cast<Diligent::Uint64>( desc.width ) * 4;
+    }
+
+    if (subres.empty()) {
+        device->CreateTexture( ddesc, nullptr, &texture );
     } else {
-        Diligent::TextureSubResData mip_0{ desc.pixels, static_cast<Diligent::Uint64>( desc.width * 4 ) };
-        Diligent::TextureData init{ &mip_0, 1 };
+        Diligent::TextureData init{};
+        init.pSubResources   = subres.data();
+        init.NumSubresources = static_cast<Diligent::Uint32>( subres.size() );
         device->CreateTexture( ddesc, &init, &texture );
     }
 
@@ -670,7 +682,7 @@ void DiligentRHI::texture_binding_update( RID texture, RID binding, const char* 
 
     NC_VERIFY( srb_entry );
     NC_VERIFY( tex_entry );
-    NC_VERIFY( view );
+    NC_VERIFY_MSG( view, "Texture does not have matching view." );
 
     auto var = ( *srb_entry )->GetVariableByName( Diligent::SHADER_TYPE_PIXEL, name );
     if (!var)
@@ -683,7 +695,7 @@ void DiligentRHI::texture_binding_update( RID texture, RID binding, const char* 
 void* DiligentRHI::texture_get_view( RID texture, TextureViewType view )
 {
     auto entry = textures.get( texture );
-    NC_VERIFY( entry );
+    NC_FAIL_MSG_RETVAL( entry, nullptr, "Texture not found." );
 
     auto map_view = []( TextureViewType t ) {
         switch (t) {
@@ -699,6 +711,31 @@ void* DiligentRHI::texture_get_view( RID texture, TextureViewType view )
         return Diligent::TEXTURE_VIEW_SHADER_RESOURCE;
     };
     return ( *entry )->GetDefaultView( map_view( view ) );
+}
+
+void DiligentRHI::texture_blit( RID texture_src, RID texture_dest, bool to_swapchain )
+{
+    auto src = textures.get( texture_src );
+    NC_VERIFY( src );
+    Diligent::ITexture* dest = nullptr;
+    if (to_swapchain) {
+        auto sc = swapchains.get( texture_dest );
+        NC_VERIFY( sc );
+        dest = ( *sc )->GetCurrentBackBufferRTV()->GetTexture();
+    } else {
+        auto dst_ = textures.get( texture_dest );
+        NC_VERIFY( dst_ );
+        dest = dst_->RawPtr();
+    }
+
+    get_active_ctx_()->SetRenderTargets( 0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION );
+
+    Diligent::CopyTextureAttribs attribs{};
+    attribs.pSrcTexture              = src->RawPtr();
+    attribs.pDstTexture              = dest;
+    attribs.SrcTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    attribs.DstTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    get_active_ctx_()->CopyTexture( attribs );
 }
 
 RID DiligentRHI::sampler_create( const SamplerDesc& desc )
@@ -931,19 +968,30 @@ bool DiligentRHI::is_rid_owned( RID rid )
            res_bindings.contains( rid );
 }
 
-void DiligentRHI::destroy_resource( RID rid )
+bool DiligentRHI::destroy_rid( RID rid )
 {
     NC_LOG_DEBUG_C( log::GRAPHICS, "Destroying RID={}", rid.value );
-    ctx_gfx_defer.release( rid );
-    ctx_comp_defer.release( rid );
-    ctx_tx_defer.release( rid );
-    swapchains.release( rid );
-    pipelines.release( rid );
-    textures.release( rid );
-    buffers.release( rid );
-    samplers.release( rid );
-    res_signatures.release( rid );
-    res_bindings.release( rid );
+    if (ctx_gfx_defer.release( rid ))
+        return true;
+    if (ctx_comp_defer.release( rid ))
+        return true;
+    if (ctx_tx_defer.release( rid ))
+        return true;
+    if (swapchains.release( rid ))
+        return true;
+    if (pipelines.release( rid ))
+        return true;
+    if (textures.release( rid ))
+        return true;
+    if (buffers.release( rid ))
+        return true;
+    if (samplers.release( rid ))
+        return true;
+    if (res_signatures.release( rid ))
+        return true;
+    if (res_bindings.release( rid ))
+        return true;
+    return false;
 }
 
 // ---------------------------------------------------------------------------

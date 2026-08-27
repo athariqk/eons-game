@@ -146,16 +146,9 @@ ShaderCompileResult ShaderCompiler::compile( const ShaderCompileDesc& desc )
 
     const auto assets_root = std::filesystem::current_path() / "assets";
 
-    auto fs_path = std::filesystem::path( desc.filepath.c_str() );
-    if (fs_path.is_relative())
-        fs_path = assets_root / fs_path;
-    auto fs_path_str = String( fs_path.string() );
-
-    String path_key = desc.filepath;
-    std::error_code rel_ec;
-    auto rel_path = std::filesystem::relative( fs_path, assets_root, rel_ec );
-    if (!rel_ec && !rel_path.empty())
-        path_key = String( rel_path.generic_string() );
+    auto fs_path      = std::filesystem::path( desc.filepath.c_str() );
+    auto fullpath_str = fs_path.string();
+    auto& path_key    = desc.filepath;
 
     if (!ensure_session( desc.recreate_session ))
         return result;
@@ -163,7 +156,7 @@ ShaderCompileResult ShaderCompiler::compile( const ShaderCompileDesc& desc )
     slang::IModule* module = nullptr;
     {
         Slang::ComPtr<slang::IBlob> diags;
-        module = compile_session->loadModule( fs_path_str.data(), diags.writeRef() );
+        module = compile_session->loadModule( fullpath_str.c_str(), diags.writeRef() );
 
         if (diags && diags->getBufferSize() > 0) {
             auto diags_str     = static_cast<const char*>( diags->getBufferPointer() );

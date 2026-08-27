@@ -323,6 +323,9 @@ public:
     EcsQueryBuilder( const EcsQueryBuilder& )            = delete;
     EcsQueryBuilder& operator=( const EcsQueryBuilder& ) = delete;
 
+    /**
+     * @brief Add component to query term.
+     */
     template<typename... Comps>
     EcsQueryBuilder& with()
     {
@@ -385,6 +388,8 @@ public:
      * @brief Set the optional query DSL expression.
      */
     EcsQueryBuilder& expr( StringView dsl );
+
+	EcsQueryBuilder& src( EcsEntity id );
 
     /**
      * @brief Returns the query name.

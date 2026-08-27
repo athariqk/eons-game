@@ -13,10 +13,10 @@ static void OnB2DrawPolygon( const b2Vec2* vertices, int vertexCount, b2HexColor
     auto* wrapper = static_cast<PhysicsDebugDraw*>( ctx );
     if (!wrapper->draw_polygon)
         return;
-    Vec2 buf[8];
+    Vec2f buf[8];
     int n = vertexCount < 8 ? vertexCount : 8;
     for (int i = 0; i < n; i++)
-        buf[i] = Vec2( vertices[i].x, vertices[i].y );
+        buf[i] = Vec2f( vertices[i].x, vertices[i].y );
     wrapper->draw_polygon( buf, n, static_cast<uint32_t>( color ), wrapper->context );
 }
 
@@ -27,11 +27,11 @@ static void OnB2DrawSolidPolygon(
     auto* wrapper = static_cast<PhysicsDebugDraw*>( ctx );
     if (!wrapper->draw_solid_polygon)
         return;
-    Vec2 buf[8];
+    Vec2f buf[8];
     int n = vertexCount < 8 ? vertexCount : 8;
     for (int i = 0; i < n; i++) {
         b2Vec2 wp = b2TransformPoint( transform, vertices[i] );
-        buf[i]    = Vec2( wp.x, wp.y );
+        buf[i]    = Vec2f( wp.x, wp.y );
     }
     wrapper->draw_solid_polygon( buf, n, radius, static_cast<uint32_t>( color ), wrapper->context );
 }
@@ -41,7 +41,7 @@ static void OnB2DrawCircle( b2Vec2 center, float radius, b2HexColor color, void*
     auto* wrapper = static_cast<PhysicsDebugDraw*>( ctx );
     if (!wrapper->draw_circle)
         return;
-    wrapper->draw_circle( Vec2( center.x, center.y ), radius, static_cast<uint32_t>( color ), wrapper->context );
+    wrapper->draw_circle( Vec2f( center.x, center.y ), radius, static_cast<uint32_t>( color ), wrapper->context );
 }
 
 static void OnB2DrawSolidCircle( b2Transform transform, float radius, b2HexColor color, void* ctx )
@@ -50,7 +50,7 @@ static void OnB2DrawSolidCircle( b2Transform transform, float radius, b2HexColor
     if (!wrapper->draw_solid_circle)
         return;
     wrapper->draw_solid_circle(
-        Vec2( transform.p.x, transform.p.y ), radius, static_cast<uint32_t>( color ), wrapper->context
+        Vec2f( transform.p.x, transform.p.y ), radius, static_cast<uint32_t>( color ), wrapper->context
     );
 }
 
@@ -60,7 +60,7 @@ static void OnB2DrawSolidCapsule( b2Vec2 p1, b2Vec2 p2, float radius, b2HexColor
     if (!wrapper->draw_solid_capsule)
         return;
     wrapper->draw_solid_capsule(
-        Vec2( p1.x, p1.y ), Vec2( p2.x, p2.y ), radius, static_cast<uint32_t>( color ), wrapper->context
+        Vec2f( p1.x, p1.y ), Vec2f( p2.x, p2.y ), radius, static_cast<uint32_t>( color ), wrapper->context
     );
 }
 
@@ -69,7 +69,7 @@ static void OnB2DrawSegment( b2Vec2 p1, b2Vec2 p2, b2HexColor color, void* ctx )
     auto* wrapper = static_cast<PhysicsDebugDraw*>( ctx );
     if (!wrapper->draw_segment)
         return;
-    wrapper->draw_segment( Vec2( p1.x, p1.y ), Vec2( p2.x, p2.y ), static_cast<uint32_t>( color ), wrapper->context );
+    wrapper->draw_segment( Vec2f( p1.x, p1.y ), Vec2f( p2.x, p2.y ), static_cast<uint32_t>( color ), wrapper->context );
 }
 
 static void OnB2DrawTransform( b2Transform transform, void* ctx )
@@ -78,7 +78,7 @@ static void OnB2DrawTransform( b2Transform transform, void* ctx )
     if (!wrapper->draw_transform)
         return;
     float angle = b2Rot_GetAngle( transform.q );
-    wrapper->draw_transform( Vec2( transform.p.x, transform.p.y ), angle, wrapper->context );
+    wrapper->draw_transform( Vec2f( transform.p.x, transform.p.y ), angle, wrapper->context );
 }
 
 static void OnB2DrawPoint( b2Vec2 p, float size, b2HexColor color, void* ctx )
@@ -86,7 +86,7 @@ static void OnB2DrawPoint( b2Vec2 p, float size, b2HexColor color, void* ctx )
     auto* wrapper = static_cast<PhysicsDebugDraw*>( ctx );
     if (!wrapper->draw_point)
         return;
-    wrapper->draw_point( Vec2( p.x, p.y ), size, static_cast<uint32_t>( color ), wrapper->context );
+    wrapper->draw_point( Vec2f( p.x, p.y ), size, static_cast<uint32_t>( color ), wrapper->context );
 }
 
 Error Box2DPhysicsImpl::init( ConfFile& cfg_file )
@@ -172,11 +172,11 @@ bool Box2DPhysicsImpl::is_body_awake( RID body ) const
     return b2Body_IsAwake( body_map.at( body ) );
 }
 
-Vec2 Box2DPhysicsImpl::get_body_position( RID body ) const
+Vec2f Box2DPhysicsImpl::get_body_position( RID body ) const
 {
-    NC_FAIL_MSG_RETVAL( is_body_valid( body ), Vec2(), "Body is invalid" );
+    NC_FAIL_MSG_RETVAL( is_body_valid( body ), Vec2f(), "Body is invalid" );
     auto pos = b2Body_GetPosition( body_map.at( body ) );
-    return Vec2( pos.x, pos.y );
+    return Vec2f( pos.x, pos.y );
 }
 
 float Box2DPhysicsImpl::get_body_angle( RID body ) const
@@ -185,20 +185,20 @@ float Box2DPhysicsImpl::get_body_angle( RID body ) const
     return b2Rot_GetAngle( b2Body_GetRotation( body_map.at( body ) ) );
 }
 
-Vec2 Box2DPhysicsImpl::get_body_velocity( RID body ) const
+Vec2f Box2DPhysicsImpl::get_body_velocity( RID body ) const
 {
-    NC_FAIL_MSG_RETVAL( is_body_valid( body ), Vec2(), "Body is invalid" );
+    NC_FAIL_MSG_RETVAL( is_body_valid( body ), Vec2f(), "Body is invalid" );
     auto vel = b2Body_GetLinearVelocity( body_map.at( body ) );
-    return Vec2( vel.x, vel.y );
+    return Vec2f( vel.x, vel.y );
 }
 
-void Box2DPhysicsImpl::apply_linear_impulse( RID body, const Vec2& impulse )
+void Box2DPhysicsImpl::apply_linear_impulse( RID body, const Vec2f& impulse )
 {
     NC_FAIL_MSG_RET( is_body_valid( body ), "Body is invalid" );
     b2Body_ApplyLinearImpulseToCenter( body_map.at( body ), b2Vec2{ impulse.x, impulse.y }, true );
 }
 
-void Box2DPhysicsImpl::apply_linear_force( RID body, const Vec2& force )
+void Box2DPhysicsImpl::apply_linear_force( RID body, const Vec2f& force )
 {
     NC_FAIL_MSG_RET( is_body_valid( body ), "Body is invalid" );
     b2Body_ApplyForceToCenter( body_map.at( body ), b2Vec2{ force.x, force.y }, true );

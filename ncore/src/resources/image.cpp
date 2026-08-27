@@ -28,7 +28,7 @@ uint32_t Image::get_height() const
     return height;
 }
 
-std::span<const std::byte> Image::get_pixels() const
+Span<const std::byte> Image::get_pixels() const
 {
     return pixels;
 }

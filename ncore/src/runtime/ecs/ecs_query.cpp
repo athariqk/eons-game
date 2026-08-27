@@ -432,6 +432,14 @@ EcsQueryBuilder& EcsQueryBuilder::expr( StringView dsl )
     return *this;
 }
 
+EcsQueryBuilder& EcsQueryBuilder::src( EcsEntity id )
+{
+    ecs_term_t term{};
+    term.src.id = id;
+    pImpl->terms.push_back( term );
+    return *this;
+}
+
 const String& EcsQueryBuilder::name() const
 {
     return pImpl->name;

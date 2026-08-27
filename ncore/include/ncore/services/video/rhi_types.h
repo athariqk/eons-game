@@ -40,6 +40,11 @@ enum class ResourceBindFlags : uint32_t {
     RAY_TRACING        = 1 << 10,
     SHADING_RATE
 };
+constexpr ResourceBindFlags operator|( ResourceBindFlags lhs, ResourceBindFlags rhs )
+{
+    using T = std::underlying_type_t<ResourceBindFlags>;
+    return static_cast<ResourceBindFlags>( static_cast<T>( lhs ) | static_cast<T>( rhs ) );
+}
 
 enum class ResourceUsage : uint8_t {
     IMMUTABLE = 0,
@@ -73,10 +78,10 @@ enum class TextureFormat {
     RGBA8_UNORM,
     RGBA8_UNORM_SRGB,
     R32_FLOAT,
-    R32G32_FLOAT,
-    R32G32B32A32_FLOAT,
-    D32_FLOAT,
-    UNKNOWN,
+    RG32_FLOAT,
+    RGBA32_FLOAT,
+    D32_FLOAT, // Depth format single-float.
+    UNKNOWN,   // Can also mean no texture.
 };
 
 enum class ResourceDimension {
@@ -244,7 +249,7 @@ enum ShaderValueType : uint16_t {
 
 struct SwapChainDesc {
     void* native_whnd = nullptr;
-    Vec2 initial_size;
+    Vec2i initial_size;
     SwapChainUsage usage       = SwapChainUsage::RENDER_TARGET;
     bool is_primary            = false;
     int buffer_count           = 2;
@@ -279,6 +284,10 @@ struct BufferDesc {
     BufferMode mode                 = BufferMode::RAW;
 };
 
+struct TextureDataDesc {
+    const void* pixels = nullptr;
+};
+
 struct TextureDesc {
     String debug_name;
     TextureFormat format            = TextureFormat::RGBA8_UNORM_SRGB;
@@ -291,9 +300,7 @@ struct TextureDesc {
     uint32_t array_size             = 1;
     uint32_t mip_levels             = 1;
     uint32_t sample_count           = 1;
-    const void* pixels              = nullptr;
-    // Cube faces (+X, -X, +Y, -Y, +Z, -Z). Used when dimension == DIM_CUBE.
-    Array<const void*, 6> faces;
+    DynamicArray<TextureDataDesc> subresources;
 };
 
 struct VertexLayoutElement {

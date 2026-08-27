@@ -17,29 +17,29 @@ void Scene::on_enter()
     ecs_world.system( "Scene_NodeActivenessUpdater" )
         .with<NodeRefComponent>()
         .in( EcsSystemPhase::PRE_UPDATE )
-        .each( []( EcsIterState& ctx ) {
-            auto ref   = ctx.get_component<NodeRefComponent>();
-            auto world = reinterpret_cast<ecs_world_t*>( ctx.world().get_native_handle() );
-            ecs_enable( world, ctx.entity(), ref->node->active );
+        .each( []( EcsIterState& it ) {
+            auto ref   = it.get_component<NodeRefComponent>();
+            auto world = reinterpret_cast<ecs_world_t*>( it.world().get_native_handle() );
+            ecs_enable( world, it.entity(), ref->node->active );
         } );
 
     ecs_world.system( "Scene_ComponentActivenessUpdater" )
         .with<NodeRefComponent>()
         .in( EcsSystemPhase::PRE_UPDATE )
-        .each( []( EcsIterState& ctx ) {
-            auto ref   = ctx.get_component<NodeRefComponent>();
-            auto world = reinterpret_cast<ecs_world_t*>( ctx.world().get_native_handle() );
+        .each( []( EcsIterState& it ) {
+            auto ref   = it.get_component<NodeRefComponent>();
+            auto world = reinterpret_cast<ecs_world_t*>( it.world().get_native_handle() );
             for (auto& comp : ref->node->get_components()) {
                 if (comp.Toggleable)
-                    ecs_enable_id( world, ctx.entity(), comp.EcsId, comp.Active );
+                    ecs_enable_id( world, it.entity(), comp.EcsId, comp.Active );
             }
         } );
 
     ecs_world.system( "Scene_Transform2D" )
         .in( EcsSystemPhase::UPDATE )
         .with<Transform2DComponent>()
-        .each( []( EcsIterState& ctx ) {
-            auto xform = ctx.get_component<Transform2DComponent>();
+        .each( []( EcsIterState& it ) {
+            auto xform = it.get_component<Transform2DComponent>();
             ( void ) xform;
             // TODO: implement
         } );
@@ -49,17 +49,16 @@ void Scene::on_enter()
         .with<Transform3DComponent>()
         .with<Transform3DComponent>()
         .up()
-        .each( []( EcsIterState& ctx ) {
-            auto self    = ctx.get_component<Transform3DComponent>( 0 );
-            auto parent  = ctx.get_component<Transform3DComponent>( 1 );
+        .each( []( EcsIterState& it ) {
+            auto self    = it.get_component<Transform3DComponent>( 0 );
+            auto parent  = it.get_component<Transform3DComponent>( 1 );
             self->Global = parent->Global * self->to_matrix();
         } );
 
     register_core_plugin( *this );
-    register_window_plugin( *this );
-    register_render_plugin( *this );
+    register_video_plugin( *this );
     register_inputs_plugin( *this );
-    register_gui_plugin( *this );
+    // register_gui_plugin( *this );
     register_resources_plugin( *this );
     register_debug_plugin( *this );
     ecs_world.finalize_ordering();
@@ -87,7 +86,7 @@ bool Scene::on_variable_update( double p_delta )
 void Scene::on_exit()
 {
     NC_LOG_DEBUG_C( log::ECS, "Scene teardown" );
-    unregister_gui_plugin( *this );
+    // unregister_gui_plugin( *this );
 }
 
 Node* Scene::root()
