@@ -382,12 +382,13 @@ void RenderService::render_pass( const RenderPassDesc& desc )
         constants.ModelMatrixInv = Mat4::identity();
         // clang-format off
 		// ortho projection for canvas items.
-		// size is hardcoded from swapchain
+		auto sx = static_cast<float>( target_size.x );
+		auto sy = static_cast<float>( target_size.y );
 		constants.ViewProjMatrix = Mat4(
-		    Vec4(  2.0f / static_cast<float>( target_size.x ),  0.0f,                                  0.0f,  0.0f ),
-		    Vec4(  0.0f,                                 -2.0f / static_cast<float>( target_size.y ),  0.0f,  0.0f ),
-		    Vec4(  0.0f,                                  0.0f,                                 1.0f,  0.0f ),
-		    Vec4( -1.0f,                                  1.0f,                                 0.0f,  1.0f )
+		    Vec4(  2.0f / sx,  0.0f,      0.0f,  0.0f ),
+		    Vec4(  0.0f,      -2.0f / sy, 0.0f,  0.0f ),
+		    Vec4(  0.0f,       0.0f,      1.0f,  0.0f ),
+		    Vec4( -1.0f,       1.0f,      0.0f,  1.0f )
 		);
         // clang-format on
 

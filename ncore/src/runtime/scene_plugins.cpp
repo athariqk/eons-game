@@ -53,7 +53,7 @@ void NCAPI register_core_plugin( Scene& scene )
 
     auto vid    = scene.get_ecs().add_singleton<VideoServices>();
     vid->Window = scene.get_app_ctx()->Services.resolve<WindowService>();
-    vid->Gfx    = scene.get_app_ctx()->Services.resolve<RenderService>();
+    vid->Renderer    = scene.get_app_ctx()->Services.resolve<RenderService>();
 }
 
 void register_video_plugin( Scene& scene )
@@ -78,7 +78,7 @@ void register_video_plugin( Scene& scene )
                     .Swapchain      = 0,
                     .Title          = app_desc->Name,
                     .Resolution     = Vec2i( 1280, 720 ),
-                    .Fullscreen     = vid->Window->get_settings().Fullscreen,
+                    .Mode           = vid->Window->get_settings().Mode,
                     .Visible        = true,
                     .PixelsPerMeter = vid->Window->get_settings().PixelsPerMeter
                 } )
@@ -93,15 +93,20 @@ void register_video_plugin( Scene& scene )
             auto vid = it.world().get_singleton<VideoServices>();
 
             if (win->Source == UINT32_MAX) {
-                win->Source    = vid->Window->window_create();
+                auto winflag = WindowService::DEFAULT_WINDOW_FLAGS;
+                if (win->Mode == WindowMode::MAXIMIZED) {
+                    winflag = static_cast<WindowService::WindowFlag>( winflag | WindowService::MAXIMIZED );
+                } else if (win->Mode == WindowMode::FULLSCREEN) {
+                    winflag = static_cast<WindowService::WindowFlag>( winflag | WindowService::FULLSCREEN );
+                }
+                win->Source    = vid->Window->window_create( winflag );
                 auto nat_hnd   = vid->Window->get_native_handle( win->Source );
-                win->Swapchain = vid->Gfx->swapchain_create(
+                win->Swapchain = vid->Renderer->swapchain_create(
                     // NOTE: Screen/swapchain is exclusively a flat 2D render (no depth).
-                    // NOTE: This means for depth-required renders, i think it should always go to offscreen buffers
+                    // NOTE: This means for depth-required renders, it should always go to offscreen buffers
                     // with depth/stencil tex format enabled
                     nat_hnd, win->Resolution, TextureFormat::RGBA8_UNORM_SRGB, TextureFormat::UNKNOWN
                 );
-                vid->Window->window_set_fullscreen( win->Source, win->Fullscreen );
                 vid->Window->window_set_resolution( win->Source, win->Resolution );
                 vid->Window->window_set_centered( win->Source );
             }
@@ -144,7 +149,7 @@ void register_video_plugin( Scene& scene )
                 if (auto resize = std::get_if<WindowResizeEvent>( &ev )) {
                     if (resize->window_id == win->Source) {
                         Vec2i new_size( resize->width, resize->height );
-                        vid->Gfx->swapchain_set_size( win->Swapchain, new_size );
+                        vid->Renderer->swapchain_set_size( win->Swapchain, new_size );
                         it.world().emit_event<WindowResizedComponent>(
                             WindowResizedComponent{ .NewSize = new_size }, it.entity()
                         );
@@ -164,7 +169,7 @@ void register_video_plugin( Scene& scene )
             auto cam = it.get_component<CameraComponent>();
             auto vid = it.world().get_singleton<VideoServices>();
             if (!cam->Source) {
-                cam->Source = vid->Gfx->camera_create();
+                cam->Source = vid->Renderer->camera_create();
                 NC_LOG_DEBUG_C( log::ECS, "Created camera, RID={}", cam->Source.value );
             }
         } );
@@ -179,7 +184,7 @@ void register_video_plugin( Scene& scene )
             auto xform = it.get_component<Transform3DComponent>();
 
             if (cam->Source) {
-                auto& attribs     = vid->Gfx->camera_get_attribs( cam->Source );
+                auto& attribs     = vid->Renderer->camera_get_attribs( cam->Source );
                 attribs.Transform = xform->Global;
             }
         } );
@@ -192,9 +197,9 @@ void register_video_plugin( Scene& scene )
             auto vid = it.world().get_singleton<VideoServices>();
             if (cam->RenderToScreen) {
                 if (cam->RenderTexture)
-                    vid->Gfx->destroy_rid( cam->RenderTexture );
+                    vid->Renderer->destroy_rid( cam->RenderTexture );
                 if (cam->DepthTexture)
-                    vid->Gfx->destroy_rid( cam->DepthTexture );
+                    vid->Renderer->destroy_rid( cam->DepthTexture );
             }
         } );
 
@@ -212,14 +217,14 @@ void register_video_plugin( Scene& scene )
                 return;
 
             if (mat->Instance)
-                vid->Gfx->destroy_rid( mat->Instance );
+                vid->Renderer->destroy_rid( mat->Instance );
 
             auto source   = io->Resources->get<MaterialTemplate>( loaded->ResourceId );
-            mat->Instance = vid->Gfx->material_create( *source );
+            mat->Instance = vid->Renderer->material_create( *source );
 
             // if no texture exists, renderer will fallback to a missing texture.
             auto tex = mat->TextureCount > 0 ? mat->Textures[0] : RID();
-            vid->Gfx->material_set_texture( mat->Instance, tex, 0 );
+            vid->Renderer->material_set_texture( mat->Instance, tex, 0 );
         } );
 
     scene.get_ecs()
@@ -229,7 +234,7 @@ void register_video_plugin( Scene& scene )
             auto vid = it.world().get_singleton<VideoServices>();
             auto mat = it.get_component<MaterialComponent>();
             if (mat->Instance)
-                vid->Gfx->material_set_draw_mode( mat->Instance, mat->DrawMode );
+                vid->Renderer->material_set_draw_mode( mat->Instance, mat->DrawMode );
         } );
 
     scene.get_ecs()
@@ -246,10 +251,10 @@ void register_video_plugin( Scene& scene )
                 return;
 
             if (mesh->Instance)
-                vid->Gfx->destroy_rid( mesh->Instance );
+                vid->Renderer->destroy_rid( mesh->Instance );
 
             auto source    = io->Resources->get<Mesh>( loaded->ResourceId );
-            mesh->Instance = vid->Gfx->gpu_mesh_create( *source );
+            mesh->Instance = vid->Renderer->gpu_mesh_create( *source );
         } );
 
     scene.get_ecs()
@@ -266,7 +271,7 @@ void register_video_plugin( Scene& scene )
             auto vid      = it.world().get_singleton<VideoServices>();
 
             if (mesh->Instance && material->Instance) {
-                vid->Gfx->spatial_draw_instance(
+                vid->Renderer->spatial_draw_instance(
                     mesh->Instance, xform->Global, material->Instance, mesh->InstanceCount
                 );
             }
@@ -309,7 +314,7 @@ void register_video_plugin( Scene& scene )
             }
 
             if (material->Instance)
-                vid->Gfx->canvas_draw_quad( world_coords, material->Instance, 0, sprite->Tint );
+                vid->Renderer->canvas_draw_quad( world_coords, material->Instance, 0, sprite->Tint );
         } );
 
     scene.get_ecs()
@@ -319,7 +324,7 @@ void register_video_plugin( Scene& scene )
         .order( 0 )
         .run( []( EcsIterState& it ) {
             auto vid = it.get_component<VideoServices>();
-            vid->Gfx->render_begin( static_cast<float>( it.delta_time() ) );
+            vid->Renderer->render_begin( static_cast<float>( it.delta_time() ) );
         } );
 
     scene.get_ecs()
@@ -332,7 +337,7 @@ void register_video_plugin( Scene& scene )
             auto vid = it.world().get_singleton<VideoServices>();
 
             if (cam->Source) {
-                auto& attribs       = vid->Gfx->camera_get_attribs( cam->Source );
+                auto& attribs       = vid->Renderer->camera_get_attribs( cam->Source );
                 attribs.Fov         = cam->FieldOfView;
                 attribs.zFar        = cam->zFar;
                 attribs.zNear       = cam->zNear;
@@ -340,17 +345,17 @@ void register_video_plugin( Scene& scene )
             }
 
             if (cam->RenderToScreen) {
-                auto screen_size = vid->Gfx->swapchain_get_size( vid->Gfx->swapchain_get_primary() );
+                auto screen_size = vid->Renderer->swapchain_get_size( vid->Renderer->swapchain_get_primary() );
 
                 if (cam->DisplayRect.size() != screen_size) {
                     if (cam->RenderTexture)
-                        vid->Gfx->destroy_rid( cam->RenderTexture );
+                        vid->Renderer->destroy_rid( cam->RenderTexture );
                     if (cam->DepthTexture)
-                        vid->Gfx->destroy_rid( cam->DepthTexture );
+                        vid->Renderer->destroy_rid( cam->DepthTexture );
 
                     cam->RenderTexture =
-                        vid->Gfx->texture_render_create( screen_size, TextureFormat::RGBA8_UNORM_SRGB );
-                    cam->DepthTexture = vid->Gfx->texture_render_create( screen_size, TextureFormat::D32_FLOAT );
+                        vid->Renderer->texture_render_create( screen_size, TextureFormat::RGBA8_UNORM_SRGB );
+                    cam->DepthTexture = vid->Renderer->texture_render_create( screen_size, TextureFormat::D32_FLOAT );
                     cam->DisplayRect  = Rect2i( 0, 0, screen_size.x, screen_size.y );
                 }
             }
@@ -362,11 +367,11 @@ void register_video_plugin( Scene& scene )
             pass.target_rect  = cam->DisplayRect;
             pass.draw_spatial = true;
             pass.draw_canvas  = cam->DrawCanvas;
-            vid->Gfx->render_pass( pass );
+            vid->Renderer->render_pass( pass );
 
             // Blit offscreen color to swapchain.
             if (cam->RenderToScreen)
-                vid->Gfx->texture_blit( cam->RenderTexture );
+                vid->Renderer->texture_blit( cam->RenderTexture );
         } );
 
     scene.get_ecs()
@@ -376,7 +381,7 @@ void register_video_plugin( Scene& scene )
         .order( 20 )
         .run( []( EcsIterState& it ) {
             auto vid = it.get_component<VideoServices>();
-            vid->Gfx->present();
+            vid->Renderer->present();
         } );
 }
 

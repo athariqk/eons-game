@@ -59,6 +59,19 @@ void ConfFile::read_into( const rtti::RecordInfo& type_info, void* result )
                 *field.get_ptr<String>( result ) = it->second;
                 break;
             }
+            case rtti::TypeKind::ENUM: {
+                auto enum_t = static_cast<const rtti::EnumInfo*>( type );
+                // cast raw enum value to big enough storage such as longs
+                // so we can avoid possible underflowing
+                if (enum_t->is_unsigned) {
+                    ini::Convert<unsigned long> c;
+                    c.decode( it->second.c_str(), *field.get_ptr<unsigned long>( result ) );
+                } else {
+                    ini::Convert<long> c;
+                    c.decode( it->second.c_str(), *field.get_ptr<long>( result ) );
+                }
+                break;
+            }
             default:
                 break;
         }

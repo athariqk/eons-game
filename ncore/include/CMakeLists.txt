@@ -72,6 +72,7 @@ target_sources(
          "ncore/services/video/window_service.h"
          "ncore/utils/assert.h"
          "ncore/utils/config.h"
+         "ncore/utils/enum.h"
          "ncore/utils/log.h"
          "ncore/utils/four_cc.h"
          "ncore/utils/math.h")

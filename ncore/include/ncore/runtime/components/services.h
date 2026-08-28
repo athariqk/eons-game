@@ -15,8 +15,8 @@ class InputService;
  */
 struct NCAPI VideoServices {
     WindowService* Window = nullptr;
-    RenderService* Gfx    = nullptr;
-    NSTRUCTV( VideoServices, NC_F( VideoServices, Window ), NC_F( VideoServices, Gfx ) )
+    RenderService* Renderer    = nullptr;
+    NSTRUCTV( VideoServices, NC_F( VideoServices, Window ), NC_F( VideoServices, Renderer ) )
 };
 
 /**

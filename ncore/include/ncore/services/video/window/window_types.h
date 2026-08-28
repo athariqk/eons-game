@@ -2,9 +2,15 @@
 
 namespace nc {
 
-enum class WindowFlag : uint8_t {
-    RESIZABLE = 1 << 0
+enum class WindowMode {
+    WINDOWED,
+    MAXIMIZED,
+    FULLSCREEN
 };
+NENUM(
+    WindowMode, NENUM_ELEMENT( WindowMode, WINDOWED ), NENUM_ELEMENT( WindowMode, MAXIMIZED ),
+    NENUM_ELEMENT( WindowMode, FULLSCREEN )
+);
 
 enum class CursorType : uint8_t {
     DEFAULT = 0,

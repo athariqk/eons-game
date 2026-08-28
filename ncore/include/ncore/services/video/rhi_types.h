@@ -6,6 +6,7 @@
 #include <ncore/core/collection.h>
 #include <ncore/core/types.h>
 #include <ncore/core/vector.h>
+#include <ncore/utils/enum.h>
 
 #pragma push_macro( "NONE" )
 #pragma push_macro( "OPAQUE" )
@@ -40,11 +41,7 @@ enum class ResourceBindFlags : uint32_t {
     RAY_TRACING        = 1 << 10,
     SHADING_RATE
 };
-constexpr ResourceBindFlags operator|( ResourceBindFlags lhs, ResourceBindFlags rhs )
-{
-    using T = std::underlying_type_t<ResourceBindFlags>;
-    return static_cast<ResourceBindFlags>( static_cast<T>( lhs ) | static_cast<T>( rhs ) );
-}
+ENABLE_BITMASK( ResourceBindFlags )
 
 enum class ResourceUsage : uint8_t {
     IMMUTABLE = 0,
@@ -64,6 +61,7 @@ enum class ColorMask : uint8_t {
     RGB   = RED | GREEN | BLUE,
     ALL   = RGB | ALPHA
 };
+ENABLE_BITMASK( ColorMask )
 
 /**
  * @brief From Diligent: Allowed CPU access mode flags when mapping a resource
@@ -73,6 +71,7 @@ enum class ResourceAccessFlags : uint8_t {
     READ  = 1 << 0,
     WRITE = 1 << 1
 };
+ENABLE_BITMASK( ResourceAccessFlags )
 
 enum class TextureFormat {
     RGBA8_UNORM,
@@ -206,6 +205,7 @@ enum class SwapChainUsage : uint32_t {
     INPUT_ATTACHMENT = 1 << 2,
     COPY_SOURCE      = 1 << 3,
 };
+ENABLE_BITMASK( SwapChainUsage )
 
 enum class TextureViewType {
     SHADER_RESOURCE,
@@ -220,6 +220,7 @@ enum class PipelineStage : uint8_t {
     PIXEL  = 1 << 1,
     VS_PS  = VERTEX | PIXEL
 };
+ENABLE_BITMASK( PipelineStage )
 
 enum class ShaderType {
     VERTEX,
@@ -246,6 +247,7 @@ enum ShaderValueType : uint16_t {
     SAMPLER      = 1 << 14,
     UNKNOWN
 };
+ENABLE_BITMASK( ShaderValueType )
 
 struct SwapChainDesc {
     void* native_whnd = nullptr;
@@ -381,8 +383,8 @@ struct GraphicsPSODesc {
     TextureFormat render_target_format   = TextureFormat::RGBA8_UNORM_SRGB;
     TextureFormat depth_stencil_format   = TextureFormat::D32_FLOAT;
     PrimitiveTopology primitive_topology = PrimitiveTopology::TRIANGLE_LIST;
-    std::span<const uint32_t> vs_bytecode;
-    std::span<const uint32_t> ps_bytecode;
+    Span<const uint32_t> vs_bytecode;
+    Span<const uint32_t> ps_bytecode;
     VertexLayout vert_layout;
     DynamicArray<ResourceSignatureDesc> resource_signatures; // TODO: implicit resource signature
     RasterizerStateDesc rasterizer_state;
@@ -393,7 +395,7 @@ struct GraphicsPSODesc {
 
 struct ComputePSODesc {
     String debug_name;
-    std::span<const uint32_t> cs_bytecode;
+    Span<const uint32_t> cs_bytecode;
     uint32_t num_threads_x = 1;
     uint32_t num_threads_y = 1;
     uint32_t num_threads_z = 1;

@@ -5,6 +5,9 @@
 
 namespace nc {
 
+/**
+ * @brief Image contains RGBA pixel data.
+ */
 class NCAPI Image : public IResource {
     NCLASS( Image, IResource )
 

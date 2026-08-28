@@ -106,15 +106,16 @@ void register_editor_camera( Scene& scene )
             if (state->ViewportSize.x > 0 && state->ViewportSize.y > 0) {
                 if (!state->GameViewRT || state->ViewportSize != state->GameViewSize) {
                     if (state->GameViewRT)
-                        vid->Gfx->destroy_rid( state->GameViewRT );
+                        vid->Renderer->destroy_rid( state->GameViewRT );
                     if (state->GameViewDT)
-                        vid->Gfx->destroy_rid( state->GameViewDT );
+                        vid->Renderer->destroy_rid( state->GameViewDT );
 
                     Vec2i gv_size(
                         static_cast<int>( state->ViewportSize.x ), static_cast<int>( state->ViewportSize.y )
                     );
-                    state->GameViewRT   = vid->Gfx->texture_render_create( gv_size, TextureFormat::RGBA8_UNORM_SRGB );
-                    state->GameViewDT   = vid->Gfx->texture_render_create( gv_size, TextureFormat::D32_FLOAT );
+                    state->GameViewRT =
+                        vid->Renderer->texture_render_create( gv_size, TextureFormat::RGBA8_UNORM_SRGB );
+                    state->GameViewDT   = vid->Renderer->texture_render_create( gv_size, TextureFormat::D32_FLOAT );
                     state->GameViewSize = state->ViewportSize;
                 }
 

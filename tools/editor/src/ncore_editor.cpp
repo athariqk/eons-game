@@ -384,8 +384,8 @@ void register_editor_plugin( Scene& scene )
             ImGuizmo::SetOrthographic( false );
             ImGuizmo::BeginFrame();
 
-            // auto view_matrix = vid->Gfx->world_get_view_matrix().data();
-            // auto proj_matrix = vid->Gfx->world_camera_get_projection().data();
+            // auto view_matrix = vid->Renderer->world_get_view_matrix().data();
+            // auto proj_matrix = vid->Renderer->world_camera_get_projection().data();
 
             // ImGuizmo's DrawGrid is verrry buggy
             // Mat4 grid_matrix;
@@ -424,7 +424,7 @@ void register_editor_plugin( Scene& scene )
             pass.draw_spatial = false;
             pass.draw_canvas  = true;
             pass.to_screen    = true;
-            vid->Gfx->render_pass( pass );
+            vid->Renderer->render_pass( pass );
         } );
 
     scene.get_ecs()
@@ -478,13 +478,13 @@ void register_editor_plugin( Scene& scene )
             // re-create viewport render target everytime size changed
             if (img_size.x > 0 && img_size.y > 0 && img_size_v != state->ViewportSize) {
                 if (state->ViewportRT)
-                    vid->Gfx->destroy_rid( state->ViewportRT );
+                    vid->Renderer->destroy_rid( state->ViewportRT );
                 if (state->ViewportDT)
-                    vid->Gfx->destroy_rid( state->ViewportDT );
+                    vid->Renderer->destroy_rid( state->ViewportDT );
 
                 Vec2i vp_size( static_cast<int>( img_size.x ), static_cast<int>( img_size.y ) );
-                state->ViewportRT   = vid->Gfx->texture_render_create( vp_size, TextureFormat::RGBA8_UNORM_SRGB );
-                state->ViewportDT   = vid->Gfx->texture_render_create( vp_size, TextureFormat::D32_FLOAT );
+                state->ViewportRT   = vid->Renderer->texture_render_create( vp_size, TextureFormat::RGBA8_UNORM_SRGB );
+                state->ViewportDT   = vid->Renderer->texture_render_create( vp_size, TextureFormat::D32_FLOAT );
                 state->ViewportSize = img_size_v;
             }
 
@@ -505,8 +505,8 @@ void register_editor_plugin( Scene& scene )
 
                 ImGuizmo::SetDrawlist( ImGui::GetWindowDrawList() );
 
-                auto& cam_attribs   = vid->Gfx->camera_get_attribs( state->EditorCamSource );
-                auto projection_mat = vid->Gfx->camera_get_perspective( state->EditorCamSource );
+                auto& cam_attribs   = vid->Renderer->camera_get_attribs( state->EditorCamSource );
+                auto projection_mat = vid->Renderer->camera_get_perspective( state->EditorCamSource );
                 auto view_mat       = cam_attribs.Transform.affine_inverse();
 
                 Mat4 local     = xform->to_matrix();
@@ -542,7 +542,7 @@ void register_editor_plugin( Scene& scene )
                 ImGui::Text( "FPS: %.3f", time->FPS );
                 ImGui::Text( "Frame count: %d", time->FrameCount );
 
-                const auto& stats = vid->Gfx->get_stats();
+                const auto& stats = vid->Renderer->get_stats();
                 ImGui::Text( "GPU time: %.3f ms", stats.gpu_duration_ms );
                 ImGui::Text( "IA Prims: %llu", stats.input_primitives );
                 ImGui::Text( "IA Verts: %llu", stats.input_vertices );
@@ -865,7 +865,7 @@ void register_editor_plugin( Scene& scene )
                     ImGui::Text( "Hits: %d", rtti::TypeRegistry::get_rtti_hits() );
 
                     ImGui::SeparatorText( "Rendering" );
-                    const auto& stats = vid->Gfx->get_stats();
+                    const auto& stats = vid->Renderer->get_stats();
                     ImGui::Text( "GPU Duration: %.3f ms", stats.gpu_duration_ms );
                     ImGui::Text( "Input Assembler Primitives: %llu", stats.input_primitives );
                     ImGui::Text( "Input Assembler Vertices: %llu", stats.input_vertices );
@@ -985,13 +985,13 @@ void register_editor_plugin( Scene& scene )
             auto vid   = it.world().get_singleton<VideoServices>();
             if (state && vid) {
                 if (state->ViewportRT)
-                    vid->Gfx->destroy_rid( state->ViewportRT );
+                    vid->Renderer->destroy_rid( state->ViewportRT );
                 if (state->ViewportDT)
-                    vid->Gfx->destroy_rid( state->ViewportDT );
+                    vid->Renderer->destroy_rid( state->ViewportDT );
                 if (state->GameViewRT)
-                    vid->Gfx->destroy_rid( state->GameViewRT );
+                    vid->Renderer->destroy_rid( state->GameViewRT );
                 if (state->GameViewDT)
-                    vid->Gfx->destroy_rid( state->GameViewDT );
+                    vid->Renderer->destroy_rid( state->GameViewDT );
             }
         } );
 }

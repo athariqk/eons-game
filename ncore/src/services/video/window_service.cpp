@@ -43,7 +43,7 @@ WindowService::~WindowService() = default;
 
 Error WindowService::init( ConfFile& cfg_file )
 {
-    settings = cfg_file.read<VideoSettings>();
+    settings = cfg_file.read<WindowSettings>();
 
     for (int i = 0; i < static_cast<int>( SDL_SYSTEM_CURSOR_COUNT ); ++i) {
         auto cursor_type    = static_cast<CursorType>( i );
@@ -78,11 +78,17 @@ void WindowService::set_default_icon( const Ref<Image>& image )
     default_app_icon = image;
 }
 
-uint32_t WindowService::window_create( uint8_t flags )
+uint32_t WindowService::window_create( WindowFlag flags )
 {
     SDL_WindowFlags sdl_flags = static_cast<SDL_WindowFlags>( 0 );
-    if (flags & static_cast<uint8_t>( WindowFlag::RESIZABLE )) {
+    if (static_cast<bool>( flags & WindowFlag::RESIZABLE )) {
         sdl_flags |= SDL_WINDOW_RESIZABLE;
+    }
+    if (static_cast<bool>( flags & WindowFlag::FULLSCREEN )) {
+        sdl_flags |= SDL_WINDOW_FULLSCREEN;
+    }
+    if (static_cast<bool>( flags & WindowFlag::MAXIMIZED )) {
+        sdl_flags |= SDL_WINDOW_MAXIMIZED;
     }
 
     auto window = SDL_CreateWindow( nullptr, 0, 0, sdl_flags | SDL_WINDOW_HIDDEN );
@@ -178,7 +184,7 @@ void WindowService::window_set_icon( uint32_t window_id, const Image& image ) co
     memfree( dst );
 }
 
-void WindowService::window_set_title( uint32_t window_id, std::string_view title ) const
+void WindowService::window_set_title( uint32_t window_id, StringView title ) const
 {
     auto window = pImpl->get_sdl_window( window_id );
     if (!SDL_SetWindowTitle( window, title.data() )) {
@@ -281,7 +287,7 @@ bool WindowService::get_cursor_visible() const
     return SDL_CursorVisible();
 }
 
-bool WindowService::show_message_box( MessageBoxType type, const std::string& title, const std::string& message ) const
+bool WindowService::show_message_box( MessageBoxType type, const String& title, const String& message ) const
 {
     auto window               = SDL_GetWindowFromID( static_cast<SDL_WindowID>( get_main_window_id() ) );
     SDL_MessageBoxFlags flags = 0;

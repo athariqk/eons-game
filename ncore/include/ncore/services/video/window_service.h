@@ -24,16 +24,22 @@ class NCAPI WindowService : public IService {
     NCLASS( WindowService, IService )
 
 public:
-    static const uint8_t DEFAULT_WINDOW_FLAGS = 0x01;
+    enum WindowFlag : uint8_t {
+        RESIZABLE  = 1 << 0,
+        FULLSCREEN = 1 << 1,
+        MAXIMIZED  = 1 << 2,
+    };
 
-    struct NCAPI VideoSettings {
+    static const WindowFlag DEFAULT_WINDOW_FLAGS = WindowFlag::RESIZABLE;
+
+    struct NCAPI WindowSettings {
         int SizeWidth        = 800;
         int SizeHeight       = 800;
-        bool Fullscreen      = false;
+        WindowMode Mode      = WindowMode::WINDOWED;
         float PixelsPerMeter = 32.0f;
         NSTRUCTV(
-            VideoSettings, NC_F( VideoSettings, SizeWidth ), NC_F( VideoSettings, SizeHeight ),
-            NC_F( VideoSettings, Fullscreen ), NC_F( VideoSettings, PixelsPerMeter )
+            WindowSettings, NC_F( WindowSettings, SizeWidth ), NC_F( WindowSettings, SizeHeight ),
+            NC_F( WindowSettings, Mode ), NC_F( WindowSettings, PixelsPerMeter )
         )
     };
 
@@ -44,22 +50,40 @@ public:
     Error init( ConfFile& cfg_file ) override;
     void shutdown() override;
 
-    const VideoSettings& get_settings() const
+    const WindowSettings& get_settings() const
     {
         return settings;
     }
 
     void set_default_icon( const Ref<Image>& image );
 
-    uint32_t window_create( uint8_t flags = DEFAULT_WINDOW_FLAGS );
+    uint32_t window_create( WindowFlag flags = DEFAULT_WINDOW_FLAGS );
     void window_set_parent( uint32_t window_id, uint32_t parent ) const;
+    /**
+     * @brief Request that the window's position be set.
+     *
+     * If the window is in an exclusive fullscreen or maximized state, this
+     * request has no effect.
+     */
     void window_set_position( uint32_t window_id, Vec2i position ) const;
+    /**
+     * @brief Center the window's position.
+     *
+     * If the window is in an exclusive fullscreen or maximized state, this
+     * request has no effect.
+     */
     void window_set_centered( uint32_t window_id ) const;
     void window_set_visible( uint32_t window_id, bool visible ) const;
     Vec2i window_get_resolution( uint32_t window_id ) const;
+    /**
+     * @brief Request that the size of a window's client area be set.
+     *
+     * If the window is in a fullscreen or maximized state, this request has no
+     * effect.
+     */
     void window_set_resolution( uint32_t window_id, Vec2i resolution );
     void window_set_icon( uint32_t window_id, const Image& image ) const;
-    void window_set_title( uint32_t window_id, std::string_view title ) const;
+    void window_set_title( uint32_t window_id, StringView title ) const;
     void window_set_fullscreen( uint32_t window_id, bool fullscreen );
 
     /**
@@ -124,7 +148,7 @@ public:
     /**
      * @brief Shows a message box on the main window.
      */
-    virtual bool show_message_box( MessageBoxType type, const std::string& title, const std::string& message ) const;
+    virtual bool show_message_box( MessageBoxType type, const String& title, const String& message ) const;
 
     /**
      * @return The window's native OS handle.
@@ -140,15 +164,15 @@ public:
      * @brief Returns window events collected by the last pump_events().
      * Valid until the next pump_events() call.
      */
-    std::span<const WindowEvent> window_events() const
+    Span<const WindowEvent> window_events() const
     {
-        return std::span<const WindowEvent>( event_queue.data(), event_queue.size() );
+        return Span<const WindowEvent>( event_queue.data(), event_queue.size() );
     }
 
 private:
-    VideoSettings settings;
+    WindowSettings settings;
     struct Impl;
-    std::unique_ptr<Impl> pImpl;
+    Ptr<Impl> pImpl;
     DynamicArray<WindowEvent> event_queue;
     Ref<Image> default_app_icon;
 };

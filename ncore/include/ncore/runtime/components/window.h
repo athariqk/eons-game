@@ -2,6 +2,7 @@
 
 #include <ncore/core/types.h>
 #include <ncore/core/vector.h>
+#include <ncore/services/video/window/window_types.h>
 
 namespace nc {
 
@@ -10,12 +11,12 @@ struct NCAPI WindowComponent {
     RID Swapchain;
     std::string_view Title = "NCORE Engine";
     Vec2i Resolution       = Vec2i();
-    bool Fullscreen        = false;
+    WindowMode Mode        = WindowMode::WINDOWED;
     bool Visible           = false;
     float PixelsPerMeter   = 0;
     NSTRUCTV(
         WindowComponent, NC_F( WindowComponent, Source ), NC_F( WindowComponent, Title ),
-        NC_F( WindowComponent, Resolution ), NC_F( WindowComponent, Fullscreen ), NC_F( WindowComponent, Visible ),
+        NC_F( WindowComponent, Resolution ), NC_F( WindowComponent, Mode ), NC_F( WindowComponent, Visible ),
         NC_F( WindowComponent, PixelsPerMeter )
     )
 };

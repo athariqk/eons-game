@@ -69,7 +69,7 @@ void register_gui_plugin( Scene& scene )
             auto tmpl_rid = io->Resources->load( "materials/canvas.material" );
             auto tmpl     = io->Resources->get<MaterialTemplate>( tmpl_rid );
             NC_VERIFY( tmpl );
-            auto mat = vid->Gfx->material_create( *tmpl );
+            auto mat = vid->Renderer->material_create( *tmpl );
 
             state->Material = mat; // TODO: why are we even storing the mat in the global state when
                                    // we're creating a dedicated entity material down below?
@@ -100,7 +100,7 @@ void register_gui_plugin( Scene& scene )
             for (ImTextureData* tex : io.Textures) {
                 if (tex->BackendUserData) {
                     RID rid( static_cast<uint64_t>( reinterpret_cast<uintptr_t>( tex->BackendUserData ) ) );
-                    vid->Gfx->destroy_rid( rid );
+                    vid->Renderer->destroy_rid( rid );
                 }
                 tex->BackendUserData = nullptr;
                 tex->SetTexID( ImTextureID_Invalid );
@@ -191,7 +191,7 @@ void register_gui_plugin( Scene& scene )
             auto win = it.get_component<WindowComponent>();
             auto vid = it.world().get_singleton<VideoServices>();
 
-            Vec2i size = vid->Gfx->swapchain_get_size( win->Swapchain );
+            Vec2i size = vid->Renderer->swapchain_get_size( win->Swapchain );
 
             ImGuiIO& io      = ImGui::GetIO();
             io.DisplaySize.x = size.x;
@@ -231,7 +231,7 @@ void register_gui_plugin( Scene& scene )
                 switch (tex->Status) {
                     case ImTextureStatus_WantCreate: {
                         Image image( tex->Width, tex->Height, tex->GetPixels() );
-                        RID rid = vid->Gfx->texture_2d_create( image );
+                        RID rid = vid->Renderer->texture_2d_create( image );
                         tex->SetTexID( reinterpret_cast<ImTextureID>( static_cast<uintptr_t>( rid.value ) ) );
                         tex->BackendUserData = reinterpret_cast<void*>( static_cast<uintptr_t>( rid.value ) );
                         tex->SetStatus( ImTextureStatus_OK );
@@ -239,7 +239,7 @@ void register_gui_plugin( Scene& scene )
                     }
                     case ImTextureStatus_WantDestroy: {
                         RID rid( reinterpret_cast<uintptr_t>( tex->BackendUserData ) );
-                        vid->Gfx->destroy_rid( rid );
+                        vid->Renderer->destroy_rid( rid );
                         tex->BackendUserData = nullptr;
                         tex->SetTexID( ImTextureID_Invalid );
                         tex->SetStatus( ImTextureStatus_Destroyed );
@@ -247,9 +247,9 @@ void register_gui_plugin( Scene& scene )
                     }
                     case ImTextureStatus_WantUpdates: {
                         RID old_rid( reinterpret_cast<uintptr_t>( tex->BackendUserData ) );
-                        vid->Gfx->destroy_rid( old_rid );
+                        vid->Renderer->destroy_rid( old_rid );
                         Image image( tex->Width, tex->Height, tex->GetPixels() );
-                        RID new_rid = vid->Gfx->texture_2d_create( image );
+                        RID new_rid = vid->Renderer->texture_2d_create( image );
                         tex->SetTexID( reinterpret_cast<ImTextureID>( static_cast<uintptr_t>( new_rid.value ) ) );
                         tex->BackendUserData = reinterpret_cast<void*>( static_cast<uintptr_t>( new_rid.value ) );
                         tex->SetStatus( ImTextureStatus_OK );
@@ -309,7 +309,7 @@ void register_gui_plugin( Scene& scene )
 
                     RID tex_id = reinterpret_cast<uintptr_t>( cmd.GetTexID() );
                     // Push a new draw of canvas primitive with its own texture override
-                    vid->Gfx->canvas_draw_triangles(
+                    vid->Renderer->canvas_draw_triangles(
                         { vtx, vert_count }, { idx, idx_count }, state->Material, tex_id, clip_rect
                     );
                 }
