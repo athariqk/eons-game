@@ -262,21 +262,22 @@ NENUM(
 )
 
 enum ShaderValueType : uint16_t {
-    FLOAT         = 1 << 0,
-    FLOAT2        = 1 << 1,
-    FLOAT3        = 1 << 2,
-    FLOAT4        = 1 << 3,
-    INT           = 1 << 4,
-    INT2          = 1 << 5,
-    INT3          = 1 << 6,
-    INT4          = 1 << 7,
-    USHORT4       = 1 << 8,
-    MAT4          = 1 << 9,
-    BOOL          = 1 << 10,
-    UBYTE4_NORM   = 1 << 11,
-    TEXTURE_2D    = 1 << 12,
-    TEXTURE_CUBED = 1 << 13,
-    SAMPLER       = 1 << 14,
+    FLOAT            = 1 << 0,
+    FLOAT2           = 1 << 1,
+    FLOAT3           = 1 << 2,
+    FLOAT4           = 1 << 3,
+    INT              = 1 << 4,
+    INT2             = 1 << 5,
+    INT3             = 1 << 6,
+    INT4             = 1 << 7,
+    USHORT4          = 1 << 8,
+    MAT4             = 1 << 9,
+    BOOL             = 1 << 10,
+    UBYTE4_NORM      = 1 << 11,
+    TEXTURE_2D       = 1 << 12,
+    TEXTURE_CUBED    = 1 << 13,
+    TEXTURE_2D_ARRAY = 1 << 14,
+    SAMPLER          = 1 << 15,
     UNKNOWN
 };
 ENABLE_BITMASK( ShaderValueType )
@@ -288,7 +289,8 @@ NENUM(
     NENUM_ELEMENT( ShaderValueType, USHORT4 ), NENUM_ELEMENT( ShaderValueType, MAT4 ),
     NENUM_ELEMENT( ShaderValueType, BOOL ), NENUM_ELEMENT( ShaderValueType, UBYTE4_NORM ),
     NENUM_ELEMENT( ShaderValueType, TEXTURE_2D ), NENUM_ELEMENT( ShaderValueType, TEXTURE_CUBED ),
-    NENUM_ELEMENT( ShaderValueType, SAMPLER ), NENUM_ELEMENT( ShaderValueType, UNKNOWN )
+    NENUM_ELEMENT( ShaderValueType, TEXTURE_2D_ARRAY ), NENUM_ELEMENT( ShaderValueType, SAMPLER ),
+    NENUM_ELEMENT( ShaderValueType, UNKNOWN )
 )
 
 struct SwapChainDesc {
