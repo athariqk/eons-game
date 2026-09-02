@@ -214,6 +214,7 @@ Diligent::VALUE_TYPE DiligentTypeHelpers::translate_value_type( rhi::ShaderValue
             break;
         case rhi::ShaderValueType::TEXTURE_2D:
         case rhi::ShaderValueType::TEXTURE_CUBED:
+        case rhi::ShaderValueType::TEXTURE_2D_ARRAY:
         case rhi::ShaderValueType::SAMPLER:
         case rhi::ShaderValueType::UNKNOWN:
             break;
@@ -251,6 +252,7 @@ uint32_t DiligentTypeHelpers::translate_value_num_components( rhi::ShaderValueTy
             break;
         case rhi::ShaderValueType::TEXTURE_2D:
         case rhi::ShaderValueType::TEXTURE_CUBED:
+        case rhi::ShaderValueType::TEXTURE_2D_ARRAY:
         case rhi::ShaderValueType::SAMPLER:
         case rhi::ShaderValueType::UNKNOWN:
             break;
