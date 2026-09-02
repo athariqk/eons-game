@@ -33,7 +33,6 @@ bool is_power_of_two( uint32_t v )
 
 WaveGenerator::~WaveGenerator()
 {
-    // Prefer explicit shutdown(renderer) while the device is alive.
 }
 
 float WaveGenerator::jonswap_alpha( float wind_speed, float fetch_meters )
@@ -43,7 +42,6 @@ float WaveGenerator::jonswap_alpha( float wind_speed, float fetch_meters )
 
 float WaveGenerator::jonswap_peak_angular_frequency( float wind_speed, float fetch_meters )
 {
-    // Matches GodotOceanWaves wave_generator.gd
     return 22.0f * std::pow( ( kGravity * kGravity ) / ( wind_speed * fetch_meters ), 1.0f / 3.0f );
 }
 
@@ -52,25 +50,28 @@ void WaveGenerator::init_gpu( RenderService& renderer, ResourceService& resource
 {
     NC_ASSERT( is_power_of_two( map_size ) && map_size >= 128 && map_size <= 1024 );
     NC_ASSERT( num_cascades >= 1 && num_cascades <= kMaxCascades );
+    // FFT shaders currently hardcode MAX_MAP_SIZE = 256.
+    NC_ASSERT( map_size == kDefaultMapSize );
 
     if ( initialized_ )
         shutdown( renderer );
 
-    map_size_        = map_size;
-    num_cascades_    = num_cascades;
-    num_fft_stages_  = log2_floor( map_size_ );
+    map_size_       = map_size;
+    num_cascades_   = num_cascades;
+    num_fft_stages_ = log2_floor( map_size_ );
 
     create_resources_( renderer );
     create_pipelines_( renderer, resources );
 
-    // One-time butterfly factors (depends only on map_size).
     auto* gfx = renderer.get_graphics_api();
     gfx->set_queue( GpuQueue::COMPUTE );
     gfx->set_context_state( false );
 
+    MapSizeCB map_cb{ map_size_, 0, 0, 0 };
+    write_cb_( renderer, cb_map_size_, &map_cb, sizeof( map_cb ) );
+
     renderer.compute_pipeline_bind( pso_fft_butterfly_ );
     renderer.resource_set_bind( set_fft_butterfly_ );
-    // local_size_x = 64 covers map_size/2 columns → groups = (map_size/2)/64
     renderer.compute_dispatch( ( map_size_ / 2 ) / 64, num_fft_stages_, 1 );
     gfx->sync_queue( GpuQueue::COMPUTE );
 
@@ -84,12 +85,12 @@ void WaveGenerator::shutdown( RenderService& renderer )
     if ( !initialized_ )
         return;
     destroy_resources_( renderer );
-    initialized_         = false;
-    map_size_            = 0;
-    num_cascades_        = 0;
-    pass_remaining_      = 0;
-    pass_cascades_       = nullptr;
-    pass_cascade_count_  = 0;
+    initialized_        = false;
+    map_size_           = 0;
+    num_cascades_       = 0;
+    pass_remaining_     = 0;
+    pass_cascades_      = nullptr;
+    pass_cascade_count_ = 0;
 }
 
 void WaveGenerator::create_resources_( RenderService& renderer )
@@ -125,7 +126,6 @@ void WaveGenerator::create_resources_( RenderService& renderer )
                           .mode        = rhi::BufferMode::STRUCTURED
     } );
 
-    // cascades * N*N * NUM_SPECTRA * 2 ping-pong * sizeof(float2)
     const size_t fft_bytes =
         size_t( num_cascades_ ) * map_size_ * map_size_ * kNumSpectra * 2ull * sizeof( float ) * 2ull;
     fft_buffer_ = renderer.buffer_create( rhi::BufferDesc{
@@ -151,6 +151,7 @@ void WaveGenerator::create_resources_( RenderService& renderer )
     cb_spectrum_compute_  = make_cb( "cb_spectrum_compute", sizeof( SpectrumComputeCB ) );
     cb_spectrum_modulate_ = make_cb( "cb_spectrum_modulate", sizeof( SpectrumModulateCB ) );
     cb_cascade_index_     = make_cb( "cb_cascade_index", sizeof( CascadeIndexCB ) );
+    cb_map_size_          = make_cb( "cb_map_size", sizeof( MapSizeCB ) );
     cb_fft_unpack_        = make_cb( "cb_fft_unpack", sizeof( FftUnpackCB ) );
 }
 
@@ -163,9 +164,6 @@ void WaveGenerator::create_pipelines_( RenderService& renderer, ResourceService&
     auto sh_transpose = resources.load<Shader>( "shaders/compute/transpose.slang" );
     auto sh_unpack    = resources.load<Shader>( "shaders/compute/fft_unpack.slang" );
 
-    // Variable names must match Slang declarations exactly.
-
-    // --- spectrum_compute (set 0) ---
     {
         rhi::ResourceMappingEntry entries[] = {
             { "spectrum", rhi::ResourceType::TEXTURE_UAV, spectrum_ },
@@ -176,7 +174,6 @@ void WaveGenerator::create_pipelines_( RenderService& renderer, ResourceService&
             renderer.compute_pipeline_create( *sh_spectrum, Span<const RID>{ &set_spectrum_compute_, 1 } );
     }
 
-    // --- spectrum_modulate (set 0: spectrum + CB, fft_buffer as UAV) ---
     {
         rhi::ResourceMappingEntry entries[] = {
             { "spectrum", rhi::ResourceType::TEXTURE_UAV, spectrum_ },
@@ -188,17 +185,16 @@ void WaveGenerator::create_pipelines_( RenderService& renderer, ResourceService&
             renderer.compute_pipeline_create( *sh_modulate, Span<const RID>{ &set_spectrum_modulate_, 1 } );
     }
 
-    // --- fft_butterfly (set 0) ---
     {
         rhi::ResourceMappingEntry entries[] = {
             { "butterfly", rhi::ResourceType::BUFFER_UAV, butterfly_ },
+            { "MapSizeCB", rhi::ResourceType::CONSTANT_BUFFER, cb_map_size_ },
         };
         set_fft_butterfly_ = renderer.resource_set_create( *sh_butterfly, 0, entries );
         pso_fft_butterfly_ =
             renderer.compute_pipeline_create( *sh_butterfly, Span<const RID>{ &set_fft_butterfly_, 1 } );
     }
 
-    // --- fft_compute (set 0) ---
     {
         rhi::ResourceMappingEntry entries[] = {
             { "butterfly", rhi::ResourceType::BUFFER_SRV, butterfly_ },
@@ -210,7 +206,6 @@ void WaveGenerator::create_pipelines_( RenderService& renderer, ResourceService&
             renderer.compute_pipeline_create( *sh_fft, Span<const RID>{ &set_fft_compute_, 1 } );
     }
 
-    // --- transpose (set 0) ---
     {
         rhi::ResourceMappingEntry entries[] = {
             { "fft_buffer", rhi::ResourceType::BUFFER_UAV, fft_buffer_ },
@@ -221,7 +216,6 @@ void WaveGenerator::create_pipelines_( RenderService& renderer, ResourceService&
             renderer.compute_pipeline_create( *sh_transpose, Span<const RID>{ &set_transpose_, 1 } );
     }
 
-    // --- fft_unpack (set 0) ---
     {
         rhi::ResourceMappingEntry entries[] = {
             { "displacement_map", rhi::ResourceType::TEXTURE_UAV, displacement_map_ },
@@ -261,6 +255,7 @@ void WaveGenerator::destroy_resources_( RenderService& renderer )
     destroy( cb_spectrum_compute_ );
     destroy( cb_spectrum_modulate_ );
     destroy( cb_cascade_index_ );
+    destroy( cb_map_size_ );
     destroy( cb_fft_unpack_ );
 
     destroy( butterfly_ );
@@ -321,7 +316,6 @@ void WaveGenerator::dispatch_cascade_( RenderService& renderer, uint32_t cascade
     gfx->set_queue( GpuQueue::COMPUTE );
     gfx->set_context_state( false );
 
-    // 1) Initial spectrum (when parameters change)
     if ( params.should_generate_spectrum ) {
         const float fetch_m = params.fetch_length_km * 1000.0f;
         SpectrumComputeCB cb{};
@@ -347,7 +341,6 @@ void WaveGenerator::dispatch_cascade_( RenderService& renderer, uint32_t cascade
         params.should_generate_spectrum = false;
     }
 
-    // 2) Time modulation → FFT input buffer
     {
         SpectrumModulateCB cb{};
         cb.tile_length_x = params.tile_length.x;
@@ -362,7 +355,6 @@ void WaveGenerator::dispatch_cascade_( RenderService& renderer, uint32_t cascade
         renderer.compute_dispatch( map_size_ / 16, map_size_ / 16, 1 );
     }
 
-    // 3) FFT rows → transpose → FFT cols
     {
         CascadeIndexCB cb{ cascade_index, 0, 0, 0 };
         write_cb_( renderer, cb_cascade_index_, &cb, sizeof( cb ) );
@@ -375,7 +367,6 @@ void WaveGenerator::dispatch_cascade_( RenderService& renderer, uint32_t cascade
         renderer.resource_set_bind( set_transpose_ );
         renderer.compute_dispatch( map_size_ / 32, map_size_ / 32, kNumSpectra );
 
-        // Matches Godot's explicit barrier before the second FFT pass.
         gfx->sync_queue( GpuQueue::COMPUTE );
 
         renderer.compute_pipeline_bind( pso_fft_compute_ );
@@ -383,7 +374,6 @@ void WaveGenerator::dispatch_cascade_( RenderService& renderer, uint32_t cascade
         renderer.compute_dispatch( 1, map_size_, kNumSpectra );
     }
 
-    // 4) Unpack displacement + normal/foam maps
     {
         FftUnpackCB cb{};
         cb.cascade_index   = cascade_index;
@@ -394,7 +384,6 @@ void WaveGenerator::dispatch_cascade_( RenderService& renderer, uint32_t cascade
 
         renderer.compute_pipeline_bind( pso_fft_unpack_ );
         renderer.resource_set_bind( set_fft_unpack_ );
-        // local_size = (16,16,2) — z selects displacement vs normal writer
         renderer.compute_dispatch( map_size_ / 16, map_size_ / 16, 1 );
     }
 
