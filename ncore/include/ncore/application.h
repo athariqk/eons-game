@@ -100,11 +100,11 @@ public:
      * @brief Creates initial game world instance.
      * By default, this creates a new Scene.
      */
-    virtual std::unique_ptr<IGameWorld> create_world();
+    virtual Ptr<IGameWorld> create_world();
 
 protected:
-    AppContext context;                  // Current application state.
-    std::unique_ptr<IGameWorld> g_world; // Current active game world.
+    AppContext context;      // Current application state.
+    Ptr<IGameWorld> g_world; // Current active game world.
 
     ResourceService* resources = nullptr;
     EventBus* events           = nullptr;

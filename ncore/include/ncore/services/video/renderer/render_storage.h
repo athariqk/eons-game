@@ -18,7 +18,7 @@ using ShaderParamLayout = DynamicArray<ShaderParamInfo>;
 
 /**
  * @brief RenderStorage is responsible for managing RenderService
- * resources such as material variants, shaders and meshes.
+ * resources such as material variants, shader resources and meshes.
  *
  * For reference see https://github.com/DiligentGraphics/DiligentFX/blob/master/PBR/interface/PBR_Renderer.hpp
  */
@@ -55,10 +55,11 @@ public:
      * Contains PSO traits and can be used to define one.
      */
     struct PSOKey {
-        PSOFlags flags   = PSOFlags::NONE;
-        const Shader* vs = nullptr;
-        const Shader* ps = nullptr;
-        VertexLayout vertex_layout;
+        PSOFlags flags = PSOFlags::NONE;
+        RID vs; // RHI-level vert shader obj.
+        RID ps; // RHI-level pixel shader obj.
+        RID cs; // RHI-level compute shader obj.
+        rhi::VertexLayout vertex_layout;
         DynamicArray<RID> res_signatures;
         String debug_name;
 
@@ -69,6 +70,20 @@ public:
         std::size_t operator()( const PSOKey& p ) const;
     };
 
+    RID resource_set_create(
+        const Shader& p_shader, rhi::SetIndex p_set_idx, Span<const rhi::ResourceMappingEntry> p_resources
+    );
+    /**
+     * @brief Commit resources in the set to the device context.
+     */
+    void resource_set_bind( RID p_resource_set );
+
+    RID get_gfx_pipeline_or_create( const PSOKey& key );
+    /**
+     * @brief Create-or-get a cached compute pipeline.
+     */
+    RID get_compute_pipeline_or_create( const PSOKey& key );
+
     /**
      * @brief Instance of a MaterialTemplate.
      *
@@ -78,22 +93,15 @@ public:
     struct Material {
         RID pso;
         PSOKey pso_key;
-        DynamicArray<RID> res_signatures;
-        DynamicArray<RID> srbs;
+        const Shader* shader = nullptr;
+        DynamicArray<RID> resource_sets;
         RID sampler;
-        RID constant_buffer;
-
+        RID cbuffer;
         struct TextureSlot {
             String name;
-            size_t srb_index;
+            size_t uniform_set_idx;
         };
         DynamicArray<TextureSlot> texture_slots;
-    };
-
-    struct GPUMesh {
-        RID vertices;
-        RID indices;
-        uint32_t index_count;
     };
 
     struct ShaderConstants {
@@ -105,20 +113,22 @@ public:
         float DeltaTime;
     };
 
-    void set_graphics_api( IRHI* p_gfx_api );
-
-    RID get_pipeline_or_create( const PSOKey& key );
-
     /**
      * @brief Create GPU-side material instance from MaterialTemplate.
      */
     RID material_create( const MaterialTemplate& tmpl );
     void material_set_texture( RID handle, RID texture, uint32_t slot );
-    void material_set_draw_mode( RID handle, FillMode mode );
+    void material_set_draw_mode( RID handle, rhi::FillMode mode );
     /**
      * @brief Bind material instance to the current gfx pipeline.
      */
     void material_bind( RID handle, const ShaderConstants& constants );
+
+    struct GPUMesh {
+        RID vertices;
+        RID indices;
+        uint32_t index_count;
+    };
 
     /**
      * @brief Creates vertex/index buffer objects from Mesh resource.
@@ -140,14 +150,40 @@ public:
      */
     void flush_pending_destroys();
 
+    /**
+     * @brief Sets current Graphics API implementation. Called automatically in RenderService init.
+     */
+    void set_graphics_api( IRHI* p_gfx_api );
+
 private:
+    friend class RenderService;
+
     void ensure_fallback_texture_();
     Material* get_material_( RID handle );
     PSOKey get_pso_key_( const MaterialTemplate& tmpl );
-    DynamicArray<ResourceSignatureDesc> build_resource_signatures_( const MaterialTemplate& tmpl );
+
+    struct ResourceSet {
+        RID signature;
+        RID mapping;
+        RID binding;
+        uint8_t set_idx = 0;
+        DynamicArray<rhi::ResourceType> slot_kinds; // parallel to the signature's resource list, for rebind validation
+    };
+
+    struct ResSignatureKey {
+        const Shader* shader;
+        uint8_t set_idx;
+
+        bool operator==( const ResSignatureKey& o ) const;
+    };
+    struct ResSignatureKeyHasher {
+        std::size_t operator()( const ResSignatureKey& p ) const;
+    };
 
     IRHI* gfx_api;
     HashMap<PSOKey, RID, PSOKeyHasher> pso_cache;
+    HashMap<ResSignatureKey, RID, ResSignatureKeyHasher> res_signature_cache;
+    RIDPool<ResourceSet> resource_sets;
     RIDPool<Material> materials;
     RIDPool<GPUMesh> gpu_meshes;
     DynamicArray<RID> pending_destroys;

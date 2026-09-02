@@ -1,8 +1,8 @@
 [header]
 debug_name = Skybox
 
-[shaders]
-composite = shaders/skybox.slang
+[shader]
+path = shaders/skybox.slang
 
 [raster]
 cull_mode = None

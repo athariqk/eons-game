@@ -26,7 +26,7 @@ Error RenderService::init( ConfFile& cfg_file )
     gfx_api = std::make_unique<DiligentRHI>();
     gfx_api->load_pso_cache();
 
-    ctx.gfx_device_ctx = gfx_api->create_deferred_context( IRHI::GpuQueue::Graphics );
+    ctx.gfx_device_ctx = gfx_api->create_deferred_context( GpuQueue::GRAPHICS );
 
     storage.set_graphics_api( gfx_api.get() );
 
@@ -53,9 +53,11 @@ void RenderService::shutdown()
 
 // ---------------------------------------------------------------------------
 
-RID RenderService::swapchain_create( void* whnd, Vec2i size, TextureFormat color_format, TextureFormat depth_format )
+RID RenderService::swapchain_create(
+    void* whnd, Vec2i size, rhi::TextureFormat color_format, rhi::TextureFormat depth_format
+)
 {
-    SwapChainDesc desc{
+    rhi::SwapChainDesc desc{
         .native_whnd  = whnd,
         .initial_size = size,
         .is_primary   = true,
@@ -92,12 +94,12 @@ void RenderService::swapchain_destroy( RID swapchain )
 
 RID RenderService::texture_2d_create( const Image& image )
 {
-    TextureDesc desc{};
+    rhi::TextureDesc desc{};
     desc.debug_name  = image.filepath;
-    desc.format      = TextureFormat::RGBA8_UNORM_SRGB;
-    desc.dimension   = ResourceDimension::DIM_2D;
-    desc.usage       = ResourceUsage::DYNAMIC;
-    desc.access_mask = ResourceAccessFlags::WRITE;
+    desc.format      = rhi::TextureFormat::RGBA8_UNORM_SRGB;
+    desc.dimension   = rhi::ResourceDimension::DIM_2D;
+    desc.usage       = rhi::ResourceUsage::DYNAMIC;
+    desc.access_mask = rhi::ResourceAccessFlags::WRITE;
     desc.width       = image.get_width();
     desc.height      = image.get_height();
     desc.subresources.emplace_back( image.get_pixels().data() );
@@ -108,12 +110,12 @@ RID RenderService::texture_cube_create( const CubeMap& cubemap )
 {
     auto faces = cubemap.get_faces();
 
-    TextureDesc desc;
+    rhi::TextureDesc desc;
     auto name       = std::format( "CubeTexture_{}_{}", cubemap.rid.value, cubemap.filepath );
     desc.debug_name = name;
-    desc.format     = TextureFormat::RGBA8_UNORM_SRGB;
-    desc.dimension  = ResourceDimension::DIM_CUBE;
-    desc.usage      = ResourceUsage::IMMUTABLE;
+    desc.format     = rhi::TextureFormat::RGBA8_UNORM_SRGB;
+    desc.dimension  = rhi::ResourceDimension::DIM_CUBE;
+    desc.usage      = rhi::ResourceUsage::IMMUTABLE;
     desc.width      = faces[0]->get_width();
     desc.height     = faces[0]->get_height();
     desc.array_size = 6;
@@ -123,29 +125,29 @@ RID RenderService::texture_cube_create( const CubeMap& cubemap )
     return gfx_api->texture_create( desc );
 }
 
-RID RenderService::texture_render_create( Vec2i size, TextureFormat format )
+RID RenderService::texture_render_create( Vec2i size, rhi::TextureFormat format )
 {
-    ResourceBindFlags bind_mask = ResourceBindFlags::NONE;
-    if (format == TextureFormat::D32_FLOAT) {
-        bind_mask = ResourceBindFlags::DEPTH_STENCIL;
+    rhi::ResourceBindFlags bind_mask = rhi::ResourceBindFlags::NONE;
+    if (format == rhi::TextureFormat::D32_FLOAT) {
+        bind_mask = rhi::ResourceBindFlags::DEPTH_STENCIL;
     } else {
-        bind_mask = ResourceBindFlags::RENDER_TARGET | ResourceBindFlags::SHADER_RESOURCE;
+        bind_mask = rhi::ResourceBindFlags::RENDER_TARGET | rhi::ResourceBindFlags::SHADER_RESOURCE;
     }
 
-    TextureDesc desc{};
+    rhi::TextureDesc desc{};
     desc.debug_name = "RenderTexture";
     desc.format     = format;
-    desc.dimension  = ResourceDimension::DIM_2D;
-    desc.usage      = ResourceUsage::DEFAULT;
+    desc.dimension  = rhi::ResourceDimension::DIM_2D;
+    desc.usage      = rhi::ResourceUsage::DEFAULT;
     desc.bind_mask  = bind_mask;
     desc.width      = size.x;
     desc.height     = size.y;
     return gfx_api->texture_create( desc );
 }
 
-void* RenderService::texture_get_view( RID texture, TextureViewType view )
+void* RenderService::texture_view_get( RID texture, rhi::TextureViewType view )
 {
-    return gfx_api->texture_get_view( texture, view );
+    return gfx_api->texture_view_get( texture, view );
 }
 
 void RenderService::texture_blit( RID tex_src, RID tex_dest )
@@ -160,6 +162,40 @@ void RenderService::texture_blit( RID tex_src, RID tex_dest )
 
 //------------------------------------------------------------------------------
 
+RID RenderService::buffer_create( const rhi::BufferDesc& desc )
+{
+    return gfx_api->buffer_create( desc );
+}
+
+void RenderService::buffer_data_write( RID p_buffer, Span<const std::byte> p_src )
+{
+    gfx_api->buffer_data_write( p_buffer, p_src );
+}
+
+void RenderService::buffer_data_read( RID p_buffer, Span<std::byte> p_dst )
+{
+    gfx_api->buffer_data_read( p_buffer, p_dst );
+}
+
+void RenderService::buffer_blit( RID p_src_buffer, RID p_dst_buffer )
+{
+    gfx_api->buffer_blit( p_src_buffer, p_dst_buffer );
+}
+
+RID RenderService::resource_set_create(
+    const Shader& p_shader, uint8_t p_set_idx, Span<const rhi::ResourceMappingEntry> p_resources
+)
+{
+    return storage.resource_set_create( p_shader, p_set_idx, p_resources );
+}
+
+void RenderService::resource_set_bind( RID p_resource_set )
+{
+    storage.resource_set_bind( p_resource_set );
+}
+
+//------------------------------------------------------------------------------
+
 RID RenderService::material_create( const MaterialTemplate& tmpl )
 {
     return storage.material_create( tmpl );
@@ -170,7 +206,7 @@ void RenderService::material_set_texture( RID material, RID texture, uint32_t sl
     storage.material_set_texture( material, texture, slot );
 }
 
-void RenderService::material_set_draw_mode( RID material, FillMode mode )
+void RenderService::material_set_draw_mode( RID material, rhi::FillMode mode )
 {
     storage.material_set_draw_mode( material, mode );
 }
@@ -184,60 +220,35 @@ RID RenderService::gpu_mesh_create( const Mesh& mesh )
 
 //------------------------------------------------------------------------------
 
-RID RenderService::compute_pipeline_create( const ComputePSODesc& desc )
+RID RenderService::compute_pipeline_create( const Shader& p_shader, Span<const RID> p_resource_sets )
 {
-    return gfx_api->compute_pipeline_create( desc );
+    RenderStorage::PSOKey key;
+    key.debug_name = p_shader.filepath + "_ComputePSO";
+    key.cs         = gfx_api->shader_create(
+        rhi::ShaderCreateDesc{
+            .name     = p_shader.filepath + "_CS",
+            .stage    = rhi::ShaderStage::COMPUTE,
+            .bytecode = p_shader.get_bytecode( rhi::ShaderStage::COMPUTE )
+        }
+    );
+    for (auto& e : p_resource_sets) {
+        auto set = storage.resource_sets.get( e );
+        NC_VERIFY( set );
+        key.res_signatures.push_back( set->signature );
+    }
+    return storage.get_compute_pipeline_or_create( key );
 }
 
 void RenderService::compute_pipeline_bind( RID pipeline )
 {
-    gfx_api->set_queue( IRHI::GpuQueue::Compute );
+    gfx_api->set_queue( GpuQueue::COMPUTE );
     gfx_api->compute_pipeline_bind( pipeline );
 }
 
-void RenderService::dispatch( uint32_t x, uint32_t y, uint32_t z )
+void RenderService::compute_dispatch( uint32_t x, uint32_t y, uint32_t z )
 {
-    gfx_api->set_queue( IRHI::GpuQueue::Compute );
-    gfx_api->dispatch( x, y, z );
-}
-
-void RenderService::compute_texture_bind( RID texture, RID binding, const char* name, TextureViewType view )
-{
-    gfx_api->texture_compute_update( texture, binding, name, view );
-}
-
-void RenderService::compute_buffer_bind( RID buffer, RID binding, const char* name )
-{
-    gfx_api->buffer_compute_update( buffer, binding, name );
-}
-
-//------------------------------------------------------------------------------
-
-RID RenderService::resource_signature_create( const ResourceSignatureDesc& desc )
-{
-    return gfx_api->resource_signature_create( desc );
-}
-
-RID RenderService::resource_binding_create( RID signature )
-{
-    return gfx_api->resource_binding_create( signature );
-}
-
-void RenderService::resource_binding_commit( RID binding )
-{
-    gfx_api->resource_binding_commit( binding );
-}
-
-//------------------------------------------------------------------------------
-
-RID RenderService::buffer_create( const BufferDesc& desc )
-{
-    return gfx_api->buffer_create( desc );
-}
-
-void RenderService::buffer_update( RID buffer, const void* data, size_t size )
-{
-    gfx_api->buffer_update( buffer, data, size );
+    gfx_api->set_queue( GpuQueue::COMPUTE );
+    gfx_api->compute_dispatch( x, y, z );
 }
 
 //------------------------------------------------------------------------------
@@ -300,7 +311,7 @@ void RenderService::render_begin( float delta_time )
     time += delta_time;
     last_dt_ = delta_time;
 
-    gfx_api->set_queue( IRHI::GpuQueue::Graphics );
+    gfx_api->set_queue( GpuQueue::GRAPHICS );
     gfx_api->set_context_state( false );
     gfx_api->begin_queries();
 }
@@ -315,13 +326,13 @@ void RenderService::render_pass( const RenderPassDesc& desc )
     if (desc.to_screen) {
         auto primary = swapchain_get_primary();
         NC_ASSERT( primary, "No primary swapchain exist to render onto" );
-        rtv         = gfx_api->swapchain_get_view( primary, TextureViewType::RENDER_TARGET );
-        dsv         = gfx_api->swapchain_get_view( primary, TextureViewType::DEPTH_STENCIL );
+        rtv         = gfx_api->swapchain_get_view( primary, rhi::TextureViewType::RENDER_TARGET );
+        dsv         = gfx_api->swapchain_get_view( primary, rhi::TextureViewType::DEPTH_STENCIL );
         target_size = gfx_api->swapchain_get_size( primary );
     } else if (desc.color_target && gfx_api->is_rid_owned( desc.color_target )) {
-        rtv = gfx_api->texture_get_view( desc.color_target, TextureViewType::RENDER_TARGET );
+        rtv = gfx_api->texture_view_get( desc.color_target, rhi::TextureViewType::RENDER_TARGET );
         if (desc.depth_target && gfx_api->is_rid_owned( desc.depth_target ))
-            dsv = gfx_api->texture_get_view( desc.depth_target, TextureViewType::DEPTH_STENCIL );
+            dsv = gfx_api->texture_view_get( desc.depth_target, rhi::TextureViewType::DEPTH_STENCIL );
     }
 
     if (!rtv)
@@ -358,7 +369,7 @@ void RenderService::render_pass( const RenderPassDesc& desc )
     if (desc.draw_spatial && desc.camera) {
         auto& cam_attribs = camera_get_attribs( desc.camera );
         // precompute the V*P part of M*V*P so we don't have do it on the GPU.
-        // here we take the inverse of camera transform to get its view matrix.
+        // here we take the inverse of camera transform to get its tex_view_type matrix.
         auto view_matrix         = cam_attribs.Transform.affine_inverse();
         constants.CameraMatrix   = cam_attribs.Transform;
         constants.ViewProjMatrix = camera_get_perspective( desc.camera ) * view_matrix;
@@ -407,14 +418,18 @@ void RenderService::render_pass( const RenderPassDesc& desc )
             ensure_canvas_vb_( static_cast<uint32_t>( item.verts.size() ) );
             ensure_canvas_ib_( static_cast<uint32_t>( item.indices.size() ) );
 
-            gfx_api->buffer_update( canvas_vb, item.verts.data(), item.verts.size() * sizeof( Vertex2D ) );
-            gfx_api->buffer_update( canvas_ib, item.indices.data(), item.indices.size() * sizeof( uint16_t ) );
+            gfx_api->buffer_data_write(
+                canvas_vb, { reinterpret_cast<std::byte*>( item.verts.data() ), item.verts.size() * sizeof( Vertex2D ) }
+            );
+            gfx_api->buffer_data_write(
+                canvas_ib, { reinterpret_cast<std::byte*>( item.indices.data() ), item.indices.size() * sizeof( uint16_t ) }
+            );
 
             storage.material_set_texture( item.material, item.texture, 0 );
             storage.material_bind( item.material, constants );
 
-            gfx_api->vertex_buffers_bind( { &canvas_vb, 1 }, 0 );
-            gfx_api->index_buffer_bind( canvas_ib, 0 );
+            gfx_api->buffer_vertices_bind( { &canvas_vb, 1 }, 0 );
+            gfx_api->buffer_index_bind( canvas_ib, 0 );
 
             if (item.clip.x >= 0 && item.clip.y >= 0 && item.clip.w > 0 && item.clip.h > 0) {
                 gfx_api->render_target_set_scissor_rect( { &item.clip, 1 } );
@@ -447,7 +462,7 @@ void RenderService::spatial_draw_instance( RID gpu_mesh, const Mat4& transform, 
 }
 
 void RenderService::canvas_draw_triangles(
-    std::span<const Vertex2D> verts, std::span<const uint16_t> indices, RID material, RID texture, Rect2i clip
+    Span<const Vertex2D> verts, Span<const uint16_t> indices, RID material, RID texture, Rect2i clip
 )
 {
     auto item      = ctx.canvas_render_list.acquire();
@@ -498,12 +513,12 @@ void RenderService::ensure_canvas_vb_( uint32_t needed )
         return;
 
     uint32_t new_capacity = std::max( canvas_vb_size * 2, needed );
-    BufferDesc desc;
+    rhi::BufferDesc desc;
     desc.debug_name  = "Canvas Vertex Buffer";
     desc.size        = new_capacity * sizeof( Vertex2D );
-    desc.usage       = ResourceUsage::DYNAMIC;
-    desc.access_mask = ResourceAccessFlags::WRITE;
-    desc.bind_mask   = ResourceBindFlags::VERTEX_BUFFER;
+    desc.usage       = rhi::ResourceUsage::DYNAMIC;
+    desc.access_mask = rhi::ResourceAccessFlags::WRITE;
+    desc.bind_mask   = rhi::ResourceBindFlags::VERTEX_BUFFER;
 
     gfx_api->destroy_rid( canvas_vb );
 
@@ -518,12 +533,12 @@ void RenderService::ensure_canvas_ib_( uint32_t needed )
         return;
 
     uint32_t new_capacity = std::max( canvas_ib_size * 2, needed );
-    BufferDesc desc;
+    rhi::BufferDesc desc;
     desc.debug_name  = "Canvas Index Buffer";
     desc.size        = new_capacity * sizeof( uint16_t );
-    desc.usage       = ResourceUsage::DYNAMIC;
-    desc.access_mask = ResourceAccessFlags::WRITE;
-    desc.bind_mask   = ResourceBindFlags::INDEX_BUFFER;
+    desc.usage       = rhi::ResourceUsage::DYNAMIC;
+    desc.access_mask = rhi::ResourceAccessFlags::WRITE;
+    desc.bind_mask   = rhi::ResourceBindFlags::INDEX_BUFFER;
 
     gfx_api->destroy_rid( canvas_ib );
 

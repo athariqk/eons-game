@@ -12,8 +12,6 @@ public struct ShaderConstants
     public float Time;
     // Elapsed time between frames.
     public float DeltaTime;
-
-
 }
 
 public struct Vertex2D

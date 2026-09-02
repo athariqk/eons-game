@@ -1,8 +1,8 @@
 [header]
 debug_name = 2D Canvas
 
-[shaders]
-composite = shaders/canvas.slang
+[shader]
+path = shaders/canvas.slang
 
 [raster]
 cull_mode = None

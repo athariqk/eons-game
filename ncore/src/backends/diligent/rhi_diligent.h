@@ -30,14 +30,16 @@ public:
     void set_queue( GpuQueue queue ) override;
     void sync_queue( GpuQueue queue ) override;
 
-    RID swapchain_create( const SwapChainDesc& desc ) override;
+    RID swapchain_create( const rhi::SwapChainDesc& desc ) override;
     Vec2i swapchain_get_size( RID sc ) override;
     void swapchain_set_size( RID sc, Vec2i size ) override;
     void swapchain_present( RID sc, bool sync_interval ) override;
-    void* swapchain_get_view( RID sc, TextureViewType view ) override;
+    void* swapchain_get_view( RID sc, rhi::TextureViewType view ) override;
     void swapchain_destroy( RID sc ) override;
 
-    RID gfx_pipeline_create( const GraphicsPSODesc& desc, DynamicArray<RID> resource_signatures = {} ) override;
+    RID shader_create( const rhi::ShaderCreateDesc& desc ) override;
+
+    RID gfx_pipeline_create( const rhi::GraphicsPSODesc& desc ) override;
     void gfx_pipeline_bind( RID pipeline ) override;
     void gfx_pipeline_reload( RID pipeline ) override;
 
@@ -52,31 +54,46 @@ public:
     void commands_record_execute( void* p_cmd_list ) override;
     void commands_release() override;
 
-    RID compute_pipeline_create( const ComputePSODesc& desc ) override;
+    RID compute_pipeline_create( const rhi::ComputePSODesc& desc ) override;
     void compute_pipeline_bind( RID pipeline ) override;
-    void dispatch( uint32_t x, uint32_t y, uint32_t z ) override;
+    void compute_dispatch( uint32_t x, uint32_t y, uint32_t z ) override;
 
-    void texture_compute_update( RID texture, RID binding, const char* name, TextureViewType view ) override;
-    void buffer_compute_update( RID buffer, RID binding, const char* name ) override;
-
-    RID texture_create( const TextureDesc& desc ) override;
-    void texture_binding_update( RID texture, RID binding, const char* name ) override;
-    void* texture_get_view( RID texture, TextureViewType view ) override;
+    RID texture_create( const rhi::TextureDesc& desc ) override;
+    void* texture_view_get( RID texture, rhi::TextureViewType view ) override;
+    void texture_binding_update(
+        RID p_texture, RID p_binding, rhi::ShaderStage p_shader_type, rhi::TextureViewType p_view_type,
+        const char* p_name
+    ) override;
     void texture_blit( RID texture_src, RID texture_dest, bool to_swapchain ) override;
 
-    RID sampler_create( const SamplerDesc& desc ) override;
-    void sampler_update_binding( RID sampler, RID binding, const char* name ) override;
+    RID sampler_create( const rhi::SamplerDesc& desc ) override;
+    void sampler_binding_update( RID p_sampler, RID p_binding, const char* p_name ) override;
 
-    RID buffer_create( const BufferDesc& desc ) override;
-    void buffer_update( RID buffer, const void* data, size_t size ) override;
-    void buffer_update_binding( RID buffer, RID binding, const char* name ) override;
-    void vertex_buffers_bind( Span<const RID> buffers, uint32_t slot, Span<const uint64_t> offsets = {} ) override;
-    void index_buffer_bind( RID buffer, uint32_t offset ) override;
+    RID buffer_create( const rhi::BufferDesc& desc ) override;
+    void* buffer_view_get( RID buffer, rhi::BufferViewType view ) override;
+    void buffer_data_write( RID p_buffer, Span<const std::byte> p_src ) override;
+    void buffer_data_read( RID p_buffer, Span<std::byte> p_dst ) override;
+    void buffer_blit( RID p_src_buffer, RID p_dst_buffer ) override;
+    void buffer_binding_update(
+        RID p_buffer, RID p_binding, rhi::ShaderStage p_shader_type, rhi::BufferViewType p_view_type, const char* p_name
+    ) override;
+    void buffer_vertices_bind( Span<const RID> buffers, uint32_t slot, Span<const uint64_t> offsets = {} ) override;
+    void buffer_index_bind( RID buffer, uint32_t offset ) override;
 
-    RID resource_signature_create( const ResourceSignatureDesc& desc ) override;
+    RID resource_signature_create( const rhi::ResourceSignatureDesc& desc ) override;
 
-    RID resource_binding_create( RID signature ) override;
-    void resource_binding_commit( RID binding ) override;
+    /**
+     * @brief Create a shader resource mapping.
+     */
+    RID resource_mapping_create( Span<const rhi::ResourceMappingEntry> p_entries ) override;
+    void
+    resource_mapping_add_entry( RID p_mapping, const rhi::ResourceMappingEntry& p_entry, bool p_is_unique ) override;
+
+    RID resource_binding_create( RID p_resource_signature ) override;
+    void resource_binding_update(
+        RID p_resource_binding, RID p_resource_mapping, rhi::ShaderStage p_shader_stages
+    ) override;
+    void resource_binding_commit( RID resource_binding ) override;
 
     bool is_rid_owned( RID rid ) override;
     bool destroy_rid( RID rid ) override;
@@ -96,6 +113,7 @@ public:
 private:
     Diligent::IDeviceContext* get_active_ctx_();
     Diligent::IDeviceContext* get_imm_ctx_();
+    Diligent::IDeviceObject* map_resource_bind_( RID p_resource, rhi::ResourceType p_kind );
 
     Diligent::RefCntAutoPtr<Diligent::IEngineFactoryVk> engine_factory;
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device;
@@ -110,25 +128,27 @@ private:
     RIDPool<Diligent::RefCntAutoPtr<Diligent::IDeviceContext>> ctx_comp_defer;
     RIDPool<Diligent::RefCntAutoPtr<Diligent::IDeviceContext>> ctx_tx_defer;
     RIDPool<Diligent::RefCntAutoPtr<Diligent::ISwapChain>> swapchains;
+    RIDPool<Diligent::RefCntAutoPtr<Diligent::IShader>> shaders;
     RIDPool<Diligent::RefCntAutoPtr<Diligent::IPipelineState>> pipelines;
     RIDPool<Diligent::RefCntAutoPtr<Diligent::ITexture>> textures;
     RIDPool<Diligent::RefCntAutoPtr<Diligent::IBuffer>> buffers;
     RIDPool<Diligent::RefCntAutoPtr<Diligent::ISampler>> samplers;
     RIDPool<Diligent::RefCntAutoPtr<Diligent::IPipelineResourceSignature>> res_signatures;
+    RIDPool<Diligent::RefCntAutoPtr<Diligent::IResourceMapping>> res_mappings;
     RIDPool<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> res_bindings;
 
     Diligent::RefCntAutoPtr<Diligent::IVertexPool> vertex_pool;
 
-    std::unique_ptr<Diligent::ScopedQueryHelper> pipeline_stats_query;
-    std::unique_ptr<Diligent::ScopedQueryHelper> occlusion_query;
-    std::unique_ptr<Diligent::ScopedQueryHelper> duration_query;
-    std::unique_ptr<Diligent::DurationQueryHelper> duration_from_timestamps_query;
+    Ptr<Diligent::ScopedQueryHelper> pipeline_stats_query;
+    Ptr<Diligent::ScopedQueryHelper> occlusion_query;
+    Ptr<Diligent::ScopedQueryHelper> duration_query;
+    Ptr<Diligent::DurationQueryHelper> duration_from_timestamps_query;
     Diligent::QueryDataPipelineStatistics pipeline_stats_data;
     Diligent::QueryDataOcclusion occlusion_data;
     Diligent::QueryDataDuration duration_data;
     double duration_from_timestamps = 0;
 
-    GpuQueue active_queue  = GpuQueue::Graphics;
+    GpuQueue active_queue  = GpuQueue::GRAPHICS;
     bool is_deferred       = false;
     RID active_deferred_id = 0;
 };

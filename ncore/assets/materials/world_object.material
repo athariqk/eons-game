@@ -1,8 +1,8 @@
 [header]
 debug_name = Physically Based Rendering
 
-[shaders]
-composite = shaders/world_object.slang
+[shader]
+path = shaders/world_object.slang
 
 [raster]
 cull_mode = Back

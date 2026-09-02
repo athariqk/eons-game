@@ -95,6 +95,55 @@ constexpr TypeId type_id() noexcept
     return TypeId{ detail::type_hash<T>() };
 }
 
+// Extracting type name from compiler-dependent compile-time information
+// Source: https://rodusek.com/posts/2021/03/09/getting-an-unmangled-type-name-at-compile-time/
+
+template<std::size_t... Idxs>
+constexpr auto substring_as_array( std::string_view str, std::index_sequence<Idxs...> )
+{
+    return std::array{ str[Idxs]..., '\n' };
+}
+
+template<typename T>
+constexpr auto type_name_array()
+{
+#if defined( __clang__ )
+    constexpr auto prefix   = std::string_view{ "[T = " };
+    constexpr auto suffix   = std::string_view{ "]" };
+    constexpr auto function = std::string_view{ __PRETTY_FUNCTION__ };
+#elif defined( __GNUC__ )
+    constexpr auto prefix   = std::string_view{ "with T = " };
+    constexpr auto suffix   = std::string_view{ "]" };
+    constexpr auto function = std::string_view{ __PRETTY_FUNCTION__ };
+#elif defined( _MSC_VER )
+    constexpr auto prefix   = std::string_view{ "type_name_array<" };
+    constexpr auto suffix   = std::string_view{ ">(void)" };
+    constexpr auto function = std::string_view{ __FUNCSIG__ };
+#else
+#error Unsupported compiler
+#endif
+
+    constexpr auto start = function.find( prefix ) + prefix.size();
+    constexpr auto end   = function.rfind( suffix );
+
+    static_assert( start < end );
+
+    constexpr auto name = function.substr( start, ( end - start ) );
+    return substring_as_array( name, std::make_index_sequence<name.size()>{} );
+}
+
+template<typename T>
+struct type_name_holder {
+    static inline constexpr auto value = type_name_array<T>();
+};
+
+template<typename T>
+constexpr std::string_view type_name()
+{
+    constexpr auto& value = type_name_holder<T>::value;
+    return std::string_view{ value.data(), value.size() };
+}
+
 } // namespace detail
 
 //------------------------------------------------------------------------------
@@ -431,7 +480,7 @@ struct NCAPI EnumInfo : public TypeInfo {
         kind = TypeKind::ENUM;
     }
 
-    std::span<const EnumElement> elements() const noexcept
+    Span<const EnumElement> elements() const noexcept
     {
         return { elements_begin, elements_end };
     }
@@ -447,6 +496,19 @@ struct NCAPI EnumInfo : public TypeInfo {
         return false;
     }
 
+    /**
+     * @brief Reads the enum value at instance, honoring the enum's storage width.
+     */
+    int64_t get_value( const void* instance ) const noexcept;
+
+    /**
+     * @brief Writes the enum value at instance, honoring the enum's storage width.
+     */
+    void set_value( void* instance, int64_t value ) const noexcept;
+
+    /**
+     * @brief Return the name of an enum value as static string view.
+     */
     StringView get_name( int64_t value ) const noexcept
     {
         for (const auto& elem : elements()) {
@@ -457,14 +519,12 @@ struct NCAPI EnumInfo : public TypeInfo {
     }
 
     /**
-     * @brief Reads the enum value at instance, honoring the enum's storage width.
+     * @brief Return the name of an enum as static string view.
      */
-    int64_t get_value( const void* instance ) const noexcept;
-
-    /**
-     * @brief Writes the enum value at instance, honoring the enum's storage width.
-     */
-    void set_value( void* instance, int64_t value ) const noexcept;
+    StringView get_name( const void* instance ) const noexcept
+    {
+        return get_name( get_value( instance ) );
+    }
 
     void to_string( String& out, const void* instance ) const override;
 };
@@ -649,7 +709,7 @@ public:
             rtti_hits_++;
             if (c->id == id) {
                 map[id] = c;
-                NC_LOG_DEBUG( "TypeRegistry: cached type={} with ID={}", c->name, id.value );
+                NC_LOG_DEBUG( "TypeRegistry: cached type name='{}' with ID={}", c->name, id.value );
                 return c;
             }
         }
@@ -682,7 +742,7 @@ public:
         return static_cast<const RecordInfo*>( t );
     }
 
-    static const void to_string( String& out, void* instance, TypeId id ) noexcept
+    static const void to_string( String& out, const void* instance, TypeId id ) noexcept
     {
         auto t = find( id );
         if (!t)
@@ -723,7 +783,10 @@ public:
     template<typename T>
     static const TypeInfo& get() noexcept
     {
-        NC_ASSERT( is_registered<T>(), "Type is not found in the registry" );
+        NC_ASSERT(
+            is_registered<T>(),
+            std::format( "Type '{}' is not found in the registry", detail::type_name<T>().data() ).c_str()
+        );
         return get( detail::type_id<T>() );
     }
 
@@ -747,12 +810,12 @@ public:
     static const RecordInfo& get_record() noexcept
     {
         const RecordInfo* c = find_record<T>();
-        NC_ASSERT( c, "Record type is not found in the registry" );
+        NC_ASSERT( c, std::format( "Type '{}' is not found in the registry", detail::type_name<T>().data() ).c_str() );
         return *c;
     }
 
     template<typename T>
-    static const void to_string( String& out, void* instance )
+    static const void to_string( String& out, const void* instance )
     {
         return to_string( out, instance, detail::type_id<T>() );
     }
@@ -845,6 +908,15 @@ struct NCAPI StringClass : public TRecordInfo<String> {
     }
 };
 
+//------------------------------------------------------------------------------
+
+template<typename T>
+constexpr const char* get_enum_name( const T* value ) noexcept
+{
+    using RawType = std::remove_cv_t<std::remove_pointer_t<std::decay_t<T>>>;
+    return static_cast<const EnumInfo&>( TypeRegistry::get<RawType>() ).get_name( value ).data();
+}
+
 } // namespace nc::rtti
 
 //------------------------------------------------------------------------------
@@ -919,3 +991,7 @@ struct NCAPI StringClass : public TRecordInfo<String> {
         return ei;                                                                                                      \
     }                                                                                                                   \
     inline static const int nc_trig_enum_##T = ( nc_enum_info_##T(), 0 );
+
+//------------------------------------------------------------------------------
+
+#define NENUM_GET_NAME( p ) ::nc::rtti::get_enum_name( p )

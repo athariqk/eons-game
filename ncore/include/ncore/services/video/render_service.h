@@ -43,8 +43,8 @@ public:
     void shutdown() override;
 
     RID swapchain_create(
-        void* whnd, Vec2i size, TextureFormat color_format = TextureFormat::RGBA8_UNORM_SRGB,
-        TextureFormat depth_format = TextureFormat::D32_FLOAT
+        void* whnd, Vec2i size, rhi::TextureFormat color_format = rhi::TextureFormat::RGBA8_UNORM_SRGB,
+        rhi::TextureFormat depth_format = rhi::TextureFormat::D32_FLOAT
     );
     /**
      * @brief Set the width and height of given swapchain.
@@ -69,11 +69,11 @@ public:
      * @brief Create a new render texture.
      * @return RenderTexture RID.
      */
-    RID texture_render_create( Vec2i size, TextureFormat format = TextureFormat::RGBA8_UNORM );
+    RID texture_render_create( Vec2i size, rhi::TextureFormat format = rhi::TextureFormat::RGBA8_UNORM );
     /**
-     * @brief Retrieve a texture view.
+     * @brief Retrieve a texture tex_view_type.
      */
-    void* texture_get_view( RID texture, TextureViewType view );
+    void* texture_view_get( RID texture, rhi::TextureViewType view );
     /**
      * @brief Copy data from source texture into destination texture.
      * @param tex_src Source texture to copy from.
@@ -81,13 +81,37 @@ public:
      */
     void texture_blit( RID tex_src, RID tex_dest = 0 );
 
+    RID buffer_create( const rhi::BufferDesc& desc );
+    /**
+     * @brief Change what's inside an existing buffer.
+     * @param p_buffer The existing GPU buffer.
+     * @param p_src Source data to copy into the buffer.
+     */
+    void buffer_data_write( RID p_buffer, Span<const std::byte> p_src );
+    /**
+     * @brief Read data from an existing buffer.
+     */
+    void buffer_data_read( RID p_buffer, Span<std::byte> p_dst );
+    /**
+     * @brief Copy data from one buffer to another.
+     * @param p_src_buffer RID handle of source buffer.
+     * @param p_dst_buffer RID handle of destination buffer.
+     */
+    void buffer_blit( RID p_src_buffer, RID p_dst_buffer );
+
+    RID resource_set_create( const Shader& shader, uint8_t set_idx, Span<const rhi::ResourceMappingEntry> p_resources );
+    /**
+     * @brief Commit resources in the set to the device context.
+     */
+    void resource_set_bind( RID p_resource_set );
+
     /**
      * @brief Instantiates a material from its template.
      * A material has its own textures.
      */
     RID material_create( const MaterialTemplate& tmpl );
     void material_set_texture( RID material, RID texture, uint32_t slot );
-    void material_set_draw_mode( RID material, FillMode mode );
+    void material_set_draw_mode( RID material, rhi::FillMode mode );
 
     /**
      * @brief Uploads a CPU Mesh resource into the current GPU device.
@@ -95,22 +119,19 @@ public:
      */
     RID gpu_mesh_create( const Mesh& mesh );
 
-    RID compute_pipeline_create( const ComputePSODesc& desc );
+    RID compute_pipeline_create( const Shader& shader, Span<const RID> p_resource_sets );
     void compute_pipeline_bind( RID pipeline );
-    void dispatch( uint32_t x, uint32_t y, uint32_t z );
-    void compute_texture_bind( RID texture, RID binding, const char* name, TextureViewType view );
-    void compute_buffer_bind( RID buffer, RID binding, const char* name );
-
-    RID resource_signature_create( const ResourceSignatureDesc& desc );
-    RID resource_binding_create( RID signature );
-    void resource_binding_commit( RID binding );
-
-    RID buffer_create( const BufferDesc& desc );
-    void buffer_update( RID buffer, const void* data, size_t size );
+    /**
+     * @brief Executes a dispatch compute command.
+     * @param x The number of thread groups dispatch in X direction.
+     * @param y The number of thread groups dispatch in Y direction.
+     * @param z The number of thread groups dispatch in Z direction.
+     */
+    void compute_dispatch( uint32_t x, uint32_t y, uint32_t z );
 
     struct CameraAttribs {
         Mat4 Transform = Mat4::identity();
-        float Fov      = 1.5708f; // a.k.a angle-of-view (in radians).
+        float Fov      = 1.5708f; // a.k.a angle-of-tex_view_type (in radians).
         float zNear    = 0.1f;    // Near clipping plane.
         float zFar     = 100.0f;  // Far clipping plane.
         Vec2i DisplaySize;
@@ -171,8 +192,7 @@ public:
      * Pushes a new Canvas draw call to the draw list to be rendered next frame.
      */
     void canvas_draw_triangles(
-        std::span<const Vertex2D> verts, std::span<const uint16_t> indices, RID material, RID texture = 0,
-        Rect2i clip = {}
+        Span<const Vertex2D> verts, Span<const uint16_t> indices, RID material, RID texture = 0, Rect2i clip = {}
     );
 
     /**

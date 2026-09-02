@@ -18,12 +18,7 @@ Ref<IResource> SlangImporter::import( const String& path, Context ctx )
         return nullptr;
     }
 
-    auto shaders = Ref<CompositeShader>::create();
-    for (auto& program : slang.programs) {
-        auto shader = Ref<Shader>::create( program );
-        shaders->set_shader( program.stage, shader );
-    }
-
+    auto shaders = Ref<Shader>::create( slang.programs );
     return shaders;
 }
 

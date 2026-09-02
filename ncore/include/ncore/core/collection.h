@@ -336,6 +336,12 @@ public:
         return reinterpret_cast<T*>( &slot->data );
     }
 
+    template<typename... Args>
+    T* acquire_and_get( Args&&... args )
+    {
+        return get( acquire( std::forward<Args>( args )... ) );
+    }
+
     /**
      * @brief Free object from pool. Invalidating its handle.
      * @return True if succesfully freed.

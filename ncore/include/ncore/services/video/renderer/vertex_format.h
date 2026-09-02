@@ -19,12 +19,12 @@ struct Vertex3D {
     uint32_t color;
 };
 
-VertexLayout get_vertex2d_layout();
-VertexLayout get_vertex3d_layout();
+rhi::VertexLayout get_vertex2d_layout();
+rhi::VertexLayout get_vertex3d_layout();
 
-VertexLayout get_vertex_layout_by_name( const std::string& name );
+rhi::VertexLayout get_vertex_layout_by_name( const std::string& name );
 
 template<typename T>
-VertexLayout get_vertex_layout_for();
+rhi::VertexLayout get_vertex_layout_for();
 
 } // namespace nc

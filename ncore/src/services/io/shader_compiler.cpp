@@ -22,7 +22,7 @@ ShaderCompiler::~ShaderCompiler()
     slang::shutdown();
 }
 
-static ShaderValueType translate_slang_type( slang::TypeReflection* type )
+static rhi::ShaderValueType translate_slang_type( slang::TypeReflection* type )
 {
     auto kind   = type->getKind();
     auto scalar = type->getScalarType();
@@ -45,93 +45,154 @@ static ShaderValueType translate_slang_type( slang::TypeReflection* type )
 
     if (kind == slang::TypeReflection::Kind::Scalar) {
         if (is_float)
-            return ShaderValueType::FLOAT;
+            return rhi::ShaderValueType::FLOAT;
         if (is_int)
-            return ShaderValueType::INT;
+            return rhi::ShaderValueType::INT;
         if (is_bool)
-            return ShaderValueType::BOOL;
-        return ShaderValueType::UNKNOWN;
+            return rhi::ShaderValueType::BOOL;
+        return rhi::ShaderValueType::UNKNOWN;
     }
 
     if (kind == slang::TypeReflection::Kind::Vector) {
         if (is_float) {
             switch (element_count) {
                 case 2:
-                    return ShaderValueType::FLOAT2;
+                    return rhi::ShaderValueType::FLOAT2;
                 case 3:
-                    return ShaderValueType::FLOAT3;
+                    return rhi::ShaderValueType::FLOAT3;
                 case 4:
-                    return ShaderValueType::FLOAT4;
+                    return rhi::ShaderValueType::FLOAT4;
             }
         }
         if (is_int) {
             switch (element_count) {
                 case 2:
-                    return ShaderValueType::INT2;
+                    return rhi::ShaderValueType::INT2;
                 case 3:
-                    return ShaderValueType::INT3;
+                    return rhi::ShaderValueType::INT3;
                 case 4:
-                    return ShaderValueType::INT4;
+                    return rhi::ShaderValueType::INT4;
             }
         }
         if (is_uint16 && element_count == 4)
-            return ShaderValueType::USHORT4;
-        return ShaderValueType::UNKNOWN;
+            return rhi::ShaderValueType::USHORT4;
+        return rhi::ShaderValueType::UNKNOWN;
     }
 
     if (kind == slang::TypeReflection::Kind::Matrix) {
         if (is_float && row_count == 4 && col_count == 4)
-            return ShaderValueType::MAT4;
+            return rhi::ShaderValueType::MAT4;
         NC_LOG_WARN_C(
             log::GRAPHICS, "translate_slang_type: unsupported matrix shape {}x{}, scalar={}", row_count, col_count,
             static_cast<int>( scalar )
         );
-        return ShaderValueType::UNKNOWN;
+        return rhi::ShaderValueType::UNKNOWN;
     }
 
     if (kind == slang::TypeReflection::Kind::Resource) {
         auto shape = type->getResourceShape();
         switch (shape) {
             case SLANG_TEXTURE_2D:
-                return ShaderValueType::TEXTURE2D;
+                return rhi::ShaderValueType::TEXTURE_2D;
             case SLANG_TEXTURE_CUBE:
-                return ShaderValueType::TEXTURECUBED;
+                return rhi::ShaderValueType::TEXTURE_CUBED;
             default:
                 break;
         }
     }
 
     if (kind == slang::TypeReflection::Kind::SamplerState) {
-        return ShaderValueType::SAMPLER;
+        return rhi::ShaderValueType::SAMPLER;
     }
 
-    return ShaderValueType::UNKNOWN;
+    return rhi::ShaderValueType::UNKNOWN;
 }
 
-static ResourceType classify_resource_type( slang::TypeReflection* type )
+static rhi::ResourceType classify_resource_type( slang::TypeReflection* type )
 {
     auto shape      = type->getResourceShape();
     auto base_shape = shape & SLANG_RESOURCE_BASE_SHAPE_MASK;
 
     switch (base_shape) {
         case SLANG_STRUCTURED_BUFFER:
+            if (type->getResourceAccess() == SLANG_RESOURCE_ACCESS_READ_WRITE) {
+                return rhi::ResourceType::BUFFER_UAV;
+            }
+            [[fallthrough]]; // fall to readonly buffer type
         case SLANG_BYTE_ADDRESS_BUFFER:
-            return ResourceType::BUFFER_SRV;
+            return rhi::ResourceType::BUFFER_SRV;
 
         case SLANG_TEXTURE_1D:
         case SLANG_TEXTURE_2D:
         case SLANG_TEXTURE_3D:
         case SLANG_TEXTURE_CUBE:
         case SLANG_TEXTURE_BUFFER:
-            return ResourceType::TEXTURE_SRV;
+            return rhi::ResourceType::TEXTURE_SRV;
 
         default:
             NC_LOG_WARN_C(
                 log::GRAPHICS, "classify_resource_type: unhandled resource base shape {}",
                 static_cast<int>( base_shape )
             );
-            return ResourceType::TEXTURE_SRV;
+            return rhi::ResourceType::TEXTURE_SRV;
     }
+}
+
+static String get_slang_parameter_name( slang::ParameterCategory category )
+{
+    switch (category) {
+        case slang::ParameterCategory::None:
+            return "None";
+        case slang::ParameterCategory::Mixed:
+            return "Mixed";
+        case slang::ParameterCategory::ConstantBuffer: // Same target as MetalBuffer
+            return "Constant Buffer";
+        case slang::ParameterCategory::ShaderResource: // Same target as MetalTexture
+            return "Shader Resource";
+        case slang::ParameterCategory::UnorderedAccess:
+            return "Unordered Access";
+        case slang::ParameterCategory::VaryingInput:  // Same target as VertexInput
+            return "Varying Input";
+        case slang::ParameterCategory::VaryingOutput: // Same target as FragmentOutput
+            return "Varying Output";
+        case slang::ParameterCategory::SamplerState:
+            return "Sampler State";
+        case slang::ParameterCategory::Uniform:
+            return "Uniform";
+        case slang::ParameterCategory::DescriptorTableSlot:
+            return "Descriptor Table Slot";
+        case slang::ParameterCategory::SpecializationConstant:
+            return "Specialization Constant";
+        case slang::ParameterCategory::PushConstantBuffer:
+            return "Push Constant Buffer";
+        case slang::ParameterCategory::RegisterSpace:
+            return "Register Space";
+        case slang::ParameterCategory::GenericResource:
+            return "Generic Resource";
+        case slang::ParameterCategory::RayPayload:
+            return "Ray Payload";
+        case slang::ParameterCategory::HitAttributes:
+            return "Hit Attributes";
+        case slang::ParameterCategory::CallablePayload:
+            return "Callable Payload";
+        case slang::ParameterCategory::ShaderRecord:
+            return "Shader Record";
+        case slang::ParameterCategory::ExistentialTypeParam:
+            return "Existential Type Param";
+        case slang::ParameterCategory::ExistentialObjectParam:
+            return "Existential Object Param";
+        case slang::ParameterCategory::SubElementRegisterSpace:
+            return "Sub Element Register Space";
+        case slang::ParameterCategory::InputAttachmentIndex:
+            return "Input Attachment Index";
+        case slang::ParameterCategory::MetalArgumentBufferElement:
+            return "Metal Argument Buffer Element";
+        case slang::ParameterCategory::MetalAttribute:
+            return "Metal Attribute";
+        case slang::ParameterCategory::MetalPayload:
+            return "Metal Payload";
+    }
+    return "Unknown";
 }
 
 ShaderCompileResult ShaderCompiler::compile( const ShaderCompileDesc& desc )
@@ -208,13 +269,14 @@ ShaderCompileResult ShaderCompiler::compile( const ShaderCompileDesc& desc )
             if (SLANG_FAILED( r ))
                 continue;
 
+            auto stage = ep->getLayout()->getEntryPointByIndex( 0 )->getStage();
             NC_LOG_INFO_C(
                 log::IO, "Shader '{}' entry point '{}' compiled (stage={}, {} bytes)", path_key,
                 ep->getFunctionReflection()->getName(),
-                ep->getLayout()->getEntryPointByIndex( 0 )->getStage() == SLANG_STAGE_VERTEX     ? "VS"
-                : ep->getLayout()->getEntryPointByIndex( 0 )->getStage() == SLANG_STAGE_FRAGMENT ? "PS"
-                : ep->getLayout()->getEntryPointByIndex( 0 )->getStage() == SLANG_STAGE_COMPUTE  ? "CS"
-                                                                                                 : "?",
+                stage == SLANG_STAGE_VERTEX     ? "VS"
+                : stage == SLANG_STAGE_FRAGMENT ? "PS"
+                : stage == SLANG_STAGE_COMPUTE  ? "CS"
+                                                : "?",
                 spirv_code->getBufferSize()
             );
         }
@@ -226,16 +288,16 @@ ShaderCompileResult ShaderCompiler::compile( const ShaderCompileDesc& desc )
 #pragma clang diagnostic ignored "-Wswitch-enum"
         switch (ep->getLayout()->getEntryPointByIndex( 0 )->getStage()) {
             case SLANG_STAGE_VERTEX:
-                entry_out.stage = ShaderType::VERTEX;
+                entry_out.stage = rhi::ShaderStage::VERTEX;
                 break;
             case SLANG_STAGE_FRAGMENT:
-                entry_out.stage = ShaderType::PIXEL;
+                entry_out.stage = rhi::ShaderStage::PIXEL;
                 break;
             case SLANG_STAGE_COMPUTE:
-                entry_out.stage = ShaderType::COMPUTE;
+                entry_out.stage = rhi::ShaderStage::COMPUTE;
                 break;
             default:
-                entry_out.stage = ShaderType::MULTIPLE;
+                entry_out.stage = rhi::ShaderStage::NONE;
                 break;
         }
 #pragma clang diagnostic pop
@@ -245,7 +307,7 @@ ShaderCompileResult ShaderCompiler::compile( const ShaderCompileDesc& desc )
         entry_out.bytecode.assign( words, words + count );
 
         auto entry_ep_layout = ep->getLayout()->getEntryPointByIndex( 0 );
-        if (entry_out.stage == ShaderType::COMPUTE && entry_ep_layout) {
+        if (entry_out.stage == rhi::ShaderStage::COMPUTE && entry_ep_layout) {
             SlangUInt thread_group_sizes[3] = {};
             entry_ep_layout->getComputeThreadGroupSize( 3, thread_group_sizes );
             entry_out.num_threads_x = static_cast<uint32_t>( thread_group_sizes[0] );
@@ -280,8 +342,8 @@ ShaderCompileResult ShaderCompiler::compile( const ShaderCompileDesc& desc )
             }
 
             NC_LOG_DEBUG_C(
-                log::IO, "param '{}' category={} field_count={}", param->getName(),
-                static_cast<int>( param->getCategory() ), type_layout->getFieldCount()
+                log::IO, "param '{}' category='{}' field_count={}", param->getName(),
+                get_slang_parameter_name( param->getCategory() ), type_layout->getFieldCount()
             );
 
             ShaderParamInfo info;
@@ -294,16 +356,16 @@ ShaderCompileResult ShaderCompiler::compile( const ShaderCompileDesc& desc )
 #pragma clang diagnostic ignored "-Wswitch-enum"
             switch (original_kind) {
                 case slang::TypeReflection::Kind::ConstantBuffer:
-                    info.resource_type = ResourceType::CONSTANT_BUFFER;
+                    info.resource_type = rhi::ResourceType::CONSTANT_BUFFER;
                     break;
                 case slang::TypeReflection::Kind::Resource:
                     info.resource_type = classify_resource_type( type_layout->getType() );
                     break;
                 case slang::TypeReflection::Kind::SamplerState:
-                    info.resource_type = ResourceType::SAMPLER;
+                    info.resource_type = rhi::ResourceType::SAMPLER;
                     break;
                 default:
-                    info.resource_type = ResourceType::CONSTANT_BUFFER;
+                    info.resource_type = rhi::ResourceType::CONSTANT_BUFFER;
                     break;
             }
 #pragma clang diagnostic pop
@@ -323,15 +385,15 @@ ShaderCompileResult ShaderCompiler::compile( const ShaderCompileDesc& desc )
                 info.fields.push_back( out );
 
                 NC_LOG_DEBUG_C(
-                    log::IO, "  field '{}': type={} offset={} size={} stride={}", out.name,
-                    static_cast<int>( out.type ), out.offset, out.size, out.stride
+                    log::IO, "  field '{}' type='{}' offset={} size={} stride={}", out.name,
+                    rtti::get_enum_name( &out.type ), out.offset, out.size, out.stride
                 );
             }
 
             entry_out.params.push_back( std::move( info ) );
         }
 
-        if (entry_out.stage == ShaderType::VERTEX) {
+        if (entry_out.stage == rhi::ShaderStage::VERTEX) {
             auto ep_layout = layout->getEntryPointByIndex( 0 );
             if (!ep_layout)
                 continue;
@@ -371,7 +433,7 @@ ShaderCompileResult ShaderCompiler::compile( const ShaderCompileDesc& desc )
                             continue;
 
                         info.semantic_name = sem ? sem : "";
-                        info.resource_type = ResourceType::VARYING_INPUT;
+                        info.resource_type = rhi::ResourceType::VARYING_INPUT;
                         info.value_type    = translate_slang_type( field->getTypeLayout()->getType() );
                         info.location      = static_cast<uint32_t>( field->getSemanticIndex() );
                         info.offset        = field->getOffset( slang::ParameterCategory::VaryingInput );
@@ -385,7 +447,7 @@ ShaderCompileResult ShaderCompiler::compile( const ShaderCompileDesc& desc )
                         ShaderParamInfo info;
                         info.name          = param->getName() ? param->getName() : "";
                         info.semantic_name = sem ? sem : "";
-                        info.resource_type = ResourceType::VARYING_INPUT;
+                        info.resource_type = rhi::ResourceType::VARYING_INPUT;
                         info.value_type    = translate_slang_type( type_layout->getType() );
                         info.location      = static_cast<uint32_t>( param->getSemanticIndex() );
                         info.offset        = 0;
@@ -396,17 +458,17 @@ ShaderCompileResult ShaderCompiler::compile( const ShaderCompileDesc& desc )
                 }
 
                 for (const auto& p : entry_out.params) {
-                    if (p.resource_type != ResourceType::VARYING_INPUT)
+                    if (p.resource_type != rhi::ResourceType::VARYING_INPUT)
                         continue;
 
-                    VertexLayoutElement elem;
+                    rhi::VertexLayoutElement elem;
                     elem.location        = p.location;
                     elem.type            = p.value_type;
                     elem.buffer_slot     = p.binding_idx;
                     elem.stride          = p.stride;
                     elem.relative_offset = static_cast<uint32_t>( p.offset );
                     elem.normalized      = false;
-                    elem.frequency       = VertexFrequency::PER_VERTEX;
+                    elem.frequency       = rhi::VertexFrequency::PER_VERTEX;
                     entry_out.vert_layout.push_back( elem );
                 }
             }
@@ -415,8 +477,8 @@ ShaderCompileResult ShaderCompiler::compile( const ShaderCompileDesc& desc )
             for (auto& ve : entry_out.vert_layout) {
                 NC_LOG_DEBUG_C(
                     log::IO, "    slot={} loc={} type={} offset={} stride={} semantic='{}'", ve.buffer_slot,
-                    ve.location, static_cast<int>( ve.type ), ve.relative_offset, ve.stride,
-                    ve.hlsl_semantic ? ve.hlsl_semantic : ""
+                    ve.location, rtti::get_enum_name( &ve.type ), ve.relative_offset, ve.stride,
+                    ve.hlsl_semantic ? ve.hlsl_semantic : "N/A"
                 );
             }
         }

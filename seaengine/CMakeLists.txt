@@ -1,6 +1,13 @@
 add_executable(SeaEngine)
 
-target_sources(SeaEngine PRIVATE main.cpp src/world_scene.h src/world_scene.cpp)
+target_sources(SeaEngine PRIVATE
+	"main.cpp"
+	"src/tests/test_compute_shader.h"
+	"src/tests/test_compute_shader.cpp"
+	"src/water/water_sim.h"
+	"src/water/water_sim.cpp"
+	"src/world_scene.h"
+	"src/world_scene.cpp")
 
 target_link_libraries(SeaEngine PRIVATE ncore ncore_editor)
 

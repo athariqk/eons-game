@@ -51,9 +51,9 @@ void NCAPI register_core_plugin( Scene& scene )
     io->Resources = scene.get_app_ctx()->Services.resolve<ResourceService>();
     io->Inputs    = scene.get_app_ctx()->Services.resolve<InputService>();
 
-    auto vid    = scene.get_ecs().add_singleton<VideoServices>();
-    vid->Window = scene.get_app_ctx()->Services.resolve<WindowService>();
-    vid->Renderer    = scene.get_app_ctx()->Services.resolve<RenderService>();
+    auto vid      = scene.get_ecs().add_singleton<VideoServices>();
+    vid->Window   = scene.get_app_ctx()->Services.resolve<WindowService>();
+    vid->Renderer = scene.get_app_ctx()->Services.resolve<RenderService>();
 }
 
 void register_video_plugin( Scene& scene )
@@ -105,7 +105,7 @@ void register_video_plugin( Scene& scene )
                     // NOTE: Screen/swapchain is exclusively a flat 2D render (no depth).
                     // NOTE: This means for depth-required renders, it should always go to offscreen buffers
                     // with depth/stencil tex format enabled
-                    nat_hnd, win->Resolution, TextureFormat::RGBA8_UNORM_SRGB, TextureFormat::UNKNOWN
+                    nat_hnd, win->Resolution, rhi::TextureFormat::RGBA8_UNORM_SRGB, rhi::TextureFormat::UNKNOWN
                 );
                 vid->Window->window_set_resolution( win->Source, win->Resolution );
                 vid->Window->window_set_centered( win->Source );
@@ -354,9 +354,10 @@ void register_video_plugin( Scene& scene )
                         vid->Renderer->destroy_rid( cam->DepthTexture );
 
                     cam->RenderTexture =
-                        vid->Renderer->texture_render_create( screen_size, TextureFormat::RGBA8_UNORM_SRGB );
-                    cam->DepthTexture = vid->Renderer->texture_render_create( screen_size, TextureFormat::D32_FLOAT );
-                    cam->DisplayRect  = Rect2i( 0, 0, screen_size.x, screen_size.y );
+                        vid->Renderer->texture_render_create( screen_size, rhi::TextureFormat::RGBA8_UNORM_SRGB );
+                    cam->DepthTexture =
+                        vid->Renderer->texture_render_create( screen_size, rhi::TextureFormat::D32_FLOAT );
+                    cam->DisplayRect = Rect2i( 0, 0, screen_size.x, screen_size.y );
                 }
             }
 

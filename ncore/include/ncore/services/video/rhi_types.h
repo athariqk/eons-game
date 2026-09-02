@@ -13,7 +13,7 @@
 #undef NONE
 #undef OPAQUE
 
-namespace nc {
+namespace nc::rhi {
 
 enum class PrimitiveTopology {
     TRIANGLE_LIST,
@@ -26,31 +26,68 @@ enum class FillMode {
 };
 NENUM( FillMode, NENUM_ELEMENT( FillMode, SOLID ), NENUM_ELEMENT( FillMode, WIREFRAME ) )
 
+/**
+ * @brief This enumeration describes which parts of the pipeline a resource can be bound to.
+ */
 enum class ResourceBindFlags : uint32_t {
     NONE               = 0,
     VERTEX_BUFFER      = 1 << 0,
     INDEX_BUFFER       = 1 << 1,
-    UNIFORM_BUFFER     = 1 << 2, // may not be combined with any other bind flag (Diligent Impl)
-    SHADER_RESOURCE    = 1 << 3,
+    UNIFORM_BUFFER     = 1 << 2, // A constant buffer. may not be combined with any other bind flag (Diligent Impl)
+    SHADER_RESOURCE    = 1 << 3, // A buffer or a texture can be bound as a shader resource.
     STREAM_OUTPUT      = 1 << 4,
     RENDER_TARGET      = 1 << 5,
     DEPTH_STENCIL      = 1 << 6,
-    UNORDERED_ACCESS   = 1 << 7,
+    UNORDERED_ACCESS   = 1 << 7, // A buffer or a texture can be bound as an unordered access view.
     INDIRECT_DRAW_ARGS = 1 << 8,
     INPUT_ATTACHMENT   = 1 << 9,
     RAY_TRACING        = 1 << 10,
     SHADING_RATE
 };
 ENABLE_BITMASK( ResourceBindFlags )
+NENUM(
+    ResourceBindFlags, NENUM_ELEMENT( ResourceBindFlags, NONE ), NENUM_ELEMENT( ResourceBindFlags, VERTEX_BUFFER ),
+    NENUM_ELEMENT( ResourceBindFlags, INDEX_BUFFER ), NENUM_ELEMENT( ResourceBindFlags, UNIFORM_BUFFER ),
+    NENUM_ELEMENT( ResourceBindFlags, SHADER_RESOURCE ), NENUM_ELEMENT( ResourceBindFlags, STREAM_OUTPUT ),
+    NENUM_ELEMENT( ResourceBindFlags, RENDER_TARGET ), NENUM_ELEMENT( ResourceBindFlags, DEPTH_STENCIL ),
+    NENUM_ELEMENT( ResourceBindFlags, UNORDERED_ACCESS ), NENUM_ELEMENT( ResourceBindFlags, INDIRECT_DRAW_ARGS ),
+    NENUM_ELEMENT( ResourceBindFlags, INPUT_ATTACHMENT ), NENUM_ELEMENT( ResourceBindFlags, RAY_TRACING ),
+    NENUM_ELEMENT( ResourceBindFlags, SHADING_RATE )
+)
 
 enum class ResourceUsage : uint8_t {
+    /**
+     * @brief A resource that can only be read by the GPU. It cannot be written by the GPU,
+     * and cannot be accessed at all by the CPU.
+     *
+     * This type of resource must be initialized when it is created, since it cannot be changed after creation.
+     */
     IMMUTABLE = 0,
-    DEFAULT, // Can be read and written into by CPU
-    DYNAMIC, // Can be read and written into by CPU at least once per frame
+    /**
+     * @brief Can be read and written into by CPU.
+     */
+    DEFAULT,
+    /**
+     * @brief Can be read and written into by CPU at least once per frame.
+     */
+    DYNAMIC,
     STAGING,
+    /**
+     * @brief A resource residing in a unified memory (e.g. memory shared between CPU and GPU).
+     *
+     * Can be read and written by GPU and can also be directly accessed by CPU.
+     */
     UNIFIED,
+    /**
+     * @brief A resource that can be partially committed to physical memory.
+     */
     SPARSE
 };
+NENUM(
+    ResourceUsage, NENUM_ELEMENT( ResourceUsage, IMMUTABLE ), NENUM_ELEMENT( ResourceUsage, DEFAULT ),
+    NENUM_ELEMENT( ResourceUsage, DYNAMIC ), NENUM_ELEMENT( ResourceUsage, STAGING ),
+    NENUM_ELEMENT( ResourceUsage, UNIFIED ), NENUM_ELEMENT( ResourceUsage, SPARSE )
+)
 
 enum class ColorMask : uint8_t {
     NONE  = 0,
@@ -67,11 +104,16 @@ ENABLE_BITMASK( ColorMask )
  * @brief From Diligent: Allowed CPU access mode flags when mapping a resource
  */
 enum class ResourceAccessFlags : uint8_t {
-    NONE  = 0, // No CPU access
-    READ  = 1 << 0,
-    WRITE = 1 << 1
+    NONE       = 0,      // No CPU access
+    READ       = 1 << 0, // Resource can be mapped for reading.
+    WRITE      = 1 << 1, // Resource can be mapped for writing.
+    READ_WRITE = READ | WRITE
 };
 ENABLE_BITMASK( ResourceAccessFlags )
+NENUM(
+    ResourceAccessFlags, NENUM_ELEMENT( ResourceAccessFlags, NONE ), NENUM_ELEMENT( ResourceAccessFlags, READ ),
+    NENUM_ELEMENT( ResourceAccessFlags, WRITE ), NENUM_ELEMENT( ResourceAccessFlags, READ_WRITE )
+)
 
 enum class TextureFormat {
     RGBA8_UNORM,
@@ -82,6 +124,12 @@ enum class TextureFormat {
     D32_FLOAT, // Depth format single-float.
     UNKNOWN,   // Can also mean no texture.
 };
+NENUM(
+    TextureFormat, NENUM_ELEMENT( TextureFormat, RGBA8_UNORM ), NENUM_ELEMENT( TextureFormat, RGBA8_UNORM_SRGB ),
+    NENUM_ELEMENT( TextureFormat, R32_FLOAT ), NENUM_ELEMENT( TextureFormat, RG32_FLOAT ),
+    NENUM_ELEMENT( TextureFormat, RGBA32_FLOAT ), NENUM_ELEMENT( TextureFormat, D32_FLOAT ),
+    NENUM_ELEMENT( TextureFormat, UNKNOWN )
+)
 
 enum class ResourceDimension {
     DIM_1D,
@@ -166,14 +214,21 @@ enum class TextureAddressMode {
 };
 
 enum class ResourceType {
-    CONSTANT_BUFFER,
-    TEXTURE_SRV,
-    BUFFER_SRV,
-    TEXTURE_UAV,
-    BUFFER_UAV,
+    UNKNOWN,         // Shader resource type is unknown.
+    CONSTANT_BUFFER, // Constant (uniform) buffer.
+    TEXTURE_SRV,     // Shader resource view of a texture (sampled image).
+    BUFFER_SRV,      // Shader resource view of a buffer (read-only storage image).
+    TEXTURE_UAV,     // Unordered access view of a texture (storage image).
+    BUFFER_UAV,      // Unordered access view of a buffer (storage buffer).
     SAMPLER,
     VARYING_INPUT,
 };
+NENUM(
+    ResourceType, NENUM_ELEMENT( ResourceType, UNKNOWN ), NENUM_ELEMENT( ResourceType, CONSTANT_BUFFER ),
+    NENUM_ELEMENT( ResourceType, TEXTURE_SRV ), NENUM_ELEMENT( ResourceType, BUFFER_SRV ),
+    NENUM_ELEMENT( ResourceType, TEXTURE_UAV ), NENUM_ELEMENT( ResourceType, BUFFER_UAV ),
+    NENUM_ELEMENT( ResourceType, SAMPLER ), NENUM_ELEMENT( ResourceType, VARYING_INPUT ),
+)
 
 enum class ResourceVarType {
     STATIC,
@@ -214,40 +269,56 @@ enum class TextureViewType {
     UNORDERED_ACCESS,
 };
 
-enum class PipelineStage : uint8_t {
-    NONE   = 0,
-    VERTEX = 1 << 0,
-    PIXEL  = 1 << 1,
-    VS_PS  = VERTEX | PIXEL
+enum class BufferViewType {
+    SHADER_RESOURCE, // for shader read operations.
+    UNORDERED_ACCESS // for unordered read/write operations from shaders.
 };
-ENABLE_BITMASK( PipelineStage )
+NENUM(
+    BufferViewType, NENUM_ELEMENT( BufferViewType, SHADER_RESOURCE ), NENUM_ELEMENT( BufferViewType, UNORDERED_ACCESS )
+)
 
-enum class ShaderType {
-    VERTEX,
-    PIXEL,
-    COMPUTE,
-    MULTIPLE
+enum class ShaderStage : uint8_t {
+    NONE    = 0,
+    VERTEX  = 1 << 0,
+    PIXEL   = 1 << 1,
+    COMPUTE = 1 << 2,
+    VS_PS   = VERTEX | PIXEL
 };
+ENABLE_BITMASK( ShaderStage )
+NENUM(
+    ShaderStage, NENUM_ELEMENT( ShaderStage, NONE ), NENUM_ELEMENT( ShaderStage, VERTEX ),
+    NENUM_ELEMENT( ShaderStage, PIXEL ), NENUM_ELEMENT( ShaderStage, COMPUTE ), NENUM_ELEMENT( ShaderStage, VS_PS )
+)
 
 enum ShaderValueType : uint16_t {
-    FLOAT        = 1 << 0,
-    FLOAT2       = 1 << 1,
-    FLOAT3       = 1 << 2,
-    FLOAT4       = 1 << 3,
-    INT          = 1 << 4,
-    INT2         = 1 << 5,
-    INT3         = 1 << 6,
-    INT4         = 1 << 7,
-    USHORT4      = 1 << 8,
-    MAT4         = 1 << 9,
-    BOOL         = 1 << 10,
-    UBYTE4_NORM  = 1 << 11,
-    TEXTURE2D    = 1 << 12,
-    TEXTURECUBED = 1 << 13,
-    SAMPLER      = 1 << 14,
+    FLOAT         = 1 << 0,
+    FLOAT2        = 1 << 1,
+    FLOAT3        = 1 << 2,
+    FLOAT4        = 1 << 3,
+    INT           = 1 << 4,
+    INT2          = 1 << 5,
+    INT3          = 1 << 6,
+    INT4          = 1 << 7,
+    USHORT4       = 1 << 8,
+    MAT4          = 1 << 9,
+    BOOL          = 1 << 10,
+    UBYTE4_NORM   = 1 << 11,
+    TEXTURE_2D    = 1 << 12,
+    TEXTURE_CUBED = 1 << 13,
+    SAMPLER       = 1 << 14,
     UNKNOWN
 };
 ENABLE_BITMASK( ShaderValueType )
+NENUM(
+    ShaderValueType, NENUM_ELEMENT( ShaderValueType, FLOAT ), NENUM_ELEMENT( ShaderValueType, FLOAT2 ),
+    NENUM_ELEMENT( ShaderValueType, FLOAT3 ), NENUM_ELEMENT( ShaderValueType, FLOAT4 ),
+    NENUM_ELEMENT( ShaderValueType, INT ), NENUM_ELEMENT( ShaderValueType, INT2 ),
+    NENUM_ELEMENT( ShaderValueType, INT3 ), NENUM_ELEMENT( ShaderValueType, INT4 ),
+    NENUM_ELEMENT( ShaderValueType, USHORT4 ), NENUM_ELEMENT( ShaderValueType, MAT4 ),
+    NENUM_ELEMENT( ShaderValueType, BOOL ), NENUM_ELEMENT( ShaderValueType, UBYTE4_NORM ),
+    NENUM_ELEMENT( ShaderValueType, TEXTURE_2D ), NENUM_ELEMENT( ShaderValueType, TEXTURE_CUBED ),
+    NENUM_ELEMENT( ShaderValueType, SAMPLER ), NENUM_ELEMENT( ShaderValueType, UNKNOWN )
+)
 
 struct SwapChainDesc {
     void* native_whnd = nullptr;
@@ -259,22 +330,58 @@ struct SwapChainDesc {
     TextureFormat depth_format = TextureFormat::D32_FLOAT;
 };
 
+/**
+ * @brief Describes a single bindable resource (e.g. one constant buffer).
+ *
+ * Analogous to one entry in an HLSL/Slang root/descriptor table slot.
+ */
 struct PipelineResourceDesc {
+    /**
+     * @brief Shader-side variable name.
+     */
     String name;
-    ShaderType stage           = ShaderType::MULTIPLE;
+    /**
+     * @brief Which shader stage see this resource.
+     */
+    ShaderStage stage          = ShaderStage::NONE;
     ResourceType resource_type = ResourceType::CONSTANT_BUFFER;
-    ResourceVarType var_type   = ResourceVarType::DYNAMIC;
-    ResourceFlags flags        = ResourceFlags::NONE;
-    uint32_t array_size        = 1;
+    /**
+     * @brief Controls how often the binding can change and how it's optimized internally.
+     */
+    ResourceVarType var_type = ResourceVarType::DYNAMIC;
+    /**
+     * @brief Extra bits.
+     */
+    ResourceFlags flags = ResourceFlags::NONE;
+    /**
+     * @brief Resource array size (must be 1 for non-array resources).
+     *
+     * e.g. Texture2D g_Textures[4]
+     */
+    uint32_t array_size = 1;
 };
 
+typedef uint8_t SetIndex;
+
+/**
+ * @brief Describes a descriptor set or D3D12 root signature table.
+ */
 struct ResourceSignatureDesc {
     String name;
-    uint8_t set = 0;
+    SetIndex set_idx = 0; // Each resource signature should have different set index.
     DynamicArray<PipelineResourceDesc> resources;
 };
 
-using ResourceLayoutDesc = DynamicArray<ResourceSignatureDesc>;
+/**
+ * @brief All the descriptor sets of a shader.
+ */
+using ResourceLayoutDesc = HashMap<SetIndex, ResourceSignatureDesc>;
+
+struct ResourceMappingEntry {
+    const char* variable_name; // Must match the shader param/field name exactly.
+    ResourceType kind;
+    RID resource;              // Resource to bind.
+};
 
 struct BufferDesc {
     String debug_name;
@@ -378,15 +485,24 @@ struct SamplerDesc {
     TextureAddressMode address_w = TextureAddressMode::WRAP;
 };
 
+/**
+ * @brief Shader creation description.
+ */
+struct ShaderCreateDesc {
+    StringView name;
+    rhi::ShaderStage stage;
+    Span<const uint32_t> bytecode;
+};
+
 struct GraphicsPSODesc {
     String debug_name;
     TextureFormat render_target_format   = TextureFormat::RGBA8_UNORM_SRGB;
     TextureFormat depth_stencil_format   = TextureFormat::D32_FLOAT;
     PrimitiveTopology primitive_topology = PrimitiveTopology::TRIANGLE_LIST;
-    Span<const uint32_t> vs_bytecode;
-    Span<const uint32_t> ps_bytecode;
+    RID vertex_shader;
+    RID pixel_shader;
     VertexLayout vert_layout;
-    DynamicArray<ResourceSignatureDesc> resource_signatures; // TODO: implicit resource signature
+    Span<const RID> resource_signatures;
     RasterizerStateDesc rasterizer_state;
     DepthStencilStateDesc depth_stencil_state;
     BlendStateDesc blend_state;
@@ -395,14 +511,11 @@ struct GraphicsPSODesc {
 
 struct ComputePSODesc {
     String debug_name;
-    Span<const uint32_t> cs_bytecode;
-    uint32_t num_threads_x = 1;
-    uint32_t num_threads_y = 1;
-    uint32_t num_threads_z = 1;
-    DynamicArray<ResourceSignatureDesc> resource_signatures;
+    RID compute_shader;
+    Span<const RID> resource_signatures;
 };
 
-} // namespace nc
+} // namespace nc::rhi
 
 #pragma pop_macro( "OPAQUE" )
 #pragma pop_macro( "NONE" )

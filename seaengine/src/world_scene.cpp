@@ -21,6 +21,8 @@
 #include <ncore/services/service_registry.h>
 #include <ncore/services/video/render_service.h>
 
+#include "water/water_sim.h"
+
 namespace sea {
 
 using namespace nc;
@@ -45,6 +47,7 @@ void WorldScene::on_ready()
 
     create_environment();
     create_water();
+    register_water_sim( *this );
 
     get_ecs()
         .system( "FreeCamUpdater" )

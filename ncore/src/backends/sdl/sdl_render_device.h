@@ -43,7 +43,7 @@ public:
     void gfx_pipeline_bind( RID ) override {}
     void gfx_pipeline_reload( RID ) override {}
 
-    void buffer_update( RID, const void*, size_t ) override {}
+    void buffer_data_write( RID, const void*, size_t ) override {}
 
     RID resource_binding_create( RID, std::span<const ResourceBindingSlot> ) override
     {

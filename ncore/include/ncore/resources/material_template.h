@@ -22,17 +22,16 @@ public:
     String debug_name;
     String vertex_layout_name;
 
-    Ref<Shader> vs;
-    Ref<Shader> ps;
+    Ref<Shader> shader;
 
-    CullMode cull_mode                     = CullMode::NONE;
-    FillMode fill_mode                     = FillMode::SOLID;
-    bool depth_test                        = false;
-    bool depth_write                       = false;
-    BlendPreset blend                      = BlendPreset::ALPHA_BLEND;
-    MultisampleStateDesc multisample_state = { 1, 0 };
+    rhi::CullMode cull_mode                     = rhi::CullMode::NONE;
+    rhi::FillMode fill_mode                     = rhi::FillMode::SOLID;
+    bool depth_test                             = false;
+    bool depth_write                            = false;
+    rhi::BlendPreset blend                      = rhi::BlendPreset::ALPHA_BLEND;
+    rhi::MultisampleStateDesc multisample_state = { 1, 0 };
 
-    DynamicArray<ShaderParamInfo> params;
+    // TODO: this is not used?
     DynamicArray<MaterialTextureSlot> textures;
 };
 

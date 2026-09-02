@@ -483,8 +483,9 @@ void register_editor_plugin( Scene& scene )
                     vid->Renderer->destroy_rid( state->ViewportDT );
 
                 Vec2i vp_size( static_cast<int>( img_size.x ), static_cast<int>( img_size.y ) );
-                state->ViewportRT   = vid->Renderer->texture_render_create( vp_size, TextureFormat::RGBA8_UNORM_SRGB );
-                state->ViewportDT   = vid->Renderer->texture_render_create( vp_size, TextureFormat::D32_FLOAT );
+                state->ViewportRT =
+                    vid->Renderer->texture_render_create( vp_size, rhi::TextureFormat::RGBA8_UNORM_SRGB );
+                state->ViewportDT   = vid->Renderer->texture_render_create( vp_size, rhi::TextureFormat::D32_FLOAT );
                 state->ViewportSize = img_size_v;
             }
 
@@ -661,7 +662,7 @@ void register_editor_plugin( Scene& scene )
                         auto q = it.world().query( "MaterialComponentOwners" ).with<MaterialComponent>().build();
                         for (auto it : q.entities()) {
                             auto mat      = it.get_component<MaterialComponent>();
-                            mat->DrawMode = state->DrawWireframe ? FillMode::WIREFRAME : FillMode::SOLID;
+                            mat->DrawMode = state->DrawWireframe ? rhi::FillMode::WIREFRAME : rhi::FillMode::SOLID;
                             it.mark_component_modified<MaterialComponent>();
                         }
                     }

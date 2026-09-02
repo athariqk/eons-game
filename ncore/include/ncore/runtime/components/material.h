@@ -15,7 +15,7 @@ struct NCAPI MaterialComponent {
     RID Instance                                  = 0;
     Array<RID, MAXIMUM_MATERIAL_TEXTURE> Textures = {};
     int TextureCount                              = 0;
-    FillMode DrawMode                             = FillMode::SOLID;
+    rhi::FillMode DrawMode                        = rhi::FillMode::SOLID;
 
     /**
      * @brief Add a GPU texture to this material.
@@ -29,9 +29,9 @@ struct NCAPI MaterialComponent {
     }
 
     NSTRUCTV(
-        MaterialComponent,
-        NC_F( MaterialComponent, Source ), NC_F( MaterialComponent, Instance ), NC_F( MaterialComponent, Textures ),
-        NC_F( MaterialComponent, TextureCount ), NC_F( MaterialComponent, DrawMode )
+        MaterialComponent, NC_F( MaterialComponent, Source ), NC_F( MaterialComponent, Instance ),
+        NC_F( MaterialComponent, Textures ), NC_F( MaterialComponent, TextureCount ),
+        NC_F( MaterialComponent, DrawMode )
     )
 };
 

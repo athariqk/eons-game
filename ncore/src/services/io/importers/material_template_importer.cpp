@@ -8,33 +8,33 @@
 
 namespace nc {
 
-static CullMode parse_cull_mode( const std::string& str )
+static rhi::CullMode parse_cull_mode( const std::string& str )
 {
     if (str == "None")
-        return CullMode::NONE;
+        return rhi::CullMode::NONE;
     if (str == "Front")
-        return CullMode::FRONT;
+        return rhi::CullMode::FRONT;
     if (str == "Back")
-        return CullMode::BACK;
-    return CullMode::NONE;
+        return rhi::CullMode::BACK;
+    return rhi::CullMode::NONE;
 }
 
-static FillMode parse_fill_mode( const std::string& str )
+static rhi::FillMode parse_fill_mode( const std::string& str )
 {
     if (str == "Wireframe")
-        return FillMode::WIREFRAME;
-    return FillMode::SOLID;
+        return rhi::FillMode::WIREFRAME;
+    return rhi::FillMode::SOLID;
 }
 
-static BlendPreset parse_blend( const std::string& str )
+static rhi::BlendPreset parse_blend( const std::string& str )
 {
     if (str == "Opaque")
-        return BlendPreset::OPAQUE;
+        return rhi::BlendPreset::OPAQUE;
     if (str == "AlphaPremultiplied")
-        return BlendPreset::ALPHA_PREMULTIPLIED;
+        return rhi::BlendPreset::ALPHA_PREMULTIPLIED;
     if (str == "Additive")
-        return BlendPreset::ADDITIVE;
-    return BlendPreset::ALPHA_BLEND;
+        return rhi::BlendPreset::ADDITIVE;
+    return rhi::BlendPreset::ALPHA_BLEND;
 }
 
 Ref<IResource> MaterialImporter::import( const String& path, Context ctx )
@@ -59,67 +59,24 @@ Ref<IResource> MaterialImporter::import( const String& path, Context ctx )
         tmpl->debug_name = path;
     }
 
-    Ref<Shader> vs_shader;
-    Ref<Shader> ps_shader;
+    Ref<Shader> shader;
 
-    if (ini_file.find( "shaders" ) != ini_file.end()) {
-        auto& shaders = ini_file["shaders"];
+    if (ini_file.find( "shader" ) != ini_file.end()) {
+        auto& shaders = ini_file["shader"];
 
-        // Prefer single composite shader file over separate vs/ps
-        if (shaders.find( "composite" ) != shaders.end()) {
-            String comp_path( shaders["composite"].as<std::string>() );
-            RID comp_rid     = ctx.load( comp_path );
-            auto comp_raw    = ctx.get( comp_rid );
-            auto comp_shader = comp_raw.as<CompositeShader>();
-            if (comp_shader) {
-                vs_shader = comp_shader->get_shader( ShaderType::VERTEX );
-                ps_shader = comp_shader->get_shader( ShaderType::PIXEL );
-            }
-        } else {
-            if (shaders.find( "vs" ) != shaders.end()) {
-                String vs_path( shaders["vs"].as<std::string>() );
-                RID vs_rid        = ctx.load( vs_path );
-                auto vs_raw       = ctx.get( vs_rid );
-                auto vs_composite = vs_raw.as<CompositeShader>();
-                if (vs_composite)
-                    vs_shader = vs_composite->get_shader( ShaderType::VERTEX );
-            }
-
-            if (shaders.find( "ps" ) != shaders.end()) {
-                String ps_path( shaders["ps"].as<std::string>() );
-                RID ps_rid        = ctx.load( ps_path );
-                auto ps_raw       = ctx.get( ps_rid );
-                auto ps_composite = ps_raw.as<CompositeShader>();
-                if (ps_composite)
-                    ps_shader = ps_composite->get_shader( ShaderType::PIXEL );
-            }
+        if (shaders.find( "path" ) != shaders.end()) {
+            String comp_path( shaders["path"].as<std::string>() );
+            RID shader_handle = ctx.load( comp_path );
+            shader            = ctx.get( shader_handle ).as<Shader>();
         }
     }
 
-    if (!vs_shader || !ps_shader) {
-        NC_LOG_ERROR_C( log::IO, "MaterialImporter: missing shaders in '{}'", path );
+    if (!shader) {
+        NC_LOG_ERROR_C( log::IO, "MaterialImporter: missing shader in '{}'", path );
         return nullptr;
     }
 
-    tmpl->vs = vs_shader;
-    tmpl->ps = ps_shader;
-
-    for (const auto& p : vs_shader->get_desc().params) {
-        tmpl->params.push_back( p );
-    }
-
-    for (const auto& p : ps_shader->get_desc().params) {
-        bool duplicate = false;
-        for (const auto& existing : tmpl->params) {
-            if (existing.name == p.name && existing.binding_space == p.binding_space &&
-                existing.binding_idx == p.binding_idx) {
-                duplicate = true;
-                break;
-            }
-        }
-        if (!duplicate)
-            tmpl->params.push_back( p );
-    }
+    tmpl->shader = shader;
 
     if (ini_file.find( "raster" ) != ini_file.end()) {
         auto& raster = ini_file["raster"];

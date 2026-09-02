@@ -1,8 +1,8 @@
 [header]
 debug_name = Water
 
-[shaders]
-composite = shaders/water.slang
+[shader]
+path = shaders/water.slang
 
 [raster]
 fill_mode = Fill

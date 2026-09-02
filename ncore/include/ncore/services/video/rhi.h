@@ -8,6 +8,16 @@
 
 namespace nc {
 
+enum class GpuQueue : uint8_t {
+    GRAPHICS = 0,
+    COMPUTE  = 1,
+    TRANSFER = 2,
+};
+NENUM(
+    GpuQueue, NENUM_ELEMENT( GpuQueue, GRAPHICS ), NENUM_ELEMENT( GpuQueue, COMPUTE ),
+    NENUM_ELEMENT( GpuQueue, TRANSFER )
+)
+
 /**
  * @brief IRHI (Render Hardware Interface) defines the implementation contract for Graphics APIs.
  */
@@ -15,16 +25,16 @@ class IRHI : public NcObject {
     NCLASS( IRHI, NcObject )
 
 public:
-    enum class GpuQueue : uint8_t {
-        Graphics = 0,
-        Compute  = 1,
-        Transfer = 2,
-    };
-
     virtual RID create_deferred_context( GpuQueue queue )                = 0;
     virtual void set_context_state( bool deferred, RID deferred_id = 0 ) = 0;
 
-    virtual void set_queue( GpuQueue queue )  = 0;
+    /**
+     * @brief Set the device context's working queue.
+     */
+    virtual void set_queue( GpuQueue queue ) = 0;
+    /**
+     * @brief Waits for specified queue (GPU) to finish what they're doing before moving on.
+     */
     virtual void sync_queue( GpuQueue queue ) = 0;
 
     // Graphics pipeline
@@ -32,19 +42,20 @@ public:
     /**
      * @brief Creates a per-window presentation target (swap chain).
      */
-    virtual RID swapchain_create( const SwapChainDesc& desc )               = 0;
-    virtual Vec2i swapchain_get_size( RID swapchain )                       = 0;
-    virtual void swapchain_set_size( RID swapchain, Vec2i size )            = 0;
-    virtual void swapchain_present( RID swapchain, bool sync_interval )     = 0;
-    virtual void* swapchain_get_view( RID swapchain, TextureViewType view ) = 0;
-    virtual void swapchain_destroy( RID swapchain )                         = 0;
+    virtual RID swapchain_create( const rhi::SwapChainDesc& desc )               = 0;
+    virtual Vec2i swapchain_get_size( RID swapchain )                            = 0;
+    virtual void swapchain_set_size( RID swapchain, Vec2i size )                 = 0;
+    virtual void swapchain_present( RID swapchain, bool sync_interval )          = 0;
+    virtual void* swapchain_get_view( RID swapchain, rhi::TextureViewType view ) = 0;
+    virtual void swapchain_destroy( RID swapchain )                              = 0;
+
+    virtual RID shader_create( const rhi::ShaderCreateDesc& desc ) = 0;
 
     /**
      * @brief Create a graphics pipeline state object.
-     * @param resource_signatures List of explicitly created resource signature handles.
      * @return Its RID handle.
      */
-    virtual RID gfx_pipeline_create( const GraphicsPSODesc& desc, DynamicArray<RID> resource_signatures = {} ) = 0;
+    virtual RID gfx_pipeline_create( const rhi::GraphicsPSODesc& desc ) = 0;
     /**
      * @brief Bind a graphics PSO to current context.
      */
@@ -79,18 +90,24 @@ public:
 
     // General compute pipeline
 
-    virtual RID compute_pipeline_create( const ComputePSODesc& desc ) = 0;
-    virtual void compute_pipeline_bind( RID pipeline )                = 0;
-    virtual void dispatch( uint32_t x, uint32_t y, uint32_t z )       = 0;
-
-    virtual void texture_compute_update( RID texture, RID binding, const char* name, TextureViewType view ) = 0;
-    virtual void buffer_compute_update( RID buffer, RID binding, const char* name )                         = 0;
+    virtual RID compute_pipeline_create( const rhi::ComputePSODesc& desc ) = 0;
+    virtual void compute_pipeline_bind( RID pipeline )                     = 0;
+    /**
+     * @brief Executes a dispatch compute command.
+     * @param x The number of thread groups dispatch in X direction.
+     * @param y The number of thread groups dispatch in Y direction.
+     * @param z The number of thread groups dispatch in Z direction.
+     */
+    virtual void compute_dispatch( uint32_t x, uint32_t y, uint32_t z ) = 0;
 
     // Resources
 
-    virtual RID texture_create( const TextureDesc& desc )                             = 0;
-    virtual void texture_binding_update( RID texture, RID binding, const char* name ) = 0;
-    virtual void* texture_get_view( RID texture, TextureViewType view )               = 0;
+    virtual RID texture_create( const rhi::TextureDesc& desc )               = 0;
+    virtual void* texture_view_get( RID texture, rhi::TextureViewType view ) = 0;
+    virtual void texture_binding_update(
+        RID p_texture, RID p_binding, rhi::ShaderStage p_shader_type, rhi::TextureViewType p_view_type,
+        const char* p_name
+    ) = 0;
     /**
      * @brief Copy data from one texture to another.
      * @param texture_src RID handle of source tex.
@@ -99,20 +116,69 @@ public:
      */
     virtual void texture_blit( RID texture_src, RID texture_dest, bool to_swapchain = false ) = 0;
 
-    virtual RID sampler_create( const SamplerDesc& desc )                             = 0;
-    virtual void sampler_update_binding( RID sampler, RID binding, const char* name ) = 0;
+    virtual RID sampler_create( const rhi::SamplerDesc& desc )                        = 0;
+    virtual void sampler_binding_update( RID sampler, RID binding, const char* name ) = 0;
 
-    virtual RID buffer_create( const BufferDesc& desc )                                                           = 0;
-    virtual void buffer_update( RID buffer, const void* data, size_t size )                                       = 0;
-    virtual void buffer_update_binding( RID buffer, RID binding, const char* name )                               = 0;
+    virtual RID buffer_create( const rhi::BufferDesc& desc )              = 0;
+    virtual void* buffer_view_get( RID buffer, rhi::BufferViewType view ) = 0;
+    /**
+     * @brief Change what's inside an existing buffer.
+     * @param p_buffer The existing GPU buffer.
+     * @param p_src Source data to copy into the buffer.
+     */
+    virtual void buffer_data_write( RID p_buffer, Span<const std::byte> p_src ) = 0;
+    /**
+     * @brief Read data from an existing buffer.
+     */
+    virtual void buffer_data_read( RID p_buffer, Span<std::byte> p_dst ) = 0;
+    /**
+     * @brief Copy data from one buffer to another.
+     * @param p_src_buffer RID handle of source buffer.
+     * @param p_dst_buffer RID handle of destination buffer.
+     */
+    virtual void buffer_blit( RID p_src_buffer, RID p_dst_buffer ) = 0;
+    /**
+     * @brief Change which buffer a shader resource variable is currently pointing at.
+     */
+    virtual void buffer_binding_update(
+        RID p_buffer, RID p_binding, rhi::ShaderStage p_shader_type, rhi::BufferViewType p_view_type, const char* p_name
+    )                                                                                                              = 0;
+    virtual void buffer_vertices_bind( Span<const RID> buffers, uint32_t slot, Span<const uint64_t> offsets = {} ) = 0;
+    virtual void buffer_index_bind( RID buffer, uint32_t offset )                                                  = 0;
 
-    virtual void vertex_buffers_bind( Span<const RID> buffers, uint32_t slot, Span<const uint64_t> offsets = {} ) = 0;
-    virtual void index_buffer_bind( RID buffer, uint32_t offset )                                                 = 0;
+    /**
+     * @brief Create a descriptor set.
+     */
+    virtual RID resource_signature_create( const rhi::ResourceSignatureDesc& desc ) = 0;
 
-    virtual RID resource_signature_create( const ResourceSignatureDesc& desc ) = 0;
+    /**
+     * @brief Create a shader resource mapping.
+     */
+    virtual RID resource_mapping_create( Span<const rhi::ResourceMappingEntry> p_entries ) = 0;
+    /**
+     * @brief Add/replace a resource mapping entry.
+     * @param p_is_unique Perform entry uniqueness validation check.
+     */
+    virtual void
+    resource_mapping_add_entry( RID p_mapping, const rhi::ResourceMappingEntry& p_entry, bool p_is_unique ) = 0;
 
-    virtual RID resource_binding_create( RID signature ) = 0;
-    virtual void resource_binding_commit( RID binding )  = 0;
+    /**
+     * @brief Create shader resource binding (SRB) from a resource signature.
+     * @param p_resource_signature Shader resource signature to create binding for.
+     */
+    virtual RID resource_binding_create( RID p_resource_signature ) = 0;
+    /**
+     * @brief Bulk update an SRB.
+     */
+    virtual void
+    resource_binding_update( RID p_resource_binding, RID p_resource_mapping, rhi::ShaderStage p_shader_stages ) = 0;
+    /**
+     * @brief Commits shader resources to the device context.
+     *
+     * Before a draw or a dispatch compute command can be invoked, all required resources bound to the Shader
+     * Resource Binding object and kept in its internal shader resource cache must be committed to the pipeline.
+     */
+    virtual void resource_binding_commit( RID resource_binding ) = 0;
 
     virtual bool is_rid_owned( RID rid ) = 0;
     virtual bool destroy_rid( RID rid )  = 0;

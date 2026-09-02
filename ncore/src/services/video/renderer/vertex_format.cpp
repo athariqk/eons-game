@@ -2,104 +2,104 @@
 
 namespace nc {
 
-VertexLayout get_vertex2d_layout()
+rhi::VertexLayout get_vertex2d_layout()
 {
     return {
-        VertexLayoutElement{
+        rhi::VertexLayoutElement{
             .location        = 0,
-            .type            = ShaderValueType::FLOAT2,
+            .type            = rhi::ShaderValueType::FLOAT2,
             .stride          = 20,
             .relative_offset = 0,
-            .frequency       = VertexFrequency::PER_VERTEX,
+            .frequency       = rhi::VertexFrequency::PER_VERTEX,
             .hlsl_semantic   = "SV_Position",
         },
-        VertexLayoutElement{
+        rhi::VertexLayoutElement{
             .location        = 1,
-            .type            = ShaderValueType::FLOAT2,
+            .type            = rhi::ShaderValueType::FLOAT2,
             .stride          = 20,
             .relative_offset = 8,
-            .frequency       = VertexFrequency::PER_VERTEX,
+            .frequency       = rhi::VertexFrequency::PER_VERTEX,
             .hlsl_semantic   = "TEXCOORD1",
         },
-        VertexLayoutElement{
+        rhi::VertexLayoutElement{
             .location        = 2,
-            .type            = ShaderValueType::UBYTE4_NORM,
+            .type            = rhi::ShaderValueType::UBYTE4_NORM,
             .stride          = 20,
             .relative_offset = 16,
             .normalized      = true,
-            .frequency       = VertexFrequency::PER_VERTEX,
+            .frequency       = rhi::VertexFrequency::PER_VERTEX,
             .hlsl_semantic   = "TEXCOORD2",
         },
     };
 }
 
-VertexLayout get_vertex3d_layout()
+rhi::VertexLayout get_vertex3d_layout()
 {
     return {
-        VertexLayoutElement{
+        rhi::VertexLayoutElement{
             .location        = 0,
-            .type            = ShaderValueType::FLOAT3,
+            .type            = rhi::ShaderValueType::FLOAT3,
             .stride          = 60,
             .relative_offset = 0,
-            .frequency       = VertexFrequency::PER_VERTEX,
+            .frequency       = rhi::VertexFrequency::PER_VERTEX,
             .hlsl_semantic   = "POSITION",
         },
-        VertexLayoutElement{
+        rhi::VertexLayoutElement{
             .location        = 1,
-            .type            = ShaderValueType::FLOAT3,
+            .type            = rhi::ShaderValueType::FLOAT3,
             .stride          = 60,
             .relative_offset = 12,
-            .frequency       = VertexFrequency::PER_VERTEX,
+            .frequency       = rhi::VertexFrequency::PER_VERTEX,
             .hlsl_semantic   = "NORMAL",
         },
-        VertexLayoutElement{
+        rhi::VertexLayoutElement{
             .location        = 2,
-            .type            = ShaderValueType::FLOAT4,
+            .type            = rhi::ShaderValueType::FLOAT4,
             .stride          = 60,
             .relative_offset = 24,
-            .frequency       = VertexFrequency::PER_VERTEX,
+            .frequency       = rhi::VertexFrequency::PER_VERTEX,
             .hlsl_semantic   = "TANGENT",
         },
-        VertexLayoutElement{
+        rhi::VertexLayoutElement{
             .location        = 3,
-            .type            = ShaderValueType::FLOAT2,
+            .type            = rhi::ShaderValueType::FLOAT2,
             .stride          = 60,
             .relative_offset = 40,
-            .frequency       = VertexFrequency::PER_VERTEX,
+            .frequency       = rhi::VertexFrequency::PER_VERTEX,
             .hlsl_semantic   = "TEXCOORD0",
         },
-        VertexLayoutElement{
+        rhi::VertexLayoutElement{
             .location        = 4,
-            .type            = ShaderValueType::FLOAT2,
+            .type            = rhi::ShaderValueType::FLOAT2,
             .stride          = 60,
             .relative_offset = 48,
-            .frequency       = VertexFrequency::PER_VERTEX,
+            .frequency       = rhi::VertexFrequency::PER_VERTEX,
             .hlsl_semantic   = "TEXCOORD1",
         },
-        VertexLayoutElement{
+        rhi::VertexLayoutElement{
             .location        = 5,
-            .type            = ShaderValueType::UBYTE4_NORM,
+            .type            = rhi::ShaderValueType::UBYTE4_NORM,
             .stride          = 60,
             .relative_offset = 56,
             .normalized      = true,
-            .frequency       = VertexFrequency::PER_VERTEX,
+            .frequency       = rhi::VertexFrequency::PER_VERTEX,
             .hlsl_semantic   = "COLOR",
         },
     };
 }
 
 template<>
-VertexLayout get_vertex_layout_for<Vertex2D>()
+rhi::VertexLayout get_vertex_layout_for<Vertex2D>()
 {
     return get_vertex2d_layout();
 }
 template<>
-VertexLayout get_vertex_layout_for<Vertex3D>()
+rhi::VertexLayout get_vertex_layout_for<Vertex3D>()
 {
     return get_vertex3d_layout();
 }
 
-VertexLayout get_vertex_layout_by_name( const std::string& name )
+rhi::VertexLayout get_vertex_layout_by_name( const std::string& name )
 {
     if (name == "Vertex2D")
         return get_vertex2d_layout();

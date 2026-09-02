@@ -114,8 +114,8 @@ void register_editor_camera( Scene& scene )
                         static_cast<int>( state->ViewportSize.x ), static_cast<int>( state->ViewportSize.y )
                     );
                     state->GameViewRT =
-                        vid->Renderer->texture_render_create( gv_size, TextureFormat::RGBA8_UNORM_SRGB );
-                    state->GameViewDT   = vid->Renderer->texture_render_create( gv_size, TextureFormat::D32_FLOAT );
+                        vid->Renderer->texture_render_create( gv_size, rhi::TextureFormat::RGBA8_UNORM_SRGB );
+                    state->GameViewDT = vid->Renderer->texture_render_create( gv_size, rhi::TextureFormat::D32_FLOAT );
                     state->GameViewSize = state->ViewportSize;
                 }
 

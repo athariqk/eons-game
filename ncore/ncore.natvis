@@ -239,6 +239,7 @@
 			<Item Name="binding_space">binding_space</Item>
 			<Item Name="location">location</Item>
 			<Item Name="fields">fields</Item>
+			<Item Name="stage_mask">stage_mask</Item>
 		</Expand>
 	</Type>
 
@@ -246,8 +247,10 @@
 		<DisplayString>{name} (type={type}, offset={offset})</DisplayString>
 		<Expand>
 			<Item Name="name">name</Item>
-			<Item Name="type">type</Item>
 			<Item Name="offset">offset</Item>
+			<Item Name="size">size</Item>
+			<Item Name="stride">stride</Item>
+			<Item Name="type">type</Item>
 		</Expand>
 	</Type>
 
