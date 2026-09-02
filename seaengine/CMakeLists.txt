@@ -6,8 +6,13 @@ target_sources(SeaEngine PRIVATE
 	"src/tests/test_compute_shader.cpp"
 	"src/water/water_sim.h"
 	"src/water/water_sim.cpp"
+	"src/water/wave_cascade_params.h"
+	"src/water/wave_generator.h"
+	"src/water/wave_generator.cpp"
 	"src/world_scene.h"
 	"src/world_scene.cpp")
+
+target_include_directories(SeaEngine PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 target_link_libraries(SeaEngine PRIVATE ncore ncore_editor)
 
