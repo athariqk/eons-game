@@ -66,6 +66,13 @@ struct alignas( 16 ) CascadeIndexCB {
     uint32_t _pad2;
 };
 
+struct alignas( 16 ) MapSizeCB {
+    uint32_t map_size;
+    uint32_t _pad0;
+    uint32_t _pad1;
+    uint32_t _pad2;
+};
+
 struct alignas( 16 ) FftUnpackCB {
     uint32_t cascade_index;
     float whitecap;
