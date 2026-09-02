@@ -129,7 +129,7 @@ public:
     EcsTableIterator end();
 
     /**
-     * @brief Return a per-entity tex_view_type over the query (range-for compatible).
+     * @brief Return a per-entity view over the query (range-for compatible).
      *
      * Yields a EcsIterState for every matched entity, across all tables.
      */
@@ -300,7 +300,7 @@ private:
 };
 
 /**
- * @brief Lightweight per-entity range tex_view_type over an EcsQuery.
+ * @brief Lightweight per-entity range view over an EcsQuery.
  */
 class NCAPI EcsEntityView {
 public:

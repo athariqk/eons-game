@@ -5,8 +5,6 @@ target_sources(
           "core/asan_leaks.cpp"
           "core/object.cpp"
           "core/types.cpp"
-          "backends/box2d/box2d_physics_impl.h"
-          "backends/box2d/box2d_physics_impl.cpp"
           "backends/diligent/diligent_allocator.h"
           "backends/diligent/rhi_diligent.h"
           "backends/diligent/rhi_diligent.cpp"

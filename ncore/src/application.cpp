@@ -10,7 +10,6 @@
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_stdinc.h>
-#include <backends/box2d/box2d_physics_impl.h>
 
 #include <ncore/application.h>
 #include <ncore/core/memory.h>
@@ -166,7 +165,6 @@ void Application::register_services()
     resources = context.Services.provide<ResourceService>();
     window    = context.Services.provide<WindowService>();
     renderer  = context.Services.provide<RenderService>();
-    context.Services.provide<Box2DPhysicsImpl>();
     context.Services.provide<AudioService>();
 }
 

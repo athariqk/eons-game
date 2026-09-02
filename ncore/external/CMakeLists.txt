@@ -86,7 +86,6 @@ else()
   set(SDL_TARGET SDL3::SDL3-shared)
 endif()
 
-add_subdirectory(box2d SYSTEM)
 add_subdirectory(sdl SYSTEM)
 add_subdirectory(flecs SYSTEM)
 
@@ -205,7 +204,6 @@ endif()
 target_link_libraries(
   ncore
   PRIVATE mimalloc-static
-          box2d::box2d
           ${SDL_TARGET}
           inifile-cpp
           flecs::flecs_static

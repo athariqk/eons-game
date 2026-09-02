@@ -71,7 +71,7 @@ public:
      */
     RID texture_render_create( Vec2i size, rhi::TextureFormat format = rhi::TextureFormat::RGBA8_UNORM );
     /**
-     * @brief Retrieve a texture tex_view_type.
+     * @brief Retrieve a texture view.
      */
     void* texture_view_get( RID texture, rhi::TextureViewType view );
     /**
@@ -131,7 +131,7 @@ public:
 
     struct CameraAttribs {
         Mat4 Transform = Mat4::identity();
-        float Fov      = 1.5708f; // a.k.a angle-of-tex_view_type (in radians).
+        float Fov      = 1.5708f; // a.k.a angle-of-view (in radians).
         float zNear    = 0.1f;    // Near clipping plane.
         float zFar     = 100.0f;  // Far clipping plane.
         Vec2i DisplaySize;

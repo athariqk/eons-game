@@ -157,83 +157,6 @@ RID RenderStorage::get_compute_pipeline_or_create( const PSOKey& key )
     return rid;
 }
 
-static rhi::ResourceSignatureDesc build_res_signature_desc( const Shader& shader, rhi::SetIndex idx )
-{
-    rhi::ResourceSignatureDesc signature;
-    signature.name    = shader.filepath + "_Signature" + String( std::to_string( idx ) );
-    signature.set_idx = idx;
-
-    for (const auto& param : shader.get_params()) {
-        if (param.binding_space != idx)
-            continue; // not part of our wanted set, skip
-
-        const char* res_type_name = rtti::get_enum_name( &param.resource_type );
-
-        NC_LOG_DEBUG_C(
-            log::GRAPHICS, "build_res_signature_desc: param='{}' type={} set={} fields={}", param.name, res_type_name,
-            idx, param.fields.size()
-        );
-
-        bool has_texture = false;
-        bool has_sampler = false;
-        for (const auto& f : param.fields) {
-            if (f.type & ( rhi::ShaderValueType::TEXTURE_2D | rhi::ShaderValueType::TEXTURE_CUBED ))
-                has_texture = true;
-            else if (f.type == rhi::ShaderValueType::SAMPLER)
-                has_sampler = true;
-        }
-
-        NC_LOG_DEBUG_C( log::GRAPHICS, "  has_texture={} has_sampler={}", has_texture, has_sampler );
-
-        const char* stage_name = rtti::get_enum_name( &param.stage_mask );
-
-        if (has_texture || has_sampler) {
-            uint32_t binding = 0;
-            for (const auto& f : param.fields) {
-                rhi::PipelineResourceDesc res;
-                res.array_size = 1;
-                if (f.type & ( rhi::ShaderValueType::TEXTURE_2D | rhi::ShaderValueType::TEXTURE_CUBED )) {
-                    res.name          = param.name + "." + f.name;
-                    res.resource_type = rhi::ResourceType::TEXTURE_SRV;
-                    res.stage         = param.stage_mask;
-                    NC_LOG_DEBUG_C( log::GRAPHICS, "  -> add texture '{}' set={} stage={}", res.name, idx, stage_name );
-                    signature.resources.push_back( std::move( res ) );
-                    binding++;
-                } else if (f.type == rhi::ShaderValueType::SAMPLER) {
-                    res.name          = param.name + "." + f.name;
-                    res.resource_type = rhi::ResourceType::SAMPLER;
-                    res.stage         = param.stage_mask;
-                    NC_LOG_DEBUG_C( log::GRAPHICS, "  -> add sampler '{}' set={} stage={}", res.name, idx, stage_name );
-                    signature.resources.push_back( std::move( res ) );
-                    binding++;
-                }
-            }
-            ( void ) binding;
-        } else {
-            rhi::PipelineResourceDesc res;
-            res.name          = param.name;
-            res.resource_type = param.resource_type;
-            res.stage         = param.stage_mask;
-            res.array_size    = 1;
-            NC_LOG_DEBUG_C(
-                log::GRAPHICS, "  -> add standalone '{}' type={} set={} stage={}", res.name, res_type_name, idx,
-                stage_name
-            );
-            signature.resources.push_back( std::move( res ) );
-        }
-    }
-
-    std::string names;
-    for (auto& r : signature.resources) {
-        if (!names.empty())
-            names += ", ";
-        names += r.name;
-    }
-    NC_LOG_DEBUG_C( log::GRAPHICS, "  set {}: resources=[{}]", idx, names );
-
-    return signature;
-}
-
 RID RenderStorage::resource_set_create(
     const Shader& p_shader, rhi::SetIndex p_set_idx, Span<const rhi::ResourceMappingEntry> p_resources
 )
@@ -244,7 +167,83 @@ RID RenderStorage::resource_set_create(
         // use cache
         sig_rid = it->second;
     } else {
-        sig_rid = gfx_api->resource_signature_create( build_res_signature_desc( p_shader, p_set_idx ) );
+        rhi::ResourceSignatureDesc signature;
+        signature.name    = p_shader.filepath + "_Signature" + String( std::to_string( p_set_idx ) );
+        signature.set_idx = p_set_idx;
+
+        for (const auto& param : p_shader.get_params()) {
+            if (param.binding_space != p_set_idx)
+                continue; // not part of our wanted set, skip
+
+            const char* res_type_name = rtti::get_enum_name( &param.resource_type );
+
+            NC_LOG_DEBUG_C(
+                log::GRAPHICS, "build_res_signature_desc: param='{}' type={} set={} fields={}", param.name,
+                res_type_name, p_set_idx, param.fields.size()
+            );
+
+            bool has_texture = false;
+            bool has_sampler = false;
+            for (const auto& f : param.fields) {
+                if (f.type & ( rhi::ShaderValueType::TEXTURE_2D | rhi::ShaderValueType::TEXTURE_CUBED ))
+                    has_texture = true;
+                else if (f.type == rhi::ShaderValueType::SAMPLER)
+                    has_sampler = true;
+            }
+
+            NC_LOG_DEBUG_C( log::GRAPHICS, "  has_texture={} has_sampler={}", has_texture, has_sampler );
+
+            const char* stage_name = rtti::get_enum_name( &param.stage_mask );
+
+            if (has_texture || has_sampler) {
+                uint32_t binding = 0;
+                for (const auto& f : param.fields) {
+                    rhi::PipelineResourceDesc res;
+                    res.array_size = 1;
+                    if (f.type & ( rhi::ShaderValueType::TEXTURE_2D | rhi::ShaderValueType::TEXTURE_CUBED )) {
+                        res.name          = param.name + "." + f.name;
+                        res.resource_type = rhi::ResourceType::TEXTURE_SRV;
+                        res.stage         = param.stage_mask;
+                        NC_LOG_DEBUG_C(
+                            log::GRAPHICS, "  -> add texture '{}' set={} stage={}", res.name, p_set_idx, stage_name
+                        );
+                        signature.resources.push_back( std::move( res ) );
+                        binding++;
+                    } else if (f.type == rhi::ShaderValueType::SAMPLER) {
+                        res.name          = param.name + "." + f.name;
+                        res.resource_type = rhi::ResourceType::SAMPLER;
+                        res.stage         = param.stage_mask;
+                        NC_LOG_DEBUG_C(
+                            log::GRAPHICS, "  -> add sampler '{}' set={} stage={}", res.name, p_set_idx, stage_name
+                        );
+                        signature.resources.push_back( std::move( res ) );
+                        binding++;
+                    }
+                }
+                ( void ) binding;
+            } else {
+                rhi::PipelineResourceDesc res;
+                res.name          = param.name;
+                res.resource_type = param.resource_type;
+                res.stage         = param.stage_mask;
+                res.array_size    = 1;
+                NC_LOG_DEBUG_C(
+                    log::GRAPHICS, "  -> add standalone '{}' type={} set={} stage={}", res.name, res_type_name,
+                    p_set_idx, stage_name
+                );
+                signature.resources.push_back( std::move( res ) );
+            }
+        }
+
+        std::string names;
+        for (auto& r : signature.resources) {
+            if (!names.empty())
+                names += ", ";
+            names += r.name;
+        }
+        NC_LOG_DEBUG_C( log::GRAPHICS, "  set {}: resources=[{}]", p_set_idx, names );
+
+        sig_rid = gfx_api->resource_signature_create( signature );
         res_signature_cache.emplace( sig_key, sig_rid );
     }
 

@@ -109,6 +109,6 @@ void* memcalloc( size_t count, size_t size )
 // Global operator new/delete overrides for the ncore DLL.
 // Must be included in exactly one translation unit in this module.
 // This captures all C++ allocations within ncore.dll, including statically
-// linked libraries (Box2D, ImGui, DiligentCore).
+// linked libraries (ImGui, DiligentCore).
 // (No-op in ASAN builds — see alloc_overrides.h.)
 #include <ncore/core/alloc_overrides.h>

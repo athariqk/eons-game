@@ -72,7 +72,6 @@ endif()
 target_include_directories(
   ncore SYSTEM
   PRIVATE "${CMAKE_SOURCE_DIR}/ncore/external/imgui"
-          "${CMAKE_SOURCE_DIR}/ncore/external/box2d/include"
           "${CMAKE_SOURCE_DIR}/ncore/external/sdl/include"
           "${CMAKE_SOURCE_DIR}/ncore/external/stb"
           "${CMAKE_SOURCE_DIR}/ncore/external/inifile-cpp"

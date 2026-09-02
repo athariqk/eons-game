@@ -369,7 +369,7 @@ void RenderService::render_pass( const RenderPassDesc& desc )
     if (desc.draw_spatial && desc.camera) {
         auto& cam_attribs = camera_get_attribs( desc.camera );
         // precompute the V*P part of M*V*P so we don't have do it on the GPU.
-        // here we take the inverse of camera transform to get its tex_view_type matrix.
+        // here we take the inverse of camera transform to get its view matrix.
         auto view_matrix         = cam_attribs.Transform.affine_inverse();
         constants.CameraMatrix   = cam_attribs.Transform;
         constants.ViewProjMatrix = camera_get_perspective( desc.camera ) * view_matrix;
@@ -422,7 +422,8 @@ void RenderService::render_pass( const RenderPassDesc& desc )
                 canvas_vb, { reinterpret_cast<std::byte*>( item.verts.data() ), item.verts.size() * sizeof( Vertex2D ) }
             );
             gfx_api->buffer_data_write(
-                canvas_ib, { reinterpret_cast<std::byte*>( item.indices.data() ), item.indices.size() * sizeof( uint16_t ) }
+                canvas_ib,
+                { reinterpret_cast<std::byte*>( item.indices.data() ), item.indices.size() * sizeof( uint16_t ) }
             );
 
             storage.material_set_texture( item.material, item.texture, 0 );
@@ -444,7 +445,7 @@ void RenderService::render_pass( const RenderPassDesc& desc )
 void RenderService::present()
 {
     gfx_api->end_queries();
-    gfx_api->swapchain_present( swapchains[0], settings.VSync );
+    gfx_api->swapchain_present( swapchain_get_primary(), settings.VSync );
     storage.flush_pending_destroys();
     ctx.world_render_list.reset();
     ctx.canvas_render_list.release_all(); // CanvasRenderItem is non-POD

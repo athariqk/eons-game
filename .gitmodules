@@ -1,6 +1,3 @@
-[submodule "ncore/external/box2d"]
-	path = ncore/external/box2d
-	url = https://github.com/erincatto/box2d.git
 [submodule "ncore/external/sdl"]
 	path = ncore/external/sdl
 	url = https://github.com/libsdl-org/SDL

@@ -50,7 +50,7 @@ PointerAlignment: Left
 IncludeBlocks: Regroup
 IncludeCategories:
   # Third-party
-  - Regex: '^<(SDL3|box2d|imgui|flecs|inicpp|backends|misc)[/.]'
+  - Regex: '^<(SDL3|imgui|flecs|inicpp|backends|misc)[/.]'
     Priority: 2
   # Generated engine headers
   - Regex: '^<(generated)[/.]'
