@@ -26,19 +26,16 @@ enum class FillMode {
 };
 NENUM( FillMode, NENUM_ELEMENT( FillMode, SOLID ), NENUM_ELEMENT( FillMode, WIREFRAME ) )
 
-/**
- * @brief This enumeration describes which parts of the pipeline a resource can be bound to.
- */
 enum class ResourceBindFlags : uint32_t {
     NONE               = 0,
     VERTEX_BUFFER      = 1 << 0,
     INDEX_BUFFER       = 1 << 1,
-    UNIFORM_BUFFER     = 1 << 2, // A constant buffer. may not be combined with any other bind flag (Diligent Impl)
-    SHADER_RESOURCE    = 1 << 3, // A buffer or a texture can be bound as a shader resource.
+    UNIFORM_BUFFER     = 1 << 2,
+    SHADER_RESOURCE    = 1 << 3,
     STREAM_OUTPUT      = 1 << 4,
     RENDER_TARGET      = 1 << 5,
     DEPTH_STENCIL      = 1 << 6,
-    UNORDERED_ACCESS   = 1 << 7, // A buffer or a texture can be bound as an unordered access view.
+    UNORDERED_ACCESS   = 1 << 7,
     INDIRECT_DRAW_ARGS = 1 << 8,
     INPUT_ATTACHMENT   = 1 << 9,
     RAY_TRACING        = 1 << 10,
@@ -56,31 +53,11 @@ NENUM(
 )
 
 enum class ResourceUsage : uint8_t {
-    /**
-     * @brief A resource that can only be read by the GPU. It cannot be written by the GPU,
-     * and cannot be accessed at all by the CPU.
-     *
-     * This type of resource must be initialized when it is created, since it cannot be changed after creation.
-     */
     IMMUTABLE = 0,
-    /**
-     * @brief Can be read and written into by CPU.
-     */
     DEFAULT,
-    /**
-     * @brief Can be read and written into by CPU at least once per frame.
-     */
     DYNAMIC,
     STAGING,
-    /**
-     * @brief A resource residing in a unified memory (e.g. memory shared between CPU and GPU).
-     *
-     * Can be read and written by GPU and can also be directly accessed by CPU.
-     */
     UNIFIED,
-    /**
-     * @brief A resource that can be partially committed to physical memory.
-     */
     SPARSE
 };
 NENUM(
@@ -100,13 +77,10 @@ enum class ColorMask : uint8_t {
 };
 ENABLE_BITMASK( ColorMask )
 
-/**
- * @brief From Diligent: Allowed CPU access mode flags when mapping a resource
- */
 enum class ResourceAccessFlags : uint8_t {
-    NONE       = 0,      // No CPU access
-    READ       = 1 << 0, // Resource can be mapped for reading.
-    WRITE      = 1 << 1, // Resource can be mapped for writing.
+    NONE       = 0,
+    READ       = 1 << 0,
+    WRITE      = 1 << 1,
     READ_WRITE = READ | WRITE
 };
 ENABLE_BITMASK( ResourceAccessFlags )
@@ -121,8 +95,8 @@ enum class TextureFormat {
     R32_FLOAT,
     RG32_FLOAT,
     RGBA32_FLOAT,
-    D32_FLOAT, // Depth format single-float.
-    UNKNOWN,   // Can also mean no texture.
+    D32_FLOAT,
+    UNKNOWN,
 };
 NENUM(
     TextureFormat, NENUM_ELEMENT( TextureFormat, RGBA8_UNORM ), NENUM_ELEMENT( TextureFormat, RGBA8_UNORM_SRGB ),
@@ -214,12 +188,12 @@ enum class TextureAddressMode {
 };
 
 enum class ResourceType {
-    UNKNOWN,         // Shader resource type is unknown.
-    CONSTANT_BUFFER, // Constant (uniform) buffer.
-    TEXTURE_SRV,     // Shader resource view of a texture (sampled image).
-    BUFFER_SRV,      // Shader resource view of a buffer (read-only storage image).
-    TEXTURE_UAV,     // Unordered access view of a texture (storage image).
-    BUFFER_UAV,      // Unordered access view of a buffer (storage buffer).
+    UNKNOWN,
+    CONSTANT_BUFFER,
+    TEXTURE_SRV,
+    BUFFER_SRV,
+    TEXTURE_UAV,
+    BUFFER_UAV,
     SAMPLER,
     VARYING_INPUT,
 };
@@ -243,9 +217,6 @@ enum class ResourceFlags {
     FORMATTED_BUFFER   = 3,
 };
 
-/**
- * @brief This relates to how buffers are interpreted for read operations.
- */
 enum class BufferMode : uint8_t {
     NONE = 0,
     FORMATTED,
@@ -270,8 +241,8 @@ enum class TextureViewType {
 };
 
 enum class BufferViewType {
-    SHADER_RESOURCE, // for shader read operations.
-    UNORDERED_ACCESS // for unordered read/write operations from shaders.
+    SHADER_RESOURCE,
+    UNORDERED_ACCESS
 };
 NENUM(
     BufferViewType, NENUM_ELEMENT( BufferViewType, SHADER_RESOURCE ), NENUM_ELEMENT( BufferViewType, UNORDERED_ACCESS )
@@ -330,57 +301,29 @@ struct SwapChainDesc {
     TextureFormat depth_format = TextureFormat::D32_FLOAT;
 };
 
-/**
- * @brief Describes a single bindable resource (e.g. one constant buffer).
- *
- * Analogous to one entry in an HLSL/Slang root/descriptor table slot.
- */
 struct PipelineResourceDesc {
-    /**
-     * @brief Shader-side variable name.
-     */
     String name;
-    /**
-     * @brief Which shader stage see this resource.
-     */
     ShaderStage stage          = ShaderStage::NONE;
     ResourceType resource_type = ResourceType::CONSTANT_BUFFER;
-    /**
-     * @brief Controls how often the binding can change and how it's optimized internally.
-     */
     ResourceVarType var_type = ResourceVarType::DYNAMIC;
-    /**
-     * @brief Extra bits.
-     */
     ResourceFlags flags = ResourceFlags::NONE;
-    /**
-     * @brief Resource array size (must be 1 for non-array resources).
-     *
-     * e.g. Texture2D g_Textures[4]
-     */
     uint32_t array_size = 1;
 };
 
 typedef uint8_t SetIndex;
 
-/**
- * @brief Describes a descriptor set or D3D12 root signature table.
- */
 struct ResourceSignatureDesc {
     String name;
-    SetIndex set_idx = 0; // Each resource signature should have different set index.
+    SetIndex set_idx = 0;
     DynamicArray<PipelineResourceDesc> resources;
 };
 
-/**
- * @brief All the descriptor sets of a shader.
- */
 using ResourceLayoutDesc = HashMap<SetIndex, ResourceSignatureDesc>;
 
 struct ResourceMappingEntry {
-    const char* variable_name; // Must match the shader param/field name exactly.
+    const char* variable_name;
     ResourceType kind;
-    RID resource;              // Resource to bind.
+    RID resource;
 };
 
 struct BufferDesc {
@@ -391,6 +334,8 @@ struct BufferDesc {
     ResourceUsage usage             = ResourceUsage::DEFAULT;
     ResourceAccessFlags access_mask = ResourceAccessFlags::NONE;
     BufferMode mode                 = BufferMode::RAW;
+    /** Byte size of one element. Required when mode is STRUCTURED or FORMATTED. */
+    size_t element_stride           = 0;
 };
 
 struct TextureDataDesc {
@@ -485,9 +430,6 @@ struct SamplerDesc {
     TextureAddressMode address_w = TextureAddressMode::WRAP;
 };
 
-/**
- * @brief Shader creation description.
- */
 struct ShaderCreateDesc {
     StringView name;
     rhi::ShaderStage stage;
