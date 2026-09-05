@@ -1,12 +1,39 @@
 #include "material_template_importer.h"
 
+#include <cctype>
+
 #include <inicpp.h>
 
+#include <ncore/resources/material_shader.h>
 #include <ncore/resources/material_template.h>
 #include <ncore/resources/shader.h>
 #include <ncore/utils/log.h>
 
 namespace nc {
+
+static MaterialShaderFlags parse_flags( const std::string& str )
+{
+    MaterialShaderFlags f = MaterialShaderFlags::None;
+    size_t start          = 0;
+    while (start < str.size()) {
+        size_t comma    = str.find( ',', start );
+        std::string tok = str.substr( start, comma == std::string::npos ? std::string::npos : comma - start );
+        while (!tok.empty() && std::isspace( static_cast<unsigned char>( tok.front() ) ))
+            tok.erase( tok.begin() );
+        while (!tok.empty() && std::isspace( static_cast<unsigned char>( tok.back() ) ))
+            tok.pop_back();
+        if (tok == "AlphaTest")
+            f = f | MaterialShaderFlags::AlphaTest;
+        else if (tok == "AlphaBlend")
+            f = f | MaterialShaderFlags::AlphaBlend;
+        else if (tok == "TwoSided")
+            f = f | MaterialShaderFlags::TwoSided;
+        if (comma == std::string::npos)
+            break;
+        start = comma + 1;
+    }
+    return f;
+}
 
 Ref<IResource> MaterialImporter::import( const String& path, Context ctx )
 {
@@ -31,7 +58,6 @@ Ref<IResource> MaterialImporter::import( const String& path, Context ctx )
     }
 
     Ref<Shader> shader;
-
     if (ini_file.find( "shader" ) != ini_file.end()) {
         auto& shaders = ini_file["shader"];
         if (shaders.find( "path" ) != shaders.end()) {
@@ -48,12 +74,17 @@ Ref<IResource> MaterialImporter::import( const String& path, Context ctx )
 
     tmpl->shader = shader;
 
-    // [raster] / [multisample] removed — use // nc_pipeline: on the .slang file.
+    if (ini_file.find( "flags" ) != ini_file.end()) {
+        auto& fl = ini_file["flags"];
+        if (fl.find( "surface" ) != fl.end())
+            tmpl->flags = parse_flags( fl["surface"].as<std::string>() );
+    }
+
     if (ini_file.find( "raster" ) != ini_file.end() || ini_file.find( "multisample" ) != ini_file.end()) {
         NC_LOG_WARN_C(
             log::IO,
-            "MaterialImporter: '{}' still has [raster]/[multisample]; ignored. "
-            "Move policy to // nc_pipeline: in the shader.",
+            "MaterialImporter: '{}' [raster]/[multisample] ignored. "
+            "Use // nc_pipeline: on the shader or [flags] surface=TwoSided,AlphaBlend",
             path
         );
     }
@@ -64,9 +95,12 @@ Ref<IResource> MaterialImporter::import( const String& path, Context ctx )
             tmpl->vertex_layout_name = vertex["layout"].as<std::string>();
     }
 
+    if (tmpl->flags == MaterialShaderFlags::None)
+        tmpl->flags = flags_from_surface_policy( shader->get_surface_policy() );
+
     NC_LOG_INFO_C(
-        log::IO, "MaterialImporter: '{}' -> shader surface_policy.from_shader={}", path,
-        shader->get_surface_policy().from_shader
+        log::IO, "MaterialImporter: '{}' shader ok flags=0x{:x} bucket={}", path,
+        static_cast<uint32_t>( tmpl->flags ), static_cast<int>( draw_bucket_from_flags( tmpl->flags ) )
     );
 
     return tmpl;

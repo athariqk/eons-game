@@ -1,13 +1,11 @@
 #pragma once
 
 /**
- * Thin material asset: points at a Shader. Pipeline state is NOT authored here.
- *
- * Surface defaults  -> Shader (// nc_pipeline: / SurfacePolicy)
- * Instance overrides -> MaterialComponent / material_set_draw_mode
- * Pass depth/RT     -> PassPipelineDefaults at PSO build time
+ * Material asset (Esoterica-style): shader + parameter values only.
+ * Pipeline / blend / depth are NOT stored here — see MaterialShaderFlags and passes.
  */
 
+#include <ncore/resources/material_shader.h>
 #include <ncore/resources/resource.h>
 #include <ncore/resources/shader.h>
 
@@ -22,10 +20,19 @@ public:
 
     String debug_name;
 
-    /** Optional explicit mesh vertex layout name (e.g. Vertex3D). Empty = reflect from VS. */
+    /** Optional mesh vertex layout name; empty = reflect from VS. */
     String vertex_layout_name;
 
     Ref<Shader> shader;
+
+    /**
+     * Surface batching flags. If None, derived from shader SurfacePolicy
+     * (// nc_pipeline:). Importer may set from optional [flags] section.
+     */
+    MaterialShaderFlags flags = MaterialShaderFlags::None;
+
+    /** Optional CPU defaults for material parameters (uploaded on create). */
+    MaterialParameterStorage default_params{};
 };
 
 } // namespace nc
