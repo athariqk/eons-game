@@ -1,58 +1,48 @@
-# Materials refactor prototype (`grok/materials-refactor`)
+# Materials total replacement (`grok/materials-refactor`)
 
-## Problem
+## What changed
 
-`MaterialTemplate` currently owns both:
+`MaterialTemplate` **no longer stores** cull / fill / depth / blend / MSAA.
 
-- shader reference
-- full fixed-function PSO fields (cull, depth, blend, MSAA, …)
+| Before | After |
+|--------|--------|
+| `[raster]` in `.material` | `// nc_pipeline:` in `.slang` |
+| PSO fields on template | `SurfacePolicy` on `Shader` + `PassPipelineDefaults` |
+| `get_pso_key_(tmpl)` reads tmpl.cull_mode… | `resolve_surface` + `encode_pso_flags` |
 
-That couples **surface intent** to **pass-specific pipeline state** and fights the day one shader is drawn in depth-prepass, forward, and shadow with different depth/blend.
+`MaterialTemplate` is now:
 
-## Target split (industry-typical)
+```text
+debug_name
+vertex_layout_name   (optional; else VS reflection)
+shader               (Ref<Shader>)
+```
 
-| Layer | Owns | Prototype types |
-|-------|------|-----------------|
-| **Shader** | Code, resources, optional *surface defaults* | `ShaderDesc::surface_policy`, `// nc_pipeline:` |
-| **Material instance** | Textures, param blob, rare overrides | `MaterialSurfaceOverrides`, existing `MaterialComponent` |
-| **Pass / draw list** | Depth, RT formats, forced blend for special passes | `PassPipelineDefaults` |
-| **PSO cache** | Combined key | `encode_pso_flags(surface, pass)` → existing `PSOFlags` |
-
-Slang **specialization** stays for *code* variants (features), not cull/blend.
-
-## Authoring hint
-
-In `.slang` (usually near the fragment entry):
+## Authoring
 
 ```slang
-// nc_pipeline: cull=back, fill=solid, blend=opaque, alpha=opaque, double_sided=false
+// nc_pipeline: cull=back, fill=solid, blend=opaque, depth_test=true, depth_write=true
 ```
 
-Parser: `ncore/include/ncore/services/io/pipeline_hint_parser.h`  
-`parse_pipeline_hint_from_source(source, policy)` — last matching line wins.
+Keys: `cull`, `fill`, `blend`, `alpha`, `double_sided`, `depth_test`, `depth_write`.
 
-Wire-up (next step, not fully hooked on this branch):
+`.material` files only need `[header]`, `[shader] path=…`, optional `[vertex] layout=…`.
+`[raster]` / `[multisample]` are ignored (warning).
 
-1. `ShaderCompiler` reads file text → parse hint → set `ShaderDesc::surface_policy`.
-2. `material_create` takes `Shader` + optional overrides instead of full `MaterialTemplate` PSO list.
-3. Spatial/canvas passes supply `PassPipelineDefaults` when building `PSOKey`.
+## Runtime
 
-## Bridge from legacy `MaterialTemplate`
-
-```cpp
-auto surface = resolve_surface(shader->get_surface_policy(), overrides);
-PassPipelineDefaults pass{ /* from camera/pass */ };
-auto flags = encode_pso_flags(surface, pass);
-// or apply_to_legacy_template_fields(...) then existing get_pso_key_(tmpl)
+```text
+Shader.surface_policy     // from parser at compile
+  + MaterialSurfaceOverrides  // e.g. wireframe via material_set_draw_mode
+  + PassPipelineDefaults      // RT formats, force depth/blend for special passes
+  → PSOFlags / PSOKey
 ```
 
-## What this branch does *not* do yet
+Stock shaders updated: `canvas.slang`, `world_object.slang`.  
+Seaengine: add the same line to `skybox.slang` / `water.slang` (and strip raster from their `.material` files when convenient).
 
-- Remove `MaterialTemplate` or break existing scenes
-- Parse real Slang `[pipeline(...)]` attributes (comment form only)
-- Change `material_create` signature
-- Pass-level PSO construction in `scene_plugins`
+## Follow-ups
 
-## Example
-
-See `assets/shaders/prototype/surface_policy_example.slang`.
+1. Hook `parse_pipeline_hint_from_source` in `ShaderCompiler::compile` (read file text → fill every `ShaderDesc::surface_policy`).
+2. `get_pso_key_` / `material_create` use `encode_pso_flags` (see render_storage changes on this branch when present).
+3. Optional: load `Shader` directly as `MaterialComponent::Source` and drop `.material` entirely.

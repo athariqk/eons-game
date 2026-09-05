@@ -1,5 +1,7 @@
 import ncore;
 
+// nc_pipeline: cull=none, fill=solid, blend=premul, alpha=blend, depth_test=false, depth_write=false
+
 struct ShaderBindings {
 	Texture2D Texture;
 	SamplerState Sampler;

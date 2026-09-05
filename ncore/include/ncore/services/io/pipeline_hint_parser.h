@@ -1,25 +1,5 @@
 #pragma once
 
-/**
- * Parse surface-policy hints from Slang source.
- *
- * Convention (file-level or above the fragment entry — either works):
- *
- *   // nc_pipeline: cull=back fill=solid blend=opaque alpha=opaque double_sided=false
- *
- * Keys (all optional):
- *   cull          = none|front|back
- *   fill          = solid|wireframe
- *   blend         = opaque|alpha|premul|additive
- *   alpha         = opaque|mask|blend   (soft mode; may imply blend=alpha)
- *   double_sided  = true|false|1|0
- *
- * This is intentionally NOT Slang specialization and NOT full PSO state.
- * Depth/MSAA/RT formats come from the pass (see surface_policy.h).
- *
- * Header-only prototype — call from ShaderCompiler after reading source text.
- */
-
 #include <cctype>
 #include <string_view>
 
@@ -88,15 +68,16 @@ inline void apply_kv( SurfacePolicy& out, std::string_view key, std::string_view
         }
     } else if (eq_i( key, "double_sided" ) || eq_i( key, "doublesided" )) {
         out.double_sided = eq_i( val, "true" ) || eq_i( val, "1" ) || eq_i( val, "yes" );
+    } else if (eq_i( key, "depth_test" )) {
+        out.depth_test = eq_i( val, "true" ) || eq_i( val, "1" ) || eq_i( val, "yes" );
+    } else if (eq_i( key, "depth_write" )) {
+        out.depth_write = eq_i( val, "true" ) || eq_i( val, "1" ) || eq_i( val, "yes" );
     }
 }
 
 } // namespace pipeline_hint_detail
 
-/**
- * Scan source for the last `// nc_pipeline:` line and fill SurfacePolicy.
- * Returns true if a hint line was found.
- */
+/** Last `// nc_pipeline:` line in source wins. Returns true if found. */
 inline bool parse_pipeline_hint_from_source( std::string_view source, SurfacePolicy& out )
 {
     using namespace pipeline_hint_detail;
@@ -118,14 +99,13 @@ inline bool parse_pipeline_hint_from_source( std::string_view source, SurfacePol
         if (line.size() < 2 || line[0] != '/' || line[1] != '/')
             continue;
 
-        line = trim( line.substr( 2 ) );
-        // Accept "nc_pipeline:" optionally preceded by nothing else.
+        line     = trim( line.substr( 2 ) );
         auto pos = line.find( kTag );
         if (pos == std::string_view::npos)
             continue;
 
         found              = true;
-        policy             = SurfacePolicy{}; // last line wins
+        policy             = SurfacePolicy{};
         policy.from_shader = true;
 
         std::string_view body = trim( line.substr( pos + kTag.size() ) );
