@@ -1,0 +1,39 @@
+// Apply this body to RenderStorage::get_pso_key_ in render_storage.cpp
+// Add: #include <ncore/resources/surface_policy.h>
+
+RenderStorage::PSOKey RenderStorage::get_pso_key_( const MaterialTemplate& tmpl )
+{
+    PSOKey key;
+    key.debug_name = tmpl.debug_name;
+
+    NC_VERIFY( tmpl.shader );
+
+    SurfacePolicy surface = tmpl.shader->get_surface_policy();
+    PassPipelineDefaults pass{};
+    ResolvedSurfaceState resolved = resolve_surface( surface, {}, pass );
+    key.flags = static_cast<PSOFlags>( encode_pso_flags( resolved, pass ) );
+
+    if (auto vs_desc = tmpl.shader->get_stage_desc( rhi::ShaderStage::VERTEX )) {
+        key.vs = gfx_api->shader_create(
+            rhi::ShaderCreateDesc{
+                .name = key.debug_name + "_VS", .stage = vs_desc->stage, .bytecode = vs_desc->bytecode
+            }
+        );
+    }
+    if (auto ps_desc = tmpl.shader->get_stage_desc( rhi::ShaderStage::PIXEL )) {
+        key.ps = gfx_api->shader_create(
+            rhi::ShaderCreateDesc{
+                .name = key.debug_name + "_PS", .stage = ps_desc->stage, .bytecode = ps_desc->bytecode
+            }
+        );
+    }
+
+    if (!tmpl.vertex_layout_name.empty()) {
+        key.vertex_layout = get_vertex_layout_by_name( std::string( tmpl.vertex_layout_name.c_str() ) );
+    } else {
+        key.vertex_layout =
+            tmpl.shader ? tmpl.shader->get_stage_desc( rhi::ShaderStage::VERTEX )->vert_layout : rhi::VertexLayout{};
+    }
+
+    return key;
+}
