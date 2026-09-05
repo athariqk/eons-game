@@ -1,0 +1,13 @@
+Hot-reload: load<Shader> for skybox/water slang; drop .material loads.
+
+Source assignments:
+  skybox_mat.Source = res->load( "shaders/skybox.slang" );
+  skybox_mat.Flags = MaterialShaderFlags::TwoSided;
+  skybox_mat.VertexLayoutName = "Vertex3D";
+
+  MaterialComponent water_mat;
+  water_mat.Source = res_svc->load( "shaders/water.slang" );
+  water_mat.Flags = MaterialShaderFlags::AlphaBlend;
+  water_mat.VertexLayoutName = "Vertex3D";
+
+Include <ncore/resources/material_shader.h>

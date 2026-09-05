@@ -1,0 +1,13 @@
+Change signatures:
+
+  RID material_create( const Shader& shader, const MaterialCreateDesc& desc = {} );
+  PSOKey get_pso_key_( const Shader& shader, const MaterialCreateDesc& desc );
+
+In material_create body: use shader instead of tmpl.shader, desc.debug_name,
+desc.vertex_layout_name, and get_pso_key_( shader, desc ).
+
+get_pso_key_ body: see PATCH_get_pso_key.cpp.txt (flags from desc.flags).
+
+RenderService.cpp:
+  RID RenderService::material_create( const Shader& shader, const MaterialCreateDesc& desc )
+  { return storage.material_create( shader, desc ); }

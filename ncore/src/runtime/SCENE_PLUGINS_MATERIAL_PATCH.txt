@@ -1,0 +1,13 @@
+In SceneVideoPlugin_MaterialInstanceIniter, replace:
+
+    auto source   = io->Resources->get<MaterialTemplate>( loaded->ResourceId );
+    mat->Instance = vid->Renderer->material_create( *source );
+
+with:
+
+    auto source = io->Resources->get<Shader>( loaded->ResourceId );
+    NC_VERIFY( source );
+    MaterialCreateDesc desc = mat->create_desc( "Material" );
+    mat->Instance = vid->Renderer->material_create( *source, desc );
+
+Include <ncore/resources/material_shader.h> and remove material_template.h.
