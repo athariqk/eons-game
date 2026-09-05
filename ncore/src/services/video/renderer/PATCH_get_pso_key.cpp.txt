@@ -1,14 +1,18 @@
-// Apply this body to RenderStorage::get_pso_key_ in render_storage.cpp
-// Add: #include <ncore/resources/surface_policy.h>
+// Replace RenderStorage::get_pso_key_ with this body.
+// Includes needed:
+//   #include <ncore/resources/surface_policy.h>
+//   #include <ncore/resources/material_shader.h>
 
 RenderStorage::PSOKey RenderStorage::get_pso_key_( const MaterialTemplate& tmpl )
 {
     PSOKey key;
     key.debug_name = tmpl.debug_name;
-
     NC_VERIFY( tmpl.shader );
 
     SurfacePolicy surface = tmpl.shader->get_surface_policy();
+    if (tmpl.flags != MaterialShaderFlags::None)
+        surface = surface_policy_from_flags( tmpl.flags, surface );
+
     PassPipelineDefaults pass{};
     ResolvedSurfaceState resolved = resolve_surface( surface, {}, pass );
     key.flags = static_cast<PSOFlags>( encode_pso_flags( resolved, pass ) );

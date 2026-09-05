@@ -4,14 +4,8 @@ debug_name = 2D Canvas
 [shader]
 path = shaders/canvas.slang
 
-[raster]
-cull_mode = None
-depth_test = false
-depth_write = false
-blend = AlphaPremultiplied
-
-[multisample]
-count = 1
+[flags]
+surface = TwoSided,AlphaBlend
 
 [vertex]
 layout = Vertex2D

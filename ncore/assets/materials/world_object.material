@@ -4,14 +4,8 @@ debug_name = Physically Based Rendering
 [shader]
 path = shaders/world_object.slang
 
-[raster]
-cull_mode = Back
-depth_test = true
-depth_write = true
-blend = AlphaBlend
-
-[multisample]
-count = 1
+[flags]
+surface = AlphaBlend
 
 [vertex]
 layout = Vertex3D
