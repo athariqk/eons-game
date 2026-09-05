@@ -7,29 +7,23 @@
 
 namespace nc {
 
-class MaterialTemplate;
-
 constexpr int MAXIMUM_MATERIAL_TEXTURE = 8;
 
 /**
- * Scene instance of a material (Esoterica Material + runtime GPU RIDs).
- *
- * Source  -> MaterialTemplate resource (shader + default params)
- * Instance -> GPU material RID from RenderService::material_create
- * Textures / Params / Flags -> per-entity overrides
+ * Scene material instance.
+ * Source must be a Shader resource RID (not a MaterialTemplate).
  */
 struct NCAPI MaterialComponent {
-    RID Source   = 0;
-    RID Instance = 0;
+    RID Source   = 0; // Shader resource
+    RID Instance = 0; // GPU material from material_create
 
     Array<RID, MAXIMUM_MATERIAL_TEXTURE> Textures = {};
     int TextureCount = 0;
 
-    /** Rare geometry override (debug wireframe). Prefer flags for two-sided. */
     rhi::FillMode DrawMode = rhi::FillMode::SOLID;
 
-    /** Per-instance surface flags; None = use template/shader. */
     MaterialShaderFlags Flags = MaterialShaderFlags::None;
+    String VertexLayoutName; // optional override; empty = VS reflection
 
     MaterialParameterStorage Params{};
     bool ParamsDirty = false;
@@ -55,9 +49,15 @@ struct NCAPI MaterialComponent {
         set_params_bytes( &value, static_cast<uint32_t>( sizeof( T ) ) );
     }
 
-    MaterialDrawBucket draw_bucket() const
+    MaterialDrawBucket draw_bucket() const { return draw_bucket_from_flags( Flags ); }
+
+    MaterialCreateDesc create_desc( StringView fallback_name = {} ) const
     {
-        return draw_bucket_from_flags( Flags );
+        MaterialCreateDesc d;
+        d.debug_name         = fallback_name.empty() ? String( "Material" ) : String( fallback_name );
+        d.vertex_layout_name = VertexLayoutName;
+        d.flags              = Flags;
+        return d;
     }
 
     NSTRUCTV(

@@ -1,76 +1,43 @@
-# Esoterica-style materials in ncore
+# Materials without MaterialTemplate
 
-## Model (from Esoterica Engine)
+## Model
 
 ```text
-MaterialShader  = Shader bytecode + MaterialShaderFlags + reflected param layout
-Material        = shader id + parameter values (textures / scalars)
-Pass / buckets  = Opaque | AlphaTest | AlphaBlend  (+ depth-only permutation later)
+Shader resource          // .slang  (+ optional // nc_pipeline:)
+MaterialCreateDesc       // flags, vertex layout name, debug name
+MaterialComponent        // Source = Shader RID, textures, Params, Flags
+GPU material (RID)       // material_create(shader, desc)
 ```
 
-Philosophy: **shaders are code**; materials do not author full PSOs; few unique shaders.
+There is **no** `MaterialTemplate` type. `.material` files are obsolete; load shaders directly.
 
-## ncore mapping
-
-| Esoterica | ncore |
-|-----------|--------|
-| `MaterialShader` | `Shader` + `MaterialShaderFlags` / `MaterialShaderDesc` |
-| `MaterialShaderFlags` | `AlphaTest`, `AlphaBlend`, `TwoSided` |
-| `Material` resource | `MaterialTemplate` (thin) |
-| Parameter storage | `MaterialParameterStorage` + `MaterialComponent::Params` |
-| Shader buckets | `MaterialDrawBucket` (sort key for draw lists) |
-| Depth-only permutation | TODO: specialized compile / second PS |
-
-## Authoring
-
-**Shader** (`// nc_pipeline:` still works):
-
-```slang
-// nc_pipeline: cull=back, blend=alpha, depth_test=true, depth_write=true
-```
-
-**Material** `.material` (Esoterica-thin):
-
-```ini
-[header]
-debug_name = Water
-
-[shader]
-path = shaders/water.slang
-
-[flags]
-surface = AlphaBlend
-
-[vertex]
-layout = Vertex3D
-```
-
-`[raster]` is ignored.
-
-## Runtime
-
-1. Load `MaterialTemplate` → resolve flags from `[flags]` or shader policy.
-2. `material_create(tmpl)` → PSO via `surface_policy_from_flags` + `PassPipelineDefaults`.
-3. Instance textures / `Params` on `MaterialComponent`.
-4. Draw list sorts by `draw_bucket()` then shader.
-
-## Local fix required
-
-`render_storage.cpp` on this branch may be truncated. Restore from master and replace `get_pso_key_` so it uses:
+## API
 
 ```cpp
-SurfacePolicy surface = tmpl.shader->get_surface_policy();
-if (tmpl.flags != MaterialShaderFlags::None)
-    surface = surface_policy_from_flags( tmpl.flags, surface );
-ResolvedSurfaceState resolved = resolve_surface( surface, {}, PassPipelineDefaults{} );
-key.flags = static_cast<PSOFlags>( encode_pso_flags( resolved, pass ) );
+RID material_create( const Shader& shader, const MaterialCreateDesc& desc = {} );
 ```
 
-Include `material_shader.h` and `surface_policy.h`.
+```cpp
+MaterialComponent mat;
+mat.Source = resources->load( "shaders/water.slang" );
+mat.Flags  = MaterialShaderFlags::AlphaBlend;
+mat.VertexLayoutName = "Vertex3D";
+mat.add_texture( gpu_tex );
+```
 
-## Follow-ups
+## Flags (Esoterica)
 
-- ShaderCompiler: parse `// nc_pipeline:` → `ShaderDesc::surface_policy`.
-- GPU parameter buffer pool (Esoterica 32-byte block offsets).
-- Depth-only permutation for shadows.
-- Scene plugin: push `ParamsDirty` via `material_set_params`.
+- `TwoSided`
+- `AlphaTest`
+- `AlphaBlend`
+
+Buckets: `draw_bucket_from_flags` → Opaque / AlphaTest / AlphaBlend.
+
+## Migration
+
+| Old | New |
+|-----|-----|
+| `load("materials/x.material")` | `load("shaders/x.slang")` |
+| `get<MaterialTemplate>` | `get<Shader>` |
+| `material_create(*tmpl)` | `material_create(*shader, desc)` |
+| `[raster]` in ini | `// nc_pipeline:` or `Flags` |

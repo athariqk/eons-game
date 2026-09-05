@@ -1,13 +1,11 @@
 #pragma once
 
 /**
- * Esoterica-inspired material shader model for ncore.
+ * Esoterica-style materials: no MaterialTemplate.
  *
- * MaterialShader = compiled Shader + surface flags + reflected parameter layout.
- * Material (MaterialTemplate) = shader reference + instance parameter values.
- * PSO / buckets = pass + flags, not authored on the material asset.
- *
- * See docs/materials_esoterica.md
+ *   Shader              = code + optional // nc_pipeline: SurfacePolicy
+ *   MaterialCreateDesc  = flags + vertex layout + debug name (at GPU create)
+ *   MaterialComponent   = Shader Source RID + textures + param blob + overrides
  */
 
 #include <cstring>
@@ -17,7 +15,6 @@
 
 namespace nc {
 
-/** Surface / batching flags (Esoterica MaterialShaderFlags). */
 enum class MaterialShaderFlags : uint32_t {
     None       = 0,
     AlphaTest  = 1u << 0,
@@ -38,17 +35,12 @@ constexpr bool any( MaterialShaderFlags f )
     return static_cast<uint32_t>( f ) != 0;
 }
 
-/** Reflected material parameter (Esoterica MaterialShaderParameterInfo). */
 struct MaterialShaderParameterInfo {
     String name;
     uint32_t offset_bytes = 0;
     uint32_t stride_bytes = 0;
 };
 
-/**
- * Map flags into SurfacePolicy (fill depth/blend/cull soft defaults).
- * Existing SurfacePolicy fields from // nc_pipeline: are used as a base when provided.
- */
 inline SurfacePolicy surface_policy_from_flags( MaterialShaderFlags flags, SurfacePolicy base = {} )
 {
     SurfacePolicy p = base;
@@ -81,32 +73,15 @@ inline MaterialShaderFlags flags_from_surface_policy( const SurfacePolicy& p )
     return f;
 }
 
-/**
- * Runtime view of a graphics Shader used as a material program.
- * Does not own the Shader resource — holds a Ref and derived metadata.
- */
-struct MaterialShaderDesc {
-    Ref<Shader> shader;
+/** Arguments for RenderService::material_create (replaces MaterialTemplate). */
+struct MaterialCreateDesc {
+    String debug_name;
+    String vertex_layout_name; // empty = reflect from VS
     MaterialShaderFlags flags = MaterialShaderFlags::None;
-    String parameters_struct_name; // e.g. "MaterialParams"
-    DynamicArray<MaterialShaderParameterInfo> parameters;
-
-    SurfacePolicy surface_policy() const
-    {
-        SurfacePolicy from_shader = shader ? shader->get_surface_policy() : SurfacePolicy{};
-        if (flags != MaterialShaderFlags::None)
-            return surface_policy_from_flags( flags, from_shader );
-        return from_shader;
-    }
 };
 
-/**
- * Instance parameter blob (Esoterica MaterialShaderParametersInstance lite).
- * CPU-side packing; GPU upload via material_set_params.
- */
 struct MaterialParameterStorage {
     static constexpr uint32_t kMaxBytes = 256;
-
     alignas( 16 ) uint8_t bytes[kMaxBytes]{};
     uint32_t size = 0;
 
@@ -127,12 +102,7 @@ struct MaterialParameterStorage {
     }
 };
 
-/** Draw bucket kind (Esoterica shader bucket subset). */
-enum class MaterialDrawBucket : uint8_t {
-    Opaque = 0,
-    AlphaTest,
-    AlphaBlend,
-};
+enum class MaterialDrawBucket : uint8_t { Opaque = 0, AlphaTest, AlphaBlend };
 
 inline MaterialDrawBucket draw_bucket_from_flags( MaterialShaderFlags flags )
 {
