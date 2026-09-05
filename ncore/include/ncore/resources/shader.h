@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ncore/resources/resource.h>
+#include <ncore/resources/surface_policy.h>
 #include <ncore/services/video/rhi_types.h>
 
 namespace nc {
@@ -30,7 +31,10 @@ struct NCAPI ShaderParamInfo {
 using ShaderParamLayout = DynamicArray<ShaderParamInfo>;
 
 /**
- * @brief Attributes of a shader program.
+ * @brief Attributes of a shader program (single stage or linked notes).
+ *
+ * surface_policy: optional defaults parsed from `// nc_pipeline:` in source.
+ * Full PSO is still composed with PassPipelineDefaults at draw/PSO-cache time.
  */
 struct NCAPI ShaderDesc {
     String name;
@@ -42,6 +46,9 @@ struct NCAPI ShaderDesc {
     uint32_t num_threads_x = 1;
     uint32_t num_threads_y = 1;
     uint32_t num_threads_z = 1;
+
+    /** Prototype: surface defaults for this graphics program (usually from PS file). */
+    SurfacePolicy surface_policy{};
 };
 
 /**
@@ -88,6 +95,25 @@ public:
     Span<const ShaderDesc> get_stages() const;
 
     rhi::ShaderStage get_stage_flags() const;
+
+    /**
+     * Surface policy for the linked program: prefers PIXEL stage if present,
+     * else first stage that has from_shader, else defaults.
+     */
+    SurfacePolicy get_surface_policy() const
+    {
+        if (const auto* ps = get_stage_desc( rhi::ShaderStage::PIXEL )) {
+            if (ps->surface_policy.from_shader)
+                return ps->surface_policy;
+        }
+        for (const auto& s : stages) {
+            if (s.surface_policy.from_shader)
+                return s.surface_policy;
+        }
+        if (const auto* ps = get_stage_desc( rhi::ShaderStage::PIXEL ))
+            return ps->surface_policy;
+        return stages.empty() ? SurfacePolicy{} : stages.front().surface_policy;
+    }
 
 private:
     void build_configs_();
