@@ -74,7 +74,7 @@ void CommandLineParser::add_arg(
 // Registration
 //-------------------------------------------------------------------------
 
-void CommandLineParser::add_required_bool( StringView name, StringView description description )
+void CommandLineParser::add_required_bool( StringView name, StringView description )
 {
     if (!is_unique_name( name )) {
         return;
@@ -396,7 +396,7 @@ void CommandLineParser::print_help( StringView app_name ) const
 }
 
 // Explicit instantiations
-template CommandLineParser::Arg<bool>* CommandLineParser::find_arg( DynamicArray<Arg<bool>>&, StringView );
+template CommandLineParser::ArgArg<bool>* CommandLineParser::find_arg( DynamicArray<Arg<bool>>&, StringView );
 template const CommandLineParser::Arg<bool>* CommandLineParser::find_arg( const DynamicArray<Arg<bool>>&, StringView ) const;
 template CommandLineParser::Arg<int64_t>* CommandLineParser::find_arg( DynamicArray<Arg<int64_t>>&, StringView );
 template const CommandLineParser::Arg<int64_t>* CommandLineParser::find_arg( const DynamicArray<Arg<int64_t>>&, StringView ) const;
