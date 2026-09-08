@@ -60,39 +60,7 @@ target_sources(
           "utils/logger/sink.cpp"
           "utils/assert.cpp"
           "utils/config.cpp"
-          "utils/four_cc.cpp")
+          "utils/four_cc.cpp"
+          "utils/command_line_parser.cpp")
 
 target_include_directories(ncore PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-
-# target_compile_definitions(ncore PRIVATE
-# NC_SHADER_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders" )
-#
-# set(SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders) set(SHADER_OUT
-# ${CMAKE_CURRENT_BINARY_DIR}/generated/shaders)
-#
-# find_program( SLANGC NAMES slangc PATHS "$ENV{VULKAN_SDK}/Bin" NO_DEFAULT_PATH
-# REQUIRED)
-#
-# set(BUILTIN_SHADERS ${SHADER_DIR}/sprite.vert.slang
-# ${SHADER_DIR}/sprite.frag.slang ${SHADER_DIR}/sprite_gamma.frag.slang)
-#
-# foreach(SOURCE ${BUILTIN_SHADERS}) get_filename_component(FILE_NAME ${SOURCE}
-# NAME_WLE) string(REGEX REPLACE "\\." "_" SAFE_NAME "${FILE_NAME}")
-# string(TOUPPER "${SAFE_NAME}" VAR_NAME) set(C_OUT
-# ${SHADER_OUT}/${FILE_NAME}.h)
-#
-# add_custom_command( OUTPUT ${C_OUT} COMMAND ${SLANGC} ${SOURCE} -target spirv
-# -matrix-layout-column-major -source-embed-style u32 -source-embed-name
-# ${VAR_NAME}_SPIRV -o ${C_OUT} DEPENDS ${SOURCE} ${SLANGC} COMMENT "Compiling
-# built-in shader: ${FILE_NAME}") list(APPEND C_HEADERS ${C_OUT}) endforeach()
-#
-# set(COMBINE_OUT ${SHADER_OUT}/combined.h) string(REPLACE ";" " " C_HEADERS_STR
-# "${C_HEADERS}") add_custom_command( OUTPUT ${COMBINE_OUT} COMMAND
-# ${CMAKE_COMMAND} -DC_HEADERS="${C_HEADERS_STR}" -DOUTPUT="${COMBINE_OUT}" -P
-# ${CMAKE_CURRENT_SOURCE_DIR}/assets/cmake/CombineShaders.cmake DEPENDS
-# ${C_HEADERS} COMMENT "Combining shader headers")
-#
-# add_custom_target(CompileShaders ALL DEPENDS ${COMBINE_OUT})
-#
-# target_include_directories(ncore PRIVATE
-# ${CMAKE_CURRENT_BINARY_DIR}/generated) add_dependencies(ncore CompileShaders)

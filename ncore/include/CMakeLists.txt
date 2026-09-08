@@ -27,8 +27,7 @@ target_sources(
          "ncore/resources/cube_map.h"
          "ncore/resources/resource.h"
          "ncore/resources/image.h"
-         "ncore/resources/material_template.h"
-         "ncore/resources/mesh.h"
+         "ncore/resources/material_template.h"\n         "ncore/resources/mesh.h"
          "ncore/resources/shader.h"
          "ncore/runtime/components/camera.h"
          "ncore/runtime/components/input.h"
@@ -75,4 +74,5 @@ target_sources(
          "ncore/utils/enum.h"
          "ncore/utils/log.h"
          "ncore/utils/four_cc.h"
-         "ncore/utils/math.h")
+         "ncore/utils/math.h"
+         "ncore/utils/command_line_parser.h")
