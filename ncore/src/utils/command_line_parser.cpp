@@ -74,7 +74,7 @@ void CommandLineParser::add_arg(
 // Registration
 //-------------------------------------------------------------------------
 
-void CommandLineParser::add_required_bool( StringView name, StringView description )
+void CommandLineParser::add_required_bool( StringView name, StringView description description )
 {
     if (!is_unique_name( name )) {
         return;
@@ -412,7 +412,7 @@ template void CommandLineParser::add_arg( DynamicArray<Arg<String>>&, StringView
 
 template bool CommandLineParser::check_required( const DynamicArray<Arg<bool>>&, DynamicArray<String>& ) const;
 template bool CommandLineParser::check_required( const DynamicArray<Arg<int64_t>>&, DynamicArray<String>& ) const;
-template bool CommandLineParser::check_required( const DynamicArray<Arg<floatfloat>>&, DynamicArray<String>& ) const;
+template bool CommandLineParser::check_required( const DynamicArray<Arg<float>>&, DynamicArray<String>& ) const;
 template bool CommandLineParser::check_required( const DynamicArray<Arg<String>>&, DynamicArray<String>& ) const;
 
 } // namespace nc
