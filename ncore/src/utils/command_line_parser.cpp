@@ -255,7 +255,7 @@ bool CommandLineParser::parse( int argc, char* argv[] )
             char* end     = nullptr;
             const float v = std::strtof( value_str.c_str(), &end );
             if (errno != 0 || end == value_str.c_str() || *end != '\0') {
-n                m_error_msg = "Failed to parse float argument '";
+                m_error_msg = "Failed to parse float argument '";
                 m_error_msg += name;
                 m_error_msg += "' from '";
                 m_error_msg += value_str;
@@ -412,7 +412,7 @@ template void CommandLineParser::add_arg( DynamicArray<Arg<String>>&, StringView
 
 template bool CommandLineParser::check_required( const DynamicArray<Arg<bool>>&, DynamicArray<String>& ) const;
 template bool CommandLineParser::check_required( const DynamicArray<Arg<int64_t>>&, DynamicArray<String>& ) const;
-template bool CommandLineParser::check_required( const DynamicArray<Arg<float>>&, DynamicArray<String>& ) const;
+template bool CommandLineParser::check_required( const DynamicArray<Arg<floatfloat>>&, DynamicArray<String>& ) const;
 template bool CommandLineParser::check_required( const DynamicArray<Arg<String>>&, DynamicArray<String>& ) const;
 
 } // namespace nc
