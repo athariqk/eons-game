@@ -14,24 +14,21 @@ class Scene;
  * @brief Component is a lightweight wrapper over an EcsComponent.
  * For use in the Scene API.
  */
-struct NCAPI Component {
-    EcsComponent EcsId = 0;
-    bool Active        = false;
-    bool Toggleable    = false;
-    NSTRUCTV( Component, NC_F( Component, EcsId ), NC_F( Component, Active ) )
+struct REFLECT NCAPI Component {
+    REFLECT EcsComponent EcsId = 0;
+    REFLECT bool Active        = false;
+    REFLECT bool Toggleable    = false;
 };
 
-struct NCAPI NodeAddedEvent {
-    NSTRUCT1( NodeAddedEvent )
-};
+struct REFLECT NCAPI NodeAddedEvent {};
 
 /**
  * @brief Node is a lightweight wrapper over an EcsEntity. Node provides
  * first-class operations for Scene hierarchy and relationships. You can
  * add any components to a Node as POD or even non-POD classes/structs.
  */
-class NCAPI Node : public NcObject {
-    NCLASS( Node, NcObject )
+class NCAPI Node : public Object {
+    NCLASS( Node, Object )
 
 public:
     using NodePool = PagedPool<Node>;
@@ -40,7 +37,7 @@ public:
     inline static const uint32_t MAX_TRACKED_COMPONENTS = 16;
 
     Node() = default;
-    Node( const String& p_name, Scene* p_scene, Node* p_parent );
+    Node( const String& p_name, Scene* p_scene [[clang::lifetimebound]], Node* p_parent [[clang::lifetimebound]] );
     ~Node() override;
 
     Node( const Node& )            = delete;
@@ -60,7 +57,7 @@ public:
             using reference         = Node&;
 
             reference operator*();
-            Iterator& operator++();
+            Iterator& operator++() [[clang::lifetimebound]];
             bool operator!=( const Iterator& o ) const;
             bool operator!=( std::nullptr_t ) const
             {
@@ -69,7 +66,7 @@ public:
 
         private:
             friend class ChildRange;
-            Iterator( EcsTableIterator iter, Scene* scene, bool end );
+            Iterator( EcsTableIterator iter, Scene* scene [[clang::lifetimebound]], bool end );
 
             EcsTableIterator iter_;
             Scene* scene_  = nullptr;
@@ -78,7 +75,7 @@ public:
             bool done_     = true;
         };
 
-        ChildRange( EcsQuery& query, Scene* scene );
+        ChildRange( EcsQuery& query, Scene* scene [[clang::lifetimebound]] );
         ~ChildRange() = default;
 
         ChildRange( const ChildRange& )            = delete;
@@ -246,7 +243,7 @@ public:
     void set_name( StringView name );
     uint64_t get_id() const;
 
-    bool* get_active();
+    bool* get_active() [[clang::lifetimebound]];
 
     inline Scene* get_scene() const
     {

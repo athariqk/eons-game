@@ -212,6 +212,7 @@ target_link_libraries(
           Diligent-GraphicsEngineVkInterface
           Diligent-GraphicsTools
           Diligent-GraphicsAccessories
+          Diligent-ShaderTools
           slang::slang)
 
 # Install runtime DLLs (dynamic-only)

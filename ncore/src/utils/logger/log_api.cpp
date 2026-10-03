@@ -81,6 +81,17 @@ NCAPI void print( const String& p_msg )
     log_message( msg );
 }
 
+NCAPI void print_error( const String& p_msg )
+{
+    if (Level::LERROR < g_MinLogLevel.load())
+        return;
+    LogMsg msg;
+    msg.channel = NC_LOG_CHANNEL_NAME;
+    msg.level   = Level::LERROR;
+    msg.payload = p_msg;
+    log_message( msg );
+}
+
 ListenerToken add_listener( const LogMsgCallback& callback )
 {
     return log::Logger::get_instance().add_listener( callback );

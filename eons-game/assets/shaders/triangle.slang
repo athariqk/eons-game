@@ -1,5 +1,3 @@
-#include "shaders/common.slang"
-
 struct PSInput
 {
 	float4 Pos : SV_POSITION;

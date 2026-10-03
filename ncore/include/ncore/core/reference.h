@@ -16,12 +16,14 @@ namespace nc {
 /**
  * @brief RefCounted is a typical implementation of an
  * intrusive reference counting mechanism, in this case
- * for NcObjects.
+ * for Object classes.
  *
  * Useful read: https://baptiste-wicht.com/posts/2011/11/boost-intrusive_ptr.html,
  *				https://chadaustin.me/2023/11/reference-counting-things/
  */
-class NCAPI RefCounted : public NcObject {
+class NCAPI RefCounted : public Object {
+    NCLASS( RefCounted, Object )
+
 public:
     RefCounted() = default;
 

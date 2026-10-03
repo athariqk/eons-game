@@ -19,19 +19,25 @@ void ConfFile::load( const String& p_path )
     }
     inifile.clear();
 
-    std::string summary;
-    std::for_each( data.begin(), data.end(), [&summary]( const auto& pair ) {
-        summary += pair.first + "=" + pair.second + "\n";
+    String summary;
+    std::for_each( data.begin(), data.end(), [&summary]( const std::pair<String, String>& pair ) {
+        summary += "\n" + pair.first + " = " + pair.second;
     } );
-    NC_LOG_INFO( "Config file loaded: {}\n{}", p_path, summary );
+    NC_LOG_INFO( "Config file \"{}\" loaded, summary: {}", p_path, summary );
 }
 
-void ConfFile::save() {}
+void ConfFile::save()
+{
+    throw std::exception( "ConfFile::save() is not implemented." );
+}
 
 void ConfFile::read_into( const rtti::RecordInfo& type_info, void* result )
 {
     for (auto& field : type_info.fields()) {
-        auto qualified_name = std::string( type_info.name ) + "." + field.name.data();
+        std::string short_name( type_info.name );
+        if (auto pos = short_name.rfind( "::" ); pos != std::string::npos)
+            short_name = short_name.substr( pos + 2 );
+        auto qualified_name = short_name + "." + field.name.data();
         auto it             = data.find( qualified_name.c_str() );
         if (it == data.end()) {
             continue;

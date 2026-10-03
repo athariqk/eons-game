@@ -32,15 +32,11 @@ public:
 
     static const WindowFlag DEFAULT_WINDOW_FLAGS = WindowFlag::RESIZABLE;
 
-    struct NCAPI WindowSettings {
-        int SizeWidth        = 800;
-        int SizeHeight       = 800;
-        WindowMode Mode      = WindowMode::WINDOWED;
-        float PixelsPerMeter = 32.0f;
-        NSTRUCTV(
-            WindowSettings, NC_F( WindowSettings, SizeWidth ), NC_F( WindowSettings, SizeHeight ),
-            NC_F( WindowSettings, Mode ), NC_F( WindowSettings, PixelsPerMeter )
-        )
+    struct REFLECT NCAPI WindowSettings {
+        REFLECT int SizeWidth        = 800;
+        REFLECT int SizeHeight       = 800;
+        REFLECT WindowMode Mode      = WindowMode::WINDOWED;
+        REFLECT float PixelsPerMeter = 32.0f;
     };
 
 public:
@@ -50,7 +46,7 @@ public:
     Error init( ConfFile& cfg_file ) override;
     void shutdown() override;
 
-    const WindowSettings& get_settings() const
+    const WindowSettings& get_settings() const [[clang::lifetimebound]]
     {
         return settings;
     }

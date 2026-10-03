@@ -2,21 +2,19 @@
 
 #include <ncore/core/color.h>
 #include <ncore/core/rid.h>
+#include <ncore/runtime/ecs/ecs_component.h>
 
 namespace nc {
 
-struct NCAPI SpriteComponent {
-    RID source;
-    RID texture;
-    Color Tint{ 255, 255, 255, 255 };
-
-    NSTRUCTV(
-        SpriteComponent, NC_F( SpriteComponent, source ), NC_F( SpriteComponent, texture ),
-        NC_F( SpriteComponent, Tint )
-    )
+NC_COMPONENT_API( SpriteComponent )
+{
+    REFLECT RID source;
+    REFLECT RID texture;
+    REFLECT Color Tint{ 255, 255, 255, 255 };
 };
 
-struct EcsCircleDraw {
+NC_COMPONENT( EcsCircleDraw )
+{
     float radius = 1.0f;
     Color color{ 0, 0, 0, 255 };
     bool filled = false;

@@ -4,10 +4,7 @@
 #include <editor/ncore_editor.h>
 #endif
 #include <ncore/application.h>
-#include <ncore/resources/cube_map.h>
-#include <ncore/resources/image.h>
-#include <ncore/resources/material_template.h>
-#include <ncore/resources/mesh.h>
+#include <ncore/resources/resource.h>
 #include <ncore/runtime/components/camera.h>
 #include <ncore/runtime/components/input.h>
 #include <ncore/runtime/components/material.h>
@@ -16,12 +13,14 @@
 #include <ncore/runtime/components/services.h>
 #include <ncore/runtime/components/transform.h>
 #include <ncore/runtime/ecs/ecs_system.h>
+#include <ncore/runtime/resources/resource_loader.h>
 #include <ncore/services/io/input_service.h>
-#include <ncore/services/io/resource_service.h>
 #include <ncore/services/service_registry.h>
 #include <ncore/services/video/render_service.h>
 
+#include "tests/test_compute_shader.h"
 #include "water/water_sim.h"
+#include "water/wave_generator.h"
 
 namespace sea {
 
@@ -37,17 +36,15 @@ void WorldScene::on_ready()
 
         if (io->Inputs->is_key_pressed( Key::F5 )) {
             log::print( "Hot-reloading" );
-            io->Resources->load<MaterialTemplate>( "shaders/skybox.slang", true );
-            io->Resources->load<MaterialTemplate>( "shaders/water.slang", true );
-            io->Resources->load<MaterialTemplate>( "materials/skybox.material", true );
-            io->Resources->load<MaterialTemplate>( "materials/water.material", true );
+            io->Resources->load<MaterialShader>( "shaders/materials/skybox.slang", true );
+            io->Resources->load<MaterialShader>( "shaders/materials/water.slang", true );
         }
     } );
 #endif
 
     create_environment();
     create_water();
-    register_water_sim( *this );
+    // hello_world_compute_shader( *this );
 
     get_ecs()
         .system( "FreeCamUpdater" )
@@ -99,9 +96,7 @@ void WorldScene::on_ready()
 
     auto main_camera = root()->create_child( "MainCamera" );
     main_camera->add_component<ActiveCameraTag>();
-    main_camera->add_component<Transform3DComponent>(
-        Transform3DComponent{ Vec3( 0, 0, 5 ), Quaternion::identity(), Vec3( 1, 1, 1 ) }
-    );
+    main_camera->add_component<Transform3DComponent>();
     main_camera->add_component<CameraComponent>();
     main_camera->add_component<InputComponent>();
 }
@@ -118,8 +113,8 @@ void WorldScene::on_exit()
 
 void WorldScene::create_environment()
 {
-    auto res = get_app_ctx()->Services.resolve<ResourceService>();
-    auto rd  = get_app_ctx()->Services.resolve<RenderService>();
+    auto& res = get_resource_loader();
+    auto rd   = get_app_ctx()->Services.resolve<RenderService>();
 
     constexpr Array<Vertex3D, 8> box_verts    = { Vertex3D{ -1.0f, -1.0f, -1.0f }, Vertex3D{ -1.0f, 1.0f, -1.0f },
                                                   Vertex3D{ 1.0f, 1.0f, -1.0f },   Vertex3D{ 1.0f, -1.0f, -1.0f },
@@ -150,36 +145,57 @@ void WorldScene::create_environment()
             .vertex_stride = sizeof( Vertex3D )
         }
     );
-    auto skybox_mesh_rid = res->add( skybox_mesh );
+    auto skybox_mesh_rid = res.add( skybox_mesh );
 
-    auto equirect   = res->load<Image>( "images/skybox.png" );
+    auto equirect   = res.load<Image>( "images/skybox.png" );
     auto cube_map   = Ref<CubeMap>::create( equirect, equirect->get_width() / 4 );
     auto skybox_tex = rd->texture_cube_create( *cube_map );
 
     MaterialComponent skybox_mat;
-    skybox_mat.Source = res->load( "materials/skybox.material" );
+    skybox_mat.Shader = res.load( "shaders/materials/skybox.slang" );
     skybox_mat.add_texture( skybox_tex );
 
     auto skybox = root()->create_child( "Skybox" );
+    skybox->add_component<Transform3DComponent>(
+        Transform3DComponent{ .Translation = Vec3(), .Rotation = Quaternion::identity(), .Scale = Vec3( 80, 80, 80 ) }
+    );
     skybox->add_component<HasResourceTag>();
-    skybox->add_component<MeshComponent>( MeshComponent{ skybox_mesh_rid } );
+    skybox->add_component<MeshComponent>( MeshComponent{ .Source = skybox_mesh_rid } );
+    skybox->add_component<MeshRenderComponent>();
     skybox->add_component<MaterialComponent>( skybox_mat );
+    skybox->add_component<MaterialRenderComponent>();
 }
 
 void WorldScene::create_water()
 {
-    auto res_svc = get_app_ctx()->Services.resolve<ResourceService>();
+    register_water_sim( *this );
 
-    auto mesh     = Ref<PlaneMesh>::create( 16, 16 );
-    auto mesh_rid = res_svc->add( mesh );
+    auto& waves = get_wave_generator();
+    NC_ASSERT( waves.is_initialized() );
+
+    auto& res = get_resource_loader();
+
+    MaterialComponent water_mat;
+    water_mat.Shader = res.load( "shaders/materials/water.slang" );
+    water_mat.add_texture( waves.displacement_map() );
+    water_mat.add_texture( waves.normal_map() );
+    Vec4 map_scales[2];
+    map_scales[0] = { 1.0f / 50.0f, 1.0f / 50.0f, 1.0f, 1.0f };
+    map_scales[1] = { 1.0f / 17.0f, 1.0f / 17.0f, 0.6f, 0.6f };
+    water_mat.set_params<Vec4[2]>( "mapScales", map_scales );
+
+    auto mesh     = Ref<PlaneMesh>::create( 128, 128 );
+    auto mesh_rid = res.add( mesh );
     auto plane    = root()->create_child( "WaterPlane" );
     plane->add_component<Transform3DComponent>(
-        Transform3DComponent{ Vec3( 0, -3, 0 ), Quaternion::identity(), Vec3( 5, 1, 5 ) }
+        Transform3DComponent{ .Translation = Vec3(), .Rotation = Quaternion::identity(), .Scale = Vec3( 50, 1, 50 ) }
     );
     auto plane_mesh = plane->create_child( "WaterMesh" );
     plane_mesh->add_component<HasResourceTag>();
-    plane_mesh->add_component<MeshComponent>( MeshComponent{ mesh_rid } );
-    plane_mesh->add_component<MaterialComponent>( MaterialComponent{ res_svc->load( "materials/water.material" ) } );
+    plane_mesh->add_component<MeshComponent>( MeshComponent{ .Source = mesh_rid } );
+    plane_mesh->add_component<MeshRenderComponent>();
+    plane_mesh->add_component<MaterialComponent>( water_mat );
+    plane_mesh->add_component<MaterialRenderComponent>();
 }
 
 } // namespace sea

@@ -56,11 +56,6 @@ EcsSystemBuilder& EcsSystemBuilder::order( int32_t priority )
 // just so the compiler can see the defs for Impl
 struct EcsQueryBuilder::Impl : public detail::FlecsQueryBuilder {};
 
-struct SystemOrder {
-    int32_t value = 0;
-    NSTRUCTV( SystemOrder, NC_F( SystemOrder, value ) )
-};
-
 EcsEntity EcsSystemBuilder::run( void ( *callback )( EcsIterState& ) )
 {
     return create_system_( reinterpret_cast<void*>( trampoline_run ), reinterpret_cast<void*>( callback ), nullptr );
@@ -86,12 +81,16 @@ EcsEntity EcsSystemBuilder::create_system_( void* callback, void* ctx, void ( *c
     sdesc.ctx_free = reinterpret_cast<ecs_ctx_free_t>( ctx_free );
 
     ecs_entity_t id = ecs_system_init( world, &sdesc );
-    NC_ASSERT( id != 0, "Failed to register ECS system" );
+    NC_ASSERT_MSG( id != 0, "Failed to register ECS system" );
 
     if (order_ != 0) {
         int32_t order_val = order_;
-        auto comp_id      = world_.register_component_type( rtti::TypeRegistry::find<SystemOrder>() );
-        ecs_set_id( world, id, comp_id, sizeof( order_val ), &order_val );
+        auto* order_type  = rtti::TypeRegistry::find<SystemOrder>();
+        if (order_type) {
+            auto comp_id = world_.register_component_type( order_type );
+            if (comp_id)
+                ecs_set_id( world, id, comp_id, sizeof( order_val ), &order_val );
+        }
     }
 
     built_           = true;
@@ -121,7 +120,7 @@ EcsEntity EcsObserverBuilder::each( void ( *callback )( EcsIterState& ) )
 
 EcsEntity EcsObserverBuilder::create_observer_( void* callback, void* ctx, void ( *ctx_free )( void* ) )
 {
-    NC_ASSERT( events.size() <= 8, "Number of events exceeds the maximum allowed (8)" );
+    NC_ASSERT_MSG( events.size() <= 8, "Number of events exceeds the maximum allowed (8)" );
 
     auto world = static_cast<ecs_world_t*>( world_.get_native_handle() );
 

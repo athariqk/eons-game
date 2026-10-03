@@ -114,7 +114,7 @@ void Scene::ensure_root_node_exists_()
     root_node->scene       = this;
     root_node->node_pool   = &node_pool;
     root_node->internal_id = ecs_world.entity( "RootNode" )
-                                 .add<NodeRefComponent>( { root_node } )
+                                 .add<NodeRefComponent>( NodeRefComponent{ .node = root_node } )
                                  .add<RootNodeTag>()
                                  .add<Transform3DComponent>()
                                  .build();

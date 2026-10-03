@@ -36,27 +36,27 @@ public:
     /**
      * @brief Wraps an implementation detail iterator object (Flecs' ecs_iter_t).
      */
-    EcsTableIterator( void* internal ) noexcept;
+    EcsTableIterator( void* internal [[clang::lifetimebound]] ) noexcept;
 
     EcsTableIterator( EcsTableIterator&& ) noexcept;
     EcsTableIterator& operator=( EcsTableIterator&& ) noexcept;
     EcsTableIterator( const EcsTableIterator& )            = delete;
     EcsTableIterator& operator=( const EcsTableIterator& ) = delete;
 
-    reference operator*() noexcept
+    reference operator*() noexcept [[clang::lifetimebound]]
     {
         return *this;
     }
-    const EcsTableIterator& operator*() const noexcept
+    const EcsTableIterator& operator*() const noexcept [[clang::lifetimebound]]
     {
         return *this;
     }
 
-    pointer operator->() noexcept
+    pointer operator->() noexcept [[clang::lifetimebound]]
     {
         return this;
     }
-    const EcsTableIterator* operator->() const noexcept
+    const EcsTableIterator* operator->() const noexcept [[clang::lifetimebound]]
     {
         return this;
     }
@@ -70,7 +70,7 @@ public:
         return done_ != o.done_;
     }
 
-    EcsTableIterator& operator++();
+    EcsTableIterator& operator++() [[clang::lifetimebound]];
 
     bool is_done() const noexcept
     {
@@ -98,7 +98,7 @@ private:
         Query
     };
 
-    EcsTableIterator( EcsWorld* world_ref, void* world, void* query );
+    EcsTableIterator( EcsWorld* world_ref, void* world [[clang::lifetimebound]], void* query [[clang::lifetimebound]] );
 
     void* world_ = nullptr;
     void* query  = nullptr;
@@ -133,9 +133,9 @@ public:
      *
      * Yields a EcsIterState for every matched entity, across all tables.
      */
-    EcsEntityView entities();
+    EcsEntityView entities() [[clang::lifetimebound]];
 
-    StringView get_name()
+    StringView get_name() [[clang::lifetimebound]]
     {
         return name;
     }
@@ -150,7 +150,10 @@ private:
     friend class EcsQueryBuilder;
     friend class EcsSystemBuilder;
 
-    EcsQuery( const String& name, EcsWorld* world_ref, void* world_handle, void* query_handle );
+    EcsQuery(
+        const String& name, EcsWorld* world_ref [[clang::lifetimebound]], void* world_handle [[clang::lifetimebound]],
+        void* query_handle [[clang::lifetimebound]]
+    );
 
     String name;
     // internal impl details
@@ -169,7 +172,7 @@ private:
 class NCAPI EcsIterState {
 public:
     EcsIterState() = default;
-    explicit EcsIterState( void* iter );
+    explicit EcsIterState( [[clang::lifetimebound]] void* iter );
 
     double delta_time() const;             // The global delta time.
     float delta_time_internal() const;     // This iter's own delta time.
@@ -203,7 +206,7 @@ public:
     {
         static const auto& info = rtti::TypeRegistry::get<T>();
         int32_t idx             = resolve_term_index_( info );
-        NC_ASSERT( idx >= 0, "Component not found in query terms" );
+        NC_ASSERT_MSG( idx >= 0, "Component not found in query terms" );
         return static_cast<T*>( get_component_( idx, info.size, info.alignment ) );
     }
 
@@ -230,7 +233,7 @@ public:
         static const auto& first_info  = rtti::TypeRegistry::get<First>();
         static const auto& second_info = rtti::TypeRegistry::get<Second>();
         int32_t idx                    = resolve_pair_index_( first_info, second_info );
-        NC_ASSERT( idx >= 0, "Pair component not found in query terms" );
+        NC_ASSERT_MSG( idx >= 0, "Pair component not found in query terms" );
         return static_cast<First*>( get_component_( idx, first_info.size, first_info.alignment ) );
     }
 
@@ -276,12 +279,12 @@ public:
         return ctx_;
     }
 
-    const EcsIterState* operator->() const
+    const EcsIterState* operator->() const [[clang::lifetimebound]]
     {
         return &ctx_;
     }
 
-    EcsEntityIterator& operator++();
+    EcsEntityIterator& operator++() [[clang::lifetimebound]];
 
     bool operator==( const EcsEntityIterator& o ) const noexcept
     {
@@ -304,7 +307,7 @@ private:
  */
 class NCAPI EcsEntityView {
 public:
-    explicit EcsEntityView( EcsQuery& query );
+    explicit EcsEntityView( [[clang::lifetimebound]] EcsQuery& query );
 
     EcsEntityIterator begin();
     EcsEntityIterator end();
@@ -327,23 +330,23 @@ public:
      * @brief Add component to query term.
      */
     template<typename... Comps>
-    EcsQueryBuilder& with()
+    EcsQueryBuilder& with() [[clang::lifetimebound]]
     {
         ( add_term_<Comps>( 0 ), ... );
         return *this;
     }
 
     template<typename First, typename Second>
-    EcsQueryBuilder& with_pair()
+    EcsQueryBuilder& with_pair() [[clang::lifetimebound]]
     {
         add_term_pair_impl( rtti::TypeRegistry::find<First>(), rtti::TypeRegistry::find<Second>(), 0 );
         return *this;
     }
 
-    EcsQueryBuilder& with_pair( EcsEntity first, EcsEntity second );
+    EcsQueryBuilder& with_pair( EcsEntity first, EcsEntity second ) [[clang::lifetimebound]];
 
     template<typename... Comps>
-    EcsQueryBuilder& read()
+    EcsQueryBuilder& read() [[clang::lifetimebound]]
     {
         ( add_term_<Comps>( 1 ), ... );
         return *this;
@@ -352,12 +355,12 @@ public:
     /**
      * @brief Match on all components with read/write.
      */
-    EcsQueryBuilder& all();
+    EcsQueryBuilder& all() [[clang::lifetimebound]];
 
     /**
      * @brief Match on all components with read-only.
      */
-    EcsQueryBuilder& all_read();
+    EcsQueryBuilder& all_read() [[clang::lifetimebound]];
 
     /**
      * @brief Traverse relationship bottom-up.
@@ -365,36 +368,36 @@ public:
      * Set up traversal on the last added term (default: ChildOf).
      * TODO: allow custom relationship traversal
      */
-    EcsQueryBuilder& up();
+    EcsQueryBuilder& up() [[clang::lifetimebound]];
 
     /**
      * @brief Match the last term on self (default, explicit for clarity).
      */
-    EcsQueryBuilder& self();
+    EcsQueryBuilder& self() [[clang::lifetimebound]];
 
     /**
      * @brief Exclude self from the last term's match (walk parent only, used with up()).
      */
-    EcsQueryBuilder& skip_self();
+    EcsQueryBuilder& skip_self() [[clang::lifetimebound]];
 
     /**
      * @brief Traverse relationship top-down.
      *
      * Order results breadth-first through the ChildOf hierarchy (cascade).
      */
-    EcsQueryBuilder& cascade();
+    EcsQueryBuilder& cascade() [[clang::lifetimebound]];
 
     /**
      * @brief Set the optional query DSL expression.
      */
-    EcsQueryBuilder& expr( StringView dsl );
+    EcsQueryBuilder& expr( StringView dsl ) [[clang::lifetimebound]];
 
-	EcsQueryBuilder& src( EcsEntity id );
+    EcsQueryBuilder& src( EcsEntity id ) [[clang::lifetimebound]];
 
     /**
      * @brief Returns the query name.
      */
-    const String& name() const;
+    const String& name() const [[clang::lifetimebound]];
 
     /**
      * @brief Finalise and build the query.

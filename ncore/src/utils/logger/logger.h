@@ -14,7 +14,10 @@ public:
 
     static Logger& get_instance()
     {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wexit-time-destructors"
         static Logger instance;
+#pragma clang diagnostic pop
         return instance;
     }
 

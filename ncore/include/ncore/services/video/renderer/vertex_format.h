@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../rhi_types.h"
+#include "../gfx_types.h"
 
 namespace nc {
 
@@ -19,12 +19,12 @@ struct Vertex3D {
     uint32_t color;
 };
 
-rhi::VertexLayout get_vertex2d_layout();
-rhi::VertexLayout get_vertex3d_layout();
+gfx::VertexLayout get_vertex2d_layout();
+gfx::VertexLayout get_vertex3d_layout();
 
-rhi::VertexLayout get_vertex_layout_by_name( const std::string& name );
+gfx::VertexLayout get_vertex_layout_by_name( StringView name );
 
 template<typename T>
-rhi::VertexLayout get_vertex_layout_for();
+gfx::VertexLayout get_vertex_layout_for();
 
 } // namespace nc

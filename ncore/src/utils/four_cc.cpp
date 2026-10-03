@@ -2,7 +2,7 @@
 
 namespace nc {
 
-uint32_t FourCC::from_string( const std::string& str )
+uint32_t FourCC::from_string( StringView str )
 {
     if (str.length() != 4) {
         return 0;
@@ -12,9 +12,9 @@ uint32_t FourCC::from_string( const std::string& str )
            ( static_cast<uint32_t>( str[2] ) << 16 ) | ( static_cast<uint32_t>( str[3] ) << 24 );
 }
 
-std::string FourCC::to_string( uint32_t value )
+String FourCC::to_string( uint32_t value )
 {
-    std::string result( 4, ' ' );
+    String result( 4, ' ' );
 
     result[0] = static_cast<char>( ( value >> 0 ) & 0xFF );
     result[1] = static_cast<char>( ( value >> 8 ) & 0xFF );
@@ -24,7 +24,7 @@ std::string FourCC::to_string( uint32_t value )
     return result;
 }
 
-bool FourCC::is_valid_fourcc( const std::string& str )
+bool FourCC::is_valid_fourcc( StringView str )
 {
     if (str.length() != 4) {
         return false;

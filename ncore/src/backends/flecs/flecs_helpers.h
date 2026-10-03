@@ -20,8 +20,10 @@ struct FlecsQueryBuilder {
     DynamicArray<ecs_term_t> terms;
     bool built = false;
 
-    FlecsQueryBuilder( EcsWorld& w, String n ) : world( w ), name( std::move( n ) ) {}
-    FlecsQueryBuilder( EcsEntity e, EcsWorld& w, String n ) : assoc_entity( e ), world( w ), name( n ) {}
+    FlecsQueryBuilder( EcsWorld& w [[clang::lifetimebound]], String n ) : world( w ), name( std::move( n ) ) {}
+    FlecsQueryBuilder( EcsEntity e, EcsWorld& w [[clang::lifetimebound]], String n ) :
+        assoc_entity( e ), world( w ), name( n )
+    {}
 
     // Wraps our data into Flecs' C struct
     // TODO: use implicit conversion opr overloading
@@ -56,7 +58,7 @@ inline ecs_entity_t map_phase( EcsSystemPhase p )
         case EcsSystemPhase::POST_FRAME:
             return EcsPostFrame;
         default:
-            NC_ASSERT( false, "Unknown system phase" );
+            NC_ASSERT_MSG( false, "Unknown system phase" );
             return 0;
     }
 }

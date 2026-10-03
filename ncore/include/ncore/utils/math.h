@@ -42,4 +42,17 @@ static size_t bytes_to_kb( size_t value )
     return value / KILOBYTE;
 }
 
+static uint32_t log2_floor( uint32_t v )
+{
+    uint32_t r = 0;
+    while (v >>= 1)
+        ++r;
+    return r;
+}
+
+static bool is_power_of_two( uint32_t v )
+{
+    return v != 0 && ( v & ( v - 1 ) ) == 0;
+}
+
 } // namespace nc::math

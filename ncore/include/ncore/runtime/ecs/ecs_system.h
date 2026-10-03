@@ -5,6 +5,7 @@
 #include <string>
 
 #include <ncore/core/types.h>
+#include <ncore/runtime/ecs/ecs_component.h>
 #include <ncore/runtime/ecs/ecs_query.h>
 
 namespace nc {
@@ -19,6 +20,12 @@ enum class EcsSystemPhase {
     UPDATE,
     POST_UPDATE,
     POST_FRAME
+};
+
+// Sort key attached to system entities; finalize_ordering() reads it.
+NC_COMPONENT( SystemOrder )
+{
+    REFLECT int32_t value = 0;
 };
 
 //------------------------------------------------------------------------------
@@ -56,14 +63,14 @@ struct SystemDelegate {
 
 class NCAPI EcsSystemBuilder {
 public:
-    EcsSystemBuilder( EcsWorld& world, const String& name );
+    EcsSystemBuilder( EcsWorld& world [[clang::lifetimebound]], const String& name );
     ~EcsSystemBuilder();
 
     EcsSystemBuilder( const EcsSystemBuilder& )            = delete;
     EcsSystemBuilder& operator=( const EcsSystemBuilder& ) = delete;
 
     template<typename... Comps>
-    EcsSystemBuilder& with()
+    EcsSystemBuilder& with() [[clang::lifetimebound]]
     {
         qb_.with<Comps...>();
         return *this;
@@ -76,25 +83,25 @@ public:
         return *this;
     }
 
-    EcsSystemBuilder& up()
+    EcsSystemBuilder& up() [[clang::lifetimebound]]
     {
         qb_.up();
         return *this;
     }
 
-    EcsSystemBuilder& self()
+    EcsSystemBuilder& self() [[clang::lifetimebound]]
     {
         qb_.self();
         return *this;
     }
 
-    EcsSystemBuilder& skip_self()
+    EcsSystemBuilder& skip_self() [[clang::lifetimebound]]
     {
         qb_.skip_self();
         return *this;
     }
 
-    EcsSystemBuilder& cascade()
+    EcsSystemBuilder& cascade() [[clang::lifetimebound]]
     {
         qb_.cascade();
         return *this;
@@ -107,27 +114,27 @@ public:
         return *this;
     }
 
-    EcsSystemBuilder& all()
+    EcsSystemBuilder& all() [[clang::lifetimebound]]
     {
         qb_.all();
         return *this;
     }
 
-    EcsSystemBuilder& all_read()
+    EcsSystemBuilder& all_read() [[clang::lifetimebound]]
     {
         qb_.all_read();
         return *this;
     }
 
-    EcsSystemBuilder& src( EcsEntity id )
+    EcsSystemBuilder& src( EcsEntity id ) [[clang::lifetimebound]]
     {
         qb_.src( id );
         return *this;
     }
 
-    EcsSystemBuilder& in( EcsSystemPhase phase );
+    EcsSystemBuilder& in( EcsSystemPhase phase ) [[clang::lifetimebound]];
 
-    EcsSystemBuilder& order( int32_t priority );
+    EcsSystemBuilder& order( int32_t priority ) [[clang::lifetimebound]];
 
     EcsEntity run( void ( *callback )( EcsIterState& ) );
     EcsEntity each( void ( *callback )( EcsIterState& ) );
@@ -163,14 +170,14 @@ private:
 
 class NCAPI EcsObserverBuilder {
 public:
-    EcsObserverBuilder( EcsWorld& world, const String& name );
+    EcsObserverBuilder( EcsWorld& world [[clang::lifetimebound]], const String& name );
     ~EcsObserverBuilder();
 
     EcsObserverBuilder( const EcsObserverBuilder& )            = delete;
     EcsObserverBuilder& operator=( const EcsObserverBuilder& ) = delete;
 
     template<class... Comps>
-    EcsObserverBuilder& on( EcsEntity evt )
+    EcsObserverBuilder& on( EcsEntity evt ) [[clang::lifetimebound]]
     {
         qb_.with<Comps...>();
         events.push_back( evt );
@@ -178,45 +185,45 @@ public:
     }
 
     template<typename... Comps>
-    EcsObserverBuilder& with()
+    EcsObserverBuilder& with() [[clang::lifetimebound]]
     {
         qb_.with<Comps...>();
         return *this;
     }
 
-    EcsObserverBuilder& event( EcsEntity evt )
+    EcsObserverBuilder& event( EcsEntity evt ) [[clang::lifetimebound]]
     {
         events.push_back( evt );
         return *this;
     }
 
     template<class T>
-    EcsObserverBuilder& event()
+    EcsObserverBuilder& event() [[clang::lifetimebound]]
     {
         auto type = rtti::TypeRegistry::find<T>();
         add_event_( type );
         return *this;
     }
 
-    EcsObserverBuilder& up()
+    EcsObserverBuilder& up() [[clang::lifetimebound]]
     {
         qb_.up();
         return *this;
     }
 
-    EcsObserverBuilder& self()
+    EcsObserverBuilder& self() [[clang::lifetimebound]]
     {
         qb_.self();
         return *this;
     }
 
-    EcsObserverBuilder& skip_self()
+    EcsObserverBuilder& skip_self() [[clang::lifetimebound]]
     {
         qb_.skip_self();
         return *this;
     }
 
-    EcsObserverBuilder& cascade()
+    EcsObserverBuilder& cascade() [[clang::lifetimebound]]
     {
         qb_.cascade();
         return *this;

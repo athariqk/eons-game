@@ -11,10 +11,6 @@
 
 namespace nc::editor {
 
-struct EditorCameraTag {
-    NSTRUCT1( EditorCameraTag )
-};
-
 void register_editor_camera( Scene& scene )
 {
     scene.get_ecs()
@@ -32,14 +28,15 @@ void register_editor_camera( Scene& scene )
         .with<EditorCameraTag, CameraComponent, Transform3DComponent>()
         .in( EcsSystemPhase::UPDATE )
         .each( []( EcsIterState& it ) {
-            auto cam   = it.get_component<CameraComponent>();
-            auto xform = it.get_component<Transform3DComponent>();
             auto state = it.world().get_singleton<EditorState>();
+            auto cam   = it.get_component<CameraComponent>();
 
             if (state->ViewportRT) {
                 cam->RenderTexture = state->ViewportRT;
                 cam->DepthTexture  = state->ViewportDT;
-                cam->DisplayRect   = Rect2i( 0, 0, state->ViewportSize.x, state->ViewportSize.y );
+                cam->DisplayRect   = Rect2i(
+                    0, 0, static_cast<int>( state->ViewportSize.x ), static_cast<int>( state->ViewportSize.y )
+                );
             }
             cam->RenderToScreen = false;
             cam->DrawCanvas     = false;
@@ -52,7 +49,6 @@ void register_editor_camera( Scene& scene )
         .each( []( EcsIterState& it ) {
             auto xform = it.get_component<Transform3DComponent>();
             auto input = it.get_component<InputComponent>();
-            auto cam   = it.get_component<CameraComponent>();
 
             auto dt = static_cast<float>( it.delta_time() );
             xform->Translation += xform->Rotation * input->Direction * input->Magnitude * dt;
@@ -104,36 +100,46 @@ void register_editor_camera( Scene& scene )
             auto vid   = it.world().get_singleton<VideoServices>();
 
             if (state->ViewportSize.x > 0 && state->ViewportSize.y > 0) {
-                if (!state->GameViewRT || state->ViewportSize != state->GameViewSize) {
-                    if (state->GameViewRT)
-                        vid->Renderer->destroy_rid( state->GameViewRT );
-                    if (state->GameViewDT)
-                        vid->Renderer->destroy_rid( state->GameViewDT );
-
-                    Vec2i gv_size(
-                        static_cast<int>( state->ViewportSize.x ), static_cast<int>( state->ViewportSize.y )
-                    );
-                    state->GameViewRT =
-                        vid->Renderer->texture_render_create( gv_size, rhi::TextureFormat::RGBA8_UNORM_SRGB );
-                    state->GameViewDT = vid->Renderer->texture_render_create( gv_size, rhi::TextureFormat::D32_FLOAT );
-                    state->GameViewSize = state->ViewportSize;
-                }
-
-                cam->RenderTexture = state->GameViewRT;
-                cam->DepthTexture  = state->GameViewDT;
-                cam->DisplayRect   = Rect2i(
-                    0, 0, static_cast<int>( state->GameViewSize.x ), static_cast<int>( state->GameViewSize.y )
-                );
                 cam->RenderToScreen = false;
                 cam->DrawCanvas     = false;
+
+                if (state->RenderGameView) {
+                    if (!state->GameViewRT || state->ViewportSize != state->GameViewSize) {
+                        if (state->GameViewRT)
+                            vid->Renderer->destroy_rid( state->GameViewRT );
+                        if (state->GameViewDT)
+                            vid->Renderer->destroy_rid( state->GameViewDT );
+
+                        Vec2i gv_size(
+                            static_cast<int>( state->ViewportSize.x ), static_cast<int>( state->ViewportSize.y )
+                        );
+                        state->GameViewRT =
+                            vid->Renderer->texture_render_create( gv_size, gfx::TextureFormat::RGBA8_UNORM_SRGB );
+                        state->GameViewDT =
+                            vid->Renderer->texture_render_create( gv_size, gfx::TextureFormat::D32_FLOAT );
+                        state->GameViewSize = state->ViewportSize;
+                    }
+
+                    cam->RenderTexture = state->GameViewRT;
+                    cam->DepthTexture  = state->GameViewDT;
+                    cam->DisplayRect   = Rect2i(
+                        0, 0, static_cast<int>( state->GameViewSize.x ), static_cast<int>( state->GameViewSize.y )
+                    );
+                } else {
+                    // Game View hidden: clear the target so its render pass is skipped entirely.
+                    cam->RenderTexture = 0;
+                    cam->DepthTexture  = 0;
+                }
             }
         } );
 
     auto editor_cam = scene.root()->create_child( "EditorCamera" );
     editor_cam->add_component<EditorCameraTag>();
-    editor_cam->add_component<Transform3DComponent>(
-        Transform3DComponent{ Vec3( 0, 0, 0 ), Quaternion::identity(), Vec3( 1, 1, 1 ) }
-    );
+    // Spawn outside the demo scene contents: at the origin the camera sits inside
+    // the unit cube at (0,0,0), so back-face culling renders a black viewport.
+    editor_cam->add_component<Transform3DComponent>( Transform3DComponent{
+        .Translation = Vec3( 0, 2, 6 ), .Rotation = Quaternion::identity(), .Scale = Vec3( 1, 1, 1 )
+    } );
     editor_cam->add_component<CameraComponent>();
     editor_cam->add_component<InputComponent>();
 }

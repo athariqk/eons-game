@@ -25,8 +25,8 @@ class Node;
  * handling ECS component registration, lookups etc which leverages our
  * existing RTTI system all in one place.
  */
-class NCAPI EcsWorld : public NcObject {
-    NCLASS( EcsWorld, NcObject )
+class NCAPI EcsWorld : public Object {
+    NCLASS( EcsWorld, Object )
 
 public:
     EcsWorld();
@@ -47,13 +47,13 @@ public:
      * @param name New/existing entity name.
      * @return A fluent builder for registering named entity.
      */
-    EcsEntityBuilder entity( const String& name = String() );
+    EcsEntityBuilder entity( const String& name = String() ) [[clang::lifetimebound]];
     /**
      * @brief Create a new entity OR edit an existing one.
      * @param entity New/existing entity ID.
      * @return A fluent builder for registering entity.
      */
-    EcsEntityBuilder entity( EcsEntity entity );
+    EcsEntityBuilder entity( EcsEntity entity ) [[clang::lifetimebound]];
     /**
      * @brief Lookup entity info by its name.
      * @param parent If a valid ID, then a child entity of this entity will be searched.
@@ -62,7 +62,7 @@ public:
     /**
      * @brief Lookup entity name by its ID.
      */
-    StringView lookup( EcsEntity entity ) const;
+    StringView lookup( EcsEntity entity ) const [[clang::lifetimebound]];
     /**
      * @brief Return all alive entities.
      */
@@ -109,7 +109,7 @@ public:
      *
      * @return Non-owning list of component TypeInfo.
      */
-    Span<const rtti::TypeInfo*> get_component_types() const;
+    Span<const rtti::TypeInfo*> get_component_types() const [[clang::lifetimebound]];
 
     /**
      * @brief Remove a component from entity.
@@ -200,7 +200,7 @@ public:
      * @brief Create a new system.
      * @return A fluent builder for registering a stateless system.
      */
-    EcsSystemBuilder system( StringView name );
+    EcsSystemBuilder system( StringView name ) [[clang::lifetimebound]];
 
     /**
      * @brief Create a new query.
@@ -214,7 +214,7 @@ public:
      * @brief Create a new event observer.
      * @return A fluent builder for registering an event observer.
      */
-    EcsObserverBuilder observer( StringView name );
+    EcsObserverBuilder observer( StringView name ) [[clang::lifetimebound]];
 
     /**
      * @brief Sorts systems within each pipeline phase by their order() value
@@ -243,7 +243,7 @@ private:
     get_component_const_( EcsEntity cid, const rtti::TypeInfo* type ) const; // returns const ptr, no staging
     bool has_component_( EcsEntity cid, const rtti::TypeInfo* type ) const;
     void remove_component_( EcsEntity cid, const rtti::TypeInfo* type ) const;
-    EcsQuery create_query_( const String& name, void* data );
+    EcsQuery create_query_( const String& name, void* data ) [[clang::lifetimebound]];
     void emit_event_( const rtti::TypeInfo* type, EcsEntity target, const void* data ) const;
 
     struct Impl;

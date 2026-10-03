@@ -2,30 +2,43 @@
 
 #include <imgui.h>
 
+#include <ncore/core/rid.h>
 #include <ncore/core/types.h>
+#include <ncore/core/vector.h>
+#include <ncore/runtime/ecs/ecs_component.h>
+#include <ncore/runtime/node.h>
+#include <ncore/runtime/scene.h>
 #include <ncore/services/video/window/window_types.h>
 
 namespace nc::editor {
 
-struct GuiStateComponent {
+NC_COMPONENT( EditorCameraTag ){};
+
+NC_COMPONENT( GuiStateComponent )
+{
     ImGuiContext* ImGuiCtx = nullptr;
     HashMap<ImGuiMouseCursor, nc::CursorType> CursorMap;
-    RID Material;
-    NSTRUCTV(
-        GuiStateComponent, NC_F( GuiStateComponent, ImGuiCtx ), NC_F( GuiStateComponent, CursorMap ),
-        NC_F( GuiStateComponent, Material )
-    )
+    RID CanvasItem;
+
+    NC_PROPS_BEGIN()
+    ADD_PROPERTY( ImGuiCtx )
+    ADD_PROPERTY( CursorMap )
+    ADD_PROPERTY( CanvasItem )
+    NC_PROPS_END()
 };
 
-struct EditorState {
+NC_COMPONENT( EditorState )
+{
     Scene* CurrentScene        = nullptr;
     RID EditorCamSource        = 0;
     RID ViewportRT             = 0; // render texture.
     RID ViewportDT             = 0; // depth texture.
     Vec2f ViewportSize         = Vec2f();
+    bool ShowGameView          = true;
     RID GameViewRT             = 0; // offscreen RT for game cameras.
     RID GameViewDT             = 0; // offscreen depth for game cameras.
     Vec2f GameViewSize         = Vec2f();
+    bool RenderGameView        = true;
     bool ViewportFocused       = false;
     bool ViewportHovered       = false;
     ImGuiID DockspaceId        = 0;
@@ -51,14 +64,25 @@ struct EditorState {
     int XformGizmoOperation = 14463; // default = universal op
     bool DrawWireframe      = 0;
 
-    NSTRUCTV(
-        EditorState, NC_F( EditorState, CurrentScene ), NC_F( EditorState, EditorCamSource ),
-        NC_F( EditorState, ViewportRT ), NC_F( EditorState, ViewportDT ), NC_F( EditorState, ViewportSize ),
-        NC_F( EditorState, GameViewRT ), NC_F( EditorState, GameViewDT ), NC_F( EditorState, GameViewSize ),
-        NC_F( EditorState, ViewportFocused ), NC_F( EditorState, ViewportHovered ), NC_F( EditorState, DockspaceId ),
-        NC_F( EditorState, ShowStatsWindow ), NC_F( EditorState, ShowInputsWindow ),
-        NC_F( EditorState, ShowLogsWindow ), NC_F( EditorState, SelectedNode )
-    )
+    NC_PROPS_BEGIN()
+    ADD_PROPERTY( CurrentScene )
+    ADD_PROPERTY( EditorCamSource )
+    ADD_PROPERTY( ViewportRT )
+    ADD_PROPERTY( ViewportDT )
+    ADD_PROPERTY( ViewportSize )
+    ADD_PROPERTY( ShowGameView )
+    ADD_PROPERTY( GameViewRT )
+    ADD_PROPERTY( GameViewDT )
+    ADD_PROPERTY( GameViewSize )
+    ADD_PROPERTY( RenderGameView )
+    ADD_PROPERTY( ViewportFocused )
+    ADD_PROPERTY( ViewportHovered )
+    ADD_PROPERTY( DockspaceId )
+    ADD_PROPERTY( ShowStatsWindow )
+    ADD_PROPERTY( ShowInputsWindow )
+    ADD_PROPERTY( ShowLogsWindow )
+    ADD_PROPERTY( SelectedNode )
+    NC_PROPS_END()
 };
 
 } // namespace nc::editor

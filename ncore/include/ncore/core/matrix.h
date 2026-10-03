@@ -7,8 +7,10 @@ namespace nc {
 /**
  * @brief Mat3 is a 3x3 matrix with column-major order.
  */
-struct NCAPI Mat3 {
-    Vec3 col0, col1, col2;
+struct REFLECT NCAPI Mat3 {
+    REFLECT Vec3 col0;
+    REFLECT Vec3 col1;
+    REFLECT Vec3 col2;
 
     Mat3() = default;
     Mat3( Vec3 pcol0, Vec3 pcol1, Vec3 pcol2 ) : col0( pcol0 ), col1( pcol1 ), col2( pcol2 ) {}
@@ -23,26 +25,27 @@ struct NCAPI Mat3 {
         );
         // clang-format on
     }
-
-    NSTRUCTV( Mat3, NC_F( Mat3, col0 ), NC_F( Mat3, col1 ), NC_F( Mat3, col2 ) )
 };
 
 /**
  * @brief Mat4 is a 4x4 matrix with column-major order.
  */
-struct NCAPI Mat4 {
-    Vec4 col0, col1, col2, col3;
+struct REFLECT NCAPI Mat4 {
+    REFLECT Vec4 col0;
+    REFLECT Vec4 col1;
+    REFLECT Vec4 col2;
+    REFLECT Vec4 col3;
 
     Mat4() = default;
     Mat4( const Vec4& pcol0, const Vec4& pcol1, const Vec4& pcol2, const Vec4& pcol3 ) :
         col0( pcol0 ), col1( pcol1 ), col2( pcol2 ), col3( pcol3 )
     {}
 
-    float* data()
+    float* data() [[clang::lifetimebound]]
     {
         return &col0.x;
     }
-    const float* data() const
+    const float* data() const [[clang::lifetimebound]]
     {
         return &col0.x;
     }
@@ -52,7 +55,7 @@ struct NCAPI Mat4 {
         return data()[column * 4 + row];
     }
 
-    float* write( int column, int row )
+    float* write( int column, int row ) [[clang::lifetimebound]]
     {
         return data() + column * 4 + row;
     }
@@ -139,7 +142,7 @@ struct NCAPI Mat4 {
 
         // we calculate its determinant by using vector cross product.
         auto det = block[0].dot( block[1].cross( block[2] ) );
-        NC_ASSERT( det > 0, "Matrix is singular (non-invertible)" );
+        NC_ASSERT_MSG( det > 0, "Matrix is singular (non-invertible)" );
 
         // find its adjoint matrix.
         auto adj0 = block[1].cross( block[2] );
@@ -220,8 +223,6 @@ struct NCAPI Mat4 {
     {
         return Mat4::ortho_normalize( *this );
     }
-
-    NSTRUCTV( Mat4, NC_F( Mat4, col0 ), NC_F( Mat4, col1 ), NC_F( Mat4, col2 ), NC_F( Mat4, col3 ) )
 };
 
 } // namespace nc

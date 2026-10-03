@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 namespace nc {
 
 enum class WindowMode {
@@ -7,10 +9,6 @@ enum class WindowMode {
     MAXIMIZED,
     FULLSCREEN
 };
-NENUM(
-    WindowMode, NENUM_ELEMENT( WindowMode, WINDOWED ), NENUM_ELEMENT( WindowMode, MAXIMIZED ),
-    NENUM_ELEMENT( WindowMode, FULLSCREEN )
-);
 
 enum class CursorType : uint8_t {
     DEFAULT = 0,

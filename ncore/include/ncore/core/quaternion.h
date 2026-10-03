@@ -2,6 +2,7 @@
 
 #include <numbers>
 
+#include "matrix.h"
 #include "vector.h"
 
 namespace nc {
@@ -15,13 +16,11 @@ namespace nc {
  * https://imadrahmoune.com/rotations-with-quaternions/
  * http://number-none.com/product/Understanding%20Slerp,%20Then%20Not%20Using%20It/
  */
-struct NCAPI Quaternion {
-    float w = 0;
-    Vec3 v  = Vec3();
+struct REFLECT NCAPI Quaternion {
+    REFLECT float w = 0;
+    REFLECT Vec3 v  = Vec3();
 
     Quaternion() = default;
-
-    NSTRUCTV( Quaternion, NC_F( Quaternion, w ), NC_F( Quaternion, v ) )
 
     /**
      * @brief Initialize a new quaternion from angle axis.

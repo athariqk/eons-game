@@ -342,7 +342,7 @@ EcsQueryBuilder::~EcsQueryBuilder()
 
 void EcsQueryBuilder::add_term_impl( const rtti::TypeInfo* type, uint8_t inout )
 {
-    NC_ASSERT( type, "Component type not registered in rtti::TypeRegistry" );
+    NC_ASSERT_MSG( type, "Component type not registered in rtti::TypeRegistry" );
     EcsComponent comp_id = pImpl->world.register_component_type( type );
 
     ecs_term_t term{};
@@ -355,7 +355,7 @@ void EcsQueryBuilder::add_term_pair_impl(
     const rtti::TypeInfo* first_type, const rtti::TypeInfo* sec_type, uint8_t inout
 )
 {
-    NC_ASSERT( first_type && sec_type, "Pair component types not registered" );
+    NC_ASSERT_MSG( first_type && sec_type, "Pair component types not registered" );
     EcsComponent first_id  = pImpl->world.register_component_type( first_type );
     EcsComponent second_id = pImpl->world.register_component_type( sec_type );
 
@@ -448,7 +448,7 @@ const String& EcsQueryBuilder::name() const
 EcsQuery EcsQueryBuilder::build()
 {
     size_t term_count = pImpl->terms.size();
-    NC_ASSERT( term_count <= FLECS_TERM_COUNT_MAX, std::format( "Too many query terms ({})", term_count ).c_str() );
+    NC_ASSERT_MSG( term_count <= FLECS_TERM_COUNT_MAX, std::format( "Too many query terms ({})", term_count ).c_str() );
 
     ecs_query_desc_t qdesc = pImpl->get_as_descriptor();
     EcsQuery result        = pImpl->world.create_query_( pImpl->name, &qdesc );

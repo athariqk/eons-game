@@ -5,13 +5,13 @@
 namespace nc {
 
 namespace EcsCoreEvent {
-const EcsEntity OnAdd          = 300;
-const EcsEntity OnRemove       = 301;
-const EcsEntity OnSet          = 302;
-const EcsEntity OnDelete       = 303;
-const EcsEntity OnDeleteTarget = 304;
-const EcsEntity OnTableCreate  = 305;
-const EcsEntity OnTableDelete  = 306;
+inline constexpr EcsEntity OnAdd          = 300;
+inline constexpr EcsEntity OnRemove       = 301;
+inline constexpr EcsEntity OnSet          = 302;
+inline constexpr EcsEntity OnDelete       = 303;
+inline constexpr EcsEntity OnDeleteTarget = 304;
+inline constexpr EcsEntity OnTableCreate  = 305;
+inline constexpr EcsEntity OnTableDelete  = 306;
 
 } // namespace EcsCoreEvent
 

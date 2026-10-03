@@ -2,16 +2,16 @@
 #define NOMINMAX
 #endif
 
+#include <algorithm>
+#include <bit>
 #include <cmath>
 
-#include <backends/diligent/rhi_diligent.h>
+#include <backends/diligent/gfx_diligent.h>
 
 #include <ncore/core/matrix.h>
 #include <ncore/core/rect.h>
 #include <ncore/core/vector.h>
-#include <ncore/resources/image.h>
-#include <ncore/resources/material_template.h>
-#include <ncore/resources/mesh.h>
+#include <ncore/resources/resource.h>
 #include <ncore/services/video/render_service.h>
 #include <ncore/services/video/renderer/vertex_format.h>
 #include <ncore/utils/config.h>
@@ -23,10 +23,10 @@ Error RenderService::init( ConfFile& cfg_file )
 {
     settings = cfg_file.read<RenderSettings>();
 
-    gfx_api = std::make_unique<DiligentRHI>();
+    gfx_api = std::make_unique<DiligentGfxImpl>();
     gfx_api->load_pso_cache();
 
-    ctx.gfx_device_ctx = gfx_api->create_deferred_context( GpuQueue::GRAPHICS );
+    gfx_device_ctx = gfx_api->create_deferred_context( GpuQueue::GRAPHICS );
 
     storage.set_graphics_api( gfx_api.get() );
 
@@ -40,10 +40,10 @@ void RenderService::shutdown()
     }
     swapchains.clear();
 
-    if (canvas_vb.is_valid())
-        gfx_api->destroy_rid( canvas_vb );
-    if (canvas_ib.is_valid())
-        gfx_api->destroy_rid( canvas_ib );
+    if (canvas_vbo.is_valid())
+        gfx_api->destroy_rid( canvas_vbo );
+    if (canvas_ibo.is_valid())
+        gfx_api->destroy_rid( canvas_ibo );
 
     storage.flush_pending_destroys();
     gfx_api->save_pso_cache();
@@ -54,10 +54,10 @@ void RenderService::shutdown()
 // ---------------------------------------------------------------------------
 
 RID RenderService::swapchain_create(
-    void* whnd, Vec2i size, rhi::TextureFormat color_format, rhi::TextureFormat depth_format
+    void* whnd, Vec2i size, gfx::TextureFormat color_format, gfx::TextureFormat depth_format
 )
 {
-    rhi::SwapChainDesc desc{
+    gfx::SwapChainDesc desc{
         .native_whnd  = whnd,
         .initial_size = size,
         .is_primary   = true,
@@ -65,7 +65,9 @@ RID RenderService::swapchain_create(
         .depth_format = depth_format
     };
     RID rid = gfx_api->swapchain_create( desc );
-    swapchains.push_back( rid );
+    swapchains.insert( rid );
+    if (!primary_swapchain)
+        primary_swapchain = rid;
     return rid;
 }
 
@@ -81,27 +83,29 @@ Vec2i RenderService::swapchain_get_size( RID swapchain )
 
 RID RenderService::swapchain_get_primary() const
 {
-    return swapchains.empty() ? RID() : swapchains[0];
+    return primary_swapchain;
 }
 
 void RenderService::swapchain_destroy( RID swapchain )
 {
     gfx_api->swapchain_destroy( swapchain );
-    std::erase( swapchains, swapchain );
+    swapchains.erase( swapchain );
+    if (primary_swapchain == swapchain)
+        primary_swapchain = 0;
 }
 
 // ---------------------------------------------------------------------------
 
 RID RenderService::texture_2d_create( const Image& image )
 {
-    rhi::TextureDesc desc{};
-    desc.debug_name  = image.filepath;
-    desc.format      = rhi::TextureFormat::RGBA8_UNORM_SRGB;
-    desc.dimension   = rhi::ResourceDimension::DIM_2D;
-    desc.usage       = rhi::ResourceUsage::DYNAMIC;
-    desc.access_mask = rhi::ResourceAccessFlags::WRITE;
-    desc.width       = image.get_width();
-    desc.height      = image.get_height();
+    gfx::TextureDesc desc{};
+    desc.debug_name      = image.filepath;
+    desc.format          = gfx::TextureFormat::RGBA8_UNORM_SRGB;
+    desc.dimension       = gfx::ResourceDimension::DIM_2D;
+    desc.usage           = gfx::ResourceUsage::DYNAMIC;
+    desc.cpu_access_mask = gfx::ResourceCpuAccessFlags::WRITE;
+    desc.width           = image.get_width();
+    desc.height          = image.get_height();
     desc.subresources.emplace_back( image.get_pixels().data() );
     return gfx_api->texture_create( desc );
 }
@@ -110,12 +114,12 @@ RID RenderService::texture_cube_create( const CubeMap& cubemap )
 {
     auto faces = cubemap.get_faces();
 
-    rhi::TextureDesc desc;
+    gfx::TextureDesc desc;
     auto name       = std::format( "CubeTexture_{}_{}", cubemap.rid.value, cubemap.filepath );
     desc.debug_name = name;
-    desc.format     = rhi::TextureFormat::RGBA8_UNORM_SRGB;
-    desc.dimension  = rhi::ResourceDimension::DIM_CUBE;
-    desc.usage      = rhi::ResourceUsage::IMMUTABLE;
+    desc.format     = gfx::TextureFormat::RGBA8_UNORM_SRGB;
+    desc.dimension  = gfx::ResourceDimension::DIM_CUBE;
+    desc.usage      = gfx::ResourceUsage::IMMUTABLE;
     desc.width      = faces[0]->get_width();
     desc.height     = faces[0]->get_height();
     desc.array_size = 6;
@@ -125,27 +129,27 @@ RID RenderService::texture_cube_create( const CubeMap& cubemap )
     return gfx_api->texture_create( desc );
 }
 
-RID RenderService::texture_render_create( Vec2i size, rhi::TextureFormat format )
+RID RenderService::texture_render_create( Vec2i size, gfx::TextureFormat format )
 {
-    rhi::ResourceBindFlags bind_mask = rhi::ResourceBindFlags::NONE;
-    if (format == rhi::TextureFormat::D32_FLOAT) {
-        bind_mask = rhi::ResourceBindFlags::DEPTH_STENCIL;
+    gfx::ResourceBindFlags bind_mask = gfx::ResourceBindFlags::NONE;
+    if (format == gfx::TextureFormat::D32_FLOAT) {
+        bind_mask = gfx::ResourceBindFlags::DEPTH_STENCIL;
     } else {
-        bind_mask = rhi::ResourceBindFlags::RENDER_TARGET | rhi::ResourceBindFlags::SHADER_RESOURCE;
+        bind_mask = gfx::ResourceBindFlags::RENDER_TARGET | gfx::ResourceBindFlags::SHADER_RESOURCE;
     }
 
-    rhi::TextureDesc desc{};
+    gfx::TextureDesc desc{};
     desc.debug_name = "RenderTexture";
     desc.format     = format;
-    desc.dimension  = rhi::ResourceDimension::DIM_2D;
-    desc.usage      = rhi::ResourceUsage::DEFAULT;
+    desc.dimension  = gfx::ResourceDimension::DIM_2D;
+    desc.usage      = gfx::ResourceUsage::DEFAULT;
     desc.bind_mask  = bind_mask;
     desc.width      = size.x;
     desc.height     = size.y;
     return gfx_api->texture_create( desc );
 }
 
-void* RenderService::texture_view_get( RID texture, rhi::TextureViewType view )
+void* RenderService::texture_view_get( RID texture, gfx::TextureViewType view )
 {
     return gfx_api->texture_view_get( texture, view );
 }
@@ -154,27 +158,29 @@ void RenderService::texture_blit( RID tex_src, RID tex_dest )
 {
     bool to_swapchain = !tex_dest;
     if (to_swapchain) {
-        NC_FAIL_MSG_RET( swapchains.size() > 0, "Target texture is set to default (primary swapchain) but none exist" );
-        tex_dest = swapchains[0];
+        NC_FAIL_MSG_RET(
+            primary_swapchain, "Target texture is set to default (primary swapchain) but it does not exist"
+        );
+        tex_dest = primary_swapchain;
     }
     gfx_api->texture_blit( tex_src, tex_dest, to_swapchain );
 }
 
 //------------------------------------------------------------------------------
 
-RID RenderService::buffer_create( const rhi::BufferDesc& desc )
+RID RenderService::buffer_create( const gfx::BufferDesc& desc )
 {
     return gfx_api->buffer_create( desc );
 }
 
-void RenderService::buffer_data_write( RID p_buffer, Span<const std::byte> p_src )
+void RenderService::buffer_data_write( RID p_buffer, const void* p_src, size_t p_src_size )
 {
-    gfx_api->buffer_data_write( p_buffer, p_src );
+    gfx_api->buffer_data_write( p_buffer, p_src, p_src_size );
 }
 
-void RenderService::buffer_data_read( RID p_buffer, Span<std::byte> p_dst )
+void RenderService::buffer_data_read( RID p_buffer, void* p_dst, size_t p_dst_size )
 {
-    gfx_api->buffer_data_read( p_buffer, p_dst );
+    gfx_api->buffer_data_read( p_buffer, p_dst, p_dst_size );
 }
 
 void RenderService::buffer_blit( RID p_src_buffer, RID p_dst_buffer )
@@ -183,7 +189,7 @@ void RenderService::buffer_blit( RID p_src_buffer, RID p_dst_buffer )
 }
 
 RID RenderService::resource_set_create(
-    const Shader& p_shader, uint8_t p_set_idx, Span<const rhi::ResourceMappingEntry> p_resources
+    const Shader& p_shader, uint8_t p_set_idx, Span<const gfx::ResourceMappingEntry> p_resources
 )
 {
     return storage.resource_set_create( p_shader, p_set_idx, p_resources );
@@ -196,9 +202,14 @@ void RenderService::resource_set_bind( RID p_resource_set )
 
 //------------------------------------------------------------------------------
 
-RID RenderService::material_create( const MaterialTemplate& tmpl )
+RID RenderService::material_create( const Ref<MaterialShader>& p_shader )
 {
-    return storage.material_create( tmpl );
+    return storage.material_create( p_shader );
+}
+
+void RenderService::material_set_param( RID p_material, const String& p_name, const void* p_data, size_t p_data_size )
+{
+    storage.material_set_param( p_material, p_name, p_data, p_data_size );
 }
 
 void RenderService::material_set_texture( RID material, RID texture, uint32_t slot )
@@ -206,16 +217,16 @@ void RenderService::material_set_texture( RID material, RID texture, uint32_t sl
     storage.material_set_texture( material, texture, slot );
 }
 
-void RenderService::material_set_draw_mode( RID material, rhi::FillMode mode )
+void RenderService::material_set_draw_mode( RID material, gfx::FillMode mode )
 {
     storage.material_set_draw_mode( material, mode );
 }
 
 //------------------------------------------------------------------------------
 
-RID RenderService::gpu_mesh_create( const Mesh& mesh )
+RID RenderService::mesh_create( const Mesh& mesh )
 {
-    return storage.gpu_mesh_create( mesh );
+    return storage.mesh_create( mesh );
 }
 
 //------------------------------------------------------------------------------
@@ -223,17 +234,16 @@ RID RenderService::gpu_mesh_create( const Mesh& mesh )
 RID RenderService::compute_pipeline_create( const Shader& p_shader, Span<const RID> p_resource_sets )
 {
     RenderStorage::PSOKey key;
-    key.debug_name = p_shader.filepath + "_ComputePSO";
+    key.debug_name = "ComputePSO_" + p_shader.filepath;
     key.cs         = gfx_api->shader_create(
-        rhi::ShaderCreateDesc{
-            .name     = p_shader.filepath + "_CS",
-            .stage    = rhi::ShaderStage::COMPUTE,
-            .bytecode = p_shader.get_bytecode( rhi::ShaderStage::COMPUTE )
+        gfx::ShaderCreateDesc{
+            .name     = "ComputeShader_" + p_shader.filepath,
+            .stage    = gfx::ShaderStage::COMPUTE,
+            .bytecode = p_shader.get_bytecode( gfx::ShaderStage::COMPUTE )
         }
     );
     for (auto& e : p_resource_sets) {
-        auto set = storage.resource_sets.get( e );
-        NC_VERIFY( set );
+        auto set = storage.resource_sets.get_or_fail( e );
         key.res_signatures.push_back( set->signature );
     }
     return storage.get_compute_pipeline_or_create( key );
@@ -267,7 +277,18 @@ RenderService::CameraAttribs& RenderService::camera_get_attribs( RID camera )
 
 Mat4 RenderService::camera_get_perspective( RID camera )
 {
-    auto& attribs = camera_get_attribs( camera );
+    return camera_get_perspective_( camera_get_attribs( camera ) );
+}
+
+Mat4 RenderService::camera_get_perspective_( CameraAttribs& attribs )
+{
+    // Reuse the cached matrix unless a projection input changed. Compare floats bitwise
+    // so we recompute exactly when a value changes, without tripping -Wfloat-equal.
+    const bool same_fov  = std::bit_cast<uint32_t>( attribs.cached_fov ) == std::bit_cast<uint32_t>( attribs.Fov );
+    const bool same_near = std::bit_cast<uint32_t>( attribs.cached_znear ) == std::bit_cast<uint32_t>( attribs.zNear );
+    const bool same_far  = std::bit_cast<uint32_t>( attribs.cached_zfar ) == std::bit_cast<uint32_t>( attribs.zFar );
+    if (same_fov && same_near && same_far && attribs.cached_display == attribs.DisplaySize)
+        return attribs.cached_proj;
 
     // perspective projection from target size
     // https://www.scratchapixel.com/lessons/3d-basic-rendering/perspective-and-orthographic-projection-matrix//building-basic-perspective-projection-matrix.html
@@ -280,12 +301,410 @@ Mat4 RenderService::camera_get_perspective( RID camera )
     const auto zz           = -f / ( f - n );     // used to remap z to [0,1]
     const auto wz           = -f * n / ( f - n ); // used to remap z [0,1]
 
-    return Mat4(
+    attribs.cached_proj = Mat4(
         Vec4( x_scale, 0, 0, 0 ), // scale the x coordinates of the projected point
         Vec4( 0, y_scale, 0, 0 ), // scale the y coordinates of the projected point
         Vec4( 0, 0, zz, -1 ),     // set w = -z
         Vec4( 0, 0, wz, 0 )
     );
+    attribs.cached_fov     = attribs.Fov;
+    attribs.cached_znear   = attribs.zNear;
+    attribs.cached_zfar    = attribs.zFar;
+    attribs.cached_display = attribs.DisplaySize;
+
+    return attribs.cached_proj;
+}
+
+// ---------------------------------------------------------------------------
+
+RID RenderService::spatial_item_create()
+{
+    return ctx.spatial_items.acquire();
+}
+
+void RenderService::spatial_item_set_mesh( RID p_spatial_item, RID p_gpu_mesh )
+{
+    auto item      = ctx.spatial_items.get_or_fail( p_spatial_item );
+    item->gpu_mesh = p_gpu_mesh;
+}
+
+void RenderService::spatial_item_set_transform( RID p_spatial_item, const Mat4& p_transform )
+{
+    auto item       = ctx.spatial_items.get_or_fail( p_spatial_item );
+    item->transform = p_transform;
+}
+
+void RenderService::spatial_item_set_material( RID p_spatial_item, RID p_material )
+{
+    auto item      = ctx.spatial_items.get_or_fail( p_spatial_item );
+    item->material = p_material;
+}
+
+void RenderService::spatial_item_draw( RID p_spatial_item, uint32_t instancing )
+{
+    auto item = ctx.spatial_items.get_or_fail( p_spatial_item );
+    // alloc() hands out raw storage — emplace() runs the constructors so the
+    // remaining fields are not whatever was in the arena
+    auto cmd = ctx.spatial_draw_cmds.emplace();
+    if (!cmd) {
+        NC_LOG_ERROR_C( log::GRAPHICS, "spatial_item_draw: spatial draw command arena is full, draw skipped" );
+        return;
+    }
+    cmd->item         = item;
+    cmd->instancing   = instancing;
+    cmd->index_count  = storage.mesh_get_index_count( item->gpu_mesh );
+    // RID is (validator << 32) | index; the index is the stable slot id, so use only
+    // the low 32 bits of each handle. Packing the full 64-bit mesh value into the key
+    // would overlap the material bits via OR and break the sort order.
+    uint64_t mat_key  = ( item->material.value & 0xFFFFFFFFull ) << 32;
+    uint64_t mesh_key = ( item->gpu_mesh.value & 0xFFFFFFFFull );
+    cmd->sort_key     = mat_key | mesh_key;
+}
+
+// ---------------------------------------------------------------------------
+
+RID RenderService::canvas_item_create()
+{
+    return ctx.canvas_items.acquire();
+}
+
+void RenderService::canvas_item_set_material( RID p_canvas_item, RID p_material )
+{
+    auto item      = ctx.canvas_items.get_or_fail( p_canvas_item );
+    item->material = p_material;
+}
+
+void RenderService::canvas_item_set_clipping( RID p_canvas_item, Rect2i clip )
+{
+    auto item  = ctx.canvas_items.get_or_fail( p_canvas_item );
+    item->clip = clip;
+}
+
+void RenderService::canvas_item_add_triangles(
+    RID p_canvas_item, Span<const Vertex2D> verts, Span<const uint16_t> indices
+)
+{
+    auto item = ctx.canvas_items.get_or_fail( p_canvas_item );
+    item->verts.assign( verts.begin(), verts.end() );
+    item->indices.assign( indices.begin(), indices.end() );
+}
+
+void RenderService::canvas_item_add_quad(
+    RID p_canvas_item, Vec2f p_points[4], Rect2i p_uv_rect, Color p_tint, RID p_texture
+)
+{
+    float u0 = static_cast<float>( p_uv_rect.x );
+    float v0 = static_cast<float>( p_uv_rect.y );
+    float u1 = static_cast<float>( p_uv_rect.w );
+    float v1 = static_cast<float>( p_uv_rect.h );
+
+    uint32_t c = static_cast<uint32_t>( p_tint.r ) | ( static_cast<uint32_t>( p_tint.g ) << 8 ) |
+                 ( static_cast<uint32_t>( p_tint.b ) << 16 ) | ( static_cast<uint32_t>( p_tint.a ) << 24 );
+
+    Vertex2D vertices[4] = {
+        { p_points[0].x, p_points[0].y, u0, v0, c },
+        { p_points[1].x, p_points[1].y, u1, v0, c },
+        { p_points[2].x, p_points[2].y, u1, v1, c },
+        { p_points[3].x, p_points[3].y, u0, v1, c }
+    };
+
+    uint16_t indices[6] = { 0, 1, 2, 2, 3, 0 };
+
+    auto item       = ctx.canvas_items.get_or_fail( p_canvas_item );
+    item->texture   = p_texture;
+    canvas_item_add_triangles( p_canvas_item, vertices, indices );
+}
+
+void RenderService::canvas_item_draw( RID p_canvas_item, uint32_t z_order )
+{
+    auto item      = ctx.canvas_items.get_or_fail( p_canvas_item );
+    auto cmd       = ctx.canvas_draw_cmds.emplace();
+    if (!cmd) {
+        NC_LOG_ERROR_C( log::GRAPHICS, "canvas_item_draw: canvas draw command arena is full, draw skipped" );
+        return;
+    }
+    cmd->item             = item;
+    cmd->idx_count        = static_cast<uint32_t>( item->indices.size() );
+    cmd->texture_override = item->texture;
+    cmd->z_order          = z_order;
+
+    ctx.canvas_staging_vert_count += static_cast<uint32_t>( item->verts.size() );
+    ctx.canvas_staging_idx_count += static_cast<uint32_t>( item->indices.size() );
+}
+
+void RenderService::canvas_item_draw(
+    RID p_canvas_item, Span<const Vertex2D> p_verts_override, Span<const uint16_t> p_indices_override,
+    RID p_texture_override, Rect2i p_clip_override, uint32_t z_order
+)
+{
+    auto item             = ctx.canvas_items.get_or_fail( p_canvas_item );
+    auto cmd              = ctx.canvas_draw_cmds.emplace();
+    if (!cmd) {
+        NC_LOG_ERROR_C( log::GRAPHICS, "canvas_item_draw: canvas draw command arena is full, draw skipped" );
+        return;
+    }
+    cmd->item             = item;
+    cmd->idx_count        = static_cast<uint32_t>( p_indices_override.size() );
+    cmd->verts_override   = p_verts_override;
+    cmd->indices_override = p_indices_override;
+    cmd->texture_override = p_texture_override;
+    cmd->clip_override    = p_clip_override;
+    cmd->z_order          = z_order;
+
+    ctx.canvas_override_vert_count += static_cast<uint32_t>( p_verts_override.size() );
+    ctx.canvas_override_idx_count += static_cast<uint32_t>( p_indices_override.size() );
+}
+
+// ---------------------------------------------------------------------------
+
+void RenderService::prepare_frame( float delta_time )
+{
+    time += delta_time;
+    last_dt_ = delta_time;
+    storage.next_frame();
+    pass_count = 0;
+
+    // any compute work submitted this frame must be visible to the
+    // graphics queue before we record draws.
+    gfx_api->queue_submit_and_wait( GpuQueue::COMPUTE, GpuQueue::GRAPHICS );
+
+    gfx_api->set_queue( GpuQueue::GRAPHICS );
+    gfx_api->set_context_state( false );
+    gfx_api->begin_queries();
+}
+
+void RenderService::render_frame( const RenderFrameDesc& p_frame_desc )
+{
+    auto target_size = p_frame_desc.rectangle.size();
+
+    void* rtv = nullptr;
+    void* dsv = nullptr;
+
+    if (p_frame_desc.to_screen) {
+        auto primary = swapchain_get_primary();
+        NC_ASSERT_MSG( primary, "No primary swapchain exist to render onto" );
+        rtv         = gfx_api->swapchain_get_view( primary, gfx::TextureViewType::RENDER_TARGET );
+        dsv         = gfx_api->swapchain_get_view( primary, gfx::TextureViewType::DEPTH_STENCIL );
+        target_size = gfx_api->swapchain_get_size( primary );
+    } else if (p_frame_desc.color_texture && gfx_api->is_rid_owned( p_frame_desc.color_texture )) {
+        rtv = gfx_api->texture_view_get( p_frame_desc.color_texture, gfx::TextureViewType::RENDER_TARGET );
+        if (p_frame_desc.depth_texture && gfx_api->is_rid_owned( p_frame_desc.depth_texture ))
+            dsv = gfx_api->texture_view_get( p_frame_desc.depth_texture, gfx::TextureViewType::DEPTH_STENCIL );
+    }
+
+    if (!rtv) {
+        NC_LOG_TRACE_C(
+            log::GRAPHICS,
+            "render_frame SKIPPED: to_screen={} color={} depth={} camera={} draw_spatial={} draw_canvas={}",
+            p_frame_desc.to_screen, p_frame_desc.color_texture.value, p_frame_desc.depth_texture.value,
+            p_frame_desc.camera.value, p_frame_desc.draw_spatial, p_frame_desc.draw_canvas
+        );
+        return;
+    }
+
+    const uint32_t pass_slot = pass_count;
+    if (pass_slot < GfxInterface::MAX_TIMESTAMP_SLOTS)
+        gfx_api->timestamp_begin( pass_slot );
+
+    ctx.pass_has_depth = ( dsv != nullptr );
+
+    NC_LOG_TRACE_C(
+        log::GRAPHICS, "render_frame: size={}x{} rtv={} dsv={}", target_size.x, target_size.y,
+        reinterpret_cast<uintptr_t>( rtv ), reinterpret_cast<uintptr_t>( dsv )
+    );
+
+    const void* rtvs[] = { rtv };
+    Rect2i full_rect( p_frame_desc.rectangle.x, p_frame_desc.rectangle.y, target_size.x, target_size.y );
+    GfxInterface::Viewport vp{
+        .rect = Rect2f(
+            static_cast<float>( full_rect.x ), static_cast<float>( full_rect.y ), static_cast<float>( full_rect.w ),
+            static_cast<float>( full_rect.h )
+        )
+    };
+
+    gfx_api->render_target_bind( rtvs, dsv );
+    gfx_api->render_target_set_scissor_rect( { &full_rect, 1 } );
+    gfx_api->render_target_set_viewport( { &vp, 1 } );
+
+    if (p_frame_desc.clear) {
+        gfx_api->render_target_clear_color( rtv, p_frame_desc.clear_color );
+        if (dsv)
+            gfx_api->render_target_clear_depth( dsv );
+    }
+
+    bool should_draw_spatial = p_frame_desc.draw_spatial && p_frame_desc.camera;
+    bool should_draw_canvas  = p_frame_desc.draw_canvas;
+
+    RenderStorage::SceneData scene_data;
+    scene_data.render_width  = static_cast<uint32_t>( target_size.x );
+    scene_data.render_height = static_cast<uint32_t>( target_size.y );
+    scene_data.time          = time;
+    scene_data.delta_time    = last_dt_;
+    auto& cam_attribs        = camera_get_attribs( p_frame_desc.camera );
+    scene_data.z_near        = cam_attribs.zNear;
+    scene_data.z_far         = cam_attribs.zFar;
+    // precompute the V*P part of M*V*P so we don't have do it on the GPU.
+    // here we take the inverse of camera transform to get its view matrix.
+    auto view_matrix            = cam_attribs.Transform.affine_inverse();
+    scene_data.camera_matrix    = cam_attribs.Transform;
+    scene_data.view_proj_matrix = camera_get_perspective_( cam_attribs ) * view_matrix;
+
+    storage.scene_data_update( scene_data );
+
+    if (should_draw_spatial) {
+        auto& sort_idx = ctx.spatial_sort_indices;
+        sort_idx.clear();
+        for (size_t i = 0; i < ctx.spatial_draw_cmds.head(); ++i)
+            sort_idx.push_back( static_cast<uint32_t>( i ) );
+
+        std::sort(
+            sort_idx.begin(), sort_idx.end(),
+            [&]( uint32_t a, uint32_t b ) { return ctx.spatial_draw_cmds[a]->sort_key < ctx.spatial_draw_cmds[b]->sort_key; }
+        );
+
+        for (uint32_t idx : sort_idx) {
+            auto* cmd      = ctx.spatial_draw_cmds[idx];
+            auto& material = cmd->item->material;
+            auto gpu_mesh  = cmd->item->gpu_mesh;
+
+            storage.material_bind( material, ctx.pass_has_depth );
+            storage.mesh_bind( gpu_mesh );
+
+            SpatialInstanceData instance{};
+            instance.model_matrix  = cmd->item->transform;
+            instance.normal_matrix = cmd->item->transform.affine_inverse();
+            gfx_api->set_inline_constants(
+                storage.spatial_push_binding, "g_Instance", &instance, 0, sizeof( instance ) / 4
+            );
+            gfx_api->resource_binding_commit( storage.spatial_push_binding );
+
+            gfx_api->draw_indexed( cmd->index_count, 0, 0, cmd->instancing, 0 );
+        }
+    }
+
+    if (should_draw_canvas) {
+        uint32_t total_verts = ctx.canvas_override_vert_count + ctx.canvas_staging_vert_count;
+        uint32_t total_ids   = ctx.canvas_override_idx_count + ctx.canvas_staging_idx_count;
+
+        if (total_verts > 0 && total_ids > 0) {
+            ensure_canvas_vertex_buf_( total_verts );
+            ensure_canvas_index_buf_( total_ids );
+
+            // one contiguous staging pass followed by a single DISCARD upload. Partial
+            // writes would need Map() per region, and the first DISCARD would throw away
+            // everything already written in this frame.
+            ctx.canvas_verts_staging.resize( total_verts );
+            ctx.canvas_indices_staging.resize( total_ids );
+
+            uint32_t vert_off = 0;
+            uint32_t idx_off  = 0;
+
+            for (size_t i = 0; i < ctx.canvas_draw_cmds.head(); ++i) {
+                auto* cmd = ctx.canvas_draw_cmds[i];
+                const auto v =
+                    cmd->verts_override.size() > 0 ? cmd->verts_override : Span<const Vertex2D>( cmd->item->verts );
+                const auto ix   = cmd->indices_override.size() > 0 ? cmd->indices_override
+                                                                   : Span<const uint16_t>( cmd->item->indices );
+                cmd->start_vert = vert_off;
+                cmd->start_idx  = idx_off;
+
+                if (!v.empty()) {
+                    std::memcpy( ctx.canvas_verts_staging.data() + vert_off, v.data(), v.size() * sizeof( Vertex2D ) );
+                    vert_off += static_cast<uint32_t>( v.size() );
+                }
+                if (!ix.empty()) {
+                    std::memcpy(
+                        ctx.canvas_indices_staging.data() + idx_off, ix.data(), ix.size() * sizeof( uint16_t )
+                    );
+                    idx_off += static_cast<uint32_t>( ix.size() );
+                }
+            }
+
+            if (vert_off > 0) {
+                gfx_api->buffer_data_write(
+                    canvas_vbo, ctx.canvas_verts_staging.data(), static_cast<size_t>( vert_off ) * sizeof( Vertex2D )
+                );
+            }
+            if (idx_off > 0) {
+                gfx_api->buffer_data_write(
+                    canvas_ibo, ctx.canvas_indices_staging.data(), static_cast<size_t>( idx_off ) * sizeof( uint16_t )
+                );
+            }
+
+            gfx_api->buffer_vertices_bind( { &canvas_vbo, 1 }, 0 );
+            gfx_api->buffer_index_bind( canvas_ibo, 0 );
+
+            // Sort canvas draws by z-order. A stable sort preserves submission order
+            // within the same z, which is the correct blend order for non-depth-tested
+            // alpha-blended geometry.
+            auto& sort_idx = ctx.canvas_sort_indices;
+            sort_idx.clear();
+            for (size_t i = 0; i < ctx.canvas_draw_cmds.head(); ++i)
+                sort_idx.push_back( static_cast<uint32_t>( i ) );
+            std::stable_sort(
+                sort_idx.begin(), sort_idx.end(),
+                [&]( uint32_t a, uint32_t b ) {
+                    return ctx.canvas_draw_cmds[a]->z_order < ctx.canvas_draw_cmds[b]->z_order;
+                }
+            );
+
+            // The 2D ortho projection lives in a push constant now. The data persists on
+            // the SRB, so set it once and only re-commit after each PSO bind.
+            const float sx = static_cast<float>( target_size.x );
+            const float sy = static_cast<float>( target_size.y );
+            CanvasInstanceData instance;
+            instance.view_proj_matrix = Mat4(
+                Vec4( 2.0f / sx, 0.0f, 0.0f, 0.0f ), Vec4( 0.0f, -2.0f / sy, 0.0f, 0.0f ),
+                Vec4( 0.0f, 0.0f, 1.0f, 0.0f ), Vec4( -1.0f, 1.0f, 0.0f, 1.0f )
+            );
+            constexpr uint32_t kCanvasPushUints = static_cast<uint32_t>( sizeof( CanvasInstanceData ) / 4 );
+            gfx_api->set_inline_constants(
+                storage.canvas_push_binding, "g_Instance", &instance, 0, kCanvasPushUints
+            );
+
+            // draw
+            for (uint32_t idx : sort_idx) {
+                auto* cmd = ctx.canvas_draw_cmds[idx];
+                if (cmd->idx_count == 0)
+                    continue;
+
+                RID material = cmd->item->material;
+                if (cmd->texture_override)
+                    material = storage.material_create_texture_variant( material, cmd->texture_override );
+
+                storage.material_bind( material, ctx.pass_has_depth );
+
+                if (storage.material_has_push_constants( material ))
+                    gfx_api->resource_binding_commit( storage.canvas_push_binding );
+
+                auto clip = cmd->clip_override;
+                if (clip.w <= 0 || clip.h <= 0)
+                    clip = cmd->item->clip;
+
+                if (clip.x >= 0 && clip.y >= 0 && clip.w > 0 && clip.h > 0)
+                    gfx_api->render_target_set_scissor_rect( { &clip, 1 } );
+
+                gfx_api->draw_indexed( cmd->idx_count, cmd->start_idx, cmd->start_vert );
+            }
+
+            gfx_api->render_target_set_scissor_rect( { &full_rect, 1 } );
+        }
+    }
+
+    if (pass_slot < GfxInterface::MAX_TIMESTAMP_SLOTS) {
+        const double seconds = gfx_api->timestamp_end( pass_slot );
+        if (seconds >= 0.0)
+            pass_durations_ms[pass_slot] = seconds * 1000.0;
+    }
+    ++pass_count;
+}
+
+void RenderService::present()
+{
+    gfx_api->end_queries();
+    gfx_api->swapchain_present( swapchain_get_primary(), settings.VSync );
+    storage.flush_pending_destroys();
+    ctx.clear();
 }
 
 //------------------------------------------------------------------------------
@@ -297,6 +716,8 @@ bool RenderService::is_rid_owned( RID rid )
 
 bool RenderService::destroy_rid( RID rid )
 {
+    if (cameras.release( rid ))
+        return true;
     if (storage.destroy_rid( rid ))
         return true;
     if (gfx_api->destroy_rid( rid ))
@@ -306,245 +727,61 @@ bool RenderService::destroy_rid( RID rid )
 
 // ---------------------------------------------------------------------------
 
-void RenderService::render_begin( float delta_time )
+GfxInterface::Stats RenderService::get_stats() const
 {
-    time += delta_time;
-    last_dt_ = delta_time;
-
-    gfx_api->set_queue( GpuQueue::GRAPHICS );
-    gfx_api->set_context_state( false );
-    gfx_api->begin_queries();
-}
-
-void RenderService::render_pass( const RenderPassDesc& desc )
-{
-    auto target_size = desc.target_rect.size();
-
-    void* rtv = nullptr;
-    void* dsv = nullptr;
-
-    if (desc.to_screen) {
-        auto primary = swapchain_get_primary();
-        NC_ASSERT( primary, "No primary swapchain exist to render onto" );
-        rtv         = gfx_api->swapchain_get_view( primary, rhi::TextureViewType::RENDER_TARGET );
-        dsv         = gfx_api->swapchain_get_view( primary, rhi::TextureViewType::DEPTH_STENCIL );
-        target_size = gfx_api->swapchain_get_size( primary );
-    } else if (desc.color_target && gfx_api->is_rid_owned( desc.color_target )) {
-        rtv = gfx_api->texture_view_get( desc.color_target, rhi::TextureViewType::RENDER_TARGET );
-        if (desc.depth_target && gfx_api->is_rid_owned( desc.depth_target ))
-            dsv = gfx_api->texture_view_get( desc.depth_target, rhi::TextureViewType::DEPTH_STENCIL );
-    }
-
-    if (!rtv)
-        return;
-
-    NC_LOG_TRACE_C(
-        log::GRAPHICS, "render_pass: size={}x{} rtv={} dsv={}", target_size.x, target_size.y,
-        reinterpret_cast<uintptr_t>( rtv ), reinterpret_cast<uintptr_t>( dsv )
-    );
-
-    const void* rtvs[] = { rtv };
-    Rect2i full_rect( desc.target_rect.x, desc.target_rect.y, target_size.x, target_size.y );
-    IRHI::Viewport vp{
-        .rect = Rect2f(
-            static_cast<float>( full_rect.x ), static_cast<float>( full_rect.y ), static_cast<float>( full_rect.w ),
-            static_cast<float>( full_rect.h )
-        )
-    };
-
-    gfx_api->render_target_bind( rtvs, dsv );
-    gfx_api->render_target_set_scissor_rect( { &full_rect, 1 } );
-    gfx_api->render_target_set_viewport( { &vp, 1 } );
-
-    if (desc.clear) {
-        gfx_api->render_target_clear_color( rtv, desc.clear_color );
-        if (dsv)
-            gfx_api->render_target_clear_depth( dsv );
-    }
-
-    RenderStorage::ShaderConstants constants;
-    constants.Time      = time;
-    constants.DeltaTime = last_dt_;
-
-    if (desc.draw_spatial && desc.camera) {
-        auto& cam_attribs = camera_get_attribs( desc.camera );
-        // precompute the V*P part of M*V*P so we don't have do it on the GPU.
-        // here we take the inverse of camera transform to get its view matrix.
-        auto view_matrix         = cam_attribs.Transform.affine_inverse();
-        constants.CameraMatrix   = cam_attribs.Transform;
-        constants.ViewProjMatrix = camera_get_perspective( desc.camera ) * view_matrix;
-
-        for (auto& item : ctx.world_render_list) {
-            NC_ASSERT( item.material.is_valid(), "A valid material is required to draw a spatial renderable." );
-            NC_LOG_TRACE_C(
-                log::GRAPHICS, "world_items_flush: gpu_mesh_rid={} instances={}", item.gpu_mesh.value, item.instancing
-            );
-            auto mesh                = storage.get_gpu_mesh( item.gpu_mesh );
-            constants.ModelMatrix    = item.transform;
-            constants.ModelMatrixInv = item.transform.affine_inverse();
-            storage.material_bind( item.material, constants );
-            storage.gpu_mesh_bind( item.gpu_mesh );
-            gfx_api->draw_indexed( mesh->index_count, 0, 0, item.instancing );
-        }
-    }
-
-    if (desc.draw_canvas) {
-        constants.ModelMatrix    = Mat4::identity();
-        constants.ModelMatrixInv = Mat4::identity();
-        // clang-format off
-		// ortho projection for canvas items.
-		auto sx = static_cast<float>( target_size.x );
-		auto sy = static_cast<float>( target_size.y );
-		constants.ViewProjMatrix = Mat4(
-		    Vec4(  2.0f / sx,  0.0f,      0.0f,  0.0f ),
-		    Vec4(  0.0f,      -2.0f / sy, 0.0f,  0.0f ),
-		    Vec4(  0.0f,       0.0f,      1.0f,  0.0f ),
-		    Vec4( -1.0f,       1.0f,      0.0f,  1.0f )
-		);
-        // clang-format on
-
-        NC_LOG_TRACE_C( log::GRAPHICS, "render_pass: canvas_render_list={}", ctx.canvas_render_list.size() );
-        for (auto& item : ctx.canvas_render_list) {
-            if (item.verts.empty()) {
-                NC_LOG_TRACE_C( log::GRAPHICS, "canvas_items_flush: skipped (empty)" );
-                continue;
-            }
-
-            NC_LOG_TRACE_C(
-                log::GRAPHICS, "canvas_items_flush: verts={} indices={} material_rid={}", item.verts.size(),
-                item.indices.size(), item.material.value
-            );
-
-            ensure_canvas_vb_( static_cast<uint32_t>( item.verts.size() ) );
-            ensure_canvas_ib_( static_cast<uint32_t>( item.indices.size() ) );
-
-            gfx_api->buffer_data_write(
-                canvas_vb, { reinterpret_cast<std::byte*>( item.verts.data() ), item.verts.size() * sizeof( Vertex2D ) }
-            );
-            gfx_api->buffer_data_write(
-                canvas_ib,
-                { reinterpret_cast<std::byte*>( item.indices.data() ), item.indices.size() * sizeof( uint16_t ) }
-            );
-
-            storage.material_set_texture( item.material, item.texture, 0 );
-            storage.material_bind( item.material, constants );
-
-            gfx_api->buffer_vertices_bind( { &canvas_vb, 1 }, 0 );
-            gfx_api->buffer_index_bind( canvas_ib, 0 );
-
-            if (item.clip.x >= 0 && item.clip.y >= 0 && item.clip.w > 0 && item.clip.h > 0) {
-                gfx_api->render_target_set_scissor_rect( { &item.clip, 1 } );
-            }
-
-            NC_LOG_TRACE_C( log::GRAPHICS, "canvas_items_flush: draw indexed (indices={})", item.indices.size() );
-            gfx_api->draw_indexed( static_cast<uint32_t>( item.indices.size() ), 0, 0 );
-        }
-    }
-}
-
-void RenderService::present()
-{
-    gfx_api->end_queries();
-    gfx_api->swapchain_present( swapchain_get_primary(), settings.VSync );
-    storage.flush_pending_destroys();
-    ctx.world_render_list.reset();
-    ctx.canvas_render_list.release_all(); // CanvasRenderItem is non-POD
+    GfxInterface::Stats stats = gfx_api->get_stats();
+    stats.pass_count          = pass_count;
+    for (uint32_t i = 0; i < pass_count && i < GfxInterface::MAX_TIMESTAMP_SLOTS; ++i)
+        stats.pass_duration_ms[i] = pass_durations_ms[i];
+    return stats;
 }
 
 // ---------------------------------------------------------------------------
 
-void RenderService::spatial_draw_instance( RID gpu_mesh, const Mat4& transform, RID material, uint32_t instancing )
+void RenderService::ensure_canvas_vertex_buf_( uint32_t p_needed_verts )
 {
-    auto item        = ctx.world_render_list.acquire();
-    item->gpu_mesh   = gpu_mesh;
-    item->transform  = transform;
-    item->material   = material;
-    item->instancing = instancing;
-}
-
-void RenderService::canvas_draw_triangles(
-    Span<const Vertex2D> verts, Span<const uint16_t> indices, RID material, RID texture, Rect2i clip
-)
-{
-    auto item      = ctx.canvas_render_list.acquire();
-    item->material = material;
-    item->texture  = texture;
-    item->clip     = clip;
-    item->verts.assign( verts.begin(), verts.end() );
-    item->indices.assign( indices.begin(), indices.end() );
-}
-
-void RenderService::canvas_draw_quad(
-    Vec2f points[4], RID material, RID texture, Color tint, Rect2i uv_rect, Rect2i clip
-)
-{
-    float u0 = static_cast<float>( uv_rect.x );
-    float v0 = static_cast<float>( uv_rect.y );
-    float u1 = static_cast<float>( uv_rect.w );
-    float v1 = static_cast<float>( uv_rect.h );
-
-    uint32_t c = static_cast<uint32_t>( tint.r ) | ( static_cast<uint32_t>( tint.g ) << 8 ) |
-                 ( static_cast<uint32_t>( tint.b ) << 16 ) | ( static_cast<uint32_t>( tint.a ) << 24 );
-
-    // clang-format off
-    Vertex2D verts[4] = {
-        { points[0].x, points[0].y, u0, v0, c },
-        { points[1].x, points[1].y, u1, v0, c },
-        { points[2].x, points[2].y, u1, v1, c },
-        { points[3].x, points[3].y, u0, v1, c },
-    };
-    // clang-format on
-
-    uint16_t indices[6] = { 0, 1, 2, 2, 3, 0 };
-
-    canvas_draw_triangles( verts, indices, material, texture, clip );
-}
-
-IRHI::Stats RenderService::get_stats() const
-{
-    return gfx_api->get_stats();
-}
-
-// ---------------------------------------------------------------------------
-
-void RenderService::ensure_canvas_vb_( uint32_t needed )
-{
-    size_t required = needed * sizeof( Vertex2D );
-    if (required <= canvas_vb_size * sizeof( Vertex2D ))
+    size_t required = p_needed_verts * sizeof( Vertex2D );
+    if (required <= canvas_vbo_size * sizeof( Vertex2D ))
         return;
 
-    uint32_t new_capacity = std::max( canvas_vb_size * 2, needed );
-    rhi::BufferDesc desc;
-    desc.debug_name  = "Canvas Vertex Buffer";
-    desc.size        = new_capacity * sizeof( Vertex2D );
-    desc.usage       = rhi::ResourceUsage::DYNAMIC;
-    desc.access_mask = rhi::ResourceAccessFlags::WRITE;
-    desc.bind_mask   = rhi::ResourceBindFlags::VERTEX_BUFFER;
+    // Grow to the next power of two to reduce how often the buffer is recreated.
+    uint32_t new_capacity = canvas_vbo_size ? canvas_vbo_size : 1;
+    while (new_capacity < p_needed_verts)
+        new_capacity <<= 1;
+    gfx::BufferDesc desc;
+    desc.debug_name      = "Canvas Vertex Buffer";
+    desc.size            = new_capacity * sizeof( Vertex2D );
+    desc.usage           = gfx::ResourceUsage::DYNAMIC;
+    desc.cpu_access_mask = gfx::ResourceCpuAccessFlags::WRITE;
+    desc.bind_mask       = gfx::ResourceBindFlags::VERTEX_BUFFER;
 
-    gfx_api->destroy_rid( canvas_vb );
+    gfx_api->destroy_rid( canvas_vbo );
 
-    canvas_vb      = gfx_api->buffer_create( desc );
-    canvas_vb_size = new_capacity;
+    canvas_vbo      = gfx_api->buffer_create( desc );
+    canvas_vbo_size = new_capacity;
 }
 
-void RenderService::ensure_canvas_ib_( uint32_t needed )
+void RenderService::ensure_canvas_index_buf_( uint32_t p_needed_ids )
 {
-    size_t required = needed * sizeof( uint16_t );
-    if (required <= canvas_ib_size * sizeof( uint16_t ))
+    size_t required = p_needed_ids * sizeof( uint16_t );
+    if (required <= canvas_ibo_size * sizeof( uint16_t ))
         return;
 
-    uint32_t new_capacity = std::max( canvas_ib_size * 2, needed );
-    rhi::BufferDesc desc;
-    desc.debug_name  = "Canvas Index Buffer";
-    desc.size        = new_capacity * sizeof( uint16_t );
-    desc.usage       = rhi::ResourceUsage::DYNAMIC;
-    desc.access_mask = rhi::ResourceAccessFlags::WRITE;
-    desc.bind_mask   = rhi::ResourceBindFlags::INDEX_BUFFER;
+    // Grow to the next power of two to reduce how often the buffer is recreated.
+    uint32_t new_capacity = canvas_ibo_size ? canvas_ibo_size : 1;
+    while (new_capacity < p_needed_ids)
+        new_capacity <<= 1;
+    gfx::BufferDesc desc;
+    desc.debug_name      = "Canvas Index Buffer";
+    desc.size            = new_capacity * sizeof( uint16_t );
+    desc.usage           = gfx::ResourceUsage::DYNAMIC;
+    desc.cpu_access_mask = gfx::ResourceCpuAccessFlags::WRITE;
+    desc.bind_mask       = gfx::ResourceBindFlags::INDEX_BUFFER;
 
-    gfx_api->destroy_rid( canvas_ib );
+    gfx_api->destroy_rid( canvas_ibo );
 
-    canvas_ib      = gfx_api->buffer_create( desc );
-    canvas_ib_size = new_capacity;
+    canvas_ibo      = gfx_api->buffer_create( desc );
+    canvas_ibo_size = new_capacity;
 }
 
 } // namespace nc

@@ -110,11 +110,14 @@ bool InputService::is_mouse_button_pressed( ButtonIndex button ) const
     return mb_states[static_cast<size_t>( button )].pressed;
 }
 
-void InputService::action_list( DynamicArray<StringView>& out )
+DynamicArray<StringView> InputService::action_list()
 {
+    DynamicArray<StringView> list;
+    list.reserve( actions.get_size() );
     for (auto& action : actions) {
-        out.push_back( action.name );
+        list.push_back( action.name );
     }
+    return list;
 }
 
 void InputService::add_input_event( const InputEvent& event )
@@ -292,7 +295,7 @@ void InputService::pump_events_()
 InputService::ActionBinding* InputService::get_action_( const char* name )
 {
     auto find = action_by_name.find( name );
-    NC_ASSERT( find != action_by_name.end(), "Action with requested name does not exist." );
+    NC_ASSERT_MSG( find != action_by_name.end(), "Action with requested name does not exist." );
     auto action = actions.get( find->second );
     NC_VERIFY( action );
     return action;

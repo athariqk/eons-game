@@ -15,7 +15,7 @@ class Sink : public RefCounted {
     NCLASS( Sink, RefCounted )
 
 public:
-    virtual ~Sink();
+    virtual ~Sink() override;
 
     /**
 	* @brief Push a new log message, respecting log level.

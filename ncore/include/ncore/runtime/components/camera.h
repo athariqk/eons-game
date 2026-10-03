@@ -2,36 +2,29 @@
 
 #include <ncore/core/rect.h>
 #include <ncore/core/rid.h>
+#include <ncore/core/types.h>
+#include <ncore/runtime/ecs/ecs_component.h>
 
 namespace nc {
 
 /**
  * @brief A camera.
  */
-struct NCAPI CameraComponent {
-    RID Source;
-    float FieldOfView  = 1.5708f; // In radians. Default is 90 degrees.
-    float zNear        = 0.1f;
-    float zFar         = 100.0f;
-    bool MouseCaptured = false;
-    bool Perspective   = true;
-    RID RenderTexture;
-    RID DepthTexture;
-    Rect2i DisplayRect;
-    bool RenderToScreen = true;
-    bool DrawCanvas     = true;
-
-    NSTRUCTV(
-        CameraComponent, NC_F( CameraComponent, Source ), NC_F( CameraComponent, FieldOfView ),
-        NC_F( CameraComponent, zNear ), NC_F( CameraComponent, zFar ), NC_F( CameraComponent, MouseCaptured ),
-        NC_F( CameraComponent, Perspective ), NC_F( CameraComponent, RenderTexture ),
-        NC_F( CameraComponent, DepthTexture ), NC_F( CameraComponent, DisplayRect ),
-        NC_F( CameraComponent, RenderToScreen ), NC_F( CameraComponent, DrawCanvas )
-    )
+NC_COMPONENT_API( CameraComponent )
+{
+    REFLECT RID Source;
+    REFLECT float FieldOfView  = 1.5708f; // In radians. Default is 90 degrees.
+    REFLECT float zNear        = 0.1f;
+    REFLECT float zFar         = 1000.0f;
+    REFLECT bool MouseCaptured = false;
+    REFLECT bool Perspective   = true;
+    REFLECT RID RenderTexture;
+    REFLECT RID DepthTexture;
+    REFLECT Rect2i DisplayRect;
+    REFLECT bool RenderToScreen = true;
+    REFLECT bool DrawCanvas     = true;
 };
 
-struct NCAPI ActiveCameraTag {
-    NSTRUCT1( ActiveCameraTag )
-};
+NC_COMPONENT_API( ActiveCameraTag ){};
 
 } // namespace nc

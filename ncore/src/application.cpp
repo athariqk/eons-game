@@ -19,7 +19,6 @@
 #include <ncore/services/audio/audio_service.h>
 #include <ncore/services/events/event_bus.h>
 #include <ncore/services/io/input_service.h>
-#include <ncore/services/io/resource_service.h>
 #include <ncore/services/service_registry.h>
 #include <ncore/services/video/render_service.h>
 #include <ncore/services/video/window_service.h>
@@ -30,17 +29,6 @@
 
 namespace nc {
 
-namespace cfg {
-
-struct Log {
-    int Level       = 0;
-    String FilePath = "logs/engine.log";
-    String Overrides;
-    NSTRUCTV( Log, NC_F( Log, Level ), NC_F( Log, FilePath ), NC_F( Log, Overrides ) )
-};
-
-} // namespace cfg
-
 Application::Application( const AppDesc& desc )
 {
     context.AppDesc = desc;
@@ -48,7 +36,7 @@ Application::Application( const AppDesc& desc )
 
 Application::~Application()
 {
-    NC_ASSERT( !context.IsRunning, "Application destroyed while still running" );
+    NC_ASSERT_MSG( !context.IsRunning, "Application destroyed while still running" );
 }
 
 void Application::init()
@@ -77,10 +65,10 @@ void Application::init()
     register_services();
     context.Services.init_all( cfg_file );
 
-    g_world = create_world();
+    game_world = create_world();
 
-    g_world->app_ctx = &context;
-    g_world->on_enter();
+    game_world->app_ctx = &context;
+    game_world->on_enter();
 
     NC_LOG_TRACE( "Application initialized" );
 }
@@ -120,14 +108,14 @@ void Application::run()
         process_events();
 
         while (accumulator >= FIXED_DT) {
-            if (g_world->on_fixed_update( FIXED_DT )) {
+            if (game_world->on_fixed_update( FIXED_DT )) {
                 break;
             }
             accumulator -= FIXED_DT;
             context.Ticks++;
         }
 
-        if (g_world->on_variable_update( context.DeltaTime )) {
+        if (game_world->on_variable_update( context.DeltaTime )) {
             break;
         }
 
@@ -143,7 +131,7 @@ void Application::process_events()
 
     SDL_Event quit_event;
     while (SDL_PeepEvents( &quit_event, 1, SDL_GETEVENT, SDL_EVENT_QUIT, SDL_EVENT_QUIT ) > 0) {
-        g_world->request_quit();
+        game_world->request_quit();
     }
 }
 
@@ -162,7 +150,6 @@ void Application::register_services()
 
     events    = context.Services.provide<EventBus>();
     input     = context.Services.provide<InputService>();
-    resources = context.Services.provide<ResourceService>();
     window    = context.Services.provide<WindowService>();
     renderer  = context.Services.provide<RenderService>();
     context.Services.provide<AudioService>();
@@ -174,7 +161,7 @@ void Application::unregister_services()
     SDL_Quit();
 }
 
-std::unique_ptr<IGameWorld> Application::create_world()
+Ptr<IGameWorld> Application::create_world()
 {
     return std::make_unique<Scene>();
 }
@@ -182,8 +169,8 @@ std::unique_ptr<IGameWorld> Application::create_world()
 void Application::finish()
 {
     NC_LOG_TRACE( "Application teardown" );
-    g_world->on_exit();
-    g_world.reset(); // destroy heap allocations.
+    game_world->on_exit();
+    game_world.reset(); // destroy heap allocations.
     context.Services.cleanup_all();
     unregister_services();
     rtti::TypeRegistry::shutdown();

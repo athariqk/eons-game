@@ -8,16 +8,14 @@
 #include <ncore/core/types.h>
 #include <ncore/utils/assert.h>
 
+#include "ecs_component.h"
+
 namespace nc {
 
 /**
  * @brief Represents an entity as integer ID.
  */
 using EcsEntity = uint64_t;
-/**
- * @brief Represents a component as integer ID.
- */
-using EcsComponent = EcsEntity;
 
 inline constexpr EcsEntity INVALID_ENTITY_ID = static_cast<EcsEntity>( -1 );
 
@@ -29,18 +27,18 @@ class EcsWorld;
 
 class NCAPI EcsEntityBuilder {
 public:
-    EcsEntityBuilder( EcsWorld& p_world, const String& p_name );
-    EcsEntityBuilder( EcsWorld& p_world, EcsEntity p_entity );
+    EcsEntityBuilder( EcsWorld& p_world [[clang::lifetimebound]], const String& p_name );
+    EcsEntityBuilder( EcsWorld& p_world [[clang::lifetimebound]], EcsEntity p_entity );
     ~EcsEntityBuilder();
 
     EcsEntityBuilder( const EcsEntityBuilder& )            = delete;
     EcsEntityBuilder& operator=( const EcsEntityBuilder& ) = delete;
 
     template<class T>
-    EcsEntityBuilder& add( const T& value )
+    EcsEntityBuilder& add( const T& value ) [[clang::lifetimebound]]
     {
         auto* type = rtti::TypeRegistry::find<T>();
-        NC_ASSERT( type, "component type not reflected via NSTRUCT" );
+        NC_ASSERT_MSG( type, "component type not registered via NC_COMPONENT" );
         DynamicArray<uint8_t> data( sizeof( T ) );
         std::memcpy( data.data(), &value, sizeof( T ) );
         add_component_( type, std::move( data ) );
@@ -51,10 +49,10 @@ public:
      * @brief Append component(s) to the build list.
      */
     template<typename T, typename... Args>
-    EcsEntityBuilder& add( Args&&... args )
+    EcsEntityBuilder& add( Args&&... args ) [[clang::lifetimebound]]
     {
         auto* type = rtti::TypeRegistry::find<T>();
-        NC_ASSERT( type, "component type not reflected via NSTRUCT" );
+        NC_ASSERT_MSG( type, "component type not registered via NC_COMPONENT" );
         DynamicArray<uint8_t> data( sizeof( T ) );
         T value{ std::forward<Args>( args )... };
         std::memcpy( data.data(), &value, sizeof( T ) );
@@ -70,8 +68,8 @@ public:
     {
         auto* f_type = rtti::TypeRegistry::find<First>();
         auto* s_type = rtti::TypeRegistry::find<Second>();
-        NC_ASSERT( f_type, "pair first type not reflected via NSTRUCT" );
-        NC_ASSERT( s_type, "pair second type not reflected via NSTRUCT" );
+        NC_ASSERT_MSG( f_type, "pair first type not registered via NC_COMPONENT" );
+        NC_ASSERT_MSG( s_type, "pair second type not registered via NC_COMPONENT" );
         if constexpr (sizeof...( Args ) != 0) {
             DynamicArray<uint8_t> data( sizeof( First ) );
             First value{ std::forward<Args>( args )... };
@@ -83,20 +81,20 @@ public:
         return *this;
     }
 
-    EcsEntityBuilder& add_pair_id( EcsComponent first, EcsComponent second );
+    EcsEntityBuilder& add_pair_id( EcsComponent first, EcsComponent second ) [[clang::lifetimebound]];
     /**
      * @brief Add parent-child relationship.
      * @param parent The parent entity to set for this entity.
      */
-    EcsEntityBuilder& child_of( EcsEntity parent );
-    EcsEntityBuilder& is_a( EcsEntity base );
-    EcsEntityBuilder& depends_on( EcsEntity target );
-    EcsEntityBuilder& alias( StringView alias );
+    EcsEntityBuilder& child_of( EcsEntity parent ) [[clang::lifetimebound]];
+    EcsEntityBuilder& is_a( EcsEntity base ) [[clang::lifetimebound]];
+    EcsEntityBuilder& depends_on( EcsEntity target ) [[clang::lifetimebound]];
+    EcsEntityBuilder& alias( StringView alias ) [[clang::lifetimebound]];
 
     /**
      * @brief Mark the most recently added component as initially disabled.
      */
-    EcsEntityBuilder& disabled();
+    EcsEntityBuilder& disabled() [[clang::lifetimebound]];
 
     /**
      * @brief Finalize entity creation and set its components, in order.

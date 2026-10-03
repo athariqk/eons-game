@@ -6,6 +6,9 @@ target_sources(SeaEngine PRIVATE
 	"src/tests/test_compute_shader.cpp"
 	"src/water/water_sim.h"
 	"src/water/water_sim.cpp"
+	"src/water/wave_cascade_params.h"
+	"src/water/wave_generator.h"
+	"src/water/wave_generator.cpp"
 	"src/world_scene.h"
 	"src/world_scene.cpp")
 
@@ -22,11 +25,8 @@ add_custom_command(
   TARGET SeaEngine
   POST_BUILD
   COMMAND
-    "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_SOURCE_DIR}/SeaEngine/assets"
-    "$<TARGET_FILE_DIR:SeaEngine>/assets"
-  COMMAND
     "${CMAKE_COMMAND}" -E copy_if_different
     "${CMAKE_SOURCE_DIR}/SeaEngine/seaengine.ini"
     "$<TARGET_FILE_DIR:SeaEngine>/seaengine.ini"
-  COMMENT "Copying assets and config file"
+  COMMENT "Copying config files"
   VERBATIM)

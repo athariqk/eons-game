@@ -1,18 +1,20 @@
 #pragma once
 
 #include <ncore/core/rid.h>
+#include <ncore/core/types.h>
+#include <ncore/runtime/ecs/ecs_component.h>
 
 namespace nc {
 
-struct NCAPI MeshComponent {
-    RID Source             = 0;
-    RID Instance           = 0;
-    uint32_t InstanceCount = 1;
+NC_COMPONENT_API( MeshComponent )
+{
+    REFLECT RID Source = 0;
+};
 
-    NSTRUCTV(
-        MeshComponent, NC_F( MeshComponent, Source ), NC_F( MeshComponent, Instance ),
-        NC_F( MeshComponent, InstanceCount )
-    )
+NC_COMPONENT_API( MeshRenderComponent )
+{
+    REFLECT RID Item           = 0; // spatial item RID (spatial_item_create)
+    REFLECT uint32_t InstanceCount = 1;
 };
 
 } // namespace nc

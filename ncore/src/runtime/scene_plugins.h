@@ -1,15 +1,16 @@
 #pragma once
 
 #include <ncore/core/types.h>
-#include <ncore/services/io/resource_service.h>
+#include <ncore/runtime/ecs/ecs_component.h>
+#include <ncore/runtime/resources/resource_loader.h>
 
 namespace nc {
 
 class Scene;
 
-struct NCAPI ResourceWatchState {
-    DynamicArray<ResourceService::Event> PendingEvents;
-    NSTRUCTV( ResourceWatchState, NC_F( ResourceWatchState, PendingEvents ) )
+NC_COMPONENT_API( ResourceWatchState )
+{
+    REFLECT DynamicArray<ResourceLoader::Event> PendingEvents;
 };
 
 /**

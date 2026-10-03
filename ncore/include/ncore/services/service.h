@@ -26,8 +26,8 @@ class ConfFile;
  * There is so much alot to unpack regarding architecture and design of this relating
  * to the whole engine. TODO: write more about this so i don't forget
  */
-class NCAPI IService : public NcObject {
-    NCLASS( IService, NcObject )
+class NCAPI IService : public Object {
+    NCLASS( IService, Object )
 
 public:
     virtual Error init( ConfFile& cfg_file ) = 0;

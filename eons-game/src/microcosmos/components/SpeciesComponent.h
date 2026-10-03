@@ -2,9 +2,13 @@
 
 #include <string>
 
+#include <ncore/core/types.h>
+#include <ncore/runtime/ecs/ecs_component.h>
+
 #include <microcosmos/Genes.h>
 
-struct SpeciesComponent {
+NC_COMPONENT( SpeciesComponent )
+{
     SpeciesComponent() = default;
     SpeciesComponent( std::string name, std::string genus, std::string epithet ) :
         name( std::move( name ) ), genus( std::move( genus ) ), epithet( std::move( epithet ) )
@@ -20,10 +24,13 @@ struct SpeciesComponent {
 
     [[nodiscard]] std::string get_name_formatted( bool identifier ) const;
 
-    NSTRUCTV(
-        SpeciesComponent,
-        NC_F( SpeciesComponent, population_count ), NC_F( SpeciesComponent, age ), NC_F( SpeciesComponent, name ),
-        NC_F( SpeciesComponent, genus ), NC_F( SpeciesComponent, epithet ), NC_F( SpeciesComponent, genes ),
-        NC_F( SpeciesComponent, generation )
-    )
+    NC_PROPS_BEGIN()
+    ADD_PROPERTY( population_count )
+    ADD_PROPERTY( age )
+    ADD_PROPERTY( name )
+    ADD_PROPERTY( genus )
+    ADD_PROPERTY( epithet )
+    ADD_PROPERTY( genes )
+    ADD_PROPERTY( generation )
+    NC_PROPS_END()
 };

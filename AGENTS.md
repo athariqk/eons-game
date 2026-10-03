@@ -12,7 +12,7 @@ Guidance for AI coding agents working in this repository.
 6. `ncore/include/ncore/runtime/ecs/ecs_system.h` — SystemDelegate + EcsSystemBuilder
 7. `ncore/include/ncore/runtime/ecs/ecs_query.h` — EcsTableIterator, QueryContext, EcsQueryBuilder
 8. `ncore/include/ncore/runtime/ecs/ecs_entity.h` — EcsEntity: the 64-bit entity ID type
-9. `ncore/include/ncore/core/types.h` — RTTI: TypeInfo, RecordInfo, FieldInfo, NSTRUCT
+9. `ncore/include/ncore/core/types.h` — RTTI: TypeInfo, RecordInfo, FieldInfo, NSTRUCT_V
 10. `ncore/include/ncore/services/service.h` — IService base + NullService
 11. `ncore/include/ncore/services/service_registry.h` — ServiceRegistry (service locator)
 12. `CMakeLists.txt` (root + ncore/)
@@ -37,7 +37,11 @@ cmake --build build --config Debug
 Notes:
 - Debug builds append `_d` per `ncore/CMakeLists.txt:35`.
 - `ncore_editor_d.dll` is a separate shared library under `tools/editor/` — always build it alongside `ncore_d.dll`.
-- Assets and `.ini` files are auto-copied at build time.
+- Assets are compiled to `.bin` by the `asset_pipeline` target (`cmake/CompileAssets.cmake`,
+  driven by `resource_compiler.exe`). Raw originals (`.slang .png .jpg .jpeg .wav .ttf .otf .webp`)
+  are never staged into `bin/.../assets` — only `<name>.bin` lands there. Slang `#include`
+  resolution reads the raw sources straight from `ncore/assets`, `eons-game/assets` and
+  `seaengine/assets` via `--search-paths`. `.ini` files are still copied at build time.
 - Release: `cmake --preset windows-release`, target `ncore.dll ncore_editor.dll eons-game.exe`.
 - Do NOT delete or rebuild `build/`. The existing build is canonical — full reconfigure is slow.
 - The game target is `EonsPrototype_d.exe` (not `eons-game_d.exe`): `ninja -C build/windows-debug EonsPrototype_d.exe`.
@@ -175,18 +179,22 @@ public header.
 `.self()`, `.expr(dsl)`, `.build()`. `with_pair` takes `EcsEntity` (uint64_t)
 so no Flecs types leak into public headers.
 
-**RTTI (types.h)** — `NSTRUCTV(T, ...)` auto-registers types at static init.
-`TypeInfo` has `kind` (exact-width `TypeKind`: BOOL, INT8..UINT64, FLOAT,
-DOUBLE, STRING, POINTER, ENUM, RECORD, VECTOR) + non-virtual predicates
-(`is_floating()`, `is_record()`, `is_enum()`, `is_string()`,
-`is_container()`, `is_primitive()`) and a kind-dispatched `to_string()`.
-Subclass ctors set kind (RecordInfo→RECORD, EnumInfo→ENUM, StringClass→STRING,
-VectorClass→VECTOR); primitives infer it via `detail::kind_of<T>()` through
-`TTypeInfo<T>` registration. `FieldInfo` has no category — derive it from
-`field.get_type()->kind` + `field.qualifier`. `NC_F(T, m)` decomposes
-`T* m` / `T[N] m` / `char* m` into the qualifier (pointer_count,
-array_length, is_cstring) and stores the pointee/element type id. Primitives
-registered in `TypeRegistry::initialize()` in `ncore/src/core/types.cpp`.
+**RTTI (types.h)** — `NSTRUCT_V(T)` + `NC_PROPS_BEGIN()` / `ADD_PROPERTY(m)` /
+`NC_PROPS_END()` auto-registers types at static init.
+`NCLASS(T, Parent)` for class types inheriting `Object`. Field names are bare
+identifiers; default flags are SERIALIZABLE|EDITABLE. Use
+`ADD_PROPERTY(m, flag)` for custom flags on individual fields. `TypeInfo` has
+`kind` (exact-width `TypeKind`: BOOL, INT8..UINT64, FLOAT, DOUBLE, STRING,
+POINTER, ENUM, RECORD, VECTOR) + non-virtual predicates (`is_floating()`,
+`is_record()`, `is_enum()`, `is_string()`, `is_container()`, `is_primitive()`)
+and a kind-dispatched `to_string()`. Subclass ctors set kind
+(RecordInfo→RECORD, EnumInfo→ENUM, StringClass→STRING, VectorClass→VECTOR);
+primitives infer it via `detail::kind_of<T>()` through `TTypeInfo<T>`
+registration. `FieldInfo` has no category — derive it from
+`field.get_type()->kind` + `field.qualifier`. `ADD_PROPERTY` lambda-based
+decomposes `T* m` / `T[N] m` / `char* m` into the qualifier (pointer_count,
+array_length, is_cstring) and stores the pointee/element type id.
+Primitives registered in `TypeRegistry::initialize()` in `ncore/src/core/types.cpp`.
 
 ## Code Boundaries
 
@@ -231,16 +239,16 @@ registered in `TypeRegistry::initialize()` in `ncore/src/core/types.cpp`.
   Use the programmatic builder `.with<NodeRefComponent>().with_pair(EcsChildOf, id)`
   instead.
 
-- **RID registration**: `rid.h` is transitively included before the `NSTRUCT`
+- **RID registration**: `rid.h` is transitively included before the `NSTRUCT_V`
   macro is defined in `types.h`. RID is therefore registered manually in
   `TypeRegistry::initialize()` via `TRecordInfo<RID>`.
 
 ## Component / RTTI Conventions
 
-- All component structs should have `NSTRUCTV(T, NC_F(T, field1), NC_F(T, field2), ...)`.
-- `NSTRUCT` auto-registers at static init via `TypeRegistry::register_type<TRecordInfo<T>, T>(#T)`.
+- All component structs should have `NSTRUCT_V(T)` + `NC_PROPS_BEGIN(T)` / `ADD_PROPERTY(m)` / `NC_PROPS_END(T)`.
+- `NSTRUCT_V` auto-registers at static init via `TypeRegistry::register_type<TRecordInfo<T>, T>(#T)`.
 - Primitives are registered in `TypeRegistry::initialize()` in `ncore/src/core/types.cpp`.
-- If a header is transitively included by `types.h` before the `NSTRUCT` macro
+- If a header is transitively included by `types.h` before the `NSTRUCT_V` macro
   definition (line ~732), use manual registration in `initialize()` instead.
 
 ## Build-Only Verification

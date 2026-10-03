@@ -3,6 +3,7 @@
 #include <string>
 
 #include <ncore/core/types.h>
+#include <ncore/runtime/ecs/ecs_component.h>
 
 enum class BehaviourState {
     IDLING     = 0,
@@ -16,7 +17,8 @@ NENUM(
     NENUM_ELEMENT( BehaviourState, ABSORBING ), NENUM_ELEMENT( BehaviourState, EVALUATE )
 );
 
-struct OrganismAIComponent {
+NC_COMPONENT( OrganismAIComponent )
+{
     OrganismAIComponent() : move_speed( 0.0f ), act_interval( 10.0f ) {}
     OrganismAIComponent( float p_speed, float p_think_interval ) :
         move_speed( p_speed ), act_interval( p_think_interval )
@@ -36,13 +38,17 @@ struct OrganismAIComponent {
 
     std::string get_current_behavior() const;
 
-    NSTRUCTV(
-        OrganismAIComponent,
-        NC_F( OrganismAIComponent, state ), NC_F( OrganismAIComponent, move_speed ),
-        NC_F( OrganismAIComponent, absorb_speed ), NC_F( OrganismAIComponent, is_food_found ),
-        NC_F( OrganismAIComponent, has_moved ), NC_F( OrganismAIComponent, is_absorbing ),
-        NC_F( OrganismAIComponent, reproduced ), NC_F( OrganismAIComponent, act_interval ),
-        NC_F( OrganismAIComponent, moving_interval ), NC_F( OrganismAIComponent, act_timer ),
-        NC_F( OrganismAIComponent, reproduce_interval )
-    )
+    NC_PROPS_BEGIN()
+    ADD_PROPERTY( state )
+    ADD_PROPERTY( move_speed )
+    ADD_PROPERTY( absorb_speed )
+    ADD_PROPERTY( is_food_found )
+    ADD_PROPERTY( has_moved )
+    ADD_PROPERTY( is_absorbing )
+    ADD_PROPERTY( reproduced )
+    ADD_PROPERTY( act_interval )
+    ADD_PROPERTY( moving_interval )
+    ADD_PROPERTY( act_timer )
+    ADD_PROPERTY( reproduce_interval )
+    NC_PROPS_END()
 };

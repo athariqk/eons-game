@@ -13,8 +13,8 @@ class ServiceRegistry;
  *
  * Derived classes should implement the specific behavior of the game world.
  */
-class NCAPI IGameWorld : public NcObject {
-    NCLASS( IGameWorld, NcObject )
+class NCAPI IGameWorld : public Object {
+    NCLASS( IGameWorld, Object )
 
 public:
     IGameWorld() = default;

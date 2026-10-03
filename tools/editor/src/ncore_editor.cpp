@@ -3,11 +3,12 @@
 #include <ImGuizmo.h> // must come after imgui includes
 // clang-format on
 
+#include <filesystem>
+
 #include <editor/ncore_editor.h>
-#include <ncore/core/color.h>
-#include <ncore/core/quaternion.h>
 #include <ncore/core/rid.h>
 #include <ncore/game_world.h>
+#include <ncore/runtime/components/material.h>
 #include <ncore/runtime/components/services.h>
 #include <ncore/runtime/components/time.h>
 #include <ncore/runtime/components/transform.h>
@@ -24,6 +25,11 @@
 #include "gui_plugin.h"
 
 namespace nc::editor {
+
+static bool is_internal_component( const rtti::TypeInfo* type )
+{
+    return type == rtti::TypeRegistry::find<NodeRefComponent>();
+}
 
 static void draw_scene_tree_node( Node& node, EditorState& state )
 {
@@ -86,259 +92,211 @@ static void draw_scene_tree_node( Node& node, EditorState& state )
     }
 }
 
-using WidgetDrawFn = void ( * )( const char* label, void* ptr, bool editable );
+namespace {
 
-static void draw_float_widget( const char* label, void* ptr, bool editable )
+using namespace nc::rtti;
+
+bool draw_record_fields( const RecordInfo* record, void* data, int depth );
+
+void begin_labeled_row( StringView label )
 {
-    if (editable)
-        ImGui::DragFloat( label, static_cast<float*>( ptr ), 0.01f );
-    else
-        ImGui::Text( "%s: %.3f", label, static_cast<double>( *static_cast<float*>( ptr ) ) );
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted( label.data(), label.data() + label.size() );
+    ImGui::SameLine( ImGui::GetWindowContentRegionMax().x * 0.4f );
+    ImGui::SetNextItemWidth( -FLT_MIN );
 }
 
-static void draw_double_widget( const char* label, void* ptr, bool editable )
+ImGuiDataType imgui_data_type( TypeKind kind )
 {
-    if (editable)
-        ImGui::InputDouble( label, static_cast<double*>( ptr ) );
-    else
-        ImGui::Text( "%s: %.3f", label, *static_cast<double*>( ptr ) );
-}
-
-static void draw_bool_widget( const char* label, void* ptr, bool editable )
-{
-    if (editable)
-        ImGui::Checkbox( label, static_cast<bool*>( ptr ) );
-    else
-        ImGui::Text( "%s: %s", label, *static_cast<bool*>( ptr ) ? "true" : "false" );
-}
-
-static void draw_int32_widget( const char* label, void* ptr, bool editable )
-{
-    if (editable)
-        ImGui::DragInt( label, static_cast<int*>( ptr ), 0.1f );
-    else
-        ImGui::Text( "%s: %d", label, *static_cast<int*>( ptr ) );
-}
-
-static void draw_uint32_widget( const char* label, void* ptr, bool editable )
-{
-    if (editable)
-        ImGui::DragScalar( label, ImGuiDataType_U32, ptr, 0.1f );
-    else
-        ImGui::Text( "%s: %u", label, *static_cast<uint32_t*>( ptr ) );
-}
-
-static void draw_uint8_widget( const char* label, void* ptr, bool editable )
-{
-    if (editable) {
-        int val = *static_cast<uint8_t*>( ptr );
-        if (ImGui::DragInt( label, &val, 0.1f, 0, 255 ))
-            *static_cast<uint8_t*>( ptr ) = static_cast<uint8_t>( std::clamp( val, 0, 255 ) );
-    } else {
-        ImGui::Text( "%s: %u", label, *static_cast<uint8_t*>( ptr ) );
+    switch (kind) {
+        case TypeKind::INT8:
+            return ImGuiDataType_S8;
+        case TypeKind::UINT8:
+            return ImGuiDataType_U8;
+        case TypeKind::INT16:
+            return ImGuiDataType_S16;
+        case TypeKind::UINT16:
+            return ImGuiDataType_U16;
+        case TypeKind::INT32:
+            return ImGuiDataType_S32;
+        case TypeKind::UINT32:
+            return ImGuiDataType_U32;
+        case TypeKind::INT64:
+            return ImGuiDataType_S64;
+        case TypeKind::UINT64:
+            return ImGuiDataType_U64;
+        case TypeKind::FLOAT:
+            return ImGuiDataType_Float;
+        case TypeKind::DOUBLE:
+            return ImGuiDataType_Double;
+        default:
+            return ImGuiDataType_COUNT;
     }
 }
 
-static void draw_vec2f_widget( const char* label, void* ptr, bool editable )
+static int string_resize_callback( ImGuiInputTextCallbackData* cb )
 {
-    if (editable)
-        ImGui::DragFloat2( label, static_cast<Vec2f*>( ptr )->data(), 0.01f );
-    else {
-        auto* v = static_cast<Vec2f*>( ptr );
-        ImGui::Text( "%s: (%.2f, %.2f)", label, static_cast<double>( v->x ), static_cast<double>( v->y ) );
+    if (cb->EventFlag == ImGuiInputTextFlags_CallbackResize) {
+        auto* s = static_cast<String*>( cb->UserData );
+        s->resize( static_cast<size_t>( cb->BufTextLen ) );
+        cb->Buf = s->data();
     }
+    return 0;
 }
 
-static void draw_vec2i_widget( const char* label, void* ptr, bool editable )
+bool draw_leaf_value( const TypeInfo* type, void* ptr )
 {
-    if (editable)
-        ImGui::DragInt2( label, static_cast<Vec2i*>( ptr )->data(), 0.01f );
-    else {
-        auto* v = static_cast<Vec2i*>( ptr );
-        ImGui::Text( "%s: (%d, %d)", label, v->x, v->y );
-    }
-}
-
-static void draw_vec3_widget( const char* label, void* ptr, bool editable )
-{
-    if (editable)
-        ImGui::DragFloat3( label, static_cast<Vec3*>( ptr )->data(), 0.01f );
-    else {
-        auto* v = static_cast<Vec3*>( ptr );
-        ImGui::Text(
-            "%s: (%.2f, %.2f, %.2f)", label, static_cast<double>( v->x ), static_cast<double>( v->y ),
-            static_cast<double>( v->z )
-        );
-    }
-}
-
-static void draw_vec4_widget( const char* label, void* ptr, bool editable )
-{
-    if (editable)
-        ImGui::DragFloat4( label, static_cast<Vec4*>( ptr )->data(), 0.01f );
-    else {
-        auto* v = static_cast<Vec4*>( ptr );
-        ImGui::Text(
-            "%s: (%.2f, %.2f, %.2f, %.2f)", label, static_cast<double>( v->x ), static_cast<double>( v->y ),
-            static_cast<double>( v->z ), static_cast<double>( v->w )
-        );
-    }
-}
-
-static void draw_color_widget( const char* label, void* ptr, bool editable )
-{
-    auto* c     = static_cast<Color*>( ptr );
-    float col[] = { c->r / 255.0f, c->g / 255.0f, c->b / 255.0f, c->a / 255.0f };
-    if (editable) {
-        if (ImGui::ColorEdit4( label, col )) {
-            c->r = static_cast<uint8_t>( std::clamp( col[0] * 255.0f, 0.0f, 255.0f ) );
-            c->g = static_cast<uint8_t>( std::clamp( col[1] * 255.0f, 0.0f, 255.0f ) );
-            c->b = static_cast<uint8_t>( std::clamp( col[2] * 255.0f, 0.0f, 255.0f ) );
-            c->a = static_cast<uint8_t>( std::clamp( col[3] * 255.0f, 0.0f, 255.0f ) );
-        }
-    } else {
-        ImGui::ColorButton(
-            label, ImVec4( col[0], col[1], col[2], col[3] ), ImGuiColorEditFlags_NoTooltip, ImVec2( 20, 20 )
-        );
-        ImGui::SameLine();
-        ImGui::Text( "%s", label );
-    }
-}
-
-static void draw_quaternion_widget( const char* label, void* ptr, bool editable )
-{
-    auto* q      = static_cast<Quaternion*>( ptr );
-    float vals[] = { q->w, q->v.x, q->v.y, q->v.z };
-    if (editable) {
-        if (ImGui::DragFloat4( label, vals, 0.01f, -1.0f, 1.0f )) {
-            q->w   = vals[0];
-            q->v.x = vals[1];
-            q->v.y = vals[2];
-            q->v.z = vals[3];
-        }
-    } else {
-        ImGui::Text(
-            "%s: (%.2f, %.2f, %.2f, %.2f)", label, static_cast<double>( vals[0] ), static_cast<double>( vals[1] ),
-            static_cast<double>( vals[2] ), static_cast<double>( vals[3] )
-        );
-    }
-}
-
-static void draw_rid_widget( const char* label, void* ptr, bool )
-{
-    ImGui::Text( "%s: 0x%016llx", label, static_cast<RID*>( ptr )->value );
-}
-
-static const WidgetDrawFn* find_widget( rtti::TypeId id )
-{
-    struct Binding {
-        rtti::TypeId type_id;
-        WidgetDrawFn draw;
-    };
-    static const Binding table[] = {
-        { rtti::TypeRegistry::find<float>()->id, draw_float_widget },
-        { rtti::TypeRegistry::find<double>()->id, draw_double_widget },
-        { rtti::TypeRegistry::find<bool>()->id, draw_bool_widget },
-        { rtti::TypeRegistry::find<int>()->id, draw_int32_widget },
-        { rtti::TypeRegistry::find<int32_t>()->id, draw_int32_widget },
-        { rtti::TypeRegistry::find<uint32_t>()->id, draw_uint32_widget },
-        { rtti::TypeRegistry::find<uint8_t>()->id, draw_uint8_widget },
-        { rtti::TypeRegistry::find<Vec2f>()->id, draw_vec2f_widget },
-        { rtti::TypeRegistry::find<Vec2i>()->id, draw_vec2i_widget },
-        { rtti::TypeRegistry::find<Vec3>()->id, draw_vec3_widget },
-        { rtti::TypeRegistry::find<Vec4>()->id, draw_vec4_widget },
-        { rtti::TypeRegistry::find<Color>()->id, draw_color_widget },
-        { rtti::TypeRegistry::find<Quaternion>()->id, draw_quaternion_widget },
-        { rtti::TypeRegistry::find<RID>()->id, draw_rid_widget },
-    };
-    for (auto& entry : table) {
-        if (entry.type_id == id)
-            return &entry.draw;
-    }
-    return nullptr;
-}
-
-// Returns true if the field has been edited by interaction.
-static bool draw_field_widget( void* instance, const rtti::FieldInfo& field )
-{
-    auto type = field.get_type();
-    if (!type)
-        return false;
-
-    void* ptr = field.get_void_ptr( instance );
-    if (!ptr)
-        return false;
-
-    bool is_editable  = field.is( rtti::PropertyFlags::EDITABLE ) && !field.is( rtti::PropertyFlags::READ_ONLY );
-    const char* label = field.name.data();
-
-    if (field.qualifier.is_cstring) {
-        ImGui::Text( "%s: \"%s\"", label, *static_cast<const char* const*>( ptr ) );
-        return false;
-    }
-    if (field.qualifier.is_pointer()) {
-        ImGui::Text( "%s: %p", label, *static_cast<const void* const*>( ptr ) );
-        return false;
-    }
-    if (field.qualifier.is_array()) {
-        ImGui::Text( "%s: [array x%d]", label, static_cast<int>( field.qualifier.array_length ) );
-        return false;
-    }
-
-    auto* draw = find_widget( field.type_id );
-    if (draw) {
-        ( *draw )( label, ptr, is_editable );
-        return false;
-    }
-
-    bool edited = false;
     switch (type->kind) {
-        case rtti::TypeKind::STRING: {
-            String str;
-            type->to_string( str, ptr );
-            ImGui::Text( "%s: %s", label, str.c_str() );
-            break;
+        case TypeKind::BOOL:
+            return ImGui::Checkbox( "##v", static_cast<bool*>( ptr ) );
+
+        case TypeKind::INT8:
+        case TypeKind::UINT8:
+        case TypeKind::INT16:
+        case TypeKind::UINT16:
+        case TypeKind::INT32:
+        case TypeKind::UINT32:
+        case TypeKind::INT64:
+        case TypeKind::UINT64: {
+            return ImGui::DragScalar( "##v", imgui_data_type( type->kind ), ptr, 1.0f );
         }
-        case rtti::TypeKind::ENUM: {
-            auto* enum_t = static_cast<const rtti::EnumInfo*>( type );
-            auto cur_val = enum_t->get_value( ptr );
-            if (ImGui::BeginCombo( label, enum_t->get_name( cur_val ).data() )) {
-                for (auto& elem : enum_t->elements()) {
-                    const bool is_selected = ( cur_val == elem.value );
-                    if (is_editable && ImGui::Selectable( elem.name.data(), is_selected )) {
-                        enum_t->set_value( ptr, elem.value );
-                        edited = true;
+
+        case TypeKind::FLOAT:
+        case TypeKind::DOUBLE: {
+            return ImGui::DragScalar( "##v", imgui_data_type( type->kind ), ptr, 0.01f );
+        }
+
+        case TypeKind::ENUM: {
+            auto* info       = static_cast<const EnumInfo*>( type );
+            int64_t current  = info->get_value( ptr );
+            StringView cname = info->get_name( current );
+            bool changed     = false;
+
+            if (ImGui::BeginCombo( "##v", cname.data() )) {
+                for (const auto& elem : info->elements()) {
+                    bool selected = elem.value == current;
+                    if (ImGui::Selectable( elem.name.data(), selected )) {
+                        info->set_value( ptr, elem.value );
+                        changed = true;
                     }
-                    if (is_selected) {
+                    if (selected) {
                         ImGui::SetItemDefaultFocus();
                     }
                 }
                 ImGui::EndCombo();
             }
-            break;
+            return changed;
         }
-        case rtti::TypeKind::RECORD:
-        case rtti::TypeKind::VECTOR: {
-            auto* record = static_cast<const rtti::RecordInfo*>( type );
-            if (ImGui::TreeNode( label )) {
-                for (auto& sub_field : record->fields()) {
-                    ImGui::PushID( sub_field.name.data() );
-                    draw_field_widget( ptr, sub_field );
-                    ImGui::PopID();
-                }
-                ImGui::TreePop();
-            }
-            break;
-        }
-        default:
-            ImGui::Text( "%s: <?>", label );
-            break;
-    }
 
-    return edited;
+        case TypeKind::STRING: {
+            auto* str = static_cast<String*>( ptr );
+            return ImGui::InputText(
+                "##v", str->data(), str->capacity() + 1, ImGuiInputTextFlags_CallbackResize, string_resize_callback, str
+            );
+        }
+
+        default: {
+            // Vectors, pointers and anything unknown: read-only textual dump.
+            String out;
+            type->to_string( out, ptr );
+            ImGui::TextDisabled( "%s", out.c_str() );
+            return false;
+        }
+    }
 }
 
-void register_editor_plugin( Scene& scene )
+bool draw_labeled_value( StringView label, const TypeInfo* type, void* ptr, int depth )
+{
+    if (!type) {
+        begin_labeled_row( label );
+        ImGui::TextDisabled( "<unregistered type>" );
+        return false;
+    }
+
+    if (type->kind == TypeKind::RECORD) {
+        bool changed = false;
+        String lbl( label );
+        if (depth < 8 && ImGui::TreeNodeEx( lbl.c_str(), ImGuiTreeNodeFlags_DefaultOpen )) {
+            changed = draw_record_fields( static_cast<const RecordInfo*>( type ), ptr, depth + 1 );
+            ImGui::TreePop();
+        }
+        return changed;
+    }
+
+    begin_labeled_row( label );
+    return draw_leaf_value( type, ptr );
+}
+
+bool draw_field( const FieldInfo& field, void* data, int depth )
+{
+    if (field.is( PropertyFlags::HIDDEN )) {
+        return false;
+    }
+
+    const TypeInfo* type = field.get_type();
+    StringView name{ field.name.data(), field.name.size() };
+    void* ptr = field.get_void_ptr( data );
+
+    bool changed = false;
+
+    ImGui::PushID( name.data(), name.data() + name.size() );
+    ImGui::BeginDisabled( field.is( PropertyFlags::READ_ONLY ) );
+
+    if (field.qualifier.is_pointer()) {
+        // Pointers are shown, never edited.
+        begin_labeled_row( name );
+        void* target = field.get_as<void*>( data );
+        if (field.qualifier.is_cstring) {
+            const char* s = static_cast<const char*>( target );
+            ImGui::TextDisabled( "%s", s ? s : "(null)" );
+        } else {
+            ImGui::TextDisabled( "%p", target );
+        }
+    } else if (field.qualifier.is_array()) {
+        std::string lbl = std::string( name ) + " [" + std::to_string( field.qualifier.array_length ) + "]";
+        if (type && ImGui::TreeNodeEx( lbl.c_str(), ImGuiTreeNodeFlags_None )) {
+            auto* base = static_cast<uint8_t*>( ptr );
+            for (uint32_t i = 0; i < field.qualifier.array_length; ++i) {
+                ImGui::PushID( static_cast<int>( i ) );
+                std::string idx = "[" + std::to_string( i ) + "]";
+                changed |= draw_labeled_value( idx, type, base + i * type->size, depth + 1 );
+                ImGui::PopID();
+            }
+            ImGui::TreePop();
+        }
+    } else {
+        changed = draw_labeled_value( name, type, ptr, depth );
+    }
+
+    ImGui::EndDisabled();
+    ImGui::PopID();
+    return changed;
+}
+
+bool draw_record_fields( const RecordInfo* record, void* data, int depth )
+{
+    bool changed = false;
+    for (const auto& field : record->fields()) {
+        changed |= draw_field( field, data, depth );
+    }
+    return changed;
+}
+
+} // namespace
+
+static bool draw_component_properties( const rtti::TypeInfo* type, void* data )
+{
+    NC_ASSERT( type->is_record() );
+
+    auto record = static_cast<const rtti::RecordInfo*>( type );
+    if (record->field_count() == 0) {
+        return false;
+    }
+
+    return draw_record_fields( record, data, 0 );
+}
+
+void NCAPI_EDITOR register_editor_plugin( Scene& scene )
 {
     register_gui_plugin( scene );
     register_editor_camera( scene );
@@ -352,7 +310,7 @@ void register_editor_plugin( Scene& scene )
         }
 
         int old_size = editor_state->LogsBuffer.size();
-        editor_state->LogsBuffer.appendf( msg.payload.c_str(), msg.payload.c_str() + msg.payload.size() );
+        editor_state->LogsBuffer.append( msg.payload.c_str(), msg.payload.c_str() + msg.payload.size() );
         editor_state->LogsBuffer.append( "\n" );
 
         for (int i = old_size; i < editor_state->LogsBuffer.size(); i++) {
@@ -378,8 +336,9 @@ void register_editor_plugin( Scene& scene )
         .with<EditorState>()
         .with<GuiStateComponent>()
         .in( EcsSystemPhase::PRE_UPDATE )
+        .order( -900 )
         .run( []( EcsIterState& it ) {
-            auto state = it.get_component<EditorState>();
+            ( void ) it;
 
             ImGuizmo::SetOrthographic( false );
             ImGuizmo::BeginFrame();
@@ -419,12 +378,12 @@ void register_editor_plugin( Scene& scene )
             auto state = it.get_component<EditorState>();
             auto vid   = it.get_component<VideoServices>();
 
-            RenderService::RenderPassDesc pass{};
-            pass.camera       = state->EditorCamSource;
-            pass.draw_spatial = false;
-            pass.draw_canvas  = true;
-            pass.to_screen    = true;
-            vid->Renderer->render_pass( pass );
+            RenderService::RenderFrameDesc desc;
+            desc.camera       = state->EditorCamSource;
+            desc.draw_spatial = false;
+            desc.draw_canvas  = true;
+            desc.to_screen    = true;
+            vid->Renderer->render_frame( desc );
         } );
 
     scene.get_ecs()
@@ -432,11 +391,47 @@ void register_editor_plugin( Scene& scene )
         .with<GuiStateComponent>()
         .with<EditorState>()
         .in( EcsSystemPhase::PRE_UPDATE )
+        // Must run before every other PRE_UPDATE system that calls ImGui::Begin():
+        // ImGuizmo::BeginFrame() (order -900) opens a "gizmo" window, and ImGui
+        // undocks the whole tree if the dockspace is submitted after any window.
+        .order( -950 )
         .run( []( EcsIterState& it ) {
-            auto state           = it.get_component<EditorState>();
+            auto state = it.get_component<EditorState>();
+
             ImGuiID dockspace_id = ImGui::DockSpaceOverViewport( 0, nullptr, ImGuiDockNodeFlags_PassthruCentralNode );
             state->DockspaceId   = dockspace_id;
-            if (!ImGui::DockBuilderGetNode( dockspace_id )) {
+
+            // DockSpaceOverViewport() creates the dockspace node before this runs, so
+            // "node is null" never happens. The real first-run signal is that ImGui has
+            // no saved layout to load. Latch it on frame 1: the .ini is written a few
+            // seconds after the first modification, so existence is stable for that frame.
+            static bool s_latched = false;
+            static bool s_pending = false;
+            static bool s_built   = false;
+            if (!s_latched) {
+                s_latched       = true;
+                const char* ini = ImGui::GetIO().IniFilename;
+                s_pending       = ( !ini ) || ( !std::filesystem::exists( ini ) );
+                NC_LOG_INFO_C(
+                    log::GUI, "ConfigureDocking: ini='{}' build_default_layout={}", ini ? ini : "<null>",
+                    s_pending ? 1 : 0
+                );
+            }
+
+            // The swapchain still reports 1x1 on the first frames, and a layout built
+            // against WorkSize=1x1 bakes ~1px dock nodes (invisible panels) forever.
+            // Wait for a real viewport before splitting.
+            bool build = false;
+            if (s_pending && !s_built) {
+                const ImVec2 ws = ImGui::GetMainViewport()->WorkSize;
+                if (ws.x >= 64.0f && ws.y >= 64.0f) {
+                    build     = true;
+                    s_built   = true;
+                    s_pending = false;
+                }
+            }
+
+            if (build) {
                 ImGui::DockBuilderRemoveNode( dockspace_id );
                 ImGui::DockBuilderAddNode( dockspace_id, ImGuiDockNodeFlags_DockSpace );
                 ImGui::DockBuilderSetNodeSize( dockspace_id, ImGui::GetMainViewport()->WorkSize );
@@ -445,9 +440,13 @@ void register_editor_plugin( Scene& scene )
                 ImGuiID dock_left = ImGui::DockBuilderSplitNode( dock_main, ImGuiDir_Left, 0.22f, nullptr, &dock_main );
                 ImGuiID dock_right =
                     ImGui::DockBuilderSplitNode( dock_main, ImGuiDir_Right, 0.22f, nullptr, &dock_main );
+                ImGuiID dock_game = ImGui::DockBuilderSplitNode( dock_main, ImGuiDir_Down, 0.55f, nullptr, &dock_main );
+                ImGuiID dock_logs = ImGui::DockBuilderSplitNode( dock_game, ImGuiDir_Down, 0.45f, nullptr, &dock_game );
                 ImGui::DockBuilderDockWindow( "Toolbar", dock_top );
                 ImGui::DockBuilderDockWindow( "Scene Tree", dock_left );
                 ImGui::DockBuilderDockWindow( "Scene View", dock_main );
+                ImGui::DockBuilderDockWindow( "Game View", dock_game );
+                ImGui::DockBuilderDockWindow( "Logs", dock_logs );
                 ImGui::DockBuilderDockWindow( "Inspector", dock_right );
                 ImGui::DockBuilderFinish( dockspace_id );
             }
@@ -484,8 +483,8 @@ void register_editor_plugin( Scene& scene )
 
                 Vec2i vp_size( static_cast<int>( img_size.x ), static_cast<int>( img_size.y ) );
                 state->ViewportRT =
-                    vid->Renderer->texture_render_create( vp_size, rhi::TextureFormat::RGBA8_UNORM_SRGB );
-                state->ViewportDT   = vid->Renderer->texture_render_create( vp_size, rhi::TextureFormat::D32_FLOAT );
+                    vid->Renderer->texture_render_create( vp_size, gfx::TextureFormat::RGBA8_UNORM_SRGB );
+                state->ViewportDT   = vid->Renderer->texture_render_create( vp_size, gfx::TextureFormat::D32_FLOAT );
                 state->ViewportSize = img_size_v;
             }
 
@@ -545,6 +544,9 @@ void register_editor_plugin( Scene& scene )
 
                 const auto& stats = vid->Renderer->get_stats();
                 ImGui::Text( "GPU time: %.3f ms", stats.gpu_duration_ms );
+                for (uint32_t i = 0; i < stats.pass_count; ++i)
+                    ImGui::Text( "  pass[%u]: %.3f ms", i, stats.pass_duration_ms[i] );
+                ImGui::Text( "  compute: %.3f ms", stats.compute_duration_ms );
                 ImGui::Text( "IA Prims: %llu", stats.input_primitives );
                 ImGui::Text( "IA Verts: %llu", stats.input_vertices );
                 ImGui::Text( "VS Invokes: %llu", stats.vs_invocations );
@@ -562,17 +564,24 @@ void register_editor_plugin( Scene& scene )
         .in( EcsSystemPhase::UPDATE )
         .run( []( EcsIterState& it ) {
             auto state = it.get_component<EditorState>();
+            if (!state->ShowGameView) {
+                state->RenderGameView = false;
+                return;
+            }
 
             ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 0, 0 ) );
             ImGui::PushStyleVar( ImGuiStyleVar_ChildBorderSize, 0.0f );
-            ImGui::Begin( "Game View", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
-
-            if (state->GameViewRT) {
-                ImVec2 img_size    = ImGui::GetContentRegionAvail();
-                ImTextureID tex_id = reinterpret_cast<ImTextureID>( static_cast<uintptr_t>( state->GameViewRT.value ) );
-                ImGui::Image( tex_id, img_size );
+            state->RenderGameView = ImGui::Begin(
+                "Game View", &state->ShowGameView, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse
+            );
+            if (state->RenderGameView) {
+                if (state->GameViewRT) {
+                    ImVec2 img_size = ImGui::GetContentRegionAvail();
+                    ImTextureID tex_id =
+                        reinterpret_cast<ImTextureID>( static_cast<uintptr_t>( state->GameViewRT.value ) );
+                    ImGui::Image( tex_id, img_size );
+                }
             }
-
             ImGui::End();
             ImGui::PopStyleVar( 2 );
         } );
@@ -582,7 +591,6 @@ void register_editor_plugin( Scene& scene )
         .with<EditorState>()
         .in( EcsSystemPhase::UPDATE )
         .run( []( EcsIterState& it ) {
-            auto time  = it.world().get_singleton<TimeComponent>();
             auto vid   = it.world().get_singleton<VideoServices>();
             auto state = it.get_component<EditorState>();
 
@@ -604,6 +612,9 @@ void register_editor_plugin( Scene& scene )
                         }
                         if (ImGui::MenuItem( "Inputs" )) {
                             state->ShowInputsWindow = true;
+                        }
+                        if (ImGui::MenuItem( "Game View" )) {
+                            state->ShowGameView = true;
                         }
                         ImGui::EndMenu();
                     }
@@ -660,19 +671,15 @@ void register_editor_plugin( Scene& scene )
                     ImGui::SameLine();
                     if (ImGui::Checkbox( "Wireframe", &state->DrawWireframe )) {
                         auto q = it.world().query( "MaterialComponentOwners" ).with<MaterialComponent>().build();
-                        for (auto it : q.entities()) {
-                            auto mat      = it.get_component<MaterialComponent>();
-                            mat->DrawMode = state->DrawWireframe ? rhi::FillMode::WIREFRAME : rhi::FillMode::SOLID;
-                            it.mark_component_modified<MaterialComponent>();
+                        for (auto mat_entity : q.entities()) {
+                            auto mat      = mat_entity.get_component<MaterialComponent>();
+                            mat->DrawMode = state->DrawWireframe ? gfx::FillMode::WIREFRAME : gfx::FillMode::SOLID;
+                            mat_entity.mark_component_modified<MaterialComponent>();
                         }
                     }
                 }
                 ImGui::End();
             }
-
-            const ImGuiViewport* viewport = ImGui::GetMainViewport();
-            ImVec2 work_pos               = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
-            ImVec2 work_size              = viewport->WorkSize;
 
             // Left panels
             {
@@ -756,7 +763,7 @@ void register_editor_plugin( Scene& scene )
                             for (auto type : ecs.get_component_types()) {
                                 if (!type->is_record())
                                     continue;
-                                if (type == rtti::TypeRegistry::find<NodeRefComponent>())
+                                if (is_internal_component( type ))
                                     continue;
                                 if (state->AddCompFilter[0] && !strstr( type->name, state->AddCompFilter ))
                                     continue;
@@ -776,29 +783,20 @@ void register_editor_plugin( Scene& scene )
 
                         for (auto& comp : state->SelectedNode->get_components()) {
                             auto* type = ecs.resolve_component( comp.EcsId );
-                            if (!type)
-                                continue;
-                            if (type == rtti::TypeRegistry::find<NodeRefComponent>())
+                            if (!type || is_internal_component( type ))
                                 continue;
 
-                            void* comp_data = state->SelectedNode->get_component( type );
-                            if (!comp_data)
+                            void* data_ptr = state->SelectedNode->get_component( type );
+                            if (!data_ptr)
                                 continue;
 
                             ImGui::Separator();
                             if (ImGui::CollapsingHeader( type->name, ImGuiTreeNodeFlags_DefaultOpen )) {
-                                if (type->is_record()) {
-                                    auto* record = static_cast<const rtti::RecordInfo*>( type );
-                                    for (auto& field : record->fields()) {
-                                        ImGui::PushID( field.name.data() );
-                                        if (draw_field_widget( comp_data, field )) {
-                                            state->SelectedNode->mark_component_modified( type );
-                                        }
-                                        ImGui::PopID();
-                                    }
+                                ImGui::PushID( static_cast<int>( id << 16 | type->id.value ) );
+                                if (draw_component_properties( type, data_ptr )) {
+                                    state->SelectedNode->mark_component_modified( type );
                                 }
 
-                                ImGui::PushID( static_cast<int>( id << 16 | type->id.value ) );
                                 if (ImGui::SmallButton( "Remove" )) {
                                     state->SelectedNode->remove_component( type );
                                 }
@@ -854,9 +852,8 @@ void register_editor_plugin( Scene& scene )
                     }
 
                     ImGui::EndChild();
-
-                    ImGui::End();
                 }
+                ImGui::End();
             }
 
             if (state->ShowStatsWindow) {
@@ -868,6 +865,9 @@ void register_editor_plugin( Scene& scene )
                     ImGui::SeparatorText( "Rendering" );
                     const auto& stats = vid->Renderer->get_stats();
                     ImGui::Text( "GPU Duration: %.3f ms", stats.gpu_duration_ms );
+                    for (uint32_t i = 0; i < stats.pass_count; ++i)
+                        ImGui::Text( "  pass[%u]: %.3f ms", i, stats.pass_duration_ms[i] );
+                    ImGui::Text( "  compute: %.3f ms", stats.compute_duration_ms );
                     ImGui::Text( "Input Assembler Primitives: %llu", stats.input_primitives );
                     ImGui::Text( "Input Assembler Vertices: %llu", stats.input_vertices );
                     ImGui::Text( "Vertex Shader Invocations: %llu", stats.vs_invocations );
@@ -882,10 +882,10 @@ void register_editor_plugin( Scene& scene )
                     );
 
                     if (ImGui::Button( "Spawn Window" )) {
-                        it.world()
-                            .entity()
-                            .add<WindowComponent>( WindowComponent{ .Resolution = Vec2i( 300, 300 ), .Visible = true } )
-                            .build();
+                        WindowComponent spawn{};
+                        spawn.Resolution = Vec2i( 300, 300 );
+                        spawn.Visible    = true;
+                        it.world().entity().add<WindowComponent>( spawn ).build();
                     }
                 }
                 ImGui::End();
@@ -921,8 +921,7 @@ void register_editor_plugin( Scene& scene )
             if (ImGui::Begin( "Input Debug", &state->ShowInputsWindow )) {
                 {
                     ImGui::SeparatorText( "Actions" );
-                    DynamicArray<StringView> actions;
-                    io->Inputs->action_list( actions );
+                    auto actions = io->Inputs->action_list();
 
                     if (ImGui::BeginTable( "ActionsTable", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg )) {
                         ImGui::TableSetupColumn( "Name" );
@@ -997,7 +996,7 @@ void register_editor_plugin( Scene& scene )
         } );
 }
 
-void unregister_editor_plugin( Scene& scene )
+void NCAPI_EDITOR unregister_editor_plugin( Scene& scene )
 {
     scene.get_ecs().remove_singleton<EditorState>();
     unregister_gui_plugin( scene );

@@ -5,12 +5,15 @@
 
 #pragma once
 
+#include <ncore.h>
+#include <ncore/core/types.h>
+
 namespace nc {
 
 /**
  * @brief RGBA color.
  */
-struct NCAPI Color {
+struct REFLECT NCAPI Color {
     Color() {}
     Color( uint8_t R, uint8_t G, uint8_t B, uint8_t A ) : r( R ), g( G ), b( B ), a( A ) {}
     Color( uint32_t hex, uint8_t alpha = 200 )
@@ -34,10 +37,10 @@ struct NCAPI Color {
                ( static_cast<uint32_t>( g * 255.0f ) << 8 ) | ( static_cast<uint32_t>( r * 255.0f ) );
     }
 
-    uint8_t r = 0;
-    uint8_t g = 0;
-    uint8_t b = 0;
-    uint8_t a = 0;
+    REFLECT uint8_t r = 0;
+    REFLECT uint8_t g = 0;
+    REFLECT uint8_t b = 0;
+    REFLECT uint8_t a = 0;
 
     bool operator==( const Color& other ) const
     {
@@ -47,8 +50,6 @@ struct NCAPI Color {
     {
         return !( *this == other );
     }
-
-    NSTRUCTV( Color, NC_F( Color, r ), NC_F( Color, g ), NC_F( Color, b ), NC_F( Color, a ) )
 };
 
 } // namespace nc

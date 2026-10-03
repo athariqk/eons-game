@@ -1,19 +1,17 @@
 #pragma once
 
 #include <ncore.h>
+#include <ncore/core/types.h>
+#include <ncore/runtime/ecs/ecs_component.h>
 
 namespace nc {
 
-struct NCAPI TimeComponent {
-    uint32_t Ticks     = 0;
-    int FrameCount     = 0;
-    double FPS         = 0;
-    double Accumulator = 0.0;
-
-    NSTRUCTV(
-        TimeComponent, NC_F( TimeComponent, Ticks ), NC_F( TimeComponent, FrameCount ),
-        NC_F( TimeComponent, FPS ), NC_F( TimeComponent, Accumulator )
-    )
+NC_COMPONENT_API( TimeComponent )
+{
+    REFLECT uint32_t Ticks     = 0;
+    REFLECT int FrameCount     = 0;
+    REFLECT double FPS         = 0;
+    REFLECT double Accumulator = 0.0;
 };
 
 } // namespace nc

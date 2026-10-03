@@ -1,5 +1,5 @@
 #include <ncore/core/collection.h>
-#include <ncore/resources/audio_clip.h>
+#include <ncore/resources/resource.h>
 #include <ncore/services/audio/audio_service.h>
 
 namespace nc {

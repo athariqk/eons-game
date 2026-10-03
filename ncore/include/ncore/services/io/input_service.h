@@ -3,6 +3,7 @@
 #include <span>
 
 #include <ncore/core/collection.h>
+#include <ncore/core/rid.h>
 #include <ncore/services/service.h>
 
 #include "input_event.h"
@@ -84,9 +85,9 @@ public:
     bool is_mouse_button_pressed( ButtonIndex button ) const;
 
     /**
-     * @brief Appends a snapshot of all registered action names.
+     * @brief Return a snapshot of all registered action names.
      */
-    void action_list( DynamicArray<StringView>& out );
+    DynamicArray<StringView> action_list();
 
     /**
      * @brief Inserts a new input event to the queue. It will be
@@ -107,7 +108,7 @@ public:
      */
     std::span<const InputEvent> get_events() const
     {
-        return std::span<const InputEvent>( event_queue.data(), event_queue.get_head() );
+        return std::span<const InputEvent>( event_queue.data(), event_queue.head() );
     }
 
 private:
@@ -120,9 +121,9 @@ private:
 
     Array<ButtonState, KEY_COUNT> key_states;
     Array<ButtonState, MOUSE_BUTTON_COUNT> mb_states; // mouse button states.
-    Vec2f mouse_wheel    = Vec2f();                     // accumulated scroll deltas.
-    Vec2f mouse_pos      = Vec2f();                     // last absolute position (window coords).
-    Vec2f mouse_delta    = Vec2f();                     // accumulated relative motion.
+    Vec2f mouse_wheel   = Vec2f();                    // accumulated scroll deltas.
+    Vec2f mouse_pos     = Vec2f();                    // last absolute position (window coords).
+    Vec2f mouse_delta   = Vec2f();                    // accumulated relative motion.
     bool is_any_held    = false;
     bool is_any_pressed = false;
 };

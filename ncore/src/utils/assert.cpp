@@ -9,7 +9,8 @@ void assert_fail( const char* expr, const char* msg, const char* file, int line 
         return;
     auto channel = log::Logger::get_instance().channel();
     channel->write(
-        log::Level::LFATAL, log::SourceLoc{ file, nullptr, line }, "**assertion failed**: {}; {}", expr, msg
+        log::Level::LFATAL, log::SourceLoc{ file, nullptr, line }, "**assertion failed** for \"{}\": {}", expr,
+        msg ? msg : "Condition is true."
     );
     log::Logger::get_instance().flush_all();
 }

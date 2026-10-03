@@ -81,9 +81,14 @@ void FileSink::open()
     if (m_file.fail()) {
         NC_LOG_WARN( "FileSink failed to open file on path: {}", m_path );
     } else {
+        m_bytes_written = m_file.tellp();
+        if (m_bytes_written == 0) {
+            constexpr unsigned char bom[] = { 0xEF, 0xBB, 0xBF };
+            m_file.write( reinterpret_cast<const char*>( bom ), 3 );
+            m_file.flush();
+        }
         NC_LOG_INFO( "FileSink path='{}'", filepath.string() );
     }
-    m_bytes_written = m_file.tellp();
 }
 
 } // namespace nc::log

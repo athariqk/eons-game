@@ -4,31 +4,29 @@
 #include <ncore/core/quaternion.h>
 #include <ncore/core/types.h>
 #include <ncore/core/vector.h>
+#include <ncore/runtime/ecs/ecs_component.h>
 
 namespace nc {
 
 // TODO: turn into a 2x3 matrix
-struct NCAPI Transform2DComponent {
-    Vec2f position;
-    Vec2f Size;
-    float Angle = 0.0f;
+NC_COMPONENT_API( Transform2DComponent )
+{
+    REFLECT Vec2f position;
+    REFLECT Vec2f Size;
+    REFLECT float Angle = 0.0f;
 
     Vec2f get_world_center_point()
     {
         return Vec2f( position.x + ( Size.x * 0.5f ), position.y + ( Size.y * 0.5f ) );
     }
-
-    NSTRUCTV(
-        Transform2DComponent, NC_F( Transform2DComponent, position ), NC_F( Transform2DComponent, Size ),
-        NC_F( Transform2DComponent, Angle )
-    )
 };
 
-struct NCAPI Transform3DComponent {
-    Vec3 Translation    = Vec3();                 // Local translation.
-    Quaternion Rotation = Quaternion::identity(); // Local rotation.
-    Vec3 Scale          = Vec3( 1, 1, 1 );        // Local scale.
-    Mat4 Global         = Mat4::identity();       // Global transform, auto-computed.
+NC_COMPONENT_API( Transform3DComponent )
+{
+    REFLECT Vec3 Translation    = Vec3();                 // Local translation.
+    REFLECT Quaternion Rotation = Quaternion::identity(); // Local rotation.
+    REFLECT Vec3 Scale          = Vec3( 1, 1, 1 );        // Local scale.
+    REFLECT Mat4 Global         = Mat4::identity();       // Global transform, auto-computed.
 
     /**
      * @brief Compose 4x4 transform/model matrix from
@@ -40,11 +38,6 @@ struct NCAPI Transform3DComponent {
      * local translation, rotation and scale.
      */
     void from_matrix( const Mat4& xform );
-
-    NSTRUCTV(
-        Transform3DComponent, NC_F( Transform3DComponent, Translation ), NC_F( Transform3DComponent, Rotation ),
-        NC_F( Transform3DComponent, Scale ), NC_F( Transform3DComponent, Global )
-    )
 };
 
 } // namespace nc

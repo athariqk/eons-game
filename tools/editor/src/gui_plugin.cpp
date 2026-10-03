@@ -1,12 +1,14 @@
 #include "gui_plugin.h"
 
-#include <ncore/resources/material_template.h>
+#include <cstring>
+
+#include <ncore/resources/resource.h>
 #include <ncore/runtime/components/services.h>
 #include <ncore/runtime/components/window.h>
 #include <ncore/runtime/ecs/ecs_events.h>
+#include <ncore/runtime/resources/resource_loader.h>
 #include <ncore/runtime/scene.h>
 #include <ncore/services/io/input_service.h>
-#include <ncore/services/io/resource_service.h>
 #include <ncore/services/video/render_service.h>
 #include <ncore/services/video/window_service.h>
 
@@ -16,7 +18,7 @@
 
 namespace nc::editor {
 
-void register_gui_plugin( Scene& scene )
+void NCAPI_EDITOR register_gui_plugin( Scene& scene )
 {
     scene.get_ecs().add_singleton<GuiStateComponent>();
 
@@ -36,9 +38,29 @@ void register_gui_plugin( Scene& scene )
             imgui_io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
             imgui_io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors | ImGuiBackendFlags_RendererHasVtxOffset |
                                      ImGuiBackendFlags_RendererHasTextures;
-            imgui_io.Fonts->AddFontFromFileTTF( "assets/fonts/SpaceGrotesk-SemiBold.ttf" );
-            imgui_io.Fonts->AddFontFromFileTTF( "assets/fonts/SpaceGrotesk-Regular.ttf" );
-            imgui_io.FontDefault = imgui_io.Fonts->AddFontFromFileTTF( "assets/fonts/SpaceGrotesk-Medium.ttf" );
+            // Fonts live in assets/fonts/*.ttf.bin, so they can only be handed to
+            // ImGui from memory — the raw TTF no longer ships in the runtime tree.
+            // The buffer must come from IM_ALLOC: ImGui frees it with IM_FREE (free),
+            // while BytesBuffer allocates through NcAllocator/mimalloc outside ASAN.
+            auto load_font = [&]( const char* p_path ) -> ImFont* {
+                auto font = io->Resources->load<Font>( p_path );
+                if (!font)
+                    return nullptr;
+                auto bytes = font->get_data();
+                if (bytes.size() == 0)
+                    return nullptr;
+                void* buf = IM_ALLOC( bytes.size() );
+                if (!buf)
+                    return nullptr;
+                std::memcpy( buf, bytes.data(), bytes.size() );
+                return imgui_io.Fonts->AddFontFromMemoryTTF( buf, static_cast<int>( bytes.size() ) );
+            };
+
+            load_font( "fonts/SpaceGrotesk-SemiBold.ttf" );
+            load_font( "fonts/SpaceGrotesk-Regular.ttf" );
+            imgui_io.FontDefault = load_font( "fonts/SpaceGrotesk-Medium.ttf" );
+            if (imgui_io.Fonts->Fonts.empty())
+                imgui_io.FontDefault = imgui_io.Fonts->AddFontDefault();
 
             for (int i = 0; i < ImGuiMouseCursor_COUNT; i++) {
                 auto imgui_cursor              = static_cast<ImGuiMouseCursor>( i );
@@ -66,19 +88,10 @@ void register_gui_plugin( Scene& scene )
                 col.z       = col.z <= 0.04045f ? col.z / 12.92f : pow( ( col.z + 0.055f ) / 1.055f, 2.4f );
             }
 
-            auto tmpl_rid = io->Resources->load( "materials/canvas.material" );
-            auto tmpl     = io->Resources->get<MaterialTemplate>( tmpl_rid );
-            NC_VERIFY( tmpl );
-            auto mat = vid->Renderer->material_create( *tmpl );
-
-            state->Material = mat; // TODO: why are we even storing the mat in the global state when
-                                   // we're creating a dedicated entity material down below?
-
-            // ctx.world()
-            //     .entity( "ImGui_Material" )
-            //     .with<MaterialComponent>( { tmpl_rid, mat, {} } )
-            //     .child_of( state_id )
-            //     .build();
+            auto shader       = io->Resources->load<MaterialShader>( "shaders/materials/standard_canvas.slang" );
+            auto mat          = vid->Renderer->material_create( shader );
+            state->CanvasItem = vid->Renderer->canvas_item_create();
+            vid->Renderer->canvas_item_set_material( state->CanvasItem, mat );
         } );
 
     scene.get_ecs()
@@ -106,6 +119,9 @@ void register_gui_plugin( Scene& scene )
                 tex->SetTexID( ImTextureID_Invalid );
                 tex->SetStatus( ImTextureStatus_Destroyed );
             }
+
+            if (state->CanvasItem)
+                vid->Renderer->destroy_rid( state->CanvasItem );
 
             auto fonts = ImGui::GetIO().Fonts;
             NC_LOG_DEBUG_C( log::GUI, "Destroying font atlas TexID={}", fonts->TexID.GetTexID() );
@@ -187,6 +203,10 @@ void register_gui_plugin( Scene& scene )
         .system( "GuiPlugin_PrepareFrame" )
         .with<MainWindowTag, WindowComponent>()
         .in( EcsSystemPhase::PRE_UPDATE )
+        // Must run before every other PRE_UPDATE system that touches ImGui: it is
+        // what publishes DisplaySize and starts the frame. Without this the
+        // viewport still reports WorkSize=1x1 and docking layouts bake 1px nodes.
+        .order( -1000 )
         .each( []( EcsIterState& it ) {
             auto win = it.get_component<WindowComponent>();
             auto vid = it.world().get_singleton<VideoServices>();
@@ -194,8 +214,8 @@ void register_gui_plugin( Scene& scene )
             Vec2i size = vid->Renderer->swapchain_get_size( win->Swapchain );
 
             ImGuiIO& io      = ImGui::GetIO();
-            io.DisplaySize.x = size.x;
-            io.DisplaySize.y = size.y;
+            io.DisplaySize.x = static_cast<float>( size.x );
+            io.DisplaySize.y = static_cast<float>( size.y );
 
             ImGui::NewFrame();
         } );
@@ -214,11 +234,10 @@ void register_gui_plugin( Scene& scene )
             vid->Window->set_cursor_type( wanted_cursor );
 
             ImDrawData* dd = ImGui::GetDrawData();
-            if (!dd || dd->DisplaySize.x <= 0 || dd->DisplaySize.y <= 0 || !state->Material) {
+            if (!dd || dd->DisplaySize.x <= 0 || dd->DisplaySize.y <= 0 || !state->CanvasItem) {
                 NC_LOG_TRACE_C(
-                    log::GRAPHICS, "GuiPlugin_EndFrame: skip (dd={} disp={:.0f}x{:.0f} mat_valid={})",
-                    static_cast<void*>( dd ), dd ? dd->DisplaySize.x : 0, dd ? dd->DisplaySize.y : 0,
-                    state->Material.is_valid()
+                    log::GRAPHICS, "GuiPlugin_EndFrame: skip (dd={} disp={:.0f}x{:.0f}", static_cast<void*>( dd ),
+                    dd ? dd->DisplaySize.x : 0, dd ? dd->DisplaySize.y : 0
                 );
                 return;
             }
@@ -267,11 +286,13 @@ void register_gui_plugin( Scene& scene )
                 }
             }
 
+            uint32_t z_order = 0;
             for (auto cmd_list : dd->CmdLists) {
                 NC_LOG_TRACE_C(
                     log::GRAPHICS, "  CmdList: {} cmds, {} vtx, {} idx", cmd_list->CmdBuffer.Size,
                     cmd_list->VtxBuffer.Size, cmd_list->IdxBuffer.Size
                 );
+
                 for (int i = 0; i < cmd_list->CmdBuffer.Size; i++) {
                     auto& cmd = cmd_list->CmdBuffer[i];
                     if (cmd.UserCallback) {
@@ -299,8 +320,8 @@ void register_gui_plugin( Scene& scene )
                     auto idx_count  = static_cast<size_t>( cmd.ElemCount );
 
                     NC_LOG_TRACE_C(
-                        log::GRAPHICS, "  canvas_draw_triangles: {} verts, {} idx, clip={},{} {}x{}", vert_count,
-                        idx_count, clip_rect.x, clip_rect.y, clip_rect.w, clip_rect.h
+                        log::GRAPHICS, "  ImGui draw cmd: {} verts, {} idx, clip={},{} {}x{}", vert_count, idx_count,
+                        clip_rect.x, clip_rect.y, clip_rect.w, clip_rect.h
                     );
 
                     // NOTE: we don't directly set the material texture here, because we only have one
@@ -308,9 +329,10 @@ void register_gui_plugin( Scene& scene )
                     // whatever is last set. (mistake learned)
 
                     RID tex_id = reinterpret_cast<uintptr_t>( cmd.GetTexID() );
-                    // Push a new draw of canvas primitive with its own texture override
-                    vid->Renderer->canvas_draw_triangles(
-                        { vtx, vert_count }, { idx, idx_count }, state->Material, tex_id, clip_rect
+                    // Push a new draw of canvas primitive with its own texture override. The
+                    // incrementing z-order preserves ImGui's back-to-front draw order.
+                    vid->Renderer->canvas_item_draw(
+                        state->CanvasItem, { vtx, vert_count }, { idx, idx_count }, tex_id, clip_rect, z_order++
                     );
                 }
             }
@@ -319,7 +341,7 @@ void register_gui_plugin( Scene& scene )
 
 //------------------------------------------------------------------------------
 
-void unregister_gui_plugin( Scene& scene )
+void NCAPI_EDITOR unregister_gui_plugin( Scene& scene )
 {
     scene.get_ecs().remove_singleton<GuiStateComponent>();
 }

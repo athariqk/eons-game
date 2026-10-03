@@ -1,11 +1,15 @@
 #pragma once
 
+#include <ncore.h>
+#include <ncore/core/types.h>
+#include <ncore/runtime/ecs/ecs_component.h>
+
 namespace nc {
 
 class WindowService;
 class RenderService;
-class ResourceService;
 class InputService;
+class ResourceLoader;
 
 /**
  * @brief Convenience component containing video-related
@@ -13,10 +17,10 @@ class InputService;
  *
  * May be used from ECS systems to interact with the engine.
  */
-struct NCAPI VideoServices {
-    WindowService* Window = nullptr;
-    RenderService* Renderer    = nullptr;
-    NSTRUCTV( VideoServices, NC_F( VideoServices, Window ), NC_F( VideoServices, Renderer ) )
+NC_COMPONENT_API( VideoServices )
+{
+    REFLECT WindowService* Window   = nullptr;
+    REFLECT RenderService* Renderer = nullptr;
 };
 
 /**
@@ -25,10 +29,10 @@ struct NCAPI VideoServices {
  *
  * May be used from ECS systems to interact with the engine.
  */
-struct NCAPI IOServices {
-    ResourceService* Resources;
-    InputService* Inputs;
-    NSTRUCTV( IOServices, NC_F( IOServices, Resources ), NC_F( IOServices, Inputs ) )
+NC_COMPONENT_API( IOServices )
+{
+    REFLECT ResourceLoader* Resources = nullptr;
+    REFLECT InputService* Inputs      = nullptr;
 };
 
 } // namespace nc

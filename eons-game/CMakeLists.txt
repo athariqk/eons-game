@@ -35,23 +35,10 @@ set_target_properties(
 )
 
 # ASAN runtime DLL must sit next to the exe (Debug + clang-cl only).
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT
-                                             STREQUAL "MSVC")
-  get_filename_component(_llvm_bin_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
+if(SEA_TRACK_ASAN AND CMAKE_CXX_COMPILER_ID MATCHES "Clang"
+   AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
   set(_asan_runtime
-      "${_llvm_bin_dir}/../lib/clang/${CMAKE_CXX_COMPILER_VERSION_MAJOR}/lib/windows/clang_rt.asan_dynamic-x86_64.dll"
-  )
-  if(NOT EXISTS "${_asan_runtime}")
-    file(
-      GLOB
-      _asan_rt_candidates
-      "${_llvm_bin_dir}/../lib/clang/*/lib/windows/clang_rt.asan_dynamic-x86_64.dll"
-    )
-    list(LENGTH _asan_rt_candidates _asan_rt_count)
-    if(_asan_rt_count GREATER 0)
-      list(GET _asan_rt_candidates 0 _asan_runtime)
-    endif()
-  endif()
+      "${LLVM_INSTALL_PREFIX}/lib/windows/clang_rt.asan_dynamic-x86_64.dll")
   if(EXISTS "${_asan_runtime}")
     add_custom_command(
       TARGET EonsPrototype
@@ -70,16 +57,35 @@ endif()
 target_compile_definitions(EonsPrototype PRIVATE "$<$<CONFIG:Debug>:DEBUG>"
                                                  "$<$<CONFIG:Dist>:DIST>")
 
+# Match ncore/editor: RTTI ADD_PROPERTY uses offsetof on types that may not be
+# standard-layout (e.g. std::string members) — conditionally-supported, not a bug.
+target_compile_options(
+  EonsPrototype
+  PRIVATE $<$<CXX_COMPILER_ID:Clang>:
+            -Wno-invalid-offsetof
+            -Wno-unsafe-buffer-usage
+            -Wno-lifetime-safety-intra-tu-suggestions
+            -Wno-lifetime-safety-invalidation>)
+
+# Reflection code generation — registers game component types (TestSpin,
+# microcosmos) so EcsWorld::add_component/find<T>() can resolve them.
+file(GLOB_RECURSE EONS_GAME_HEADERS
+     LIST_DIRECTORIES false "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
+
+nc_add_reflection_gen(EonsPrototype HEADERS ${EONS_GAME_HEADERS}
+                      FLAGS_FROM "eons-game/")
+
+# .gen.h files re-include their source header by relative path; headers at the
+# game root (test_spin.h, pch.h) resolve as bare <test_spin.h>.
+target_include_directories(EonsPrototype PRIVATE
+                           "${CMAKE_CURRENT_SOURCE_DIR}")
+
 add_custom_command(
   TARGET EonsPrototype
   POST_BUILD
   COMMAND
-    "${CMAKE_COMMAND}" -E copy_directory_if_different
-    "${CMAKE_SOURCE_DIR}/eons-game/assets"
-    "$<TARGET_FILE_DIR:EonsPrototype>/assets"
-  COMMAND
     "${CMAKE_COMMAND}" -E copy_if_different
     "${CMAKE_SOURCE_DIR}/eons-game/eons.ini"
     "$<TARGET_FILE_DIR:EonsPrototype>/eons.ini"
-  COMMENT "Copying assets and config files"
+  COMMENT "Copying config files"
   VERBATIM)

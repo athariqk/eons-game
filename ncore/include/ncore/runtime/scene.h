@@ -2,7 +2,9 @@
 
 #include <ncore/core/collection.h>
 #include <ncore/game_world.h>
+#include <ncore/runtime/ecs/ecs_component.h>
 #include <ncore/runtime/ecs/ecs_world.h>
+#include <ncore/runtime/resources/resource_loader.h>
 
 #include "node.h"
 
@@ -14,13 +16,13 @@ class ServiceRegistry;
 /**
  * @brief ECS tag to mark the Scene's root node.
  */
-struct NCAPI RootNodeTag {
-    NSTRUCT1( RootNodeTag )
+NC_COMPONENT_API( RootNodeTag )
+{
 };
 
-struct NCAPI NodeRefComponent {
-    Node* node = nullptr;
-    NSTRUCTV( NodeRefComponent, NC_F( NodeRefComponent, node ) )
+NC_COMPONENT_API( NodeRefComponent )
+{
+    REFLECT Node* node = nullptr;
 };
 
 /**
@@ -64,7 +66,7 @@ public:
         ecs_world.system( name ).with<NodeRefComponent, Comps...>().in( phase ).order( order ).each(
             [fn = std::forward<Fn>( callback )]( EcsIterState& ctx ) {
                 auto ref = ctx.get_component<NodeRefComponent>();
-                NC_ASSERT( ref && ref->node, "Entity missing NodeRefComponent" );
+                NC_ASSERT_MSG( ref && ref->node, "Entity missing NodeRefComponent" );
                 fn( *ref->node, ( *ctx.get_component<Comps>() )..., ctx.delta_time() );
             }
         );
@@ -95,9 +97,17 @@ public:
     /**
      * @brief This may be used for low-level access to the ECS runtime.
      */
-    EcsWorld& get_ecs()
+    EcsWorld& get_ecs() [[clang::lifetimebound]]
     {
         return ecs_world;
+    }
+
+    /**
+     * @brief Access the per-scene resource loader.
+     */
+    ResourceLoader& get_resource_loader() [[clang::lifetimebound]]
+    {
+        return resource_loader;
     }
 
     /**
@@ -120,6 +130,7 @@ private:
     void process_pending_node_deletions_();
 
     EcsWorld ecs_world;
+    ResourceLoader resource_loader;
     Node::NodePool node_pool;
     Node* root_node       = nullptr;
     size_t system_counter = 0;

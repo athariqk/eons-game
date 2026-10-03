@@ -21,7 +21,15 @@ NCAPI void assert_fail( const char* expr, const char* msg, const char* file, int
 
 #ifdef NC_DEBUG
 
-#define NC_ASSERT( expr, msg )                                                                                         \
+#define NC_ASSERT( expr )                                                                                              \
+    do {                                                                                                               \
+        if (!( expr )) {                                                                                               \
+            nc::assert_fail( #expr, nullptr, __FILE__, __LINE__ );                                                     \
+            NC_DEBUGBREAK();                                                                                           \
+        }                                                                                                              \
+    } while (0)
+
+#define NC_ASSERT_MSG( expr, msg )                                                                                     \
     do {                                                                                                               \
         if (!( expr )) {                                                                                               \
             nc::assert_fail( #expr, msg, __FILE__, __LINE__ );                                                         \
@@ -55,11 +63,19 @@ NCAPI void assert_fail( const char* expr, const char* msg, const char* file, int
         }                                                                                                              \
     } while (0)
 
-#define NC_VERIFY( ptr ) NC_VERIFY_MSG( ptr, "pointer to object is null" )
+#define NC_VERIFY( ptr ) NC_VERIFY_MSG( ptr, "Pointer is null reference." )
 
 #else
 
-#define NC_ASSERT( expr, msg )                                                                                         \
+#define NC_ASSERT( expr )                                                                                              \
+    do {                                                                                                               \
+        if (!( expr )) {                                                                                               \
+            nc::assert_fail( #expr, nullptr, __FILE__, __LINE__ );                                                     \
+            std::abort();                                                                                              \
+        }                                                                                                              \
+    } while (0)
+
+#define NC_ASSERT_MSG( expr, msg )                                                                                     \
     do {                                                                                                               \
         if (!( expr )) {                                                                                               \
             nc::assert_fail( #expr, msg, __FILE__, __LINE__ );                                                         \
@@ -91,6 +107,6 @@ NCAPI void assert_fail( const char* expr, const char* msg, const char* file, int
         }                                                                                                              \
     } while (0)
 
-#define NC_VERIFY( ptr ) NC_VERIFY_MSG( ptr, "pointer is null reference" )
+#define NC_VERIFY( ptr ) NC_VERIFY_MSG( ptr, "Pointer is null reference." )
 
 #endif

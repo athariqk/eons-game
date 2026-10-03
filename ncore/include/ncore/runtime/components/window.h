@@ -1,33 +1,29 @@
 #pragma once
 
+#include <ncore/core/rid.h>
 #include <ncore/core/types.h>
 #include <ncore/core/vector.h>
+#include <ncore/runtime/ecs/ecs_component.h>
 #include <ncore/services/video/window/window_types.h>
 
 namespace nc {
 
-struct NCAPI WindowComponent {
-    uint32_t Source = UINT32_MAX; // The window ID, from WindowService.
-    RID Swapchain;
-    std::string_view Title = "NCORE Engine";
-    Vec2i Resolution       = Vec2i();
-    WindowMode Mode        = WindowMode::WINDOWED;
-    bool Visible           = false;
-    float PixelsPerMeter   = 0;
-    NSTRUCTV(
-        WindowComponent, NC_F( WindowComponent, Source ), NC_F( WindowComponent, Title ),
-        NC_F( WindowComponent, Resolution ), NC_F( WindowComponent, Mode ), NC_F( WindowComponent, Visible ),
-        NC_F( WindowComponent, PixelsPerMeter )
-    )
+NC_COMPONENT_API( WindowComponent )
+{
+    REFLECT uint32_t Source = UINT32_MAX; // The window ID, from WindowService.
+    REFLECT RID Swapchain;
+    REFLECT StringView Title     = "NCORE Engine";
+    REFLECT Vec2i Resolution     = Vec2i();
+    REFLECT WindowMode Mode      = WindowMode::WINDOWED;
+    REFLECT bool Visible         = false;
+    REFLECT float PixelsPerMeter = 0;
 };
 
-struct NCAPI WindowResizedComponent {
-    Vec2i NewSize;
-    NSTRUCTV( WindowResizedComponent, NC_F( WindowResizedComponent, NewSize ) )
+NC_COMPONENT_API( WindowResizedComponent )
+{
+    REFLECT Vec2i NewSize;
 };
 
-struct NCAPI MainWindowTag {
-    NSTRUCT1( MainWindowTag )
-};
+NC_COMPONENT_API( MainWindowTag ){};
 
 } // namespace nc

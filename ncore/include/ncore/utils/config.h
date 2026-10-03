@@ -1,8 +1,6 @@
 #pragma once
 
-#include <string>
-#include <unordered_map>
-
+#include <ncore/core/collection.h>
 #include <ncore/core/types.h>
 
 namespace nc {
@@ -30,7 +28,7 @@ public:
 
     void load( const String& path );
     String get( const String& key, const String& default_value = "" ) const;
-    void save();
+    [[noreturn]] void save();
 
     template<typename T>
     T read()
@@ -50,7 +48,7 @@ private:
     void read_into( const rtti::RecordInfo& type_info, void* result );
 
     String path;
-    std::unordered_map<String, String> data;
+    OrderedHashMap<String, String> data; // ordered by field name.
 };
 
 } // namespace nc

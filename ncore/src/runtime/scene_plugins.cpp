@@ -1,9 +1,7 @@
 #include "scene_plugins.h"
 
 #include <ncore/application.h>
-#include <ncore/resources/image.h>
-#include <ncore/resources/material_template.h>
-#include <ncore/resources/mesh.h>
+#include <ncore/resources/resource.h>
 #include <ncore/runtime/components/camera.h>
 #include <ncore/runtime/components/input.h>
 #include <ncore/runtime/components/material.h>
@@ -20,7 +18,6 @@
 #include <ncore/runtime/scene.h>
 #include <ncore/services/io/input_event.h>
 #include <ncore/services/io/input_service.h>
-#include <ncore/services/io/resource_service.h>
 #include <ncore/services/video/render_service.h>
 #include <ncore/services/video/window/window_event.h>
 #include <ncore/services/video/window_service.h>
@@ -48,7 +45,7 @@ void NCAPI register_core_plugin( Scene& scene )
         } );
 
     auto io       = scene.get_ecs().add_singleton<IOServices>();
-    io->Resources = scene.get_app_ctx()->Services.resolve<ResourceService>();
+    io->Resources = &scene.get_resource_loader();
     io->Inputs    = scene.get_app_ctx()->Services.resolve<InputService>();
 
     auto vid      = scene.get_ecs().add_singleton<VideoServices>();
@@ -69,7 +66,7 @@ void register_video_plugin( Scene& scene )
             auto io       = it.get_component<IOServices>();
             auto vid      = it.get_component<VideoServices>();
 
-            vid->Window->set_default_icon( io->Resources->load<Image>( "images/window.ico" ) );
+            vid->Window->set_default_icon( io->Resources->load<Image>( "images/window.png" ) );
 
             it.world()
                 .entity( "MainWindow" )
@@ -105,7 +102,7 @@ void register_video_plugin( Scene& scene )
                     // NOTE: Screen/swapchain is exclusively a flat 2D render (no depth).
                     // NOTE: This means for depth-required renders, it should always go to offscreen buffers
                     // with depth/stencil tex format enabled
-                    nat_hnd, win->Resolution, rhi::TextureFormat::RGBA8_UNORM_SRGB, rhi::TextureFormat::UNKNOWN
+                    nat_hnd, win->Resolution, gfx::TextureFormat::RGBA8_UNORM_SRGB, gfx::TextureFormat::UNKNOWN
                 );
                 vid->Window->window_set_resolution( win->Source, win->Resolution );
                 vid->Window->window_set_centered( win->Source );
@@ -121,7 +118,7 @@ void register_video_plugin( Scene& scene )
         .each( []( EcsIterState& it ) {
             auto win = it.get_component<WindowComponent>();
             auto vid = it.world().get_singleton<VideoServices>();
-            NC_ASSERT(
+            NC_ASSERT_MSG(
                 vid->Window->window_pop( win->Source ), "Error happened on window destroy (from component removal)"
             );
         } );
@@ -204,117 +201,147 @@ void register_video_plugin( Scene& scene )
         } );
 
     scene.get_ecs()
-        .observer( "SceneVideoPlugin_MaterialInstanceIniter" )
+        .observer( "SceneVideoPlugin_Material_Init" )
         .with<MaterialComponent>()
+        .with<MaterialRenderComponent>()
         .event<ResourceLoadedComponent>()
         .each( []( EcsIterState& it ) {
             auto vid    = it.world().get_singleton<VideoServices>();
             auto io     = it.world().get_singleton<IOServices>();
             auto mat    = it.get_component<MaterialComponent>();
+            auto handle = it.get_component<MaterialRenderComponent>();
             auto loaded = it.event_payload<ResourceLoadedComponent>();
 
-            if (mat->Source != loaded->ResourceId)
+            if (mat->Shader.handle != loaded->ResourceId)
                 return;
 
-            if (mat->Instance)
-                vid->Renderer->destroy_rid( mat->Instance );
+            auto source = io->Resources->get<MaterialShader>( loaded->ResourceId );
+            if (!source)
+                return;
 
-            auto source   = io->Resources->get<MaterialTemplate>( loaded->ResourceId );
-            mat->Instance = vid->Renderer->material_create( *source );
+            if (handle->Handle)
+                vid->Renderer->destroy_rid( handle->Handle );
 
-            // if no texture exists, renderer will fallback to a missing texture.
-            auto tex = mat->TextureCount > 0 ? mat->Textures[0] : RID();
-            vid->Renderer->material_set_texture( mat->Instance, tex, 0 );
+            handle->Handle = vid->Renderer->material_create( source );
+
+            for (int i = 0; i < mat->TextureCount; ++i)
+                vid->Renderer->material_set_texture( handle->Handle, mat->Textures[i], i );
+
+            vid->Renderer->material_set_draw_mode( handle->Handle, mat->DrawMode );
+
+            for (const auto& p : mat->Params)
+                vid->Renderer->material_set_param( handle->Handle, p.name, p.data.data(), p.data.size() );
         } );
 
     scene.get_ecs()
-        .observer( "SceneVideoPlugin_MaterialInstanceUpdater" )
+        .observer( "SceneVideoPlugin_MaterialRenderer_Draw" )
         .on<MaterialComponent>( EcsCoreEvent::OnSet )
+        .with<MaterialRenderComponent>()
         .each( []( EcsIterState& it ) {
-            auto vid = it.world().get_singleton<VideoServices>();
-            auto mat = it.get_component<MaterialComponent>();
-            if (mat->Instance)
-                vid->Renderer->material_set_draw_mode( mat->Instance, mat->DrawMode );
+            auto vid    = it.world().get_singleton<VideoServices>();
+            auto mat    = it.get_component<MaterialComponent>();
+            auto handle = it.get_component<MaterialRenderComponent>();
+            if (!handle->Handle)
+                return;
+            vid->Renderer->material_set_draw_mode( handle->Handle, mat->DrawMode );
+            for (int i = 0; i < mat->TextureCount; ++i)
+                vid->Renderer->material_set_texture( handle->Handle, mat->Textures[i], i );
+            for (const auto& p : mat->Params)
+                vid->Renderer->material_set_param( handle->Handle, p.name, p.data.data(), p.data.size() );
         } );
 
     scene.get_ecs()
-        .observer( "SceneVideoPlugin_MeshInstanceIniter" )
+        .observer( "SceneVideoPlugin_Mesh_Init" )
         .with<MeshComponent>()
+        .with<MeshRenderComponent>()
         .event<ResourceLoadedComponent>()
         .each( []( EcsIterState& it ) {
             auto vid    = it.world().get_singleton<VideoServices>();
             auto io     = it.world().get_singleton<IOServices>();
             auto mesh   = it.get_component<MeshComponent>();
+            auto render = it.get_component<MeshRenderComponent>();
             auto loaded = it.event_payload<ResourceLoadedComponent>();
 
             if (mesh->Source != loaded->ResourceId)
                 return;
 
-            if (mesh->Instance)
-                vid->Renderer->destroy_rid( mesh->Instance );
+            if (render->Item)
+                vid->Renderer->destroy_rid( render->Item );
 
-            auto source    = io->Resources->get<Mesh>( loaded->ResourceId );
-            mesh->Instance = vid->Renderer->gpu_mesh_create( *source );
+            auto source   = io->Resources->get<Mesh>( loaded->ResourceId );
+            auto gpu_mesh = vid->Renderer->mesh_create( *source );
+
+            render->Item = vid->Renderer->spatial_item_create();
+            vid->Renderer->spatial_item_set_mesh( render->Item, gpu_mesh );
         } );
 
     scene.get_ecs()
-        .system( "SceneVideoPlugin_MeshInstanceDrawer" )
-        .with<MeshComponent>()
-        .with<MaterialComponent>()
+        .system( "SceneVideoPlugin_MeshRenderer_Draw" )
+        .with<MeshRenderComponent>()
+        .with<MaterialRenderComponent>()
         .with<Transform3DComponent>()
         .up()
         .in( EcsSystemPhase::UPDATE )
         .each( []( EcsIterState& it ) {
-            auto mesh     = it.get_component<MeshComponent>();
-            auto material = it.get_component<MaterialComponent>();
+            auto mesh     = it.get_component<MeshRenderComponent>();
+            auto material = it.get_component<MaterialRenderComponent>();
             auto xform    = it.get_component<Transform3DComponent>();
             auto vid      = it.world().get_singleton<VideoServices>();
 
-            if (mesh->Instance && material->Instance) {
-                vid->Renderer->spatial_draw_instance(
-                    mesh->Instance, xform->Global, material->Instance, mesh->InstanceCount
-                );
+            if (mesh->Item && material->Handle) {
+                vid->Renderer->spatial_item_set_transform( mesh->Item, xform->Global );
+                vid->Renderer->spatial_item_set_material( mesh->Item, material->Handle );
+                vid->Renderer->spatial_item_draw( mesh->Item, mesh->InstanceCount );
             }
         } );
 
+    // TODO: disabled. canvas_draw_quad() no longer exists — this needs a rewrite on top of
+    // RenderService::canvas_item_add_quad(), and the canvas item has to be owned per-entity
+    // (create once, refill each frame) rather than create/draw per tick. No live users today:
+    // the only SpriteComponent reference in the repo is also commented out
+    // (eons-game/src/microcosmos/systems/FoodSystem.cpp).
     scene.get_ecs()
-        .system( "SceneVideoPlugin_SpriteInstanceDrawer" )
+        .system( "SceneVideoPlugin_SpriteRenderer_Draw" )
         .with<Transform2DComponent>()
         .with<MaterialComponent>()
         .with<SpriteComponent>()
         .in( EcsSystemPhase::UPDATE )
         .each( []( EcsIterState& it ) {
-            auto xform    = it.get_component<Transform2DComponent>();
-            auto material = it.get_component<MaterialComponent>();
-            auto sprite   = it.get_component<SpriteComponent>();
-            auto vid      = it.world().get_singleton<VideoServices>();
+            //        auto xform    = it.get_component<Transform2DComponent>();
+            //        auto material = it.get_component<MaterialComponent>();
+            //        auto sprite   = it.get_component<SpriteComponent>();
+            //        auto vid      = it.world().get_singleton<VideoServices>();
 
-            float r = math::deg_to_rad( xform->Angle );
+            //        float r = math::deg_to_rad( xform->Angle );
 
-            // clang-format off
-				auto c_local = xform->Size * 0.5f;
-				Vec2f local_coords[4] = {
-					{ -c_local.x, -c_local.y },
-					{  c_local.x, -c_local.y },
-					{  c_local.x,  c_local.y },
-					{ -c_local.x,  c_local.y }
-				};
-            // clang-format on
+            //        // clang-format off
+            // auto c_local = xform->Size * 0.5f;
+            // Vec2f local_coords[4] = {
+            //	{ -c_local.x, -c_local.y },
+            //	{  c_local.x, -c_local.y },
+            //	{  c_local.x,  c_local.y },
+            //	{ -c_local.x,  c_local.y }
+            //};
+            //        // clang-format on
 
-            float cs = std::cos( r );
-            float sn = std::sin( r );
+            //        float cs = std::cos( r );
+            //        float sn = std::sin( r );
 
-            auto c_world = xform->get_world_center_point();
-            Vec2f world_coords[4];
-            for (int i = 0; i < 4; i++) {
-                const Vec2f& p    = local_coords[i];
-                world_coords[i].x = p.x * cs - p.y * sn;
-                world_coords[i].y = p.x * sn + p.y * cs;
-                world_coords[i] += c_world;
-            }
+            //        auto c_world = xform->get_world_center_point();
+            //        Vec2f world_coords[4];
+            //        for (int i = 0; i < 4; i++) {
+            //            const Vec2f& p    = local_coords[i];
+            //            world_coords[i].x = p.x * cs - p.y * sn;
+            //            world_coords[i].y = p.x * sn + p.y * cs;
+            //            world_coords[i] += c_world;
+            //        }
 
-            if (material->Instance)
-                vid->Renderer->canvas_draw_quad( world_coords, material->Instance, 0, sprite->Tint );
+            //        if (material->Instance) {
+            //            auto item = vid->Renderer->canvas_item_create();
+            //            vid->Renderer->canvas_item_set_material( item, material->Instance );
+            //            vid->Renderer->canvas_item_add_quad( item, world_coords, Rect2i(), sprite->Tint );
+            //            vid->Renderer->canvas_item_draw( item );
+            //        }
         } );
 
     scene.get_ecs()
@@ -324,7 +351,7 @@ void register_video_plugin( Scene& scene )
         .order( 0 )
         .run( []( EcsIterState& it ) {
             auto vid = it.get_component<VideoServices>();
-            vid->Renderer->render_begin( static_cast<float>( it.delta_time() ) );
+            vid->Renderer->prepare_frame( static_cast<float>( it.delta_time() ) );
         } );
 
     scene.get_ecs()
@@ -354,25 +381,25 @@ void register_video_plugin( Scene& scene )
                         vid->Renderer->destroy_rid( cam->DepthTexture );
 
                     cam->RenderTexture =
-                        vid->Renderer->texture_render_create( screen_size, rhi::TextureFormat::RGBA8_UNORM_SRGB );
+                        vid->Renderer->texture_render_create( screen_size, gfx::TextureFormat::RGBA8_UNORM_SRGB );
                     cam->DepthTexture =
-                        vid->Renderer->texture_render_create( screen_size, rhi::TextureFormat::D32_FLOAT );
+                        vid->Renderer->texture_render_create( screen_size, gfx::TextureFormat::D32_FLOAT );
                     cam->DisplayRect = Rect2i( 0, 0, screen_size.x, screen_size.y );
                 }
             }
 
-            RenderService::RenderPassDesc pass{};
-            pass.color_target = cam->RenderTexture;
-            pass.depth_target = cam->DepthTexture;
-            pass.camera       = cam->Source;
-            pass.target_rect  = cam->DisplayRect;
-            pass.draw_spatial = true;
-            pass.draw_canvas  = cam->DrawCanvas;
-            vid->Renderer->render_pass( pass );
+             RenderService::RenderFrameDesc pass{};
+             pass.color_texture = cam->RenderTexture;
+             pass.depth_texture = cam->DepthTexture;
+             pass.camera        = cam->Source;
+             pass.rectangle     = cam->DisplayRect;
+             pass.draw_spatial  = true;
+             pass.draw_canvas   = cam->DrawCanvas;
+             vid->Renderer->render_frame( pass );
 
-            // Blit offscreen color to swapchain.
-            if (cam->RenderToScreen)
-                vid->Renderer->texture_blit( cam->RenderTexture );
+            // blit offscreen color to swapchain.
+             if (cam->RenderToScreen)
+                 vid->Renderer->texture_blit( cam->RenderTexture );
         } );
 
     scene.get_ecs()
@@ -502,7 +529,7 @@ void NCAPI register_resources_plugin( Scene& scene )
             auto state = it.world().get_singleton<ResourceWatchState>();
 
             state->PendingEvents.clear();
-            ResourceService::Event e;
+            ResourceLoader::Event e;
             while (io->Resources->poll_event( &e )) { // has any resource event occurred?
                 state->PendingEvents.push_back( e );
             }
@@ -515,12 +542,15 @@ void NCAPI register_resources_plugin( Scene& scene )
         .each( []( EcsIterState& it ) {
             auto state = it.world().get_singleton<ResourceWatchState>();
             for (auto& entry : state->PendingEvents) {
-                if (auto loaded = std::get_if<ResourceService::LoadEvent>( &entry )) { // handle a resource loaded event
+                if (auto loaded = std::get_if<ResourceLoader::LoadEvent>( &entry )) { // handle a resource loaded event
                     NC_LOG_DEBUG(
-                        "ResourceService::LoadEvent: RID={} ResourceFormatID={}", loaded->Handle.value,
+                        "ResourceLoader::LoadEvent: RID={} ResourceFormatID={}", loaded->Handle.value,
                         loaded->FormatId.to_string()
                     );
-                    it.world().emit_event<ResourceLoadedComponent>( { loaded->Handle, loaded->FormatId }, it.entity() );
+                    it.world().emit_event<ResourceLoadedComponent>(
+                        ResourceLoadedComponent{ .ResourceId = loaded->Handle, .format_id = loaded->FormatId },
+                        it.entity()
+                    );
                 }
             }
         } );

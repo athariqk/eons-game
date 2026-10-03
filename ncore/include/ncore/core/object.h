@@ -1,26 +1,27 @@
 #pragma once
 
-#include <ncore/core/types.h>
+#include "collection.h"
+#include "types.h"
 
 namespace nc {
 
 /**
- * @brief NcObject is the base class for every object-oriented NCORE types.
- * This provides runtime type params features and others.
+ * @brief Object is the base class for every object-oriented NCORE types.
+ * It provides first-class runtime type (RTTI) reflection features.
  *
  * NOTE: always declare NCLASS macro in derived classes to properly
- * register them in the params system.
+ * register them in the reflection system.
  */
-class NCAPI NcObject {
+class NCAPI Object {
 public:
-    virtual ~NcObject() = default;
+    virtual ~Object() = default;
 
-    NcObject()                             = default;
-    NcObject( const NcObject& )            = default;
-    NcObject& operator=( const NcObject& ) = default;
+    Object()                           = default;
+    Object( const Object& )            = default;
+    Object& operator=( const Object& ) = default;
 
-    virtual const std::string_view get_class_name() const = 0;
-    virtual rtti::TypeId get_type_id() const              = 0;
+    virtual const StringView get_class_name() const = 0;
+    virtual rtti::TypeId get_type_id() const        = 0;
 
     virtual const rtti::RecordInfo& get_class_info() const = 0;
 
@@ -35,9 +36,11 @@ public:
 
 } // namespace nc
 
+//------------------------------------------------------------------------------
+
 #define NCLASS( class_name, parent_class )                                                                             \
 public:                                                                                                                \
-    const std::string_view get_class_name() const override                                                             \
+    const ::nc::StringView get_class_name() const override                                                             \
     {                                                                                                                  \
         return #class_name;                                                                                            \
     }                                                                                                                  \
@@ -51,10 +54,10 @@ public:                                                                         
     }                                                                                                                  \
                                                                                                                        \
 private:                                                                                                               \
-    inline static auto nc_object_init_##class_name() -> ::nc::rtti::TRecordInfo<class_name>&                           \
+    inline static auto nc_info_##class_name() -> ::nc::rtti::RecordInfo&                                               \
     {                                                                                                                  \
-        ::nc::rtti::TRecordInfo<class_name>& ci_##class_name = []() -> ::nc::rtti::TRecordInfo<class_name>& {          \
-            auto& c = ::nc::rtti::TypeRegistry::register_type<::nc::rtti::TRecordInfo<class_name>, class_name>(        \
+        ::nc::rtti::RecordInfo& ci_##class_name = []() -> ::nc::rtti::RecordInfo& {                                    \
+            auto& c = ::nc::rtti::TypeRegistry::register_type<::nc::rtti::RecordInfoT<class_name>, class_name>(        \
                 #class_name                                                                                            \
             );                                                                                                         \
             c.parent_id = ::nc::rtti::TypeRegistry::get_type_id<parent_class>();                                       \
@@ -62,4 +65,4 @@ private:                                                                        
         }();                                                                                                           \
         return ci_##class_name;                                                                                        \
     }                                                                                                                  \
-    inline static const int nc_trig_nclass_##class_name = ( nc_object_init_##class_name(), 0 );
+    inline static const int nc_register_##class_name = ( nc_info_##class_name(), 0 );

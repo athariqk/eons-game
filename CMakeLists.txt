@@ -30,6 +30,11 @@ if(SCCACHE)
   message(STATUS "sccache found — compiler caching enabled")
 endif()
 
+# Find LLVM installation for ASAN runtime libraries.
+if(SEA_TRACK_ASAN)
+  find_package(LLVM REQUIRED CONFIG)
+endif()
+
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   add_compile_options(/W4 /wd4146 /wd4245 /wd5105 /Zc:preprocessor)
   string(APPEND CMAKE_CXX_FLAGS " /std:c++20")
@@ -76,24 +81,7 @@ if(SEA_TRACK_ASAN)
   # link.exe supports /fsanitize=address natively.
   if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
      AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
-    get_filename_component(_llvm_bin "${CMAKE_CXX_COMPILER}" DIRECTORY)
-    set(_asan_rt_dir
-        "${_llvm_bin}/../lib/clang/${CMAKE_CXX_COMPILER_VERSION_MAJOR}/lib/windows"
-    )
-    if(NOT EXISTS "${_asan_rt_dir}/clang_rt.asan_dynamic-x86_64.lib")
-      # CMAKE_CXX_COMPILER_VERSION_MAJOR may be empty for clang-cl — fall back
-      # to the first clang resource dir that ships the runtime lib.
-      file(
-        GLOB
-        _asan_rt_candidates
-        "${_llvm_bin}/../lib/clang/*/lib/windows/clang_rt.asan_dynamic-x86_64.lib"
-      )
-      list(LENGTH _asan_rt_candidates _asan_rt_count)
-      if(_asan_rt_count GREATER 0)
-        list(GET _asan_rt_candidates 0 _asan_rt_lib)
-        get_filename_component(_asan_rt_dir "${_asan_rt_lib}" DIRECTORY)
-      endif()
-    endif()
+    set(_asan_rt_dir "${LLVM_INSTALL_PREFIX}/lib/windows")
     if(EXISTS "${_asan_rt_dir}/clang_rt.asan_dynamic-x86_64.lib")
       add_link_options(
         /libpath:${_asan_rt_dir}
@@ -130,10 +118,38 @@ foreach(CONFIG Debug Release Dist)
       "${CMAKE_BINARY_DIR}/lib/${CONFIG}")
 endforeach()
 
+include(${CMAKE_SOURCE_DIR}/cmake/ReflectionGen.cmake)
+
+add_subdirectory(tools/reflection_gen) # ncore depends on this
 add_subdirectory(ncore)
 add_subdirectory(tools/editor)
+add_subdirectory(tools/resource_compiler)
 add_subdirectory(eons-game)
 add_subdirectory(seaengine)
+
+# --- Offline asset pipeline --------------------------------------------------
+# Stages raw sources into the runtime output dir (skipping every file the
+# pipeline compiles, so raw originals never ship) and compiles them to .bin
+# there (see cmake/CompileAssets.cmake). This is the only step that writes
+# assets/; runs every build, staleness checks keep no-op runs to a stat sweep.
+set(EONS_ASSET_SRC_DIRS
+    "${CMAKE_SOURCE_DIR}/ncore/assets"
+    "${CMAKE_SOURCE_DIR}/eons-game/assets"
+    "${CMAKE_SOURCE_DIR}/seaengine/assets")
+add_custom_target(
+  asset_pipeline
+  ALL
+  COMMAND
+    ${CMAKE_COMMAND}
+    -DASSET_COMPILER=$<TARGET_FILE:resource_compiler>
+    -DBIN_DIR=$<TARGET_FILE_DIR:EonsPrototype>
+    "-DSRC_DIRS=${EONS_ASSET_SRC_DIRS}"
+    -P ${CMAKE_SOURCE_DIR}/cmake/CompileAssets.cmake
+  COMMENT "Compiling assets to .bin"
+  VERBATIM)
+add_dependencies(asset_pipeline resource_compiler)
+add_dependencies(EonsPrototype asset_pipeline)
+add_dependencies(SeaEngine asset_pipeline)
 
 # --- Install rules ---
 install(

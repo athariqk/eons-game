@@ -14,7 +14,10 @@ Node::Node( const String& p_name, Scene* p_scene, Node* p_parent ) : scene( p_sc
     NC_VERIFY( p_parent );
 
     internal_id =
-        scene->get_ecs().entity( p_name ).child_of( p_parent->internal_id ).add<NodeRefComponent>( { this } ).build();
+        scene->get_ecs().entity( p_name )
+            .child_of( p_parent->internal_id )
+            .add<NodeRefComponent>( NodeRefComponent{ .node = this } )
+            .build();
     emit_event<NodeAddedEvent>( internal_id );
 }
 
@@ -264,7 +267,7 @@ Node::ChildRange::Iterator::reference Node::ChildRange::Iterator::operator*()
     auto entity = it->entities[index_];
     auto comp   = scene_->get_ecs().resolve_component<NodeRefComponent>();
     auto ref    = static_cast<const NodeRefComponent*>( ecs_get_id( it->world, entity, comp ) );
-    NC_ASSERT( ref && ref->node, "Child entity missing NodeRefComponent" );
+    NC_ASSERT_MSG( ref && ref->node, "Child entity missing NodeRefComponent" );
     return *ref->node;
 }
 

@@ -7,8 +7,10 @@ namespace nc {
 enum class Error : uint8_t {
     OK = 0,
     FAIL,
-    FATAL
+    FATAL,
+    ERR_INVALID_PARAMETER,
+    ERR_FILE_CANT_WRITE,
+    COUNT
 };
-inline constexpr uint8_t MAX_ERRORS = 3;
 
 } // namespace nc

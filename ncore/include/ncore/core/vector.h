@@ -238,7 +238,7 @@ public:
 
     T length() const
     {
-        return std::sqrt( length_sqr() );
+        return static_cast<T>( std::sqrt( length_sqr() ) );
     }
 
     /**
@@ -304,8 +304,9 @@ public:
 /**
  * @brief 2 components vector of single-precision floating-point numbers.
  */
-struct NCAPI Vec2f : CommonVectorOps<Vec2f, float, 2> {
-    float x = 0, y = 0;
+struct REFLECT NCAPI Vec2f : CommonVectorOps<Vec2f, float, 2> {
+    REFLECT float x = 0;
+    REFLECT float y = 0;
 
     Vec2f() = default;
     Vec2f( float px, float py ) : x( px ), y( py ) {}
@@ -318,15 +319,14 @@ struct NCAPI Vec2f : CommonVectorOps<Vec2f, float, 2> {
     {
         return &x;
     }
-
-    NSTRUCTV( Vec2f, NC_F( Vec2f, x ), NC_F( Vec2f, y ) )
 };
 
 /**
  * @brief 2 components vector of single-precision integer numbers.
  */
-struct NCAPI Vec2i : CommonVectorOps<Vec2i, int, 2> {
-    int x = 0, y = 0;
+struct REFLECT NCAPI Vec2i : CommonVectorOps<Vec2i, int, 2> {
+    REFLECT int x = 0;
+    REFLECT int y = 0;
 
     Vec2i() = default;
     Vec2i( int px, int py ) : x( px ), y( py ) {}
@@ -339,15 +339,15 @@ struct NCAPI Vec2i : CommonVectorOps<Vec2i, int, 2> {
     {
         return &x;
     }
-
-    NSTRUCTV( Vec2i, NC_F( Vec2i, x ), NC_F( Vec2i, y ) )
 };
 
 /**
  * @brief 3 components vector of single-precision floating-point numbers.
  */
-struct NCAPI Vec3 : CommonVectorOps<Vec3, float, 3> {
-    float x = 0, y = 0, z = 0;
+struct REFLECT NCAPI Vec3 : CommonVectorOps<Vec3, float, 3> {
+    REFLECT float x = 0;
+    REFLECT float y = 0;
+    REFLECT float z = 0;
 
     Vec3() = default;
     Vec3( float px, float py, float pz ) : x( px ), y( py ), z( pz ) {}
@@ -395,15 +395,16 @@ struct NCAPI Vec3 : CommonVectorOps<Vec3, float, 3> {
     {
         return Vec3( -1, 0, 0 );
     }
-
-    NSTRUCTV( Vec3, NC_F( Vec3, x ), NC_F( Vec3, y ), NC_F( Vec3, z ) )
 };
 
 /**
  * @brief 4 components vector of single-precision floating-point numbers.
  */
-struct NCAPI Vec4 : CommonVectorOps<Vec4, float, 4> {
-    float x = 0, y = 0, z = 0, w = 0;
+struct REFLECT NCAPI Vec4 : CommonVectorOps<Vec4, float, 4> {
+    REFLECT float x = 0;
+    REFLECT float y = 0;
+    REFLECT float z = 0;
+    REFLECT float w = 0;
 
     Vec4() = default;
     Vec4( float px, float py, float pz, float pw ) : x( px ), y( py ), z( pz ), w( pw ) {}
@@ -416,8 +417,6 @@ struct NCAPI Vec4 : CommonVectorOps<Vec4, float, 4> {
     {
         return &x;
     }
-
-    NSTRUCTV( Vec4, NC_F( Vec4, x ), NC_F( Vec4, y ), NC_F( Vec4, z ), NC_F( Vec4, w ) )
 };
 
 } // namespace nc

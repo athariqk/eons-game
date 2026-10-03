@@ -1,15 +1,23 @@
 #include <utils/logger/logger.h>
 
+#ifdef _WIN32
+#include <Windows.h>
+#endif
+
 namespace nc::log {
 
 Logger::Logger()
 {
+#ifdef _WIN32
+    SetConsoleOutputCP( CP_UTF8 );
+#endif
+
     add_sink( Ref<ConsoleSink>::create() );
 }
 
 void Logger::add_sink( const Ref<Sink>& p_sink )
 {
-    //NC_LOG_DEBUG( "Adding global sink '{}'", p_sink->get_class_name() );
+    // NC_LOG_DEBUG( "Adding global sink '{}'", p_sink->get_class_name() );
     global_sinks.push_back( p_sink );
 }
 

@@ -79,12 +79,13 @@ public:
         rtti::TypeId id = rtti::TypeRegistry::get_type_id<T>();
 
         for (auto& [existing_id, s] : services)
-            NC_ASSERT( existing_id != id, "Service already registered" );
+            NC_ASSERT_MSG( existing_id != id, "Service already registered" );
 
-        auto instance = std::make_unique<T>( std::forward<Args>( args )... );
-        T* ptr        = instance.get();
-        services.emplace_back( id, std::move( instance ) );
-        return ptr;
+        auto instance       = std::make_unique<T>( std::forward<Args>( args )... );
+        ServiceEntry& entry = services.emplace_back();
+        entry.first         = id;
+        entry.second        = std::move( instance );
+        return static_cast<T*>( entry.second.get() );
     }
 
     IService* resolve_by_name( std::string_view name )
@@ -143,10 +144,10 @@ public:
     }
 
 private:
-    using ServiceEntry = std::pair<rtti::TypeId, std::unique_ptr<IService>>;
+    using ServiceEntry = std::pair<rtti::TypeId, Ptr<IService>>;
     DynamicArray<ServiceEntry> services;
-    std::unordered_map<rtti::TypeId, IService*> cache_by_id;
-    std::unordered_map<std::string_view, IService*> cache_by_name;
+    HashMap<rtti::TypeId, IService*> cache_by_id;
+    HashMap<StringView, IService*> cache_by_name;
 };
 
 } // namespace nc

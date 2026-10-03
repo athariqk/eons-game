@@ -7,7 +7,7 @@
 #include <ncore/core/collection.h>
 #include <ncore/core/reference.h>
 #include <ncore/core/vector.h>
-#include <ncore/resources/image.h>
+#include <ncore/resources/resource.h>
 #include <ncore/services/video/window_service.h>
 #include <ncore/utils/config.h>
 #include <ncore/utils/log.h>
@@ -256,7 +256,7 @@ bool WindowService::window_pop( uint32_t window_id )
     }
     SDL_DestroyWindow( window );
     auto erased = std::erase( pImpl->window_ids, window_id );
-    NC_ASSERT( erased > 0, "Failed removing window id from cache" );
+    NC_ASSERT_MSG( erased > 0, "Failed removing window id from cache" );
     return true;
 }
 
@@ -316,7 +316,7 @@ void* WindowService::get_native_handle( uint32_t window_id ) const
 #if defined( _WIN32 )
         native_handle = SDL_GetPointerProperty( props, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr );
 #else
-        NC_ASSERT( false, "Native handle retrieval not implemented for this platform" );
+        NC_ASSERT_MSG( false, "Native handle retrieval not implemented for this platform" );
 #endif
     }
 

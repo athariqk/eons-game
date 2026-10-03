@@ -6,8 +6,11 @@
 
 namespace nc {
 
-struct NCAPI Rect2f {
-    float x = 0, y = 0, w = 0, h = 0;
+struct REFLECT NCAPI Rect2f {
+    REFLECT float x = 0;
+    REFLECT float y = 0;
+    REFLECT float w = 0;
+    REFLECT float h = 0;
 
     Rect2f() = default;
     Rect2f( float px, float py, float pw, float ph ) : x( px ), y( py ), w( pw ), h( ph ) {}
@@ -57,7 +60,7 @@ struct NCAPI Rect2f {
         return w > 0 && h > 0;
     }
 
-    Rect2f& expand( const Vec2f& amount )
+    Rect2f& expand( const Vec2f& amount ) [[clang::lifetimebound]]
     {
         x -= amount.x;
         y -= amount.y;
@@ -66,7 +69,7 @@ struct NCAPI Rect2f {
         return *this;
     }
 
-    Rect2f& merge( const Rect2f& other )
+    Rect2f& merge( const Rect2f& other ) [[clang::lifetimebound]]
     {
         float nx = x < other.x ? x : other.x;
         float ny = y < other.y ? y : other.y;
@@ -97,12 +100,13 @@ struct NCAPI Rect2f {
     {
         return !( *this == other );
     }
-
-    NSTRUCTV( Rect2f, NC_F( Rect2f, x ), NC_F( Rect2f, y ), NC_F( Rect2f, w ), NC_F( Rect2f, h ) )
 };
 
-struct NCAPI Rect2i {
-    int x = 0, y = 0, w = 0, h = 0;
+struct REFLECT NCAPI Rect2i {
+    REFLECT int x = 0;
+    REFLECT int y = 0;
+    REFLECT int w = 0;
+    REFLECT int h = 0;
 
     Rect2i() = default;
     Rect2i( int px, int py, int pw, int ph ) : x( px ), y( py ), w( pw ), h( ph ) {}
@@ -152,7 +156,7 @@ struct NCAPI Rect2i {
         return w > 0 && h > 0;
     }
 
-    Rect2i& expand( const Vec2i& amount )
+    Rect2i& expand( const Vec2i& amount ) [[clang::lifetimebound]]
     {
         x -= amount.x;
         y -= amount.y;
@@ -161,7 +165,7 @@ struct NCAPI Rect2i {
         return *this;
     }
 
-    Rect2i& merge( const Rect2i& other )
+    Rect2i& merge( const Rect2i& other ) [[clang::lifetimebound]]
     {
         int nx = x < other.x ? x : other.x;
         int ny = y < other.y ? y : other.y;
@@ -191,8 +195,6 @@ struct NCAPI Rect2i {
     {
         return !( *this == other );
     }
-
-    NSTRUCTV( Rect2i, NC_F( Rect2i, x ), NC_F( Rect2i, y ), NC_F( Rect2i, w ), NC_F( Rect2i, h ) )
 };
 
 } // namespace nc

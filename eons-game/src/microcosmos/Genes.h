@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 
+#include <ncore/core/color.h>
 #include <ncore/core/random.h>
 #include <ncore/core/types.h>
 #include <ncore/core/vector.h>
@@ -28,10 +29,14 @@ public:
     float aggresiveness;
     nc::Color membrane_color;
 
-    NSTRUCTV(
-        Genes, NC_F( Genes, energy_capacity ), NC_F( Genes, speed ), NC_F( Genes, size ),
-        NC_F( Genes, aggresiveness ), NC_F( Genes, membrane_color )
-    )
+    NSTRUCT_V( Genes )
+    NC_PROPS_BEGIN()
+    ADD_PROPERTY( energy_capacity )
+    ADD_PROPERTY( speed )
+    ADD_PROPERTY( size )
+    ADD_PROPERTY( aggresiveness )
+    ADD_PROPERTY( membrane_color )
+    NC_PROPS_END()
 
     bool mutate( const uint32_t p_mut_prob, const float mut_rate )
     {

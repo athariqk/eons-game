@@ -6,16 +6,7 @@
 #include <microcosmos/MicrocosmModule.h>
 
 #include "pch.h"
-
-struct TestSpin {
-    float rotation       = 0;
-    bool switch_rot      = true;
-    nc::Quaternion start = nc::Quaternion( 180, nc::Vec3::up() );
-    nc::Quaternion end   = nc::Quaternion( 0, nc::Vec3::up() );
-    NSTRUCTV(
-        TestSpin, NC_F( TestSpin, rotation ), NC_F( TestSpin, switch_rot ), NC_F( TestSpin, start ), NC_F( TestSpin, end )
-    )
-};
+#include "test_spin.h"
 
 class TestScene : public nc::Scene {
 public:
@@ -32,7 +23,7 @@ public:
 #if defined( DEBUG )
         nc::editor::register_editor_plugin( *this );
 #endif
-        auto res_svc = get_app_ctx()->Services.resolve<nc::ResourceService>();
+        auto& res_svc = get_resource_loader();
 
         // clang-format off
 		nc::Array<nc::Vertex3D, 8> cube_verts = {
@@ -78,7 +69,7 @@ public:
                 .vertex_stride = sizeof( nc::Vertex3D )
             }
         );
-        auto mesh_rid = res_svc->add( mesh );
+        auto mesh_rid = res_svc.add( mesh );
 
         auto pmesh = nc::Ref<nc::Mesh>::create(
             nc::MeshDesc{
@@ -90,35 +81,43 @@ public:
                 .vertex_stride = sizeof( nc::Vertex3D )
             }
         );
-        auto pmesh_rid = res_svc->add( pmesh );
+        auto pmesh_rid = res_svc.add( pmesh );
 
         auto test_model = root()->create_child( "TestModel3D" );
         test_model->add_component<nc::Transform3DComponent>(
-            nc::Transform3DComponent{ nc::Vec3( 0, 0, 0 ), nc::Quaternion( 180, nc::Vec3::up() ), nc::Vec3( 1, 1, 1 ) }
+            nc::Transform3DComponent{ .Translation = nc::Vec3( 0, 0, 0 ),
+                                      .Rotation    = nc::Quaternion( 180, nc::Vec3::up() ),
+                                      .Scale       = nc::Vec3( 1, 1, 1 ) }
         );
         test_model->add_component<TestSpin>();
 
         auto cube_mesh = test_model->create_child( "CubeMesh" );
-        cube_mesh->add_component<nc::MeshComponent>( nc::MeshComponent{ mesh_rid, nc::RID(), 1 } );
+        cube_mesh->add_component<nc::MeshComponent>( nc::MeshComponent{ .Source = mesh_rid } );
+        cube_mesh->add_component<nc::MeshRenderComponent>();
         cube_mesh->add_component<nc::HasResourceTag>();
         cube_mesh->add_component<nc::MaterialComponent>(
-            nc::MaterialComponent{ res_svc->load( "materials/world_object.material" ) }
+            nc::MaterialComponent{ .Shader = res_svc.load( "shaders/materials/standard_spatial.slang" ) }
         );
+        cube_mesh->add_component<nc::MaterialRenderComponent>();
 
         auto plane = root()->create_child( "Plane" );
         plane->add_component<nc::Transform3DComponent>(
-            nc::Transform3DComponent{ nc::Vec3( 0, -5, 0 ), nc::Quaternion::identity(), nc::Vec3( 5, 1, 5 ) }
+            nc::Transform3DComponent{ .Translation = nc::Vec3( 0, -5, 0 ), .Rotation = nc::Quaternion::identity(),
+                                      .Scale = nc::Vec3( 5, 1, 5 ) }
         );
         auto plane_mesh = plane->create_child( "PlaneMesh" );
-        plane_mesh->add_component<nc::MeshComponent>( nc::MeshComponent{ pmesh_rid, nc::RID(), 1 } );
+        plane_mesh->add_component<nc::MeshComponent>( nc::MeshComponent{ .Source = pmesh_rid } );
+        plane_mesh->add_component<nc::MeshRenderComponent>();
         plane_mesh->add_component<nc::HasResourceTag>();
         plane_mesh->add_component<nc::MaterialComponent>(
-            nc::MaterialComponent{ res_svc->load( "materials/world_object.material" ) }
+            nc::MaterialComponent{ .Shader = res_svc.load( "shaders/materials/standard_spatial.slang" ) }
         );
+        plane_mesh->add_component<nc::MaterialRenderComponent>();
 
         auto main_camera = root()->create_child( "MainCamera" );
         main_camera->add_component<nc::Transform3DComponent>(
-            nc::Transform3DComponent{ nc::Vec3( 0, 0, 5 ), nc::Quaternion::identity(), nc::Vec3( 1, 1, 1 ) }
+            nc::Transform3DComponent{ .Translation = nc::Vec3( 0, 0, 5 ), .Rotation = nc::Quaternion::identity(),
+                                      .Scale = nc::Vec3( 1, 1, 1 ) }
         );
         main_camera->add_component<nc::CameraComponent>();
         main_camera->add_component<nc::ActiveCameraTag>();

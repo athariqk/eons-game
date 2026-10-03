@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ncore/core/rid.h>
 #include <ncore/services/service.h>
 
 namespace nc {

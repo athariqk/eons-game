@@ -205,7 +205,8 @@ static void handle_copy_hook( void* dst_ptr, const void* src_ptr, int32_t count,
     for (int i = 0; i < count; i++) {
         const void* src_item_ptr = src_arr + ( i * type_info->size );
         void* dst_item_ptr       = dst_arr + ( i * type_info->size );
-        ctx->clone( src_item_ptr, dst_item_ptr );
+        // flecs copy hook is copy-assignment into already-constructed memory.
+        ctx->replace( src_item_ptr, dst_item_ptr );
         ecs_trace( "%s: copy assignment called - from %p to %p", type_info->name, src_item_ptr, dst_item_ptr );
     }
 }
@@ -225,6 +226,11 @@ static void handle_move_hook( void* dst_ptr, void* src_ptr, int32_t count, const
 
 EcsEntity EcsWorld::register_component_type( const rtti::TypeInfo* type ) const
 {
+    if (!type) {
+        NC_LOG_ERROR_C( log::ECS, "register_component_type: null type_info" );
+        return 0;
+    }
+
     auto it = pImpl->comp_type_to_id.find( type );
     if (it != pImpl->comp_type_to_id.end()) {
         return static_cast<EcsComponent>( it->second );
@@ -255,9 +261,9 @@ EcsEntity EcsWorld::register_component_type( const rtti::TypeInfo* type ) const
     desc.type    = type_info;
 
     auto comp_id = ecs_component_init( pImpl->world, &desc );
-    NC_ASSERT( comp_id > 0, std::format( "Failed to auto-register component '{}'.", type->name ).c_str() );
+    NC_ASSERT_MSG( comp_id > 0, std::format( "Failed to auto-register component '{}'.", type->name ).c_str() );
 
-    ecs_add_id( pImpl->world, comp_id, EcsCanToggle ); // NOTE: flecs say this adds overhead to queries
+    ecs_add_id( pImpl->world, comp_id, EcsCanToggle ); // NOTE: flecs doc say this adds overhead to queries
 
     pImpl->comp_type_to_id[type]    = comp_id;
     pImpl->comp_id_to_type[comp_id] = type;
@@ -314,7 +320,11 @@ EcsObserverBuilder EcsWorld::observer( StringView name )
 void EcsWorld::finalize_ordering()
 {
     auto* world             = pImpl->world;
-    ecs_entity_t order_comp = ecs_lookup( world, "SystemOrder" );
+    // ECS_COMPONENT registers under the pretty-function name (nc::SystemOrder).
+    ecs_entity_t order_comp = ecs_lookup( world, "nc::SystemOrder" );
+    if (!order_comp) {
+        order_comp = ecs_lookup( world, "SystemOrder" ); // legacy NSTRUCT_V name
+    }
     if (!order_comp) {
         return;
     }
@@ -369,12 +379,13 @@ EcsEntity EcsWorld::create_entity_impl_( const String& name ) const
     if (!name.empty())
         desc.name = name.c_str(); // this is fine, flecs will do strdup
     ecs_entity_t result = ecs_entity_init( pImpl->world, &desc );
-    NC_ASSERT( result != 0, "Failed to create entity." );
+    NC_ASSERT_MSG( result != 0, "Failed to create entity." );
     return static_cast<EcsEntity>( result );
 }
 
 EcsComponent EcsWorld::set_component_( EcsEntity eid, const rtti::TypeInfo* type, const void* data )
 {
+    NC_VERIFY( type );
     ecs_trace( "setting component value of %s to an entity (ID %d)", type->name, eid );
 
     EcsComponent cid = register_component_type( type );
@@ -396,6 +407,7 @@ EcsComponent EcsWorld::set_component_( EcsEntity eid, const rtti::TypeInfo* type
 
 void* EcsWorld::add_component_( EcsEntity eid, const rtti::TypeInfo* type )
 {
+    NC_VERIFY( type );
     NC_FAIL_MSG_RETVAL( type->is_record(), nullptr, "Adding a non-record component is not possible." );
 
     EcsComponent cid = register_component_type( type );
@@ -464,7 +476,7 @@ EcsQuery EcsWorld::create_query_( const String& name, void* data )
 
     auto* desc     = static_cast<ecs_query_desc_t*>( data );
     ecs_query_t* q = ecs_query_init( pImpl->world, desc );
-    NC_ASSERT( q, std::format( "Failed to create query '{}'.", name ).c_str() );
+    NC_ASSERT_MSG( q, std::format( "Failed to create query '{}'.", name ).c_str() );
     cached = q;
     NC_LOG_TRACE_C( log::ECS, "Created query '{}'", name );
     return EcsQuery( name, this, pImpl->world, q );

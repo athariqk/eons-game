@@ -78,6 +78,10 @@ NCAPI void log_message( const LogMsg& msg );
  * @brief Print basic info message to default channel and sink (stdout).
  */
 NCAPI void print( const String& msg );
+/**
+ * @brief Print basic error message to default channel and sink (stdout).
+ */
+NCAPI void print_error( const String& msg );
 
 /**
  * @brief Print formatted info message to default channel and sink (stdout).
@@ -104,12 +108,14 @@ NCAPI ListenerToken add_listener( const LogMsgCallback& callback );
 
 #define NC_LOG( p_cat, p_level, p_file, p_func, p_line, ... )                                                          \
     do {                                                                                                               \
-        nc::log::LogMsg msg{};                                                                                         \
-        msg.channel = p_cat;                                                                                           \
-        msg.level   = p_level;                                                                                         \
-        msg.loc     = nc::log::SourceLoc{ p_file, p_func, p_line };                                                    \
-        msg.payload = std::format( __VA_ARGS__ );                                                                      \
-        nc::log::log_message( msg );                                                                                   \
+        if (p_level >= nc::log::get_min_level()) {                                                                     \
+            nc::log::LogMsg msg{};                                                                                     \
+            msg.channel = p_cat;                                                                                       \
+            msg.level   = p_level;                                                                                     \
+            msg.loc     = nc::log::SourceLoc{ p_file, p_func, p_line };                                                \
+            msg.payload = std::format( __VA_ARGS__ );                                                                  \
+            nc::log::log_message( msg );                                                                               \
+        }                                                                                                              \
     } while (0)
 
 #define NC_LOG_TRACE_C( cat, ... ) NC_LOG( cat, nc::log::Level::LTRACE, __FILE__, __func__, __LINE__, __VA_ARGS__ )

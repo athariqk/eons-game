@@ -13,7 +13,6 @@
 namespace nc {
 
 class IGameWorld;
-class ResourceService;
 class EventBus;
 class ConfFile;
 class WindowService;
@@ -23,26 +22,31 @@ class InputService;
 /**
  * @brief A semantic version representation for the application.
  */
-struct NCAPI AppVersion {
-    int Major = 0;
-    int Minor = 0;
-    int Patch = 0;
-    String Identifier;
-    NSTRUCTV(
-        AppVersion, NC_F( AppVersion, Major ), NC_F( AppVersion, Minor ), NC_F( AppVersion, Patch ),
-        NC_F( AppVersion, Identifier )
-    )
+struct REFLECT NCAPI AppVersion {
+    REFLECT int Major = 0;
+    REFLECT int Minor = 0;
+    REFLECT int Patch = 0;
+    REFLECT String Identifier;
 };
 
 /**
  * @brief AppDesc can be used to initialize an app with the given specification.
  */
-struct NCAPI AppDesc {
-    String Name;        // Name of the application.
-    AppVersion Version; // Semantic version of the application.
-    String ConfigFile;  // Relative path to the application's config file.
-    NSTRUCTV( AppDesc, NC_F( AppDesc, Name ), NC_F( AppDesc, Version ), NC_F( AppDesc, ConfigFile ) )
+struct REFLECT NCAPI AppDesc {
+    REFLECT String Name;        // Name of the application.
+    REFLECT AppVersion Version; // Semantic version of the application.
+    REFLECT String ConfigFile;  // Relative path to the application's config file.
 };
+
+namespace cfg {
+
+struct REFLECT NCAPI Log {
+    REFLECT int Level       = 0;
+    REFLECT String FilePath = "logs/engine.log";
+    REFLECT String Overrides;
+};
+
+} // namespace cfg
 
 /**
  * @brief State of an Application object.
@@ -56,11 +60,12 @@ struct NCAPI AppContext {
 };
 
 /**
- * @brief The entry point for applications.
+ * @brief The entry point for game applications.
  *
  * This class handles initialization, driving the game world,
- * OS event polling, and cleanup. You may override this to
- * implement custom app behavior.
+ * OS event polling, and cleanup.
+ *
+ * You may override this to implement custom app behavior.
  */
 class NCAPI Application {
 public:
@@ -103,14 +108,13 @@ public:
     virtual Ptr<IGameWorld> create_world();
 
 protected:
-    AppContext context;      // Current application state.
-    Ptr<IGameWorld> g_world; // Current active game world.
+    AppContext context;         // Current application state.
+    Ptr<IGameWorld> game_world; // Current active game world.
 
-    ResourceService* resources = nullptr;
-    EventBus* events           = nullptr;
-    WindowService* window      = nullptr;
-    RenderService* renderer    = nullptr;
-    InputService* input        = nullptr;
+    EventBus* events        = nullptr;
+    WindowService* window   = nullptr;
+    RenderService* renderer = nullptr;
+    InputService* input     = nullptr;
 };
 
 } // namespace nc

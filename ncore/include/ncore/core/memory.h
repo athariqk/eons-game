@@ -84,12 +84,15 @@ using Ptr = std::unique_ptr<T, D>;
 
 /**
  * @brief BumpAllocator defines a single contiguous block of memory on the heap.
+ *
  * Allocation means moving/bumping the "free" memory address pointer.
  */
 template<typename T>
 class BumpAllocator {
 public:
-    BumpAllocator( size_t p_capacity ) : capacity( p_capacity )
+    static constexpr uint32_t DEFAULT_ARENA_SIZE = 256; // 256 bytes
+
+    BumpAllocator( size_t p_capacity = DEFAULT_ARENA_SIZE ) : capacity( p_capacity )
     {
         data_ = static_cast<T*>( memalloc_aligned( capacity * sizeof( T ), alignof( T ) ) );
     }
@@ -101,17 +104,17 @@ public:
 
     T* alloc()
     {
-        if (head >= capacity)
+        if (head_ >= capacity)
             return nullptr;
-        return &data_[head++];
+        return &data_[head_++];
     }
 
     T* alloc_at( size_t position )
     {
         if (position > capacity)
             return nullptr;
-        head = position;
-        return &data_[head];
+        head_ = position;
+        return &data_[head_];
     }
 
     /**
@@ -130,19 +133,19 @@ public:
 
     void dealloc()
     {
-        head = 0;
+        head_ = 0;
         memfree_align( data_, alignof( T ) );
     }
 
     T* operator[]( size_t index )
     {
-        if (index >= head)
+        if (index >= head_)
             return nullptr;
         return &data_[index];
     }
     const T* operator[]( size_t index ) const
     {
-        if (index >= head)
+        if (index >= head_)
             return nullptr;
         return &data_[index];
     }
@@ -152,17 +155,20 @@ public:
      */
     void reset()
     {
-        head = 0;
+        head_ = 0;
     }
 
-    size_t get_head() const
+    /**
+     * @brief Return current position of the head pointer.
+     */
+    size_t head() const
     {
-        return head;
+        return head_;
     }
     void set_head( size_t position )
     {
-        NC_ASSERT( position <= capacity, "Out of bounds" );
-        head = position;
+        NC_ASSERT_MSG( position <= capacity, "Out of bounds" );
+        head_ = position;
     }
 
     size_t get_capacity() const
@@ -177,15 +183,16 @@ public:
 
 private:
     size_t capacity = 0;
-    size_t head     = 0;
+    size_t head_    = 0;
     T* data_        = nullptr;
 };
 
 /**
- * @brief PagedAllocator defines a growable collection of elements on the heap,
- * allocated in pages (chunks) of fixed size. You may only ever allocate linearly
- * to the arena. Pointers are guaranteed to be stable.
- * Calling dealloc() frees all previously allocated pages.
+ * @brief PagedAllocator defines a growable collection of indexable elements on
+ * the heap, allocated in pages (chunks) of fixed size.
+ *
+ * You may only ever allocate linearly to the arena. Pointers are guaranteed to
+ * be stable. Calling dealloc() frees all previously allocated pages.
  *
  * This is intended to be used on top of managers that handle object lifetimes.
  * Otherwise, you are responsible for calling the constructors and destructors
@@ -274,7 +281,7 @@ public:
 
     T& operator[]( uint32_t i )
     {
-        NC_ASSERT( i < size, "Index out of bounds" );
+        NC_ASSERT_MSG( i < size, "Index out of bounds" );
         return pages[i >> page_shift][i & page_mask];
     }
 
@@ -516,6 +523,7 @@ private:
     // moving values/ptrs
     uint32_t size = 0;
 
+    // TODO: for purity, we probably shouldn't use std::vector
     std::vector<T*> pages;
 };
 
