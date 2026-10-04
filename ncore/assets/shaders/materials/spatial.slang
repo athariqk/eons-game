@@ -36,6 +36,7 @@ struct VertexOutput
     float3 Normal;
     float4 Color : TEXCOORD1;
     float2 UV : TEXCOORD2;
+    float WaveHeight : TEXCOORD3;
 };
 
 struct LambertBRDF : IBRDF
@@ -62,21 +63,17 @@ struct SpatialInstance
 #define MODEL_MATRIX g_Instance.ModelMatrix
 #define NORMAL_MATRIX g_Instance.NormalMatrix
 
-// Generic vertex/pixel templates. The material block is a type parameter so the
-// concrete material struct (and its uniforms) is known at compile time after the
-// material file instantiates these templates.
 VertexOutput spatialVertexMain<M : ISpatialMaterial>(Vertex3D assembledVertex, ParameterBlock<M> material)
 {
     float4 worldPos = mul(MODEL_MATRIX, float4(assembledVertex.Position, 1.0));
     float3 n = mul(float3x3(NORMAL_MATRIX), assembledVertex.Normal);
-    // normalize(0) is NaN; keep a zero vector so the pixel stage can substitute a
-    // geometric normal instead of propagating NaN (which renders as black).
     float3 worldNormal = (dot(n, n) > 1e-12) ? normalize(n) : float3(0.0, 0.0, 0.0);
 
     SpatialGeometry g;
     g.WorldPos = worldPos.xyz;
     g.Normal = worldNormal;
     g.UV = assembledVertex.UV1;
+    g.WaveHeight = 0.0;
 
     material.vertex(g);
 
@@ -88,6 +85,7 @@ VertexOutput spatialVertexMain<M : ISpatialMaterial>(Vertex3D assembledVertex, P
     output.Normal = g.Normal;
     output.UV = g.UV;
     output.Color = assembledVertex.Color;
+    output.WaveHeight = g.WaveHeight;
     return output;
 }
 
@@ -96,13 +94,10 @@ float4 spatialPixelMain<M : ISpatialMaterial>(VertexOutput v, ParameterBlock<M> 
     SpatialGeometry g;
     g.WorldPos = v.WorldPos;
     g.UV = v.UV;
+    g.WaveHeight = v.WaveHeight;
 
     float3 V = normalize(CAMERA_POSITION - g.WorldPos);
 
-    // Prefer the interpolated vertex normal. Only fall back to the geometric face
-    // normal (screen-space derivatives) when the vertex normal is degenerate — most
-    // meshes (including all current materials) supply real normals, so the fallback
-    // is skipped entirely instead of being evaluated for every pixel.
     float3 N = v.Normal;
     float nLen2 = dot(N, N);
     if (nLen2 > 1e-12) {
@@ -118,20 +113,21 @@ float4 spatialPixelMain<M : ISpatialMaterial>(VertexOutput v, ParameterBlock<M> 
 
     SurfaceOutput o = material.fragment(g);
 
-    // Material-provided world normal (e.g. water FFT gradients) must drive lighting.
     float oLen2 = dot(o.Normal, o.Normal);
     if (oLen2 > 1e-12)
         g.Normal = o.Normal * rsqrt(oLen2);
 
-    float3 diffuse = o.Albedo / 3.14159265;
-    float3 lit = diffuse * g_LightEnv.illuminate(g, LambertBRDF(o.Albedo), V);
-    lit += o.Emission;
+    // If albedo is near-zero, material fully owns lighting via Emission (e.g. water GGX path).
+    float3 lit = o.Emission;
+    float albLum = max(max(o.Albedo.r, o.Albedo.g), o.Albedo.b);
+    if (albLum > 1e-6) {
+        float3 diffuse = o.Albedo / 3.14159265;
+        lit += diffuse * g_LightEnv.illuminate(g, LambertBRDF(o.Albedo), V);
+    }
 
     return float4(lit, o.Alpha);
 }
 
-// Emits the concrete material block + entry points for a spatial material. Call once
-// at the end of a material file with the material struct as the argument.
 #define ENTRY_POINTS(M)                                                                                               \
     [[vk::binding(0, 1)]] ParameterBlock<M> g_Material;                                                            \
     [shader("vertex")] VertexOutput vertexMain(Vertex3D v) { return spatialVertexMain<M>( v, g_Material ); }       \

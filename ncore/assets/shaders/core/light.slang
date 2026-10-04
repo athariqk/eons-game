@@ -4,6 +4,8 @@ public struct SpatialGeometry {
     public float3 WorldPos;
     public float3 Normal;
     public float2 UV;
+    // Material-defined scalar (e.g. water wave height for SSS).
+    public float WaveHeight;
 }
 
 public interface IBRDF
