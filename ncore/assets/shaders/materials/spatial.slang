@@ -118,6 +118,11 @@ float4 spatialPixelMain<M : ISpatialMaterial>(VertexOutput v, ParameterBlock<M> 
 
     SurfaceOutput o = material.fragment(g);
 
+    // Material-provided world normal (e.g. water FFT gradients) must drive lighting.
+    float oLen2 = dot(o.Normal, o.Normal);
+    if (oLen2 > 1e-12)
+        g.Normal = o.Normal * rsqrt(oLen2);
+
     float3 diffuse = o.Albedo / 3.14159265;
     float3 lit = diffuse * g_LightEnv.illuminate(g, LambertBRDF(o.Albedo), V);
     lit += o.Emission;
@@ -127,7 +132,7 @@ float4 spatialPixelMain<M : ISpatialMaterial>(VertexOutput v, ParameterBlock<M> 
 
 // Emits the concrete material block + entry points for a spatial material. Call once
 // at the end of a material file with the material struct as the argument.
-#define ENTRY_POINTS(M)																							   \
+#define ENTRY_POINTS(M)                                                                                               \
     [[vk::binding(0, 1)]] ParameterBlock<M> g_Material;                                                            \
     [shader("vertex")] VertexOutput vertexMain(Vertex3D v) { return spatialVertexMain<M>( v, g_Material ); }       \
     [shader("pixel")] float4 pixelMain(VertexOutput v) { return spatialPixelMain<M>( v, g_Material ); }
