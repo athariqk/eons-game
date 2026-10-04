@@ -20,6 +20,7 @@
 
 #include "tests/test_compute_shader.h"
 #include "water/water_sim.h"
+#include "water/wave_cascade_params.h"
 #include "water/wave_generator.h"
 
 namespace sea {
@@ -57,40 +58,22 @@ void WorldScene::on_ready()
             auto dt = static_cast<float>( it.delta_time() );
             xform->Translation += xform->Rotation * input->Direction * input->Magnitude * dt;
 
-            // 6DOF camera rotation.
-            // NOTE: suffers from the so called "holonomy" where if you
-            // try to yaw-pitch in a circular manner, then the camera
-            // gets tilted ever so slightly
-            // Quaternion yaw( input->angular_delta.x * dt, Vec3::up() );
-            // Quaternion pitch( input->angular_delta.y * dt, Vec3::right() );
-            // Quaternion roll( input->angular_delta.z * dt, Vec3::forward() );
-            // xform->Rotation          = xform->Rotation * roll * yaw * pitch;
-
-            // i can't get the above working correctly without unwanted roll
-            // so have the one below for now...
-
             const float yaw_amount   = input->AngularDelta.x * dt;
             const float pitch_amount = input->AngularDelta.y * dt;
             const float roll_amount  = input->AngularDelta.z * dt;
 
-            // FPS-style cam
-
-            // yaw around *world* up
+            // FPS-style cam: yaw around world up, pitch around local right
             Quaternion yaw( yaw_amount, Vec3::up() );
             xform->Rotation = yaw * xform->Rotation;
 
-            // pitch around *local* right
             Quaternion pitch( pitch_amount, Vec3::right() );
             xform->Rotation = xform->Rotation * pitch;
 
-            // this roll is useless as it is ignored by the world-up yaw,
-            // need to find another solution
             if (!math::is_equal_approx( roll_amount, 0 )) {
                 Quaternion roll( roll_amount, Vec3::forward() );
                 xform->Rotation = xform->Rotation * roll;
             }
 
-            // good practice
             xform->Rotation = Quaternion::normalize( xform->Rotation );
         } );
 
@@ -104,7 +87,7 @@ void WorldScene::on_ready()
 void WorldScene::on_exit()
 {
 #if defined( DEBUG )
-    editor::unregister_editor_plugin( *this ); // must come before subsequent ImGui context destruction
+    editor::unregister_editor_plugin( *this );
 #endif
     Scene::on_exit();
 }
@@ -151,6 +134,9 @@ void WorldScene::create_environment()
     auto cube_map   = Ref<CubeMap>::create( equirect, equirect->get_width() / 4 );
     auto skybox_tex = rd->texture_cube_create( *cube_map );
 
+    // Stash for water reflections (create_water runs after this).
+    skybox_cubemap_rid_ = skybox_tex;
+
     MaterialComponent skybox_mat;
     skybox_mat.Shader = res.load( "shaders/materials/skybox.slang" );
     skybox_mat.add_texture( skybox_tex );
@@ -175,14 +161,51 @@ void WorldScene::create_water()
 
     auto& res = get_resource_loader();
 
+    // Must match cascade setup in water_sim.cpp (single source of scale numbers here).
+    const WaveCascadeParams cascade0 = [] {
+        WaveCascadeParams c{};
+        c.tile_length = { 50.0f, 50.0f };
+        return c;
+    }();
+    const WaveCascadeParams cascade1 = [] {
+        WaveCascadeParams c{};
+        c.tile_length        = { 17.0f, 17.0f };
+        c.displacement_scale = 0.6f;
+        c.normal_scale       = 0.6f;
+        return c;
+    }();
+
     MaterialComponent water_mat;
     water_mat.Shader = res.load( "shaders/materials/water.slang" );
     water_mat.add_texture( waves.displacement_map() );
     water_mat.add_texture( waves.normal_map() );
+    water_mat.add_texture( skybox_cubemap_rid_ );
+
     Vec4 map_scales[2];
-    map_scales[0] = { 1.0f / 50.0f, 1.0f / 50.0f, 1.0f, 1.0f };
-    map_scales[1] = { 1.0f / 17.0f, 1.0f / 17.0f, 0.6f, 0.6f };
+    map_scales[0] = {
+        1.0f / cascade0.tile_length.x,
+        1.0f / cascade0.tile_length.y,
+        cascade0.displacement_scale,
+        cascade0.normal_scale,
+    };
+    map_scales[1] = {
+        1.0f / cascade1.tile_length.x,
+        1.0f / cascade1.tile_length.y,
+        cascade1.displacement_scale,
+        cascade1.normal_scale,
+    };
     water_mat.set_params<Vec4[2]>( "mapScales", map_scales );
+
+    const Vec3 deep_color    = { 0.02f, 0.08f, 0.14f };
+    const Vec3 scatter_color = { 0.05f, 0.22f, 0.28f };
+    const float fresnel_bias = 0.02f;
+    const float reflection_strength = 1.0f;
+    const float foam_strength = 1.25f;
+    water_mat.set_params( "deepColor", deep_color );
+    water_mat.set_params( "scatterColor", scatter_color );
+    water_mat.set_params( "fresnelBias", fresnel_bias );
+    water_mat.set_params( "reflectionStrength", reflection_strength );
+    water_mat.set_params( "foamStrength", foam_strength );
 
     auto mesh     = Ref<PlaneMesh>::create( 128, 128 );
     auto mesh_rid = res.add( mesh );

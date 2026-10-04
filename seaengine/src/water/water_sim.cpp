@@ -26,6 +26,7 @@ void register_water_sim( nc::Scene& scene )
     auto& res = scene.get_resource_loader();
 
     // Two cascades with different tile sizes to reduce tiling artifacts.
+    // Keep tile_length / scales in sync with WorldScene::create_water mapScales.
     g_cascades[0]               = {};
     g_cascades[0].tile_length   = { 50.0f, 50.0f };
     g_cascades[0].spectrum_seed = { 1234, 5678 };
@@ -38,7 +39,7 @@ void register_water_sim( nc::Scene& scene )
     g_cascades[1].spectrum_seed      = { 9991, 4242 };
     g_cascades[1].time               = 120.0f + 3.14159265f;
 
-    // map_size must match MAX_MAP_SIZE in fft_compute/transpose/fft_unpack.slang (256).
+    // map_size must match MAX_MAP_SIZE in fft_compute/transpose/fft_unpack.slang.
     g_waves.init_gpu( *rd, res, WaveGenerator::kDefaultMapSize, 2 );
 
     NC_LOG_INFO(
