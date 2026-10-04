@@ -45,7 +45,6 @@ void WorldScene::on_ready()
 
     create_environment();
     create_water();
-    // hello_world_compute_shader( *this );
 
     get_ecs()
         .system( "FreeCamUpdater" )
@@ -62,7 +61,6 @@ void WorldScene::on_ready()
             const float pitch_amount = input->AngularDelta.y * dt;
             const float roll_amount  = input->AngularDelta.z * dt;
 
-            // FPS-style cam: yaw around world up, pitch around local right
             Quaternion yaw( yaw_amount, Vec3::up() );
             xform->Rotation = yaw * xform->Rotation;
 
@@ -101,21 +99,11 @@ void WorldScene::create_environment()
 
     constexpr Array<Vertex3D, 8> box_verts    = { Vertex3D{ -1.0f, -1.0f, -1.0f }, Vertex3D{ -1.0f, 1.0f, -1.0f },
                                                   Vertex3D{ 1.0f, 1.0f, -1.0f },   Vertex3D{ 1.0f, -1.0f, -1.0f },
-                                                  Vertex3D{ -1.0f, -1.0f, 1.0f },  Vertex3D{ -1.0f, 1.0f, 1.0f },
+                                                  Vertex3D{ -1.0f, 1.0f, 1.0f },  Vertex3D{ -1.0f, 1.0f, 1.0f },
                                                   Vertex3D{ 1.0f, 1.0f, 1.0f },    Vertex3D{ 1.0f, -1.0f, 1.0f } };
     constexpr Array<uint16_t, 36> box_indices = {
-        // Front (z = -1)
-        0, 1, 2, 0, 2, 3,
-        // Back (z = +1)
-        4, 7, 6, 4, 6, 5,
-        // Left (x = -1)
-        0, 4, 1, 1, 4, 5,
-        // Right (x = +1)
-        2, 6, 3, 3, 6, 7,
-        // Top (y = +1)
-        1, 5, 2, 2, 5, 6,
-        // Bottom (y = -1)
-        0, 4, 3, 3, 7, 4
+        0, 1, 2, 0, 2, 3, 4, 7, 6, 4, 6, 5, 0, 4, 1, 1, 4, 5,
+        2, 6, 3, 3, 6, 7, 1, 5, 2, 2, 5, 6, 0, 4, 3, 3, 7, 4
     };
 
     auto skybox_mesh = Ref<Mesh>::create(
@@ -134,7 +122,6 @@ void WorldScene::create_environment()
     auto cube_map   = Ref<CubeMap>::create( equirect, equirect->get_width() / 4 );
     auto skybox_tex = rd->texture_cube_create( *cube_map );
 
-    // Stash for water reflections (create_water runs after this).
     skybox_cubemap_rid_ = skybox_tex;
 
     MaterialComponent skybox_mat;
@@ -161,7 +148,7 @@ void WorldScene::create_water()
 
     auto& res = get_resource_loader();
 
-    // Must match cascade setup in water_sim.cpp (single source of scale numbers here).
+    // Keep in sync with water_sim.cpp cascade tile lengths / scales.
     const WaveCascadeParams cascade0 = [] {
         WaveCascadeParams c{};
         c.tile_length = { 50.0f, 50.0f };
@@ -196,16 +183,17 @@ void WorldScene::create_water()
     };
     water_mat.set_params<Vec4[2]>( "mapScales", map_scales );
 
-    const Vec3 deep_color    = { 0.02f, 0.08f, 0.14f };
-    const Vec3 scatter_color = { 0.05f, 0.22f, 0.28f };
-    const float fresnel_bias = 0.02f;
+    // Defaults aligned with GodotOceanWaves global water_color / foam_color / roughness.
+    const Vec3 water_color = { 0.02f, 0.12f, 0.18f };
+    const Vec3 foam_color  = { 0.92f, 0.95f, 0.98f };
+    const float roughness        = 0.4f;
+    const float normal_strength  = 1.0f;
     const float reflection_strength = 1.0f;
-    const float foam_strength = 1.25f;
-    water_mat.set_params( "deepColor", deep_color );
-    water_mat.set_params( "scatterColor", scatter_color );
-    water_mat.set_params( "fresnelBias", fresnel_bias );
+    water_mat.set_params( "waterColor", water_color );
+    water_mat.set_params( "foamColor", foam_color );
+    water_mat.set_params( "roughness", roughness );
+    water_mat.set_params( "normalStrength", normal_strength );
     water_mat.set_params( "reflectionStrength", reflection_strength );
-    water_mat.set_params( "foamStrength", foam_strength );
 
     auto mesh     = Ref<PlaneMesh>::create( 128, 128 );
     auto mesh_rid = res.add( mesh );
