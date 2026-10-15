@@ -26,25 +26,52 @@ public:
         auto& res_svc = get_resource_loader();
 
         // clang-format off
-		nc::Array<nc::Vertex3D, 8> cube_verts = {
-						//  px,    py,    pz,    nx,   ny,   nz,   tx,   ty,   tz,   tw,   u,    v,    u2,   v2,   color
-			nc::Vertex3D{ -1.0f, -1.0f, -1.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFF0000FF },
-			nc::Vertex3D{ -1.0f,  1.0f, -1.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFF00FF00 },
-			nc::Vertex3D{  1.0f,  1.0f, -1.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFFFF0000 },
-			nc::Vertex3D{  1.0f, -1.0f, -1.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFFFFFFFF },
-			
-			nc::Vertex3D{ -1.0f, -1.0f,  1.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFF00FFFF },
-			nc::Vertex3D{ -1.0f,  1.0f,  1.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFFFFFF00 },
-			nc::Vertex3D{  1.0f,  1.0f,  1.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFFFF00FF },
-			nc::Vertex3D{  1.0f, -1.0f,  1.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFF333333 }
+		nc::Array<nc::Vertex3D, 24> cube_verts = {
+						//  px,    py,    pz,    nx,    ny,    nz,    tx,    ty,    tz,   tw,   u,    v,    u2,   v2,   color
+			// -Z face
+			nc::Vertex3D{  1.0f,  1.0f, -1.0f,  0.0f,  0.0f, -1.0f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0xFFFF0000 },
+			nc::Vertex3D{  1.0f, -1.0f, -1.0f,  0.0f,  0.0f, -1.0f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFFFFFFFF },
+			nc::Vertex3D{ -1.0f, -1.0f, -1.0f,  0.0f,  0.0f, -1.0f, -1.0f,  0.0f,  0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0xFF0000FF },
+			nc::Vertex3D{ -1.0f,  1.0f, -1.0f,  0.0f,  0.0f, -1.0f, -1.0f,  0.0f,  0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0xFF00FF00 },
+		
+			// +Z face
+			nc::Vertex3D{ -1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFF00FFFF },
+			nc::Vertex3D{  1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0xFF333333 },
+			nc::Vertex3D{  1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0xFFFF00FF },
+			nc::Vertex3D{ -1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0xFFFFFF00 },
+		
+			// -Y face
+			nc::Vertex3D{ -1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFF0000FF },
+			nc::Vertex3D{  1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0xFFFFFFFF },
+			nc::Vertex3D{  1.0f, -1.0f,  1.0f,  0.0f, -1.0f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0xFF333333 },
+			nc::Vertex3D{ -1.0f, -1.0f,  1.0f,  0.0f, -1.0f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0xFF00FFFF },
+		
+			// -X face
+			nc::Vertex3D{ -1.0f,  1.0f, -1.0f, -1.0f,  0.0f,  0.0f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0xFF00FF00 },
+			nc::Vertex3D{ -1.0f, -1.0f, -1.0f, -1.0f,  0.0f,  0.0f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFF0000FF },
+			nc::Vertex3D{ -1.0f, -1.0f,  1.0f, -1.0f,  0.0f,  0.0f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0xFF00FFFF },
+			nc::Vertex3D{ -1.0f,  1.0f,  1.0f, -1.0f,  0.0f,  0.0f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0xFFFFFF00 },
+		
+			// +X face
+			nc::Vertex3D{  1.0f,  1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  0.0f,  0.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0xFFFF00FF },
+			nc::Vertex3D{  1.0f, -1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  0.0f,  0.0f, -1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFF333333 },
+			nc::Vertex3D{  1.0f, -1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0xFFFFFFFF },
+			nc::Vertex3D{  1.0f,  1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0xFFFF0000 },
+		
+			// +Y face
+			nc::Vertex3D{ -1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0xFF00FF00 },
+			nc::Vertex3D{ -1.0f,  1.0f,  1.0f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0xFFFFFF00 },
+			nc::Vertex3D{  1.0f,  1.0f,  1.0f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0xFFFF00FF },
+			nc::Vertex3D{  1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0xFFFF0000 },
 		};
+		// Each face: (0,1,2) (0,2,3), offset by 4 per face
 		nc::Array<uint16_t, 36> cube_indices = {
-			2,0,1, 2,3,0,
-			4,6,5, 4,7,6,
-			0,7,4, 0,3,7,
-			1,0,4, 1,4,5,
-			1,5,2, 5,6,2,
-			3,6,7, 3,2,6
+			 0, 1, 2,   0, 2, 3,   // -Z
+			 4, 5, 6,   4, 6, 7,   // +Z
+			 8, 9,10,   8,10,11,   // -Y
+			12,13,14,  12,14,15,   // -X
+			16,17,18,  16,18,19,   // +X
+			20,21,22,  20,22,23,   // +Y
 		};
 		nc::Array<nc::Vertex3D, 4> plane_verts = {
 						//  px,   py,    pz,    nx,   ny,   nz,   tx,   ty,   tz,   tw,   u,    v,    u2,   v2,   color
@@ -84,43 +111,43 @@ public:
         auto pmesh_rid = res_svc.add( pmesh );
 
         auto test_model = root()->create_child( "TestModel3D" );
-        test_model->add_component<nc::Transform3DComponent>(
-            nc::Transform3DComponent{ .Translation = nc::Vec3( 0, 0, 0 ),
-                                      .Rotation    = nc::Quaternion( 180, nc::Vec3::up() ),
-                                      .Scale       = nc::Vec3( 1, 1, 1 ) }
-        );
+        test_model->add_component<nc::Transform3DComponent>( nc::Transform3DComponent{
+            .Translation = nc::Vec3f( 0, 0, 0 ),
+            .Rotation    = nc::Quaternion( 180, nc::Vec3f::up() ),
+            .Scale       = nc::Vec3f( 1, 1, 1 )
+        } );
         test_model->add_component<TestSpin>();
 
         auto cube_mesh = test_model->create_child( "CubeMesh" );
         cube_mesh->add_component<nc::MeshComponent>( nc::MeshComponent{ .Source = mesh_rid } );
         cube_mesh->add_component<nc::MeshRenderComponent>();
         cube_mesh->add_component<nc::HasResourceTag>();
-        cube_mesh->add_component<nc::MaterialComponent>(
-            nc::MaterialComponent{ .Shader = res_svc.load( "shaders/materials/standard_spatial.slang" ) }
-        );
+        nc::MaterialComponent cube_material{ .Shader = res_svc.load( "shaders/materials/standard_spatial.slang" ) };
+        // Material uniforms are zero-initialized on the GPU; without a white albedo the
+        // albedoTexture * albedoColor * vertex-color product is black.
+        cube_material.set_params<nc::Vec4f>( "albedoColor", nc::Vec4f( 1, 1, 1, 1 ) );
+        cube_mesh->add_component<nc::MaterialComponent>( cube_material );
         cube_mesh->add_component<nc::MaterialRenderComponent>();
 
         auto plane = root()->create_child( "Plane" );
-        plane->add_component<nc::Transform3DComponent>(
-            nc::Transform3DComponent{ .Translation = nc::Vec3( 0, -5, 0 ), .Rotation = nc::Quaternion::identity(),
-                                      .Scale = nc::Vec3( 5, 1, 5 ) }
-        );
+        plane->add_component<nc::Transform3DComponent>( nc::Transform3DComponent{
+            .Translation = nc::Vec3f( 0, -5, 0 ), .Rotation = nc::Quaternion::identity(), .Scale = nc::Vec3f( 5, 1, 5 )
+        } );
         auto plane_mesh = plane->create_child( "PlaneMesh" );
         plane_mesh->add_component<nc::MeshComponent>( nc::MeshComponent{ .Source = pmesh_rid } );
         plane_mesh->add_component<nc::MeshRenderComponent>();
         plane_mesh->add_component<nc::HasResourceTag>();
-        plane_mesh->add_component<nc::MaterialComponent>(
-            nc::MaterialComponent{ .Shader = res_svc.load( "shaders/materials/standard_spatial.slang" ) }
-        );
+        nc::MaterialComponent plane_material{ .Shader = res_svc.load( "shaders/materials/standard_spatial.slang" ) };
+        plane_material.set_params<nc::Vec4f>( "albedoColor", nc::Vec4f( 1, 1, 1, 1 ) );
+        plane_mesh->add_component<nc::MaterialComponent>( plane_material );
         plane_mesh->add_component<nc::MaterialRenderComponent>();
 
         auto main_camera = root()->create_child( "MainCamera" );
-        main_camera->add_component<nc::Transform3DComponent>(
-            nc::Transform3DComponent{ .Translation = nc::Vec3( 0, 0, 5 ), .Rotation = nc::Quaternion::identity(),
-                                      .Scale = nc::Vec3( 1, 1, 1 ) }
-        );
-        main_camera->add_component<nc::CameraComponent>();
         main_camera->add_component<nc::ActiveCameraTag>();
+        main_camera->add_component<nc::Transform3DComponent>( nc::Transform3DComponent{
+            .Translation = nc::Vec3f( 0, 0, 5 ), .Rotation = nc::Quaternion::identity(), .Scale = nc::Vec3f( 1, 1, 1 )
+        } );
+        main_camera->add_component<nc::CameraComponent>();
         main_camera->add_component<nc::InputComponent>();
 
         add_system<nc::Transform2DComponent, TestSpin>(
@@ -147,8 +174,8 @@ public:
                 if (spin.rotation >= 1.0f) {
                     spin.rotation                = 0.0f;
                     spin.start                   = spin.end;
-                    nc::Quaternion flip_180      = nc::Quaternion( 180, nc::Vec3::up() );
-                    nc::Quaternion weird_swaying = nc::Quaternion( 30, nc::Vec3::forward() );
+                    nc::Quaternion flip_180      = nc::Quaternion( 180, nc::Vec3f::up() );
+                    nc::Quaternion weird_swaying = nc::Quaternion( 30, nc::Vec3f::forward() );
                     spin.end                     = spin.start * flip_180 * weird_swaying;
                 }
                 xform.Rotation = nc::Quaternion::slerp( spin.start, spin.end, std::min( spin.rotation, 1.0f ) );

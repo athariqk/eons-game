@@ -14,11 +14,16 @@ constexpr float DOUBLE_PI         = 2.0f * PI;
 constexpr size_t KILOBYTE         = 1000;
 
 /**
- * @brief Test if a ~= b within a floating-point epsilon error.
+ * @brief Test if a ~= b within a pre-defined epsilon error.
  */
 static bool is_equal_approx( float a, float b )
 {
     return std::fabs( a - b ) <= std::numeric_limits<float>::epsilon() * std::fmax( std::fabs( a ), std::fabs( b ) );
+}
+
+static bool is_equal_approx( double a, double b )
+{
+    return std::fabs( a - b ) <= std::numeric_limits<double>::epsilon() * std::fmax( std::fabs( a ), std::fabs( b ) );
 }
 
 /**

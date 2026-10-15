@@ -13,11 +13,11 @@ Node::Node( const String& p_name, Scene* p_scene, Node* p_parent ) : scene( p_sc
     }
     NC_VERIFY( p_parent );
 
-    internal_id =
-        scene->get_ecs().entity( p_name )
-            .child_of( p_parent->internal_id )
-            .add<NodeRefComponent>( NodeRefComponent{ .node = this } )
-            .build();
+    internal_id = scene->get_ecs()
+                      .entity( p_name )
+                      .child_of( p_parent->internal_id )
+                      .add<NodeRefComponent>( NodeRefComponent{ .node = this } )
+                      .build();
     emit_event<NodeAddedEvent>( internal_id );
 }
 
@@ -36,6 +36,11 @@ bool Node::operator==( const Node* other ) const
 bool Node::operator!=( const Node& other ) const
 {
     return internal_id != other.internal_id;
+}
+
+Node* Node::get_parent()
+{
+    return parent;
 }
 
 void Node::reparent_to( Node* p_parent )
@@ -122,27 +127,26 @@ Span<Component> Node::get_components()
     return { components.data(), component_count };
 }
 
-void* Node::add_component( const rtti::TypeInfo* type )
-{
-    if (has_component_( type ))
-        return get_component( type );
-
-    void* result = scene->get_ecs().add_component_( internal_id, type );
-    auto comp_id = scene->get_ecs().register_component_type( type );
-    track_ecs_component( type, comp_id );
-    return result;
-}
-
 void* Node::add_component( const rtti::TypeInfo* type, const void* data )
 {
     if (has_component_( type ))
         return get_component( type );
 
-    auto comp_id = scene->get_ecs().set_component_( internal_id, type, data );
-    track_ecs_component( type, comp_id );
-    auto obj = get_component( type );
-    NC_VERIFY( obj );
-    return obj;
+    auto& ecs = scene->get_ecs();
+
+    void* result     = nullptr;
+    EcsComponent cid = 0;
+    if (data) {
+        cid    = ecs.set_component_( internal_id, type, data );
+        result = get_component( type );
+    } else {
+        result = ecs.add_component_( internal_id, type, data );
+        cid    = ecs.register_component_type( type ); // resolve id.
+    }
+
+    track_ecs_component( type, cid );
+
+    return result;
 }
 
 StringView Node::get_name() const
@@ -216,7 +220,7 @@ bool Node::is_component_enabled( const rtti::TypeInfo* type ) const
     return ecs_is_enabled_id( world, internal_id, comp_id );
 }
 
-void Node::mark_component_modified( const rtti::TypeInfo* type ) const
+void Node::notify_changed( const rtti::TypeInfo* type ) const
 {
     auto comp_id = scene->get_ecs().register_component_type( type );
     auto world   = reinterpret_cast<ecs_world_t*>( scene->get_ecs().get_native_handle() );

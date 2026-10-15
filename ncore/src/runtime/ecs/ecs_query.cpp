@@ -258,15 +258,26 @@ void* EcsIterState::get_component_( int32_t column, size_t size, size_t alignmen
     ( void ) alignment;
     auto it   = static_cast<ecs_iter_t*>( it_ );
     auto base = ecs_field_w_size( it, size, static_cast<int8_t>( column ) );
+    // parent/shared term, do not stride by row.
+    if (it->sources && it->sources[column] != 0)
+        return base;
     return reinterpret_cast<char*>( base ) + size * current_row_;
 }
 
-void EcsIterState::mark_component_modified_( const rtti::TypeInfo* type ) const
+void* EcsIterState::get_entity_component_( const rtti::TypeInfo* p_type ) const
+{
+    auto it    = static_cast<ecs_iter_t*>( it_ );
+    auto world = static_cast<EcsWorld*>( ecs_get_binding_ctx( it->world ) );
+    auto comp  = world->register_component_type( p_type );
+    return ecs_get_mut_id( it->world, entity(), comp ); // pointer to stored data
+}
+
+void EcsIterState::notify_changed_( EcsEntity p_entity, const rtti::TypeInfo* type ) const
 {
     auto it    = static_cast<ecs_iter_t*>( it_ );
     auto world = static_cast<EcsWorld*>( ecs_get_binding_ctx( it->world ) );
     auto comp  = world->register_component_type( type );
-    ecs_modified_id( it->world, entity( current_row_ ), comp );
+    ecs_modified_id( it->world, p_entity, comp );
 }
 
 int32_t EcsIterState::resolve_term_index_( const rtti::TypeInfo& info ) const
@@ -365,6 +376,31 @@ void EcsQueryBuilder::add_term_pair_impl(
     pImpl->terms.push_back( term );
 }
 
+void EcsQueryBuilder::add_term_without_impl( const rtti::TypeInfo* type )
+{
+    NC_ASSERT_MSG( type, "Component type not registered in rtti::TypeRegistry" );
+    EcsComponent comp_id = pImpl->world.register_component_type( type );
+
+    ecs_term_t term{};
+    term.id    = comp_id;
+    term.oper  = EcsNot;
+    term.inout = EcsInOutNone;
+    pImpl->terms.push_back( term );
+}
+
+void EcsQueryBuilder::add_term_pair_without_impl( const rtti::TypeInfo* first_type, const rtti::TypeInfo* sec_type )
+{
+    NC_ASSERT_MSG( first_type && sec_type, "Pair component types not registered" );
+    EcsComponent first_id  = pImpl->world.register_component_type( first_type );
+    EcsComponent second_id = pImpl->world.register_component_type( sec_type );
+
+    ecs_term_t term{};
+    term.id    = ecs_make_pair( first_id, second_id );
+    term.oper  = EcsNot;
+    term.inout = EcsInOutNone;
+    pImpl->terms.push_back( term );
+}
+
 EcsQueryBuilder& EcsQueryBuilder::with_pair( EcsEntity first, EcsEntity second )
 {
     ecs_term_t term{};
@@ -423,6 +459,13 @@ EcsQueryBuilder& EcsQueryBuilder::cascade()
         pImpl->terms.back().src.id |= EcsCascade;
         pImpl->terms.back().trav = EcsChildOf;
     }
+    return *this;
+}
+
+EcsQueryBuilder& EcsQueryBuilder::filter()
+{
+    if (!pImpl->terms.empty())
+        pImpl->terms.back().inout = EcsInOutFilter;
     return *this;
 }
 

@@ -443,45 +443,50 @@ static RGBA8 bilinear_sample_( const uint8_t* pixels, int w, int h, float eu, fl
     return out;
 }
 
-static Vec3 face_direction_( int face, float u, float v )
+static Vec3f face_direction_( int face, float u, float v )
 {
     switch (face) {
         case 0:
-            return Vec3( 1.0f, v, -u );  // +X
+            return Vec3f( 1.0f, v, -u );  // +X
         case 1:
-            return Vec3( -1.0f, v, u );  // -X
+            return Vec3f( -1.0f, v, u );  // -X
         case 2:
-            return Vec3( u, 1.0f, -v );  // +Y
+            return Vec3f( u, 1.0f, -v );  // +Y
         case 3:
-            return Vec3( u, -1.0f, v );  // -Y
+            return Vec3f( u, -1.0f, v );  // -Y
         case 4:
-            return Vec3( u, v, 1.0f );   // +Z
+            return Vec3f( u, v, 1.0f );   // +Z
         default:
-            return Vec3( -u, v, -1.0f ); // -Z
+            return Vec3f( -u, v, -1.0f ); // -Z
     }
 }
 
-CubeMap::CubeMap( const Ref<Image>& equirect, uint32_t face_size )
+CubeMap::CubeMap( const Ref<Image>& equirect, uint32_t p_face_size )
 {
     const int ew   = static_cast<int>( equirect->get_width() );
     const int eh   = static_cast<int>( equirect->get_height() );
     const auto src = reinterpret_cast<const uint8_t*>( equirect->get_pixels().data() );
 
-    if (face_size <= 0) {
-        face_size = equirect->get_width() / 4;
+    if (p_face_size == 0) {
+        p_face_size = equirect->get_width() / 4;
     }
-    const uint32_t n = face_size;
+    const uint32_t n        = p_face_size;
+    const size_t face_bytes = static_cast<size_t>( n ) * n * 4;
+
+    this->face_size = static_cast<int>( n );
+    pixels.resize( face_bytes * 6 );
+
+    auto* dst_base = reinterpret_cast<uint8_t*>( pixels.data() );
 
     for (int face = 0; face < 6; face++) {
-        DynamicArray<std::byte> buffer( static_cast<size_t>( n ) * n * 4 );
-        auto* dst = reinterpret_cast<uint8_t*>( buffer.data() );
+        uint8_t* dst = dst_base + static_cast<size_t>( face ) * face_bytes;
 
         for (uint32_t y = 0; y < n; y++) {
             for (uint32_t x = 0; x < n; x++) {
                 const float u = ( 2.0f * static_cast<float>( x ) + 1.0f ) / static_cast<float>( n ) - 1.0f;
                 const float v = 1.0f - ( 2.0f * static_cast<float>( y ) + 1.0f ) / static_cast<float>( n );
 
-                Vec3 d = face_direction_( face, u, v ).normalize();
+                Vec3f d = face_direction_( face, u, v ).normalize();
 
                 const float eu = std::atan2( d.z, d.x ) / math::DOUBLE_PI + 0.5f;
                 const float ev = std::acos( std::clamp( d.y, -1.0f, 1.0f ) ) / math::PI;
@@ -494,8 +499,6 @@ CubeMap::CubeMap( const Ref<Image>& equirect, uint32_t face_size )
                 dst[idx + 3]     = sample.channels[3];
             }
         }
-
-        faces[face] = Ref<Image>::create( static_cast<int>( n ), static_cast<int>( n ), buffer.data() );
     }
 }
 
@@ -506,16 +509,20 @@ ResourceFormatID CubeMap::get_format_id() const
 
 size_t CubeMap::get_size_bytes() const
 {
-    size_t total = 0;
-    for (auto& face : faces) {
-        total += face->get_size_bytes();
-    }
-    return total;
+    return pixels.size();
 }
 
-Span<const Ref<Image>, 6> CubeMap::get_faces() const
+uint32_t CubeMap::get_face_size() const
 {
-    return faces;
+    return static_cast<uint32_t>( face_size );
+}
+
+Span<const std::byte> CubeMap::get_face_data( uint32_t face ) const
+{
+    const size_t face_bytes = static_cast<size_t>( face_size ) * static_cast<size_t>( face_size ) * 4;
+    if (face >= 6 || face_bytes == 0 || pixels.size() < face_bytes * 6)
+        return {};
+    return Span<const std::byte>( pixels ).subspan( static_cast<size_t>( face ) * face_bytes, face_bytes );
 }
 
 //------------------------------------------------------------------------------

@@ -12,15 +12,15 @@ namespace nc {
  */
 NC_COMPONENT_API( CameraComponent )
 {
-    REFLECT RID Source;
-    REFLECT float FieldOfView  = 1.5708f; // In radians. Default is 90 degrees.
-    REFLECT float zNear        = 0.1f;
-    REFLECT float zFar         = 1000.0f;
-    REFLECT bool MouseCaptured = false;
-    REFLECT bool Perspective   = true;
-    REFLECT RID RenderTexture;
-    REFLECT RID DepthTexture;
-    REFLECT Rect2i DisplayRect;
+    REFLECT RID Source          = 0;
+    REFLECT float FieldOfView   = 1.5708f; // In radians. Default is 90 degrees.
+    REFLECT float zNear         = 0.1f;
+    REFLECT float zFar          = 1000.0f;
+    REFLECT bool MouseCaptured  = false;
+    REFLECT bool Perspective    = true;
+    REFLECT RID RenderTexture   = 0;
+    REFLECT RID DepthTexture    = 0;
+    REFLECT Rect2i DisplayRect  = Rect2i();
     REFLECT bool RenderToScreen = true;
     REFLECT bool DrawCanvas     = true;
 };

@@ -72,17 +72,17 @@ void register_editor_camera( Scene& scene )
             // FPS-style cam
 
             // yaw around *world* up
-            Quaternion yaw( yaw_amount, Vec3::up() );
+            Quaternion yaw( yaw_amount, Vec3f::up() );
             xform->Rotation = yaw * xform->Rotation;
 
             // pitch around *local* right
-            Quaternion pitch( pitch_amount, Vec3::right() );
+            Quaternion pitch( pitch_amount, Vec3f::right() );
             xform->Rotation = xform->Rotation * pitch;
 
             // this roll is useless as it is ignored by the world-up yaw,
             // need to find another solution
-            if (!math::is_equal_approx( roll_amount, 0 )) {
-                Quaternion roll( roll_amount, Vec3::forward() );
+            if (!math::is_equal_approx( roll_amount, 0.f )) {
+                Quaternion roll( roll_amount, Vec3f::forward() );
                 xform->Rotation = xform->Rotation * roll;
             }
 
@@ -138,9 +138,9 @@ void register_editor_camera( Scene& scene )
     // Spawn outside the demo scene contents: at the origin the camera sits inside
     // the unit cube at (0,0,0), so back-face culling renders a black viewport.
     editor_cam->add_component<Transform3DComponent>( Transform3DComponent{
-        .Translation = Vec3( 0, 2, 6 ), .Rotation = Quaternion::identity(), .Scale = Vec3( 1, 1, 1 )
+        .Translation = Vec3f( 0, 2, 6 ), .Rotation = Quaternion::identity(), .Scale = Vec3f( 1, 1, 1 )
     } );
-    editor_cam->add_component<CameraComponent>();
+    editor_cam->add_component<CameraComponent>( CameraComponent{ .zFar = 5000.0f } );
     editor_cam->add_component<InputComponent>();
 }
 

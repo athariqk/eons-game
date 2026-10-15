@@ -18,14 +18,14 @@ namespace nc {
  */
 struct REFLECT NCAPI Quaternion {
     REFLECT float w = 0;
-    REFLECT Vec3 v  = Vec3();
+    REFLECT Vec3f v = Vec3f();
 
     Quaternion() = default;
 
     /**
      * @brief Initialize a new quaternion from angle axis.
      */
-    Quaternion( float angle, Vec3 axis )
+    Quaternion( float angle, Vec3f axis )
     {
         float rad = math::deg_to_rad( angle );
 
@@ -39,7 +39,7 @@ struct REFLECT NCAPI Quaternion {
      * Source:
      * https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Angles_(in_ZYX_sequence)_to_quaternion_conversion
      */
-    Quaternion( Vec3 euler_angles )
+    Quaternion( Vec3f euler_angles )
     {
         w   = ( std::cos( euler_angles.x * 0.5f ) * std::cos( euler_angles.y * 0.5f ) *
                 std::cos( euler_angles.z * 0.5f ) ) +
@@ -67,7 +67,7 @@ struct REFLECT NCAPI Quaternion {
         return r;
     }
 
-    Vec3 multiply( const Vec3& vec ) const
+    Vec3f multiply( const Vec3f& vec ) const
     {
         Quaternion p;
         p.w     = 0;
@@ -99,10 +99,10 @@ struct REFLECT NCAPI Quaternion {
 
     Quaternion exp() const
     {
-        float v_len = v.length();
-        float v_sin = std::sin( v_len );
-        float w_exp = std::expf( w );
-        Vec3 unit_v = v_len > 0 ? Vec3::normalize( v ) : v; // unit vector
+        float v_len  = v.length();
+        float v_sin  = std::sin( v_len );
+        float w_exp  = std::expf( w );
+        Vec3f unit_v = v_len > 0 ? Vec3f::normalize( v ) : v; // unit vector
         Quaternion r;
         r.w   = std::cos( v_len ) * w_exp;
         r.v.x = unit_v.x * v_sin * w_exp;
@@ -113,10 +113,10 @@ struct REFLECT NCAPI Quaternion {
 
     Quaternion log() const
     {
-        float m     = length();
-        float a     = std::acosf( w / m );
-        float v_len = v.length();
-        Vec3 unit_v = v_len > 0 ? Vec3::normalize( v ) : v; // unit vector
+        float m      = length();
+        float a      = std::acosf( w / m );
+        float v_len  = v.length();
+        Vec3f unit_v = v_len > 0 ? Vec3f::normalize( v ) : v; // unit vector
         Quaternion r;
         r.w   = std::log( m );
         r.v.x = unit_v.x * a;
@@ -136,12 +136,12 @@ struct REFLECT NCAPI Quaternion {
         return multiply( rhs );
     }
 
-    Vec3 operator*( const Vec3& rhs ) const
+    Vec3f operator*( const Vec3f& rhs ) const
     {
         return multiply( rhs );
     }
 
-    friend Vec3 operator*( const Vec3 vec, const Quaternion& quat )
+    friend Vec3f operator*( const Vec3f vec, const Quaternion& quat )
     {
         return quat.multiply( vec );
     }
@@ -286,9 +286,9 @@ struct REFLECT NCAPI Quaternion {
 
         // clang-format off
         return Mat3(
-			Vec3( r00, r01, r02 ),
-			Vec3( r10, r11, r12 ),
-			Vec3( r20, r21, r22 )
+			Vec3f( r00, r01, r02 ),
+			Vec3f( r10, r11, r12 ),
+			Vec3f( r20, r21, r22 )
 		);
         // clang-format on
     }
@@ -302,7 +302,7 @@ struct REFLECT NCAPI Quaternion {
      * @param q Quaternion to be converted. Will be normalized before conversion.
      * @return The euler angles representation in ZYX sequence.
      */
-    static Vec3 to_euler_angles( const Quaternion& q )
+    static Vec3f to_euler_angles( const Quaternion& q )
     {
         auto u = Quaternion::normalize( q );
         auto x = std::atan2f( 2 * ( u.w * u.v.x + u.v.y * u.v.z ), 1 - ( 2 * ( u.v.x * u.v.x + u.v.y * u.v.y ) ) );
@@ -311,7 +311,7 @@ struct REFLECT NCAPI Quaternion {
                                           std::sqrtf( 1 - ( 2 * ( u.w * u.v.y - u.v.x * u.v.z ) ) )
                                       );
         auto z = std::atan2f( 2 * ( u.w * u.v.z + u.v.x * u.v.y ), 1 - ( 2 * ( u.v.y * u.v.y + u.v.z * u.v.z ) ) );
-        return Vec3( x, y, z );
+        return Vec3f( x, y, z );
     }
 
     Quaternion normalize() const
@@ -324,7 +324,7 @@ struct REFLECT NCAPI Quaternion {
         return to_rotation_matrix( *this );
     }
 
-    Vec3 to_euler_angles() const
+    Vec3f to_euler_angles() const
     {
         return to_euler_angles( *this );
     }

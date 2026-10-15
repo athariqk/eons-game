@@ -254,6 +254,24 @@ struct NCAPI Qualifier {
 
 namespace detail {
 
+template<typename T>
+struct is_std_array : std::false_type {};
+
+template<typename T, size_t N>
+struct is_std_array<std::array<T, N>> : std::true_type {};
+
+template<typename T>
+inline constexpr bool is_std_array_v = is_std_array<std::remove_cvref_t<T>>::value;
+
+template<typename T>
+struct std_array_traits;
+
+template<typename T, size_t N>
+struct std_array_traits<std::array<T, N>> {
+    using element_type             = T;
+    static constexpr size_t extent = N;
+};
+
 /**
  * @brief Infers the TypeKind for a fundamental type at compile time.
  */
@@ -317,6 +335,8 @@ constexpr TypeId field_type_id() noexcept
         return type_id<std::remove_pointer_t<raw>>();
     } else if constexpr (std::is_array_v<raw>) {
         return type_id<std::remove_extent_t<raw>>();
+    } else if constexpr (is_std_array_v<raw>) {
+        return type_id<typename std_array_traits<raw>::element_type>();
     } else {
         return type_id<F>();
     }
@@ -335,6 +355,8 @@ constexpr Qualifier field_qualifier() noexcept
         q.is_cstring    = std::is_same_v<std::remove_cv_t<std::remove_pointer_t<raw>>, char>;
     } else if constexpr (std::is_array_v<raw>) {
         q.array_length = static_cast<uint32_t>( std::extent_v<raw> );
+    } else if constexpr (is_std_array_v<raw>) {
+        q.array_length = static_cast<uint32_t>( std_array_traits<raw>::extent );
     }
     return q;
 }
@@ -994,6 +1016,21 @@ struct NCAPI RecordVisitor {
 
     virtual void primitive( const TypeInfo* t, void* instance ) = 0;
     virtual void string( const TypeInfo* t, void* instance )    = 0;
+
+    /**
+     * @brief Bulk-visit `count` contiguous elements of `elem_type` at `data`.
+     *
+     * Called by VectorClass::visit for primitive element types instead of the
+     * per-element array_element()/primitive() loop. Resource archives override it
+     * to read/write the whole run (e.g. a large byte buffer) in one operation. The
+     * default preserves per-element semantics for other visitors.
+     */
+    virtual void primitive_array( const TypeInfo* elem_type, void* data, size_t count )
+    {
+        auto* bytes = static_cast<uint8_t*>( data );
+        for (size_t i = 0; i < count; ++i)
+            primitive( elem_type, bytes + i * elem_type->size );
+    }
 };
 
 //------------------------------------------------------------------------------
@@ -1030,16 +1067,23 @@ struct VectorClass : public RecordInfo {
         }
 
         visitor->array_begin( elem_type, this, vec, static_cast<int>( depth ), static_cast<int>( vec->size() ) );
-        size_t idx = 0;
-        for (auto& e : *vec) {
-            visitor->array_element( elem_type, static_cast<int>( depth + 1 ), static_cast<int>( idx++ ) );
-            if (elem_type->is_record())
-                static_cast<const RecordInfo*>( elem_type )->visit( &e, visitor, filter, depth + 2 );
-            else if (elem_type->is_string())
-                visitor->string( elem_type, &e );
-            else
-                visitor->primitive( elem_type, &e );
+
+        // Records and strings are visited element-by-element; primitive runs (byte
+        // buffers, float/Vec arrays) go through the bulk hook so archives can
+        // read/write them in a single operation.
+        if (elem_type->is_record() || elem_type->is_string()) {
+            size_t idx = 0;
+            for (auto& e : *vec) {
+                visitor->array_element( elem_type, static_cast<int>( depth + 1 ), static_cast<int>( idx++ ) );
+                if (elem_type->is_record())
+                    static_cast<const RecordInfo*>( elem_type )->visit( &e, visitor, filter, depth + 2 );
+                else
+                    visitor->string( elem_type, &e );
+            }
+        } else if (!vec->empty()) {
+            visitor->primitive_array( elem_type, vec->data(), vec->size() );
         }
+
         visitor->array_end( elem_type, static_cast<int>( depth ) );
     }
 };

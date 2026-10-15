@@ -1,33 +1,46 @@
 #pragma once
 
+#include <ncore/core/collection.h>
 #include <ncore/core/vector.h>
+#include <ncore/runtime/ecs/ecs_component.h>
 
 namespace sea {
 
-struct WaveCascadeParams {
-    nc::Vec2f tile_length    = { 50.0f, 50.0f }; // meters
-    float displacement_scale = 1.0f;
-    float normal_scale       = 1.0f;
+using namespace nc;
 
-    float wind_speed         = 20.0f; // m/s
-    float wind_direction_deg = 0.0f;
-    float fetch_length_km    = 550.0f;
-    float swell              = 0.8f;
-    float spread             = 0.2f; // 0 = Hasselmann, 1 = isotropic
-    float detail             = 1.0f; // high-frequency attenuation
+// Per-cascade scales for the water material: uv_scale.xy, displacement, normal.
+struct REFLECT MapScale {
+    REFLECT Vec2f tile_length        = { 50.0f, 50.0f }; // meters
+    REFLECT float displacement_scale = 1.0f;
+    REFLECT float normal_scale       = 1.0f;
+};
 
-    float whitecap    = 0.5f;
-    float foam_amount = 5.0f;
+struct REFLECT WaveCascadeParams {
+    REFLECT MapScale scale           = {};
+    REFLECT float wind_speed         = 20.0f; // m/s
+    REFLECT float wind_direction_deg = 0.0f;
+    REFLECT float fetch_length_km    = 550.0f;
+    REFLECT float swell              = 0.8f;
+    REFLECT float spread             = 0.2f; // 0 = Hasselmann, 1 = isotropic
+    REFLECT float detail             = 1.0f; // high-frequency attenuation
+    REFLECT float whitecap           = 0.5f;
+    REFLECT float foam_amount        = 5.0f;
 
     // Runtime (owned/updated by WaveGenerator::update)
-    nc::Vec2i spectrum_seed       = { 0, 0 };
+    Vec2i spectrum_seed           = { 0, 0 };
     float time                    = 0.0f;
     float foam_grow_rate          = 0.0f;
     float foam_decay_rate         = 0.0f;
     bool should_generate_spectrum = true;
 };
 
-// Packed GPU constant buffers — must match Slang cbuffer layouts (16-byte aligned).
+NC_COMPONENT( WaterSimComponent )
+{
+    static constexpr uint32_t kMaxCascades = 8;
+
+    REFLECT int CascadeCount = 0;
+    REFLECT WaveCascadeParams Cascades[kMaxCascades];
+};
 
 struct alignas( 16 ) SpectrumComputeCB {
     int32_t seed_x;
@@ -78,14 +91,6 @@ struct alignas( 16 ) FftUnpackCB {
     float whitecap;
     float foam_grow_rate;
     float foam_decay_rate;
-};
-
-// Per-cascade scales for the water material: uv_scale.xy, displacement, normal.
-struct alignas( 16 ) MapScale {
-    float uv_x;
-    float uv_y;
-    float displacement_scale;
-    float normal_scale;
 };
 
 } // namespace sea

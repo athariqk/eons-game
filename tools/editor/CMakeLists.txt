@@ -12,7 +12,9 @@ target_sources(
           "src/gui_plugin.cpp"
 		  "src/imgui_style.h"
           "src/imgui_utils.h"
-		  "src/ncore_editor.cpp")
+		  "src/ncore_editor.cpp"
+		  "src/property_grid.h"
+		  "src/property_grid.cpp")
 
 add_subdirectory(external)
 
@@ -52,8 +54,7 @@ target_compile_options(
             -Wno-unique-object-duplication
             -Wno-format-nonliteral>)
 
-# Reflection code generation — registers editor component types
-# (EditorCameraTag, GuiStateComponent, EditorState) for find<T>().
+# Reflection code generation
 file(GLOB_RECURSE NCORE_EDITOR_HEADERS
      LIST_DIRECTORIES false "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h"
      "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")

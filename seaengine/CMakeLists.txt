@@ -6,13 +6,16 @@ target_sources(SeaEngine PRIVATE
 	"src/tests/test_compute_shader.cpp"
 	"src/water/water_sim.h"
 	"src/water/water_sim.cpp"
+	"src/water/polar_mesh.h"
+	"src/water/polar_mesh.cpp"
 	"src/water/wave_cascade_params.h"
 	"src/water/wave_generator.h"
 	"src/water/wave_generator.cpp"
 	"src/world_scene.h"
 	"src/world_scene.cpp")
 
-target_link_libraries(SeaEngine PRIVATE ncore ncore_editor)
+target_link_libraries(SeaEngine PRIVATE $<$<CONFIG:Debug>:ncore ncore_editor>
+										$<$<CONFIG:Release>:ncore>)
 
 set_target_properties(
   SeaEngine PROPERTIES DEBUG_POSTFIX "_d" VS_DEBUGGER_WORKING_DIRECTORY
@@ -30,3 +33,13 @@ add_custom_command(
     "$<TARGET_FILE_DIR:SeaEngine>/seaengine.ini"
   COMMENT "Copying config files"
   VERBATIM)
+
+# Reflection code generation
+file(GLOB_RECURSE SEA_ENGINE_HEADERS
+     LIST_DIRECTORIES false "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
+
+nc_add_reflection_gen(SeaEngine HEADERS ${SEA_ENGINE_HEADERS}
+                      FLAGS_FROM "seaengine/src/")
+
+target_include_directories(SeaEngine PRIVATE
+                           "${CMAKE_CURRENT_SOURCE_DIR}/src")

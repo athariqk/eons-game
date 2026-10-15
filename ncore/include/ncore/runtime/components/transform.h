@@ -23,10 +23,26 @@ NC_COMPONENT_API( Transform2DComponent )
 
 NC_COMPONENT_API( Transform3DComponent )
 {
-    REFLECT Vec3 Translation    = Vec3();                 // Local translation.
-    REFLECT Quaternion Rotation = Quaternion::identity(); // Local rotation.
-    REFLECT Vec3 Scale          = Vec3( 1, 1, 1 );        // Local scale.
-    REFLECT Mat4 Global         = Mat4::identity();       // Global transform, auto-computed.
+    /**
+     * @brief Local translation.
+     */
+    REFLECT Vec3f Translation = Vec3f();
+    /**
+     * @brief Local rotation.
+     */
+    REFLECT Quaternion Rotation = Quaternion::identity();
+    /**
+     * @brief Local scale.
+     */
+    REFLECT Vec3f Scale = Vec3f( 1, 1, 1 );
+    /**
+     * @brief Global transform, auto-computed.
+     */
+    REFLECT Mat4 Global = Mat4::identity();
+
+    REFLECT bool InheritPosition = true;
+    REFLECT bool InheritRotation = true;
+    REFLECT bool InheritScale    = true;
 
     /**
      * @brief Compose 4x4 transform/model matrix from
@@ -38,6 +54,17 @@ NC_COMPONENT_API( Transform3DComponent )
      * local translation, rotation and scale.
      */
     void from_matrix( const Mat4& xform );
+
+    Mat4 parent_contrib( const Mat4& parent_global ) const;
+};
+
+NC_COMPONENT_API( Transform3DConstraintsComponent )
+{
+    REFLECT bool LockPositionX = false;
+    REFLECT bool LockPositionY = false;
+    REFLECT bool LockPositionZ = false;
+
+    void apply_position_locks( Transform3DComponent * xform ) const;
 };
 
 } // namespace nc

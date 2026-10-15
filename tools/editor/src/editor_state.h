@@ -42,9 +42,9 @@ NC_COMPONENT( EditorState )
     bool ViewportFocused       = false;
     bool ViewportHovered       = false;
     ImGuiID DockspaceId        = 0;
-    bool ShowStatsWindow       = false;
+    bool ShowMiscWindow       = false;
     bool ShowInputsWindow      = false;
-    bool ShowLogsWindow        = true;
+    bool ShowLogsWindow        = false;
     Node* SelectedNode         = nullptr;
     char NodeRenameBuf[256]    = {};
     Node* NodeToRename         = nullptr;
@@ -56,13 +56,16 @@ NC_COMPONENT( EditorState )
     bool LogsAutoScroll = true;
     log::ListenerToken LogsListenerToken; // for automatic de-registration
 
-    Vec3 GridPos      = Vec3( 0, -15, 0 );
-    Vec3 GridRotation = Vec3( 0, 90, 0 );
-    Vec3 GridScale    = Vec3( 1, 1, 1 );
+    Vec3f GridPos      = Vec3f( 0, -15, 0 );
+    Vec3f GridRotation = Vec3f( 0, 90, 0 );
+    Vec3f GridScale    = Vec3f( 1, 1, 1 );
 
     bool GlobalXformGizmo   = false;
     int XformGizmoOperation = 14463; // default = universal op
     bool DrawWireframe      = 0;
+    // When editing a material's shader uniforms, also apply them to every node
+    // using the same shader (e.g. all water tiles).
+    bool ApplyMaterialToAll = false;
 
     NC_PROPS_BEGIN()
     ADD_PROPERTY( CurrentScene )
@@ -78,7 +81,7 @@ NC_COMPONENT( EditorState )
     ADD_PROPERTY( ViewportFocused )
     ADD_PROPERTY( ViewportHovered )
     ADD_PROPERTY( DockspaceId )
-    ADD_PROPERTY( ShowStatsWindow )
+    ADD_PROPERTY( ShowMiscWindow )
     ADD_PROPERTY( ShowInputsWindow )
     ADD_PROPERTY( ShowLogsWindow )
     ADD_PROPERTY( SelectedNode )

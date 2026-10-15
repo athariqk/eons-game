@@ -86,6 +86,11 @@ struct REFLECT NCAPI ShaderParamField {
     REFLECT size_t stride;
     REFLECT gfx::ParameterType type;
     REFLECT uint32_t array_size;
+    // Editor presentation, from Slang custom attributes on the uniform.
+    REFLECT gfx::ParamWidget widget = gfx::ParamWidget::DEFAULT;
+    REFLECT float range_min         = 0.0f;
+    REFLECT float range_max         = 0.0f;
+    REFLECT String header;
 };
 
 struct REFLECT NCAPI ShaderParamDesc {
@@ -141,7 +146,9 @@ public:
     Shader( DynamicArray<ShaderDesc> p_stages_desc );
 
     ResourceFormatID get_format_id() const override;
+
     size_t get_size_bytes() const override;
+
     void on_deserialized() override;
 
     /**
@@ -313,8 +320,10 @@ class NCAPI CubeMap : public IResource {
     NCLASS( CubeMap, IResource )
 
 public:
+    CubeMap() = default;
+
     /**
-     * @brief Convert an equirectangular image into 6 cube face images.
+     * @brief Convert an equirectangular image into 6 cube faces.
      *
      * Assumes the source image's top row corresponds to zenith (+Y) and the
      * horizontal center (u = 0.5) corresponds to the +X direction.
@@ -323,16 +332,26 @@ public:
      * Output faces are RGBA8, bilinearly sampled from the source.
      *
      * @param equirect  Source equirectangular image (2:1 aspect recommended).
-     * @param face_size Output face resolution (width == height).
+     * @param p_face_size Output face resolution (width == height).
      */
-    CubeMap( const Ref<Image>& equirect, uint32_t face_size = 0 );
+    CubeMap( const Ref<Image>& equirect, uint32_t p_face_size = 0 );
 
     ResourceFormatID get_format_id() const override;
     size_t get_size_bytes() const override;
-    Span<const Ref<Image>, 6> get_faces() const [[clang::lifetimebound]];
+
+    /** Output face resolution (width == height), or 0 if unset. */
+    uint32_t get_face_size() const;
+
+    /**
+     * @brief Pixel data of one cube face (face_size * face_size * 4 bytes), RGBA8.
+     * @param face 0..5 in +X, -X, +Y, -Y, +Z, -Z order.
+     */
+    Span<const std::byte> get_face_data( uint32_t face ) const;
 
 private:
-    REFLECT Array<Ref<Image>, 6> faces;
+    REFLECT int face_size = 0;
+    // 6 faces stored contiguously (face_size * face_size * 4 bytes each).
+    REFLECT BytesBuffer pixels;
 };
 
 // ------------------------------------------------------------------------------

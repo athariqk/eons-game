@@ -10,24 +10,18 @@ namespace nc {
 
 NC_COMPONENT_API( MaterialComponent )
 {
-    static constexpr int MAXIMUM_MATERIAL_TEXTURE = 12;
+    static constexpr int kMaxTexture = 12;
 
-    REFLECT Res<MaterialShader> Shader;
-    REFLECT Array<RID, MAXIMUM_MATERIAL_TEXTURE> Textures = {};
-    REFLECT int TextureCount                              = 0;
-    REFLECT gfx::FillMode DrawMode                        = gfx::FillMode::SOLID;
+    REFLECT RID Shader                = 0;
+    REFLECT int TextureCount          = 0;
+    REFLECT RID Textures[kMaxTexture] = {};
+    REFLECT gfx::FillMode DrawMode    = gfx::FillMode::SOLID;
 
-    /**
-     * @brief A single named material uniform (code-only, not reflected).
-     *
-     * The name is resolved against the shader's reflected fields when the GPU
-     * material is created; the bytes are uploaded verbatim to that field's offset.
-     */
     struct Param {
         String name;
         DynamicArray<uint8_t> data;
     };
-    DynamicArray<Param> Params; // set via set_param / set_params
+    DynamicArray<Param> Params;
 
     /**
      * @brief Add a GPU texture to this material.
@@ -36,12 +30,14 @@ NC_COMPONENT_API( MaterialComponent )
      */
     void add_texture( RID texture_rid )
     {
-        NC_FAIL_MSG_RET( TextureCount < MAXIMUM_MATERIAL_TEXTURE, "Max texture count reached." );
+        NC_FAIL_MSG_RET( TextureCount < kMaxTexture, "Max texture count reached." );
         Textures[TextureCount++] = texture_rid;
     }
 
     /**
      * @brief Set a named material uniform (upsert).
+     *
+     * NOTE: expensive operation.
      */
     void set_param( StringView name, const void* data, size_t size )
     {
@@ -60,6 +56,8 @@ NC_COMPONENT_API( MaterialComponent )
 
     /**
      * @brief Set a named material uniform from a typed value.
+     *
+     * NOTE: expensive operation.
      */
     template<typename T>
     void set_params( StringView name, const T& data )

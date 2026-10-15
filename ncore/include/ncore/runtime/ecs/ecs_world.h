@@ -237,7 +237,7 @@ private:
 
     EcsEntity create_entity_impl_( const String& name ) const;
     EcsComponent set_component_( EcsEntity eid, const rtti::TypeInfo* type, const void* data );
-    void* add_component_( EcsEntity eid, const rtti::TypeInfo* type );
+    void* add_component_( EcsEntity eid, const rtti::TypeInfo* type, const void* data = nullptr );
     void* get_component_( EcsEntity cid, const rtti::TypeInfo* type ) const; // returns mutable ptr
     const void*
     get_component_const_( EcsEntity cid, const rtti::TypeInfo* type ) const; // returns const ptr, no staging

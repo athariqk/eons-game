@@ -117,12 +117,10 @@ public:
     struct SceneData {
         uint32_t render_width;
         uint32_t render_height;
-        // std140 aligns the following mat4 to a 16-byte boundary; Mat4 itself is
-        // 4-byte aligned, so the padding has to be explicit or the GPU layout
-        // (CameraMatrix @16, ViewProjMatrix @80, Time @144) diverges from this one.
         uint32_t std140_pad0[2];
         // The current camera's transform.
         Mat4 camera_matrix;
+		Mat4 view_matrix;
         // The current camera's inverse matrix pre-multiplied with the projection matrix.
         Mat4 view_proj_matrix;
         // Elapsed time in seconds.
@@ -153,6 +151,22 @@ public:
      */
     void material_bind( RID p_material, bool p_pass_has_depth );
     bool material_has_push_constants( RID p_material );
+
+    /**
+     * @brief Set the sampleable opaque-scene depth texture bound to spatial materials.
+     *
+     * Bound into the shader-global set as `g_SceneDepth`; used by transparent materials
+     * (e.g. water) for depth-based absorption. Pass RID() to fall back to a 1x1 depth.
+     */
+    void scene_depth_set( RID p_texture );
+
+    /**
+     * @brief Whether a material's shader declares a non-opaque blend preset.
+     *
+     * Used by the renderer to classify draw calls into the opaque and transparent
+     * passes.
+     */
+    bool material_is_transparent( RID p_material );
 
     /**
      * @brief Get-or-create a material variant whose texture slot 0 is bound to `p_texture`.
@@ -293,6 +307,9 @@ private:
     RID light_env_res_set;
     uint64_t light_env_frame = ~0ull;
     DynamicArray<uint8_t> light_env_data_;
+    // 1x1 D32 fallback bound to `g_SceneDepth` until a real scene depth is provided.
+    RID scene_depth_fallback;
+    RID scene_depth_texture;
     void ensure_light_env_();
 
     RID spatial_push_sig;

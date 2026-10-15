@@ -46,7 +46,7 @@ endif()
 
 set(ASSETS_DIR "${BIN_DIR}/assets")
 
-set(COMPILE_EXTS .slang .png .jpg .jpeg .wav .ttf .otf)
+set(COMPILE_EXTS .slang .png .jpg .jpeg .wav .ttf .otf .equirect)
 set(OMIT_EXTS .webp) # no compiler registered for these; deliberately dropped
 
 # Never staged: everything the pipeline compiles, plus everything with no

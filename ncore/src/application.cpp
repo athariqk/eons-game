@@ -43,8 +43,8 @@ void Application::init()
 {
     rtti::TypeRegistry::initialize();
 
-    auto cfg_file = ConfFile( context.AppDesc.ConfigFile );
-    auto log_cfg  = cfg_file.read<cfg::Log>();
+    context.Config.load( context.AppDesc.ConfigFile );
+    auto log_cfg = context.Config.read<cfg::Log>();
 
     // Set up logging
     log::Logger::get_instance().add_sink( Ref<log::FileSink>::create( log_cfg.FilePath ) );
@@ -63,7 +63,7 @@ void Application::init()
     }
 
     register_services();
-    context.Services.init_all( cfg_file );
+    context.Services.init_all( context.Config );
 
     game_world = create_world();
 

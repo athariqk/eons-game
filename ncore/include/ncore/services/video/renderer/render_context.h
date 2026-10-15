@@ -59,6 +59,8 @@ struct RenderContext {
     // indices avoids copying whole command structs (which embed spans/strings).
     DynamicArray<uint32_t> spatial_sort_indices;
     DynamicArray<uint32_t> canvas_sort_indices;
+    // Transparent spatial draws, sorted back-to-front and issued after the opaque pass.
+    DynamicArray<uint32_t> spatial_transparent_sort_indices;
     uint32_t canvas_override_vert_count = 0;
     uint32_t canvas_override_idx_count  = 0;
     uint32_t canvas_staging_vert_count  = 0;
@@ -73,6 +75,7 @@ struct RenderContext {
         canvas_draw_cmds.reset();
         spatial_sort_indices.clear();
         canvas_sort_indices.clear();
+        spatial_transparent_sort_indices.clear();
         canvas_verts_staging.clear();
         canvas_indices_staging.clear();
         canvas_override_vert_count = 0;

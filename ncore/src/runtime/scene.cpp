@@ -1,6 +1,7 @@
 #include <flecs.h>
 
 #include <ncore/application.h>
+#include <ncore/runtime/components/config.h>
 #include <ncore/runtime/components/transform.h>
 #include <ncore/runtime/ecs/ecs_events.h>
 #include <ncore/runtime/node.h>
@@ -13,6 +14,9 @@ namespace nc {
 void Scene::on_enter()
 {
     ecs_world.set_singleton<AppDesc>( app_ctx->AppDesc );
+
+    auto* config  = ecs_world.add_singleton<ConfigComponent>();
+    config->Config = &app_ctx->Config;
 
     ecs_world.system( "Scene_NodeActivenessUpdater" )
         .with<NodeRefComponent>()
@@ -48,11 +52,27 @@ void Scene::on_enter()
         .in( EcsSystemPhase::UPDATE )
         .with<Transform3DComponent>()
         .with<Transform3DComponent>()
-        .up()
+        .cascade()
+        .without<Transform3DConstraintsComponent>()
         .each( []( EcsIterState& it ) {
-            auto self    = it.get_component<Transform3DComponent>( 0 );
-            auto parent  = it.get_component<Transform3DComponent>( 1 );
-            self->Global = parent->Global * self->to_matrix();
+            auto self   = it.get_component<Transform3DComponent>( 0 );
+            auto parent = it.get_component<Transform3DComponent>( 1 );
+
+            self->Global = self->parent_contrib( parent->Global ) * self->to_matrix();
+        } );
+
+    ecs_world.system( "Scene_Transform3D_Constrained" )
+        .in( EcsSystemPhase::UPDATE )
+        .with<Transform3DComponent, Transform3DConstraintsComponent>()
+        .with<Transform3DComponent>()
+        .cascade()
+        .each( []( EcsIterState& it ) {
+            auto self   = it.get_component<Transform3DComponent>( 0 );
+            auto cons   = it.get_component<Transform3DConstraintsComponent>( 1 );
+            auto parent = it.get_component<Transform3DComponent>( 2 );
+
+            self->Global = self->parent_contrib( parent->Global ) * self->to_matrix();
+            cons->apply_position_locks( self );
         } );
 
     register_core_plugin( *this );

@@ -261,7 +261,7 @@ EcsEntity EcsWorld::register_component_type( const rtti::TypeInfo* type ) const
     desc.type    = type_info;
 
     auto comp_id = ecs_component_init( pImpl->world, &desc );
-    NC_ASSERT_MSG( comp_id > 0, std::format( "Failed to auto-register component '{}'.", type->name ).c_str() );
+    NC_ASSERT_MSG( comp_id > 0, std::format( "FAIL to auto-register component '{}'.", type->name ).c_str() );
 
     ecs_add_id( pImpl->world, comp_id, EcsCanToggle ); // NOTE: flecs doc say this adds overhead to queries
 
@@ -269,7 +269,7 @@ EcsEntity EcsWorld::register_component_type( const rtti::TypeInfo* type ) const
     pImpl->comp_id_to_type[comp_id] = type;
     pImpl->registered_comp_types.push_back( type );
 
-    NC_LOG_DEBUG_C( log::ECS, "Registered component type_name='{}' eid={}", type->name, comp_id );
+    NC_LOG_DEBUG_C( log::ECS, "NEW component registered type_name='{}', eid={}", type->name, comp_id );
 
     return static_cast<EcsEntity>( comp_id );
 }
@@ -319,7 +319,7 @@ EcsObserverBuilder EcsWorld::observer( StringView name )
 
 void EcsWorld::finalize_ordering()
 {
-    auto* world             = pImpl->world;
+    auto* world = pImpl->world;
     // ECS_COMPONENT registers under the pretty-function name (nc::SystemOrder).
     ecs_entity_t order_comp = ecs_lookup( world, "nc::SystemOrder" );
     if (!order_comp) {
@@ -405,7 +405,7 @@ EcsComponent EcsWorld::set_component_( EcsEntity eid, const rtti::TypeInfo* type
     return cid;
 }
 
-void* EcsWorld::add_component_( EcsEntity eid, const rtti::TypeInfo* type )
+void* EcsWorld::add_component_( EcsEntity eid, const rtti::TypeInfo* type, const void* data )
 {
     NC_VERIFY( type );
     NC_FAIL_MSG_RETVAL( type->is_record(), nullptr, "Adding a non-record component is not possible." );
@@ -417,6 +417,13 @@ void* EcsWorld::add_component_( EcsEntity eid, const rtti::TypeInfo* type )
 
     if (eid == cid) { // is singleton?
         ecs_add_id( pImpl->world, eid, EcsSingleton );
+    }
+
+    if (data) {
+        bool is_new   = false;
+        auto instance = ecs_emplace_id( pImpl->world, eid, cid, type->size, &is_new );
+        if (is_new)
+            type->construct( instance, data );
     }
 
     return ecs_ensure_id( pImpl->world, eid, cid, type->size );

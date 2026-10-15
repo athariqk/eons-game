@@ -7,6 +7,7 @@
 
 #include <backends/sdl/sdl_audio_compiler.h>
 #include <backends/slang/slang_module_compiler.h>
+#include <backends/stb/stb_cubemap_compiler.h>
 #include <backends/stb/stb_image_compiler.h>
 #include <backends/truetype/truetype_font_compiler.h>
 
@@ -26,6 +27,7 @@ Error AssetService::init( ConfFile& cfg_file )
 {
     register_compiler<SDLAudioCompiler>();
     register_compiler<StbImageCompiler>();
+    register_compiler<StbCubemapCompiler>();
     register_compiler<SlangModuleCompiler>();
     register_compiler<TrueTypeFontCompiler>();
     return Error::OK;

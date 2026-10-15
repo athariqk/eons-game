@@ -561,6 +561,37 @@ bool RenderStorage::material_has_push_constants( RID p_material )
     return mat->has_push_constants;
 }
 
+bool RenderStorage::material_is_transparent( RID p_material )
+{
+    auto mat = materials.get( p_material );
+    if (!mat || !mat->shader)
+        return false;
+    return mat->shader->blend != gfx::BlendPreset::OPAQUE;
+}
+
+void RenderStorage::scene_depth_set( RID p_texture )
+{
+    ensure_light_env_();
+
+    RID tex = ( p_texture && gfx_api->is_rid_owned( p_texture ) ) ? p_texture : scene_depth_fallback;
+    if (tex == scene_depth_texture)
+        return;
+
+    scene_depth_texture = tex;
+
+    auto set = resource_sets.get_or_fail( light_env_res_set );
+    gfx_api->resource_mapping_add_entry(
+        set->mapping,
+        gfx::ResourceMappingEntry{
+            .variable_name = "g_SceneDepth",
+            .kind          = gfx::ResourceType::TEXTURE_SRV,
+            .resource      = tex,
+        },
+        false
+    );
+    gfx_api->resource_binding_update( set->binding, set->mapping, gfx::ShaderStage::PIXEL );
+}
+
 RID RenderStorage::material_create_texture_variant( RID p_material, RID p_texture )
 {
     auto mat = materials.get_or_fail( p_material );
@@ -885,23 +916,54 @@ void RenderStorage::ensure_light_env_()
     // buffer allocations at frame boundaries, so a write made here may not survive.
     gfx_api->buffer_data_write( light_env_ubo, light_env_data_.data(), light_env_data_.size() );
 
+    // 1x1 far-depth fallback so every spatial SRB has a valid `g_SceneDepth`.
+    if (!scene_depth_fallback) {
+        const float far_depth = 1.0f;
+        gfx::TextureDesc depth_desc{};
+        depth_desc.debug_name      = "SceneDepth_Fallback";
+        depth_desc.format          = gfx::TextureFormat::D32_FLOAT;
+        depth_desc.dimension       = gfx::ResourceDimension::DIM_2D;
+        depth_desc.bind_mask       = gfx::ResourceBindFlags::DEPTH_STENCIL | gfx::ResourceBindFlags::SHADER_RESOURCE;
+        depth_desc.width           = 1;
+        depth_desc.height          = 1;
+        depth_desc.subresources.emplace_back( gfx::TextureDataDesc{ .pixels = &far_depth } );
+        scene_depth_fallback = gfx_api->texture_create( depth_desc );
+        scene_depth_texture  = scene_depth_fallback;
+    }
+
     gfx::ResourceSignatureDesc sig_desc;
-    sig_desc.name      = "LightEnv_Signature";
-    sig_desc.set_idx   = RenderStorage::BINDING_SET_SHADER_GLOBAL;
-    sig_desc.resources = { gfx::PipelineResourceDesc{
-        .name          = "g_LightEnv",
-        .stage         = gfx::ShaderStage::PIXEL,
-        .resource_type = gfx::ResourceType::CONSTANT_BUFFER,
-        .array_size    = 1
-    } };
+    sig_desc.name    = "LightEnv_Signature";
+    sig_desc.set_idx = RenderStorage::BINDING_SET_SHADER_GLOBAL;
+    sig_desc.resources = {
+        gfx::PipelineResourceDesc{
+            .name          = "g_LightEnv",
+            .stage         = gfx::ShaderStage::PIXEL,
+            .resource_type = gfx::ResourceType::CONSTANT_BUFFER,
+            .array_size    = 1
+        },
+        gfx::PipelineResourceDesc{
+            .name          = "g_SceneDepth",
+            .stage         = gfx::ShaderStage::PIXEL,
+            .resource_type = gfx::ResourceType::TEXTURE_SRV,
+            .array_size    = 1
+        }
+    };
 
     RID sig = gfx_api->resource_signature_create( sig_desc );
 
-    gfx::ResourceMappingEntry mapping;
-    mapping.variable_name = "g_LightEnv";
-    mapping.kind          = gfx::ResourceType::CONSTANT_BUFFER;
-    mapping.resource      = light_env_ubo;
-    RID res_mapping       = gfx_api->resource_mapping_create( { &mapping, 1 } );
+    gfx::ResourceMappingEntry mappings[2] = {
+        gfx::ResourceMappingEntry{
+            .variable_name = "g_LightEnv",
+            .kind          = gfx::ResourceType::CONSTANT_BUFFER,
+            .resource      = light_env_ubo,
+        },
+        gfx::ResourceMappingEntry{
+            .variable_name = "g_SceneDepth",
+            .kind          = gfx::ResourceType::TEXTURE_SRV,
+            .resource      = scene_depth_fallback,
+        }
+    };
+    RID res_mapping = gfx_api->resource_mapping_create( mappings );
 
     RID binding = gfx_api->resource_binding_create( sig );
     gfx_api->resource_binding_update( binding, res_mapping, gfx::ShaderStage::PIXEL );
@@ -913,6 +975,7 @@ void RenderStorage::ensure_light_env_()
     set->binding   = binding;
     set->set       = BINDING_SET_SHADER_GLOBAL;
     set->slot_kinds.push_back( gfx::ResourceType::CONSTANT_BUFFER );
+    set->slot_kinds.push_back( gfx::ResourceType::TEXTURE_SRV );
 
     light_env_res_set = set_rid;
 

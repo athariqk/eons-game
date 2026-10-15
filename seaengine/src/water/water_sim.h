@@ -1,7 +1,7 @@
 #pragma once
 
 namespace nc {
-class Scene;
+class Node;
 }
 
 namespace sea {
@@ -9,6 +9,6 @@ namespace sea {
 class WaveGenerator;
 
 WaveGenerator& get_wave_generator();
-void register_water_sim( nc::Scene& scene );
+nc::Node* register_water_sim( nc::Node* parent );
 
 } // namespace sea

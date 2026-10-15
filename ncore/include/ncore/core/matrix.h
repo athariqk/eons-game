@@ -8,20 +8,20 @@ namespace nc {
  * @brief Mat3 is a 3x3 matrix with column-major order.
  */
 struct REFLECT NCAPI Mat3 {
-    REFLECT Vec3 col0;
-    REFLECT Vec3 col1;
-    REFLECT Vec3 col2;
+    REFLECT Vec3f col0;
+    REFLECT Vec3f col1;
+    REFLECT Vec3f col2;
 
     Mat3() = default;
-    Mat3( Vec3 pcol0, Vec3 pcol1, Vec3 pcol2 ) : col0( pcol0 ), col1( pcol1 ), col2( pcol2 ) {}
+    Mat3( Vec3f pcol0, Vec3f pcol1, Vec3f pcol2 ) : col0( pcol0 ), col1( pcol1 ), col2( pcol2 ) {}
 
     static Mat3 identity()
     {
         // clang-format off
         return Mat3(
-            Vec3( 1.0f, 0.0f, 0.0f ),
-			Vec3( 0.0f, 1.0f, 0.0f ),
-			Vec3( 0.0f, 0.0f, 1.0f )
+            Vec3f( 1.0f, 0.0f, 0.0f ),
+			Vec3f( 0.0f, 1.0f, 0.0f ),
+			Vec3f( 0.0f, 0.0f, 1.0f )
         );
         // clang-format on
     }
@@ -31,13 +31,13 @@ struct REFLECT NCAPI Mat3 {
  * @brief Mat4 is a 4x4 matrix with column-major order.
  */
 struct REFLECT NCAPI Mat4 {
-    REFLECT Vec4 col0;
-    REFLECT Vec4 col1;
-    REFLECT Vec4 col2;
-    REFLECT Vec4 col3;
+    REFLECT Vec4f col0;
+    REFLECT Vec4f col1;
+    REFLECT Vec4f col2;
+    REFLECT Vec4f col3;
 
     Mat4() = default;
-    Mat4( const Vec4& pcol0, const Vec4& pcol1, const Vec4& pcol2, const Vec4& pcol3 ) :
+    Mat4( const Vec4f& pcol0, const Vec4f& pcol1, const Vec4f& pcol2, const Vec4f& pcol3 ) :
         col0( pcol0 ), col1( pcol1 ), col2( pcol2 ), col3( pcol3 )
     {}
 
@@ -64,10 +64,10 @@ struct REFLECT NCAPI Mat4 {
     {
         // clang-format off
         return Mat4(
-            Vec4( 1.0f, 0.0f, 0.0f, 0.0f ),
-			Vec4( 0.0f, 1.0f, 0.0f, 0.0f ),
-			Vec4( 0.0f, 0.0f, 1.0f, 0.0f ),
-            Vec4( 0.0f, 0.0f, 0.0f, 1.0f )
+            Vec4f( 1.0f, 0.0f, 0.0f, 0.0f ),
+			Vec4f( 0.0f, 1.0f, 0.0f, 0.0f ),
+			Vec4f( 0.0f, 0.0f, 1.0f, 0.0f ),
+            Vec4f( 0.0f, 0.0f, 0.0f, 1.0f )
         );
         // clang-format on
     }
@@ -80,10 +80,10 @@ struct REFLECT NCAPI Mat4 {
 
         // clang-format off
         return Mat4(
-            Vec4( 2.0f / rml, 0.0f, 0.0f, 0.0f ),
-			Vec4( 0.0f, 2.0f / tmb, 0.0f, 0.0f ),
-            Vec4( 0.0f, 0.0f, -2.0f / fmn, 0.0f ),
-            Vec4( -( right + left ) / rml, -( top + bottom ) / tmb, -( far_ + near_ ) / fmn, 1.0f )
+            Vec4f( 2.0f / rml, 0.0f, 0.0f, 0.0f ),
+			Vec4f( 0.0f, 2.0f / tmb, 0.0f, 0.0f ),
+            Vec4f( 0.0f, 0.0f, -2.0f / fmn, 0.0f ),
+            Vec4f( -( right + left ) / rml, -( top + bottom ) / tmb, -( far_ + near_ ) / fmn, 1.0f )
         );
         // clang-format on
     }
@@ -99,9 +99,9 @@ struct REFLECT NCAPI Mat4 {
     /**
      * @brief Perform M * v operation.
      */
-    Vec4 multiply( const Vec4& v ) const
+    Vec4f multiply( const Vec4f& v ) const
     {
-        return Vec4(
+        return Vec4f(
             col0.x * v.x + col1.x * v.y + col2.x * v.z + col3.x * v.w,
             col0.y * v.x + col1.y * v.y + col2.y * v.z + col3.y * v.w,
             col0.z * v.x + col1.z * v.y + col2.z * v.z + col3.z * v.w,
@@ -112,10 +112,10 @@ struct REFLECT NCAPI Mat4 {
     /**
      * @brief Perform M * v operation.
      */
-    Vec3 multiply( const Vec3& v ) const
+    Vec3f multiply( const Vec3f& v ) const
     {
-        Vec4 r = multiply( Vec4( v.x, v.y, v.z, 1.0f ) );
-        return Vec3( r.x, r.y, r.z );
+        Vec4f r = multiply( Vec4f( v.x, v.y, v.z, 1.0f ) );
+        return Vec3f( r.x, r.y, r.z );
     }
 
     Mat4 multiply( float scalar ) const
@@ -133,10 +133,10 @@ struct REFLECT NCAPI Mat4 {
     {
         // clang-format off
 		// take the top-left block.
-        Vec3 block[3] = {
-            Vec3( col0.x, col0.y, col0.z ),
-			Vec3( col1.x, col1.y, col1.z ),
-			Vec3( col2.x, col2.y, col2.z )
+        Vec3f block[3] = {
+            Vec3f( col0.x, col0.y, col0.z ),
+			Vec3f( col1.x, col1.y, col1.z ),
+			Vec3f( col2.x, col2.y, col2.z )
         };
         // clang-format on
 
@@ -156,7 +156,7 @@ struct REFLECT NCAPI Mat4 {
         auto inv2 = adj2 * recp;
 
         // final inverse translation vector calc.
-        auto xlation = Vec3( col3.x, col3.y, col3.z );
+        auto xlation = Vec3f( col3.x, col3.y, col3.z );
         auto b0      = -inv0.dot( xlation );
         auto b1      = -inv1.dot( xlation );
         auto b2      = -inv2.dot( xlation );
@@ -164,10 +164,10 @@ struct REFLECT NCAPI Mat4 {
         // clang-format off
 		// reconstruct 4x4 matrix.
 		return Mat4{
-            Vec4( inv0.x, inv1.x, inv2.x, 0),
-			Vec4( inv0.y, inv1.y, inv2.y, 0),
-			Vec4( inv0.z, inv1.z, inv2.z, 0),
-			Vec4( b0,     b1,     b2,     1)
+            Vec4f( inv0.x, inv1.x, inv2.x, 0),
+			Vec4f( inv0.y, inv1.y, inv2.y, 0),
+			Vec4f( inv0.z, inv1.z, inv2.z, 0),
+			Vec4f( b0,     b1,     b2,     1)
 		};
         // clang-format on
     }
@@ -199,7 +199,7 @@ struct REFLECT NCAPI Mat4 {
         return *this;
     }
 
-    Vec3 operator*( const Vec3& rhs ) const
+    Vec3f operator*( const Vec3f& rhs ) const
     {
         return multiply( rhs );
     }

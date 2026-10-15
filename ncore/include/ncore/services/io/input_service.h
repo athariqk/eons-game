@@ -106,9 +106,9 @@ public:
      * @brief Returns the queued OS events collected by the last pump_events().
      * Valid until the next pump_events() call.
      */
-    std::span<const InputEvent> get_events() const
+    Span<const InputEvent> get_events() const
     {
-        return std::span<const InputEvent>( event_queue.data(), event_queue.head() );
+        return Span<const InputEvent>( event_queue.data(), event_queue.head() );
     }
 
 private:

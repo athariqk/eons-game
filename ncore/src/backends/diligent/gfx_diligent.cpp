@@ -1228,7 +1228,7 @@ void DiligentGfxImpl::draw_indexed(
 void DiligentGfxImpl::load_pso_cache() {}
 void DiligentGfxImpl::save_pso_cache() {}
 
-void DiligentGfxImpl::begin_queries()
+void DiligentGfxImpl::begin_general_queries()
 {
     if (pipeline_stats_query)
         pipeline_stats_query->Begin( get_active_ctx_() );
@@ -1238,7 +1238,7 @@ void DiligentGfxImpl::begin_queries()
         duration_from_timestamps_query->Begin( get_active_ctx_() );
 }
 
-void DiligentGfxImpl::end_queries()
+void DiligentGfxImpl::end_general_queries()
 {
     if (duration_from_timestamps_query)
         duration_from_timestamps_query->End( get_active_ctx_(), duration_from_timestamps );
@@ -1246,6 +1246,19 @@ void DiligentGfxImpl::end_queries()
         occlusion_query->End( get_active_ctx_(), &occlusion_data, sizeof( occlusion_data ) );
     if (pipeline_stats_query)
         pipeline_stats_query->End( get_active_ctx_(), &pipeline_stats_data, sizeof( pipeline_stats_data ) );
+}
+
+void DiligentGfxImpl::designate_timestamp_slot( uint32_t slot, const char* name )
+{
+    if (slot < MAX_TIMESTAMP_SLOTS)
+        timestamp_names[slot] = name;
+}
+
+const char* DiligentGfxImpl::get_timestamp_name( uint32_t slot ) const
+{
+    if (slot < MAX_TIMESTAMP_SLOTS && timestamp_names[slot])
+        return timestamp_names[slot];
+    return "N/A";
 }
 
 void DiligentGfxImpl::timestamp_begin( uint32_t slot )
@@ -1265,7 +1278,12 @@ double DiligentGfxImpl::timestamp_end( uint32_t slot )
     pass_timers[slot]->End( get_active_ctx_(), duration );
     if (duration >= 0.0)
         slot_duration_ms[slot] = duration * 1000.0;
-    return duration;
+    return slot_duration_ms[slot];
+}
+
+double DiligentGfxImpl::get_timestamp_ms( uint32_t slot ) const
+{
+    return slot < MAX_TIMESTAMP_SLOTS ? slot_duration_ms[slot] : -1.0;
 }
 
 GfxInterface::Stats DiligentGfxImpl::get_stats()
@@ -1288,8 +1306,7 @@ GfxInterface::Stats DiligentGfxImpl::get_stats()
     if (duration_from_timestamps_query)
         stats.gpu_duration_ms = duration_from_timestamps * 1000.0;
 
-    stats.compute_duration_ms = slot_duration_ms[GfxInterface::COMPUTE_TIMESTAMP_SLOT];
-	stats.gpu_duration_ms += stats.compute_duration_ms;
+    std::copy( std::begin( slot_duration_ms ), std::end( slot_duration_ms ), stats.timestamps_ms );
 
     return stats;
 }

@@ -115,6 +115,9 @@ public:
     bool window_get_mouse_locked( uint32_t window_id ) const;
     void window_set_mouse_locked( uint32_t window_id, bool enabled ) const;
 
+    void window_text_input_start( uint32_t window_id ) const;
+    void window_text_input_stop( uint32_t window_id ) const;
+
     /**
      * @brief Destroy the window with given ID.
      * @return True if success, false if an error occured.

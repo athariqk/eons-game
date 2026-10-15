@@ -32,3 +32,25 @@ struct BlendAttribute
     int preset; // 0=OPAQUE, 1=ALPHA_BLEND, 2=ALPHA_PREMULTIPLIED, 3=ADDITIVE
 };
 
+// Material uniform presentation attributes, applied to fields of a material struct.
+// Read at compile time by the shader reflection (ShaderParamField) and used by the
+// editor's inspector to pick the right widget.
+
+[__AttributeUsage(_AttributeTargets.Var)]
+struct ColorAttribute
+{
+};
+
+[__AttributeUsage(_AttributeTargets.Var)]
+struct RangeAttribute
+{
+    float min;
+    float max;
+};
+
+[__AttributeUsage(_AttributeTargets.Var)]
+struct HeaderAttribute
+{
+    constexpr String text;
+};
+

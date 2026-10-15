@@ -1,21 +1,21 @@
 // Design inspiration taken from https://github.com/shader-slang/slang/blob/master/examples/model-viewer
 
-#include "common.slang"
+#include "scene.slang"
 #include "light.slang"
 
-public struct SurfaceOutput
-{
-    public float3 Albedo;
-    public float3 Emission;
-    public float Metallic;
-    public float Roughness;
-    public float Alpha;
-    public float3 Normal; // world space
-};
+public struct UnlitBRDF : IBRDF {
+    float3 evaluate(float3 V, float3 L, float3 N)
+    {
+        return float3(0.0, 0.0, 0.0);
+	}
+}
 
 public interface ISpatialMaterial {
     void vertex(inout SpatialGeometry g);
     SurfaceOutput fragment(in SpatialGeometry g);
+
+    associatedtype BRDF : IBRDF;
+    BRDF prepare(SurfaceOutput s);
 };
 
 // 3D vertex format
@@ -36,20 +36,14 @@ struct VertexOutput
     float3 Normal;
     float4 Color : TEXCOORD1;
     float2 UV : TEXCOORD2;
+    float4 Custom : TEXCOORD3; // material varyings (see SpatialGeometry::Custom)
 };
 
-struct LambertBRDF : IBRDF
-{
-    float3 albedo;
-
-    float3 evaluate(float3 wo, float3 wi, float3 N)
-    {
-        float NdotL = max(dot(N, wi), 0.0);
-        return albedo * NdotL;
-    }
-};
-
+// TODO: make this work with any kind of lighting environment
 [[vk::binding(0, 0)]] ParameterBlock<LightArray<DirectionalLight, 4>> g_LightEnv;
+
+// Sampleable opaque scene depth (R32), provided by the renderer for the transparent pass.
+[[vk::binding(1, 0)]] Texture2D<float> g_SceneDepth;
 
 struct SpatialInstance
 {
@@ -77,6 +71,9 @@ VertexOutput spatialVertexMain<M : ISpatialMaterial>(Vertex3D assembledVertex, P
     g.WorldPos = worldPos.xyz;
     g.Normal = worldNormal;
     g.UV = assembledVertex.UV1;
+    g.Color = assembledVertex.Color;
+    g.Custom = float4(0.0, 0.0, 0.0, 0.0);
+    g.ScreenUV = float2(0.0, 0.0);
 
     material.vertex(g);
 
@@ -88,6 +85,7 @@ VertexOutput spatialVertexMain<M : ISpatialMaterial>(Vertex3D assembledVertex, P
     output.Normal = g.Normal;
     output.UV = g.UV;
     output.Color = assembledVertex.Color;
+    output.Custom = g.Custom;
     return output;
 }
 
@@ -95,34 +93,23 @@ float4 spatialPixelMain<M : ISpatialMaterial>(VertexOutput v, ParameterBlock<M> 
 {
     SpatialGeometry g;
     g.WorldPos = v.WorldPos;
-    g.UV = v.UV;
-
-    float3 V = normalize(CAMERA_POSITION - g.WorldPos);
-
-    // Prefer the interpolated vertex normal. Only fall back to the geometric face
-    // normal (screen-space derivatives) when the vertex normal is degenerate — most
-    // meshes (including all current materials) supply real normals, so the fallback
-    // is skipped entirely instead of being evaluated for every pixel.
-    float3 N = v.Normal;
-    float nLen2 = dot(N, N);
-    if (nLen2 > 1e-12) {
-        g.Normal = N * rsqrt(nLen2);
-    } else {
-        float3 geoNormal = cross(ddx(g.WorldPos), ddy(g.WorldPos));
-        float geoLen2 = dot(geoNormal, geoNormal);
-        geoNormal = (geoLen2 > 1e-12) ? geoNormal * rsqrt(geoLen2) : float3(0.0, 1.0, 0.0);
-        if (dot(geoNormal, V) < 0.0)
-            geoNormal = -geoNormal;
-        g.Normal = geoNormal;
-    }
+    g.Normal = normalize(v.Normal);
+	g.UV = v.UV;
+    g.Color = v.Color;
+    g.Custom = v.Custom;
+    g.ScreenUV = v.Position.xy / float2(RENDER_WIDTH, RENDER_HEIGHT);
 
     SurfaceOutput o = material.fragment(g);
 
-    float3 diffuse = o.Albedo / 3.14159265;
-    float3 lit = diffuse * g_LightEnv.illuminate(g, LambertBRDF(o.Albedo), V);
+    let brdf = material.prepare(o);
+
+    float3 V = normalize(CAMERA_POSITION - o.Vertex.WorldPos);
+
+    float3 lit = g_LightEnv.illuminate(o, brdf, V);
     lit += o.Emission;
 
-    return float4(lit, o.Alpha);
+    // Emit premultiplied alpha.
+    return float4(lit * o.Alpha, o.Alpha);
 }
 
 // Emits the concrete material block + entry points for a spatial material. Call once

@@ -1,12 +1,8 @@
 // Design inspiration taken from https://github.com/shader-slang/slang/blob/master/examples/model-viewer
 
-#include "common.slang"
+#include "scene.slang"
 
-public struct CanvasGeometry {
-    public float2 WorldPos;
-    public float2 UV;
-    public float4 Color;
-}
+import types;
 
 public interface ICanvasMaterial {
     void vertex(inout CanvasGeometry g);

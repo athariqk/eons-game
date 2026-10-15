@@ -30,8 +30,7 @@ void WaveGenerator::init_gpu(
 )
 {
     NC_ASSERT( math::is_power_of_two( map_size ) && map_size >= 128 && map_size <= 1024 );
-    NC_ASSERT( num_cascades >= 1 && num_cascades <= kMaxCascades );
-    // FFT shaders currently hardcode MAX_MAP_SIZE = 256.
+    NC_ASSERT( num_cascades >= 1 );
     NC_ASSERT( map_size == kDefaultMapSize );
 
     if (initialized_)
@@ -48,13 +47,15 @@ void WaveGenerator::init_gpu(
     gfx->set_queue( GpuQueue::COMPUTE );
     gfx->set_context_state( false );
 
+    gfx->designate_timestamp_slot( kWaveGenerationTimestampSlot, "Total Compute" );
+    gfx->designate_timestamp_slot( kWaveModulateTimestampSlot, "Wave Modulate" );
+    gfx->designate_timestamp_slot( kWaveFF1TimestampSlot, "Wave FFT1" );
+    gfx->designate_timestamp_slot( kWaveTransposeTimestampSlot, "Wave Transpose" );
+    gfx->designate_timestamp_slot( kWaveFFT2TimestampSlot, "Wave FFT2" );
+    gfx->designate_timestamp_slot( kWaveUnpackTimestampSlot, "Wave Unpack" );
+
     MapSizeCB map_cb{ map_size_, 0, 0, 0 };
     write_cb_( renderer, cb_map_size_, &map_cb, sizeof( map_cb ) );
-
-    renderer.compute_pipeline_bind( pso_fft_butterfly_ );
-    renderer.resource_set_bind( set_fft_butterfly_ );
-    renderer.compute_dispatch( ( map_size_ / 2 ) / 64, num_fft_stages_, 1 );
-    gfx->sync_queue( GpuQueue::COMPUTE );
 
     initialized_ = true;
     NC_LOG_INFO(
@@ -97,9 +98,10 @@ void WaveGenerator::update( RenderService& renderer, float delta, Span<WaveCasca
     auto* gfx = renderer.get_graphics_api();
     gfx->set_queue( GpuQueue::COMPUTE );
     gfx->set_context_state( false );
-    gfx->timestamp_begin( GfxInterface::COMPUTE_TIMESTAMP_SLOT );
+
+    gfx->timestamp_begin( kWaveGenerationTimestampSlot );
     flush( renderer );
-    gfx->timestamp_end( GfxInterface::COMPUTE_TIMESTAMP_SLOT );
+    float generation_ms = gfx->timestamp_end( kWaveGenerationTimestampSlot );
 }
 
 void WaveGenerator::flush( RenderService& renderer )
@@ -119,7 +121,7 @@ void WaveGenerator::create_resources_( RenderService& renderer )
         gfx::TextureDesc desc;
         desc.debug_name = name;
         desc.format     = gfx::TextureFormat::RGBA32_FLOAT;
-        desc.dimension  = gfx::ResourceDimension::DIM_2D;
+        desc.dimension  = gfx::ResourceDimension::DIM_2D_ARRAY;
         desc.usage      = gfx::ResourceUsage::DEFAULT;
         desc.bind_mask  = gfx::ResourceBindFlags::SHADER_RESOURCE | gfx::ResourceBindFlags::UNORDERED_ACCESS;
         desc.width      = map_size_;
@@ -132,19 +134,6 @@ void WaveGenerator::create_resources_( RenderService& renderer )
     spectrum_         = make_array( "wave_spectrum" );
     displacement_map_ = make_array( "wave_displacement" );
     normal_map_       = make_array( "wave_normal" );
-
-    const size_t butterfly_bytes = size_t( num_fft_stages_ ) * map_size_ * sizeof( float ) * 4;
-    butterfly_                   = renderer.buffer_create(
-        gfx::BufferDesc{
-            .debug_name      = "wave_butterfly",
-            .bind_mask       = gfx::ResourceBindFlags::UNORDERED_ACCESS | gfx::ResourceBindFlags::SHADER_RESOURCE,
-            .size            = butterfly_bytes,
-            .usage           = gfx::ResourceUsage::DEFAULT,
-            .cpu_access_mask = gfx::ResourceCpuAccessFlags::NONE,
-            .mode            = gfx::BufferMode::STRUCTURED,
-            .element_stride  = sizeof( float ) * 4
-        }
-    );
 
     const size_t fft_bytes =
         size_t( num_cascades_ ) * map_size_ * map_size_ * kNumSpectra * 2ull * sizeof( float ) * 2ull;
@@ -184,7 +173,6 @@ void WaveGenerator::create_pipelines_( RenderService& renderer, ResourceLoader& 
 {
     auto sh_spectrum  = resources.load<Shader>( "shaders/compute/spectrum_compute.slang" );
     auto sh_modulate  = resources.load<Shader>( "shaders/compute/spectrum_modulate.slang" );
-    auto sh_butterfly = resources.load<Shader>( "shaders/compute/fft_butterfly.slang" );
     auto sh_fft       = resources.load<Shader>( "shaders/compute/fft_compute.slang" );
     auto sh_transpose = resources.load<Shader>( "shaders/compute/transpose.slang" );
     auto sh_unpack    = resources.load<Shader>( "shaders/compute/fft_unpack.slang" );
@@ -212,17 +200,6 @@ void WaveGenerator::create_pipelines_( RenderService& renderer, ResourceLoader& 
 
     {
         gfx::ResourceMappingEntry entries[] = {
-            { "butterfly", gfx::ResourceType::BUFFER_UAV, butterfly_ },
-            { "MapSizeCB", gfx::ResourceType::CONSTANT_BUFFER, cb_map_size_ },
-        };
-        set_fft_butterfly_ = renderer.resource_set_create( *sh_butterfly, 0, entries );
-        pso_fft_butterfly_ =
-            renderer.compute_pipeline_create( *sh_butterfly, Span<const RID>{ &set_fft_butterfly_, 1 } );
-    }
-
-    {
-        gfx::ResourceMappingEntry entries[] = {
-            { "butterfly", gfx::ResourceType::BUFFER_SRV, butterfly_ },
             { "fft_buffer", gfx::ResourceType::BUFFER_UAV, fft_buffer_ },
             { "CascadeIndexCB", gfx::ResourceType::CONSTANT_BUFFER, cb_cascade_index_ },
         };
@@ -262,14 +239,12 @@ void WaveGenerator::destroy_resources_( RenderService& renderer )
 
     destroy( pso_spectrum_compute_ );
     destroy( pso_spectrum_modulate_ );
-    destroy( pso_fft_butterfly_ );
     destroy( pso_fft_compute_ );
     destroy( pso_transpose_ );
     destroy( pso_fft_unpack_ );
 
     destroy( set_spectrum_compute_ );
     destroy( set_spectrum_modulate_ );
-    destroy( set_fft_butterfly_ );
     destroy( set_fft_compute_ );
     destroy( set_transpose_ );
     destroy( set_fft_unpack_ );
@@ -280,7 +255,6 @@ void WaveGenerator::destroy_resources_( RenderService& renderer )
     destroy( cb_map_size_ );
     destroy( cb_fft_unpack_ );
 
-    destroy( butterfly_ );
     destroy( fft_buffer_ );
 
     destroy( spectrum_ );
@@ -304,12 +278,14 @@ void WaveGenerator::dispatch_cascade_(
     gfx->set_context_state( false );
 
     if (params.should_generate_spectrum) {
+        NC_LOG_DEBUG( "Generating JONSWAP/TMA spectra" );
+
         const float fetch_m = params.fetch_length_km * 1000.0f;
         SpectrumComputeCB cb{};
         cb.seed_x         = params.spectrum_seed.x;
         cb.seed_y         = params.spectrum_seed.y;
-        cb.tile_length_x  = params.tile_length.x;
-        cb.tile_length_y  = params.tile_length.y;
+        cb.tile_length_x  = params.scale.tile_length.x;
+        cb.tile_length_y  = params.scale.tile_length.y;
         cb.alpha          = jonswap_alpha( params.wind_speed, fetch_m );
         cb.peak_frequency = jonswap_peak_angular_frequency( params.wind_speed, fetch_m );
         cb.wind_speed     = params.wind_speed;
@@ -330,33 +306,41 @@ void WaveGenerator::dispatch_cascade_(
 
     {
         SpectrumModulateCB cb{};
-        cb.tile_length_x = params.tile_length.x;
-        cb.tile_length_y = params.tile_length.y;
+        cb.tile_length_x = params.scale.tile_length.x;
+        cb.tile_length_y = params.scale.tile_length.y;
         cb.depth         = kDepth;
         cb.time          = params.time;
         cb.cascade_index = cascade_index;
         write_cb_( renderer, cb_spectrum_modulate_, &cb, sizeof( cb ) );
 
+        gfx->timestamp_begin( kWaveModulateTimestampSlot );
         renderer.compute_pipeline_bind( pso_spectrum_modulate_ );
         renderer.resource_set_bind( set_spectrum_modulate_ );
         renderer.compute_dispatch( map_size_ / 16, map_size_ / 16, 1 );
+        gfx->timestamp_end( kWaveModulateTimestampSlot );
     }
 
     {
         CascadeIndexCB cb{ cascade_index, 0, 0, 0 };
         write_cb_( renderer, cb_cascade_index_, &cb, sizeof( cb ) );
 
+        gfx->timestamp_begin( kWaveFF1TimestampSlot );
         renderer.compute_pipeline_bind( pso_fft_compute_ );
         renderer.resource_set_bind( set_fft_compute_ );
         renderer.compute_dispatch( 1, map_size_, kNumSpectra );
+        gfx->timestamp_end( kWaveFF1TimestampSlot );
 
+        gfx->timestamp_begin( kWaveTransposeTimestampSlot );
         renderer.compute_pipeline_bind( pso_transpose_ );
         renderer.resource_set_bind( set_transpose_ );
         renderer.compute_dispatch( map_size_ / 32, map_size_ / 32, kNumSpectra );
+        gfx->timestamp_end( kWaveTransposeTimestampSlot );
 
+        gfx->timestamp_begin( kWaveFFT2TimestampSlot );
         renderer.compute_pipeline_bind( pso_fft_compute_ );
         renderer.resource_set_bind( set_fft_compute_ );
         renderer.compute_dispatch( 1, map_size_, kNumSpectra );
+        gfx->timestamp_end( kWaveFFT2TimestampSlot );
     }
 
     {
@@ -367,9 +351,11 @@ void WaveGenerator::dispatch_cascade_(
         cb.foam_decay_rate = params.foam_decay_rate;
         write_cb_( renderer, cb_fft_unpack_, &cb, sizeof( cb ) );
 
+        gfx->timestamp_begin( kWaveUnpackTimestampSlot );
         renderer.compute_pipeline_bind( pso_fft_unpack_ );
         renderer.resource_set_bind( set_fft_unpack_ );
         renderer.compute_dispatch( map_size_ / 16, map_size_ / 16, 1 );
+        gfx->timestamp_end( kWaveUnpackTimestampSlot );
     }
 }
 

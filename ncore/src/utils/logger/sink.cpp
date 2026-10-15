@@ -22,7 +22,7 @@ void ConsoleSink::write( const LogMsg& msg )
         level_name( msg.level ), msg.payload
     );
     if (!msg.loc.empty()) {
-        out += std::format( "\x1b[2;37mloc: {}:{}\x1b[0m\n\n", msg.loc.file, msg.loc.line );
+        out += std::format( "\x1b[2;37msource: {}:{}\x1b[0m\n\n", msg.loc.file, msg.loc.line );
     }
     fputs( out.c_str(), stderr );
 }

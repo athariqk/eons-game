@@ -101,7 +101,7 @@ EcsEntity EcsEntityBuilder::build()
     if (!alias_.empty())
         desc.symbol = alias_.c_str(); // TODO: rectify this
     ecs_entity_t ent = ecs_entity_init( world_, &desc );
-    NC_ASSERT_MSG( ent != 0, "Failed to create entity" );
+    NC_ASSERT_MSG( ent != 0, "FAIL to create entity" );
 
     // set components
     for (auto& c : components) {
@@ -125,7 +125,7 @@ EcsEntity EcsEntityBuilder::build()
     }
 
     built = true;
-    NC_LOG_DEBUG_C( log::ECS, "Built entity '{}' (id {})", name, ent );
+    NC_LOG_DEBUG_C( log::ECS, "NEW entity '{}' (id {})", name, ent );
     return static_cast<EcsEntity>( ent );
 }
 

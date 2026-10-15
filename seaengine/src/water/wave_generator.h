@@ -26,8 +26,14 @@ public:
     static constexpr float kGravity           = 9.81f;
     static constexpr float kDepth             = 20.0f;
     static constexpr uint32_t kNumSpectra     = 4;
-    static constexpr uint32_t kMaxCascades    = 8;
-    static constexpr uint32_t kDefaultMapSize = 128;
+    static constexpr uint32_t kDefaultMapSize = 512;
+
+    static constexpr uint32_t kWaveGenerationTimestampSlot = GfxInterface::MAX_TIMESTAMP_SLOTS - 1;
+    static constexpr uint32_t kWaveModulateTimestampSlot   = kWaveGenerationTimestampSlot - 1;
+    static constexpr uint32_t kWaveFF1TimestampSlot        = kWaveModulateTimestampSlot - 1;
+    static constexpr uint32_t kWaveTransposeTimestampSlot  = kWaveFF1TimestampSlot - 1;
+    static constexpr uint32_t kWaveFFT2TimestampSlot       = kWaveTransposeTimestampSlot - 1;
+    static constexpr uint32_t kWaveUnpackTimestampSlot     = kWaveFFT2TimestampSlot - 1;
 
     WaveGenerator() = default;
     ~WaveGenerator();
@@ -74,8 +80,7 @@ private:
     void create_pipelines_( nc::RenderService& renderer, nc::ResourceLoader& resources );
     void destroy_resources_( nc::RenderService& renderer );
 
-    void
-    dispatch_cascade_( nc::RenderService& renderer, uint32_t cascade_index, nc::Span<WaveCascadeParams> cascades );
+    void dispatch_cascade_( nc::RenderService& renderer, uint32_t cascade_index, nc::Span<WaveCascadeParams> cascades );
 
     void write_cb_( nc::RenderService& renderer, nc::RID buffer, const void* data, size_t size );
 
@@ -88,7 +93,6 @@ private:
     nc::RID displacement_map_;
     nc::RID normal_map_;
 
-    nc::RID butterfly_;
     nc::RID fft_buffer_;
 
     nc::RID cb_spectrum_compute_;
@@ -99,14 +103,12 @@ private:
 
     nc::RID set_spectrum_compute_;
     nc::RID set_spectrum_modulate_;
-    nc::RID set_fft_butterfly_;
     nc::RID set_fft_compute_;
     nc::RID set_transpose_;
     nc::RID set_fft_unpack_;
 
     nc::RID pso_spectrum_compute_;
     nc::RID pso_spectrum_modulate_;
-    nc::RID pso_fft_butterfly_;
     nc::RID pso_fft_compute_;
     nc::RID pso_transpose_;
     nc::RID pso_fft_unpack_;

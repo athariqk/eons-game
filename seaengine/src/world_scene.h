@@ -11,7 +11,11 @@ public:
 
 private:
     void create_environment();
-    void create_water();
+    void create_water( nc::Node* camera );
+    void create_submerged_objects();
+
+    nc::RID skybox_tex;
+    nc::DynamicArray<nc::Node*> water_tiles;
 };
 
 } // namespace sea

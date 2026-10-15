@@ -73,22 +73,15 @@ void CSMain(uint3 global_id : SV_DispatchThreadID)
     float2 h = mul_complex(h0.xy, modulation) + mul_complex(h0.zw, conj_complex(modulation));
     float2 h_inv = float2(-h.y, h.x);
 
-    float2 hx = h_inv * k_unit.y;
-    float2 hy = h;
-    float2 hz = h_inv * k_unit.x;
-
-    float2 dhy_dx = h_inv * k_vec.y;
-    float2 dhy_dz = h_inv * k_vec.x;
-    float2 dhx_dx = -h * k_vec.y * k_unit.y;
-    float2 dhz_dz = -h * k_vec.x * k_unit.x;
-    float2 dhz_dx = -h * k_vec.y * k_unit.x;
-
+    // The four packed fields (hx + i*hy, hz + i*dhy_dx, dhy_dz + i*dhx_dx, dhz_dz + i*dhz_dx)
+    // collapse algebraically because every field is a real multiple of h or i*h.
+    // Same results as the long form (checked numerically), about half the multiplies.
     uint x = global_id.x;
     uint y = global_id.y;
     uint c = cascade_index;
 
-    fft_buffer[fft_index(c, 0, y, x, map_size)] = float2(hx.x - hy.y, hx.y + hy.x);
-    fft_buffer[fft_index(c, 1, y, x, map_size)] = float2(hz.x - dhy_dx.y, hz.y + dhy_dx.x);
-    fft_buffer[fft_index(c, 2, y, x, map_size)] = float2(dhy_dz.x - dhx_dx.y, dhy_dz.y + dhx_dx.x);
-    fft_buffer[fft_index(c, 3, y, x, map_size)] = float2(dhz_dz.x - dhz_dx.y, dhz_dz.y + dhz_dx.x);
+    fft_buffer[fft_index(c, 0, y, x, map_size)] = h_inv * (1.0 + k_unit.y);
+    fft_buffer[fft_index(c, 1, y, x, map_size)] = h_inv * k_unit.x - h * k_vec.y;
+    fft_buffer[fft_index(c, 2, y, x, map_size)] = h_inv * (k_vec.x - k_vec.y * k_unit.y);
+    fft_buffer[fft_index(c, 3, y, x, map_size)] = -k_unit.x * (h * k_vec.x + h_inv * k_vec.y);
 }

@@ -26,6 +26,7 @@ target_sources(
          "ncore/resources/resource.h"
          "ncore/resources/resource_archive.h"
          "ncore/runtime/components/camera.h"
+         "ncore/runtime/components/config.h"
          "ncore/runtime/components/input.h"
          "ncore/runtime/components/material.h"
          "ncore/runtime/components/mesh.h"

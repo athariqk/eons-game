@@ -117,10 +117,13 @@ public:
     void load_pso_cache() override;
     void save_pso_cache() override;
 
-    void begin_queries() override;
-    void end_queries() override;
+    void begin_general_queries() override;
+    void end_general_queries() override;
+    void designate_timestamp_slot( uint32_t slot, const char* name ) override;
+    const char* get_timestamp_name( uint32_t slot ) const override;
     void timestamp_begin( uint32_t slot ) override;
     double timestamp_end( uint32_t slot ) override;
+    double get_timestamp_ms( uint32_t slot ) const override;
     Stats get_stats() override;
 
 private:
@@ -159,11 +162,13 @@ private:
     Ptr<Diligent::ScopedQueryHelper> occlusion_query;
     Ptr<Diligent::DurationQueryHelper> duration_from_timestamps_query;
     Ptr<Diligent::DurationQueryHelper> pass_timers[GfxInterface::MAX_TIMESTAMP_SLOTS] = {};
-    double slot_duration_ms[GfxInterface::MAX_TIMESTAMP_SLOTS] = {};
+    double slot_duration_ms[GfxInterface::MAX_TIMESTAMP_SLOTS]                        = {};
     Diligent::QueryDataPipelineStatistics pipeline_stats_data;
     Diligent::QueryDataOcclusion occlusion_data;
     Diligent::QueryDataDuration duration_data;
     double duration_from_timestamps = 0;
+
+    const char* timestamp_names[MAX_TIMESTAMP_SLOTS] = {};
 
     GpuQueue active_queue  = GpuQueue::GRAPHICS;
     bool is_deferred       = false;

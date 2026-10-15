@@ -137,7 +137,7 @@ public:
         Vec2i DisplaySize;
 
         // cached perspective projection.
-		// recomputed only when the projection inputs change.
+        // recomputed only when the projection inputs change.
         Mat4 cached_proj;
         float cached_fov     = -1.0f;
         float cached_znear   = 0.0f;
@@ -146,8 +146,8 @@ public:
     };
 
     RID camera_create();
-    CameraAttribs& camera_get_attribs( RID camera );
-    Mat4 camera_get_perspective( RID camera );
+    CameraAttribs* camera_attribs_get( RID camera );
+    Mat4 camera_perspective_get( RID camera );
 
     RID spatial_item_create();
     void spatial_item_set_mesh( RID p_spatial_item, RID p_gpu_mesh );
@@ -183,14 +183,14 @@ public:
     );
 
     /**
-     * @brief Prepare a new frame. Must be called once before render_frame().
+     * @brief Prepare a new frame. Must be called once before render_target().
      */
     void prepare_frame( float delta_time );
 
     /**
-     * @brief Describes a single render frame target and camera.
+     * @brief Describes a single render target and camera.
      */
-    struct RenderFrameDesc {
+    struct RenderTargetDesc {
         RID color_texture; // Target color RenderTexture RID.
         RID depth_texture; // Target depth RenderTexture RID.
         Rect2i rectangle;  // Target render dimensions.
@@ -203,12 +203,12 @@ public:
     };
 
     /**
-     * @brief Execute one render pass into the described target.
+     * @brief Execute one render operation into the described target.
      */
-    void render_frame( const RenderFrameDesc& desc );
+    void render_target( const RenderTargetDesc& p_desc );
 
     /**
-     * @brief Present and end the frame. Must be called after all render_frame() calls.
+     * @brief Present and end the frame. Must be called after all render_target() calls.
      */
     void present();
 
@@ -236,15 +236,27 @@ public:
         return &ctx;
     }
 
+    struct RenderStats {
+        static constexpr int kMaxPassTimestamps = 8;
+
+        // Per-frame render-pass durations (one entry per render_target call) in ms.
+        // Only pass_count entries are valid.
+        uint32_t pass_count                         = 0;
+        double pass_duration_ms[kMaxPassTimestamps] = {};
+    };
+
     /**
-     * @brief Query statistics.
+     * @brief Return the render statistics result for one frame.
      */
-    GfxInterface::Stats get_stats() const;
+    RenderStats get_stats() const
+    {
+        return m_stats;
+    }
 
 private:
     void ensure_canvas_vertex_buf_( uint32_t p_needed_verts );
     void ensure_canvas_index_buf_( uint32_t p_needed_ids );
-    Mat4 camera_get_perspective_( CameraAttribs& attribs );
+    Mat4 camera_perspective_get_( CameraAttribs& attribs );
 
     RenderSettings settings;
     Ptr<GfxInterface> gfx_api;
@@ -257,9 +269,8 @@ private:
     float time;
     float last_dt_ = 0.0f;
 
-    // Per-frame GPU timing of each render_frame() pass (see get_stats()).
-    uint32_t pass_count = 0;
-    double pass_durations_ms[GfxInterface::MAX_TIMESTAMP_SLOTS] = {};
+    // Per-frame GPU timing of each render_target() pass (see get_stats()).
+    RenderStats m_stats;
 
     // Canvas
     RID canvas_vbo;

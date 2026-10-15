@@ -220,11 +220,37 @@ public:
         return static_cast<T*>( get_component_( column, info.size, info.alignment ) );
     }
 
+    /**
+     * @brief Retrieve a component by entity, bypassing term fields.
+     *
+     * Escape hatch for `.filter()` terms, which have no data field.
+     *
+     * WARNING: may be invisible to the scheduler, mutating T races with systems using it.
+     */
     template<typename T>
-    void mark_component_modified()
+    T* get_entity_component()
+    {
+        static const auto* info = rtti::TypeRegistry::find<T>();
+        return static_cast<T*>( get_entity_component_( info ) );
+    }
+
+    /**
+     * @brief Signal that a component has been modified for the given entity.
+     */
+    template<typename T>
+    void notify_changed( EcsEntity p_entity )
     {
         static const auto& info = rtti::TypeRegistry::get<T>();
-        mark_component_modified_( &info );
+        notify_changed_( p_entity, &info );
+    }
+
+    /**
+     * @brief Signal that a component has been modified for the current entity.
+     */
+    template<typename T>
+    void notify_changed()
+    {
+        notify_changed<T>( entity() );
     }
 
     template<typename First, typename Second>
@@ -243,7 +269,8 @@ private:
     friend class EcsQuery;
 
     void* get_component_( int32_t column, size_t size, size_t alignment ) const;
-    void mark_component_modified_( const rtti::TypeInfo* type ) const;
+    void* get_entity_component_( const rtti::TypeInfo* p_type ) const;
+    void notify_changed_( EcsEntity p_entity, const rtti::TypeInfo* type ) const;
     int32_t resolve_term_index_( const rtti::TypeInfo& info ) const;
     int32_t resolve_pair_index_( const rtti::TypeInfo& first, const rtti::TypeInfo& second ) const;
     void* it_            = nullptr;
@@ -346,6 +373,20 @@ public:
     EcsQueryBuilder& with_pair( EcsEntity first, EcsEntity second ) [[clang::lifetimebound]];
 
     template<typename... Comps>
+    EcsQueryBuilder& without() [[clang::lifetimebound]]
+    {
+        ( add_term_without_<Comps>(), ... );
+        return *this;
+    }
+
+    template<typename First, typename Second>
+    EcsQueryBuilder& without_pair() [[clang::lifetimebound]]
+    {
+        add_term_pair_without_impl( rtti::TypeRegistry::find<First>(), rtti::TypeRegistry::find<Second>() );
+        return *this;
+    }
+
+    template<typename... Comps>
     EcsQueryBuilder& read() [[clang::lifetimebound]]
     {
         ( add_term_<Comps>( 1 ), ... );
@@ -387,6 +428,8 @@ public:
      */
     EcsQueryBuilder& cascade() [[clang::lifetimebound]];
 
+    EcsQueryBuilder& filter() [[clang::lifetimebound]];
+
     /**
      * @brief Set the optional query DSL expression.
      */
@@ -408,13 +451,23 @@ private:
     friend class EcsSystemBuilder;
     friend class EcsObserverBuilder;
 
+    void add_term_impl( const rtti::TypeInfo* type, uint8_t inout );
+    void add_term_pair_impl( const rtti::TypeInfo* first_type, const rtti::TypeInfo* sec_type, uint8_t inout );
+
+    void add_term_without_impl( const rtti::TypeInfo* type );
+    void add_term_pair_without_impl( const rtti::TypeInfo* first, const rtti::TypeInfo* second );
+
     template<typename T>
     void add_term_( uint8_t inout )
     {
         add_term_impl( rtti::TypeRegistry::find<T>(), inout );
     }
-    void add_term_impl( const rtti::TypeInfo* type, uint8_t inout );
-    void add_term_pair_impl( const rtti::TypeInfo* first_type, const rtti::TypeInfo* sec_type, uint8_t inout );
+
+    template<typename T>
+    void add_term_without_()
+    {
+        add_term_without_impl( rtti::TypeRegistry::find<T>() );
+    }
 
     struct Impl;
     std::unique_ptr<Impl> pImpl;

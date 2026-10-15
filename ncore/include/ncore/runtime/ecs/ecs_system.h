@@ -83,6 +83,13 @@ public:
         return *this;
     }
 
+    template<typename... Comps>
+    EcsSystemBuilder& without() [[clang::lifetimebound]]
+    {
+        qb_.without<Comps...>();
+        return *this;
+    }
+
     EcsSystemBuilder& up() [[clang::lifetimebound]]
     {
         qb_.up();
@@ -191,6 +198,13 @@ public:
         return *this;
     }
 
+    template<typename... Comps>
+    EcsObserverBuilder& without() [[clang::lifetimebound]]
+    {
+        qb_.without<Comps...>();
+        return *this;
+    }
+
     EcsObserverBuilder& event( EcsEntity evt ) [[clang::lifetimebound]]
     {
         events.push_back( evt );
@@ -205,6 +219,9 @@ public:
         return *this;
     }
 
+    /**
+     * @brief Traverse relationship bottom-up.
+     */
     EcsObserverBuilder& up() [[clang::lifetimebound]]
     {
         qb_.up();
@@ -223,9 +240,18 @@ public:
         return *this;
     }
 
+    /**
+     * @brief Traverse relationship top-down.
+     */
     EcsObserverBuilder& cascade() [[clang::lifetimebound]]
     {
         qb_.cascade();
+        return *this;
+    }
+
+    EcsObserverBuilder& filter() [[clang::lifetimebound]]
+    {
+        qb_.filter();
         return *this;
     }
 

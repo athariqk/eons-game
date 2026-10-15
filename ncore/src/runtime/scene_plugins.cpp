@@ -160,14 +160,14 @@ void register_video_plugin( Scene& scene )
         } );
 
     scene.get_ecs()
-        .observer( "SceneVideoPlugin_Camera_Register" )
-        .on<CameraComponent>( EcsCoreEvent::OnAdd )
+        .observer( "SceneVideoPlugin_Camera_Init" )
+        .on<CameraComponent>( EcsCoreEvent::OnSet )
         .each( []( EcsIterState& it ) {
             auto cam = it.get_component<CameraComponent>();
             auto vid = it.world().get_singleton<VideoServices>();
             if (!cam->Source) {
                 cam->Source = vid->Renderer->camera_create();
-                NC_LOG_DEBUG_C( log::ECS, "Created camera, RID={}", cam->Source.value );
+                NC_LOG_DEBUG_C( log::ECS, "NEW camera RID={}", cam->Source.value );
             }
         } );
 
@@ -181,8 +181,8 @@ void register_video_plugin( Scene& scene )
             auto xform = it.get_component<Transform3DComponent>();
 
             if (cam->Source) {
-                auto& attribs     = vid->Renderer->camera_get_attribs( cam->Source );
-                attribs.Transform = xform->Global;
+                auto attribs       = vid->Renderer->camera_attribs_get( cam->Source );
+                attribs->Transform = xform->Global;
             }
         } );
 
@@ -212,7 +212,7 @@ void register_video_plugin( Scene& scene )
             auto handle = it.get_component<MaterialRenderComponent>();
             auto loaded = it.event_payload<ResourceLoadedComponent>();
 
-            if (mat->Shader.handle != loaded->ResourceId)
+            if (mat->Shader != loaded->ResourceId)
                 return;
 
             auto source = io->Resources->get<MaterialShader>( loaded->ResourceId );
@@ -234,7 +234,7 @@ void register_video_plugin( Scene& scene )
         } );
 
     scene.get_ecs()
-        .observer( "SceneVideoPlugin_MaterialRenderer_Draw" )
+        .observer( "SceneVideoPlugin_MaterialComponent_Update" )
         .on<MaterialComponent>( EcsCoreEvent::OnSet )
         .with<MaterialRenderComponent>()
         .each( []( EcsIterState& it ) {
@@ -280,7 +280,6 @@ void register_video_plugin( Scene& scene )
         .with<MeshRenderComponent>()
         .with<MaterialRenderComponent>()
         .with<Transform3DComponent>()
-        .up()
         .in( EcsSystemPhase::UPDATE )
         .each( []( EcsIterState& it ) {
             auto mesh     = it.get_component<MeshRenderComponent>();
@@ -355,7 +354,7 @@ void register_video_plugin( Scene& scene )
         } );
 
     scene.get_ecs()
-        .system( "SceneVideoPlugin_Camera_RenderPass" )
+        .system( "SceneVideoPlugin_Camera_Render" )
         .with<CameraComponent>()
         .in( EcsSystemPhase::POST_FRAME )
         .order( 10 )
@@ -364,11 +363,11 @@ void register_video_plugin( Scene& scene )
             auto vid = it.world().get_singleton<VideoServices>();
 
             if (cam->Source) {
-                auto& attribs       = vid->Renderer->camera_get_attribs( cam->Source );
-                attribs.Fov         = cam->FieldOfView;
-                attribs.zFar        = cam->zFar;
-                attribs.zNear       = cam->zNear;
-                attribs.DisplaySize = cam->DisplayRect.size();
+                auto attribs         = vid->Renderer->camera_attribs_get( cam->Source );
+                attribs->Fov         = cam->FieldOfView;
+                attribs->zFar        = cam->zFar;
+                attribs->zNear       = cam->zNear;
+                attribs->DisplaySize = cam->DisplayRect.size();
             }
 
             if (cam->RenderToScreen) {
@@ -388,18 +387,18 @@ void register_video_plugin( Scene& scene )
                 }
             }
 
-             RenderService::RenderFrameDesc pass{};
-             pass.color_texture = cam->RenderTexture;
-             pass.depth_texture = cam->DepthTexture;
-             pass.camera        = cam->Source;
-             pass.rectangle     = cam->DisplayRect;
-             pass.draw_spatial  = true;
-             pass.draw_canvas   = cam->DrawCanvas;
-             vid->Renderer->render_frame( pass );
+            RenderService::RenderTargetDesc pass{};
+            pass.color_texture = cam->RenderTexture;
+            pass.depth_texture = cam->DepthTexture;
+            pass.camera        = cam->Source;
+            pass.rectangle     = cam->DisplayRect;
+            pass.draw_spatial  = true;
+            pass.draw_canvas   = cam->DrawCanvas;
+            vid->Renderer->render_target( pass );
 
             // blit offscreen color to swapchain.
-             if (cam->RenderToScreen)
-                 vid->Renderer->texture_blit( cam->RenderTexture );
+            if (cam->RenderToScreen)
+                vid->Renderer->texture_blit( cam->RenderTexture );
         } );
 
     scene.get_ecs()
@@ -458,7 +457,7 @@ void register_inputs_plugin( Scene& scene )
                 InputService::FORWARD_ACTION_NAME
             );
             float y = io->Inputs->action_get_axis( InputService::DOWN_ACTION_NAME, InputService::UP_ACTION_NAME );
-            input->Direction = Vec3( -xz.x, -y, xz.y ); // (-LeftRight, -UpDown, ForwardBackward)
+            input->Direction = Vec3f( -xz.x, -y, xz.y ); // (-LeftRight, -UpDown, ForwardBackward)
 
             float r               = io->Inputs->action_get_axis( "G_LeftRoll", "G_RightRoll" );
             input->AngularDelta.z = -r * input->RollRate;

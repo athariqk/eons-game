@@ -197,6 +197,12 @@ void NCAPI_EDITOR register_gui_plugin( Scene& scene )
             //        SDL_StopTextInput( sdl_window );
             //    }
             //}
+            // !!!! HACKKKKK
+            if (gui_io.WantTextInput) {
+                vid->Window->window_text_input_start( vid->Window->get_main_window_id() );
+            } else {
+                vid->Window->window_text_input_stop( vid->Window->get_main_window_id() );
+            }
         } );
 
     scene.get_ecs()

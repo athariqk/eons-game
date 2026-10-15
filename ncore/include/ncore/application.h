@@ -7,6 +7,7 @@
 #include <memory>
 
 #include <ncore/core/types.h>
+#include <ncore/utils/config.h>
 
 #include "services/service_registry.h"
 
@@ -14,7 +15,6 @@ namespace nc {
 
 class IGameWorld;
 class EventBus;
-class ConfFile;
 class WindowService;
 class RenderService;
 class InputService;
@@ -53,6 +53,7 @@ struct REFLECT NCAPI Log {
  */
 struct NCAPI AppContext {
     AppDesc AppDesc;          // Descriptor used to init this application.
+    ConfFile Config;          // Parsed application config (loaded once in Application::init).
     ServiceRegistry Services; // Registry of all registered engine services.
     bool IsRunning   = false; // Whether game loop is still looping.
     uint64_t Ticks   = 0;     // Ticks since first run() frame.

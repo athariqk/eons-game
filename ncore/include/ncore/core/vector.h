@@ -344,13 +344,13 @@ struct REFLECT NCAPI Vec2i : CommonVectorOps<Vec2i, int, 2> {
 /**
  * @brief 3 components vector of single-precision floating-point numbers.
  */
-struct REFLECT NCAPI Vec3 : CommonVectorOps<Vec3, float, 3> {
+struct REFLECT NCAPI Vec3f : CommonVectorOps<Vec3f, float, 3> {
     REFLECT float x = 0;
     REFLECT float y = 0;
     REFLECT float z = 0;
 
-    Vec3() = default;
-    Vec3( float px, float py, float pz ) : x( px ), y( py ), z( pz ) {}
+    Vec3f() = default;
+    Vec3f( float px, float py, float pz ) : x( px ), y( py ), z( pz ) {}
 
     float* data()
     {
@@ -361,53 +361,53 @@ struct REFLECT NCAPI Vec3 : CommonVectorOps<Vec3, float, 3> {
         return &x;
     }
 
-    Vec3 cross( const Vec3& rhs ) const
+    Vec3f cross( const Vec3f& rhs ) const
     {
         return { y * rhs.z - z * rhs.y, z * rhs.x - x * rhs.z, x * rhs.y - y * rhs.x };
     }
 
-    static Vec3 up()
+    static Vec3f up()
     {
-        return Vec3( 0, 1, 0 );
+        return Vec3f( 0, 1, 0 );
     }
 
-    static Vec3 down()
+    static Vec3f down()
     {
-        return Vec3( 0, -1, 0 );
+        return Vec3f( 0, -1, 0 );
     }
 
-    static Vec3 forward()
+    static Vec3f forward()
     {
-        return Vec3( 0, 0, -1 );
+        return Vec3f( 0, 0, -1 );
     }
 
-    static Vec3 backward()
+    static Vec3f backward()
     {
-        return Vec3( 0, 0, 1 );
+        return Vec3f( 0, 0, 1 );
     }
 
-    static Vec3 right()
+    static Vec3f right()
     {
-        return Vec3( 1, 0, 0 );
+        return Vec3f( 1, 0, 0 );
     }
 
-    static Vec3 left()
+    static Vec3f left()
     {
-        return Vec3( -1, 0, 0 );
+        return Vec3f( -1, 0, 0 );
     }
 };
 
 /**
  * @brief 4 components vector of single-precision floating-point numbers.
  */
-struct REFLECT NCAPI Vec4 : CommonVectorOps<Vec4, float, 4> {
+struct REFLECT NCAPI Vec4f : CommonVectorOps<Vec4f, float, 4> {
     REFLECT float x = 0;
     REFLECT float y = 0;
     REFLECT float z = 0;
     REFLECT float w = 0;
 
-    Vec4() = default;
-    Vec4( float px, float py, float pz, float pw ) : x( px ), y( py ), z( pz ), w( pw ) {}
+    Vec4f() = default;
+    Vec4f( float px, float py, float pz, float pw ) : x( px ), y( py ), z( pz ), w( pw ) {}
 
     float* data()
     {

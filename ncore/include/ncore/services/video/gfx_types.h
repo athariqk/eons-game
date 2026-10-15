@@ -180,6 +180,16 @@ enum class BlendOp {
     MAX
 };
 
+/**
+ * @brief Editor widget hint for a material uniform, from Slang custom attributes
+ * (e.g. [Color], [Range(min,max)]). DEFAULT falls back to the value's type.
+ */
+enum class ParamWidget {
+    DEFAULT,
+    COLOR,
+    SLIDER,
+};
+
 enum class CompareFunc {
     NEVER,
     LESS,

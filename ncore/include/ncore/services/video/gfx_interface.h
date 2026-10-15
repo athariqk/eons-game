@@ -219,9 +219,7 @@ public:
     virtual void load_pso_cache() = 0;
     virtual void save_pso_cache() = 0;
 
-    static constexpr uint32_t MAX_TIMESTAMP_SLOTS = 8;
-    // Slot reserved for the async-compute queue timing.
-    static constexpr uint32_t COMPUTE_TIMESTAMP_SLOT = MAX_TIMESTAMP_SLOTS - 1;
+    static constexpr uint32_t MAX_TIMESTAMP_SLOTS = 12;
 
     struct Stats {
         uint64_t input_vertices       = 0;
@@ -234,16 +232,12 @@ public:
 
         uint64_t occlusion_samples_passed = 0;
 
-        double gpu_duration_ms = 0.0;
-
-        // Duration of the async-compute work in ms.
-        double compute_duration_ms = 0.0;
-
-        // Per-frame render-pass durations (one entry per render_frame call) in ms.
-        // Only pass_count entries are valid.
-        uint32_t pass_count                          = 0;
-        double pass_duration_ms[MAX_TIMESTAMP_SLOTS] = {};
+        double timestamps_ms[MAX_TIMESTAMP_SLOTS] = {};
+        double gpu_duration_ms                    = 0.0;
     };
+
+    virtual void designate_timestamp_slot( uint32_t slot, const char* name ) = 0;
+    virtual const char* get_timestamp_name( uint32_t slot ) const       = 0;
 
     /**
      * @brief Record a GPU timestamp at the current point on the active queue.
@@ -254,13 +248,15 @@ public:
     virtual void timestamp_begin( uint32_t slot ) = 0;
     /**
      * @brief End the region begun by timestamp_begin(slot).
-     * @return Duration in seconds, or a negative value when the data is not available yet.
+     * @return Duration in miliseconds, or a negative value when the data is not available yet.
      */
     virtual double timestamp_end( uint32_t slot ) = 0;
 
-    virtual void begin_queries() = 0;
-    virtual void end_queries()   = 0;
-    virtual Stats get_stats()    = 0;
+    virtual double get_timestamp_ms( uint32_t slot ) const = 0;
+
+    virtual void begin_general_queries() = 0;
+    virtual void end_general_queries()   = 0;
+    virtual Stats get_stats()            = 0;
 };
 
 } // namespace nc

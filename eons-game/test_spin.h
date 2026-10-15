@@ -9,8 +9,8 @@ NC_COMPONENT( TestSpin )
 {
     float rotation       = 0;
     bool switch_rot      = true;
-    nc::Quaternion start = nc::Quaternion( 180, nc::Vec3::up() );
-    nc::Quaternion end   = nc::Quaternion( 0, nc::Vec3::up() );
+    nc::Quaternion start = nc::Quaternion( 180, nc::Vec3f::up() );
+    nc::Quaternion end   = nc::Quaternion( 0, nc::Vec3f::up() );
 
     NC_PROPS_BEGIN()
     ADD_PROPERTY( rotation )

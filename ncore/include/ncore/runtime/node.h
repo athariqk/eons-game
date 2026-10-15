@@ -91,6 +91,8 @@ public:
         Scene* scene_;
     };
 
+    Node* get_parent();
+
     /**
      * @brief Recreate a new parent-child entity relationship.
      * @param parent The new parent for this node.
@@ -128,7 +130,7 @@ public:
 
     /**
      * @brief Get read-only pointer to component instance of type T.
-     * @return The matching component owned by this node.
+     * @return The matching component owned by this node or null if it does not exist.
      */
     template<class T>
     const T* get_component() const
@@ -139,7 +141,7 @@ public:
 
     /**
      * @brief Get read-write pointer to component instance of type T.
-     * @return The matching component owned by this node.
+     * @return The matching component owned by this node or null if it does not exist.
      */
     template<class T>
     T* get_component()
@@ -152,17 +154,11 @@ public:
 
     /**
      * @brief Create in-place (default-constructs) a component owned by this Node.
+     * @param type RTTI type of the component.
+     * @param data Initial data.
      * @return Mutable pointer to constructed component instance, or existing one.
      */
-    void* add_component( const rtti::TypeInfo* type );
-
-    /**
-     * @brief Create and set (copy-constructs) a component owned by this Node.
-     * @param type RTTI type of the component.
-     * @param data Existing data to copy.
-     * @return Mutable pointer to new component instance, or existing one.
-     */
-    void* add_component( const rtti::TypeInfo* type, const void* data );
+    void* add_component( const rtti::TypeInfo* type, const void* data = nullptr );
 
     /**
      * @brief Create and set a component owned by this Node.
@@ -232,11 +228,11 @@ public:
     /**
      * @brief Signal that a component has been modified.
      */
-    void mark_component_modified( const rtti::TypeInfo* type ) const;
+    void notify_changed( const rtti::TypeInfo* type ) const;
     template<class T>
-    void mark_component_modified()
+    void notify_changed()
     {
-        mark_component_modified( rtti::TypeRegistry::find<T>() );
+        notify_changed( rtti::TypeRegistry::find<T>() );
     }
 
     StringView get_name() const;

@@ -21,7 +21,7 @@ struct WindowService::Impl {
     SDL_Window* get_sdl_window( uint32_t id )
     {
         auto window = SDL_GetWindowFromID( static_cast<SDL_WindowID>( id ) );
-        NC_VERIFY_MSG( window, std::format( "Failed to get SDL window with ID {}: {}", id, SDL_GetError() ).c_str() );
+        NC_VERIFY_MSG( window, std::format( "FAIL to get SDL window with ID {}: {}", id, SDL_GetError() ).c_str() );
         return window;
     }
 
@@ -94,9 +94,9 @@ uint32_t WindowService::window_create( WindowFlag flags )
     auto window = SDL_CreateWindow( nullptr, 0, 0, sdl_flags | SDL_WINDOW_HIDDEN );
     auto id     = SDL_GetWindowID( window );
     if (window) {
-        NC_LOG_DEBUG_C( log::GRAPHICS, "New SDL window, ID: {}", id );
+        NC_LOG_DEBUG_C( log::GRAPHICS, "NEW SDL window, ID: {}", id );
     } else {
-        NC_LOG_ERROR_C( log::GRAPHICS, "SDL window creation failed!" );
+        NC_LOG_ERROR_C( log::GRAPHICS, "FAIL to create SDL window" );
         return uint32_t();
     }
 
@@ -115,7 +115,7 @@ void WindowService::window_set_parent( uint32_t window_id, uint32_t parent ) con
     auto parent_win = pImpl->get_sdl_window( parent );
     if (!SDL_SetWindowParent( window, parent_win )) {
         NC_LOG_ERROR_C(
-            log::GRAPHICS, "Failed to set parent for window {} to {}: {}", window_id, parent, SDL_GetError()
+            log::GRAPHICS, "FAIL to set parent for window {} to {}: {}", window_id, parent, SDL_GetError()
         );
     }
 }
@@ -124,7 +124,7 @@ void WindowService::window_set_position( uint32_t window_id, Vec2i position ) co
 {
     auto window = pImpl->get_sdl_window( window_id );
     if (!SDL_SetWindowPosition( window, position.x, position.y )) {
-        NC_LOG_ERROR_C( log::GRAPHICS, "Failed to set position for window {}: {}", window_id, SDL_GetError() );
+        NC_LOG_ERROR_C( log::GRAPHICS, "FAIL to set position for window {}: {}", window_id, SDL_GetError() );
     }
 }
 
@@ -132,7 +132,7 @@ void WindowService::window_set_centered( uint32_t window_id ) const
 {
     auto window = pImpl->get_sdl_window( window_id );
     if (!SDL_SetWindowPosition( window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED )) {
-        NC_LOG_ERROR_C( log::GRAPHICS, "Failed to set centered for window {}: {}", window_id, SDL_GetError() );
+        NC_LOG_ERROR_C( log::GRAPHICS, "FAIL to set centered for window {}: {}", window_id, SDL_GetError() );
     }
 }
 
@@ -146,7 +146,7 @@ void WindowService::window_set_visible( uint32_t window_id, bool visible ) const
         success = SDL_HideWindow( window );
     }
     if (!success)
-        NC_LOG_ERROR_C( log::GRAPHICS, "Failed to set visibility for window {}: {}", window_id, SDL_GetError() );
+        NC_LOG_ERROR_C( log::GRAPHICS, "FAIL to set visibility for window {}: {}", window_id, SDL_GetError() );
 }
 
 Vec2i WindowService::window_get_resolution( uint32_t window_id ) const
@@ -154,7 +154,7 @@ Vec2i WindowService::window_get_resolution( uint32_t window_id ) const
     int width = 0, height = 0;
     auto window = pImpl->get_sdl_window( window_id );
     if (!SDL_GetWindowSizeInPixels( window, &width, &height )) {
-        NC_LOG_ERROR_C( log::GRAPHICS, "Failed to get resolution for window {}: {}", window_id, SDL_GetError() );
+        NC_LOG_ERROR_C( log::GRAPHICS, "FAIL to get resolution for window {}: {}", window_id, SDL_GetError() );
     }
     return Vec2i( width, height );
 }
@@ -163,7 +163,7 @@ void WindowService::window_set_resolution( uint32_t window_id, Vec2i resolution 
 {
     auto window = pImpl->get_sdl_window( window_id );
     if (!SDL_SetWindowSize( window, resolution.x, resolution.y )) {
-        NC_LOG_ERROR_C( log::GRAPHICS, "Failed to set resolution for window {}: {}", window_id, SDL_GetError() );
+        NC_LOG_ERROR_C( log::GRAPHICS, "FAIL to set resolution for window {}: {}", window_id, SDL_GetError() );
     }
 }
 
@@ -178,7 +178,7 @@ void WindowService::window_set_icon( uint32_t window_id, const Image& image ) co
         image.get_width(), image.get_height(), SDL_PIXELFORMAT_RGBA32, dst, image.get_width() * 4
     );
     if (!SDL_SetWindowIcon( window, surf )) {
-        NC_LOG_ERROR_C( log::GRAPHICS, "Failed to set icon for window {}: {}", window_id, SDL_GetError() );
+        NC_LOG_ERROR_C( log::GRAPHICS, "FAIL to set icon for window {}: {}", window_id, SDL_GetError() );
     }
     SDL_DestroySurface( surf );
     memfree( dst );
@@ -188,7 +188,7 @@ void WindowService::window_set_title( uint32_t window_id, StringView title ) con
 {
     auto window = pImpl->get_sdl_window( window_id );
     if (!SDL_SetWindowTitle( window, title.data() )) {
-        NC_LOG_ERROR_C( log::GRAPHICS, "Failed to set title for window {}: {}", window_id, SDL_GetError() );
+        NC_LOG_ERROR_C( log::GRAPHICS, "FAIL to set title for window {}: {}", window_id, SDL_GetError() );
     }
 }
 
@@ -196,7 +196,7 @@ void WindowService::window_set_fullscreen( uint32_t window_id, bool fullscreen )
 {
     auto window = pImpl->get_sdl_window( window_id );
     if (!SDL_SetWindowFullscreen( window, fullscreen )) {
-        NC_LOG_ERROR_C( log::GRAPHICS, "Failed to set fullscreen for window {}: {}", window_id, SDL_GetError() );
+        NC_LOG_ERROR_C( log::GRAPHICS, "FAIL to set fullscreen for window {}: {}", window_id, SDL_GetError() );
     }
 }
 
@@ -207,7 +207,7 @@ void WindowService::window_set_mouse_confinement( uint32_t window_id, const Rect
         static_cast<int>( rect.x ), static_cast<int>( rect.y ), static_cast<int>( rect.w ), static_cast<int>( rect.h )
     };
     if (!SDL_SetWindowMouseRect( window, &sdl_rect )) {
-        NC_LOG_ERROR_C( log::GRAPHICS, "Failed to confine mouse for window {}: {}", window_id, SDL_GetError() );
+        NC_LOG_ERROR_C( log::GRAPHICS, "FAIL to confine mouse for window {}: {}", window_id, SDL_GetError() );
     }
 }
 
@@ -216,7 +216,7 @@ void WindowService::window_clear_mouse_confinement( uint32_t window_id ) const
     auto window = pImpl->get_sdl_window( window_id );
     if (!SDL_SetWindowMouseRect( window, nullptr )) {
         NC_LOG_ERROR_C(
-            log::GRAPHICS, "Failed to clear mouse confinement for window {}: {}", window_id, SDL_GetError()
+            log::GRAPHICS, "FAIL to clear mouse confinement for window {}: {}", window_id, SDL_GetError()
         );
     }
 }
@@ -225,7 +225,7 @@ void WindowService::window_set_mouse_grab( uint32_t window_id, bool grabbed ) co
 {
     auto window = pImpl->get_sdl_window( window_id );
     if (!SDL_SetWindowMouseGrab( window, grabbed )) {
-        NC_LOG_ERROR_C( log::GRAPHICS, "Failed to set mouse grab for window {}: {}", window_id, SDL_GetError() );
+        NC_LOG_ERROR_C( log::GRAPHICS, "FAIL to set mouse grab for window {}: {}", window_id, SDL_GetError() );
     }
 }
 
@@ -247,6 +247,18 @@ void WindowService::window_set_mouse_locked( uint32_t window_id, bool enabled ) 
     SDL_SetWindowRelativeMouseMode( window, enabled );
 }
 
+void WindowService::window_text_input_start( uint32_t window_id ) const
+{
+    auto window = pImpl->get_sdl_window( window_id );
+    SDL_StartTextInput( window );
+}
+
+void WindowService::window_text_input_stop( uint32_t window_id ) const
+{
+    auto window = pImpl->get_sdl_window( window_id );
+    SDL_StopTextInput( window );
+}
+
 bool WindowService::window_pop( uint32_t window_id )
 {
     NC_LOG_DEBUG_C( log::GRAPHICS, "Destroying SDL window, ID: {}", window_id );
@@ -256,7 +268,7 @@ bool WindowService::window_pop( uint32_t window_id )
     }
     SDL_DestroyWindow( window );
     auto erased = std::erase( pImpl->window_ids, window_id );
-    NC_ASSERT_MSG( erased > 0, "Failed removing window id from cache" );
+    NC_ASSERT_MSG( erased > 0, "FAIL removing window id from cache" );
     return true;
 }
 

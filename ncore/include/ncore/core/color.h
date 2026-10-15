@@ -6,7 +6,9 @@
 #pragma once
 
 #include <ncore.h>
-#include <ncore/core/types.h>
+
+#include "types.h"
+#include "vector.h"
 
 namespace nc {
 
@@ -14,7 +16,12 @@ namespace nc {
  * @brief RGBA color.
  */
 struct REFLECT NCAPI Color {
-    Color() {}
+    REFLECT uint8_t r = 0;
+    REFLECT uint8_t g = 0;
+    REFLECT uint8_t b = 0;
+    REFLECT uint8_t a = 0;
+
+    Color() = default;
     Color( uint8_t R, uint8_t G, uint8_t B, uint8_t A ) : r( R ), g( G ), b( B ), a( A ) {}
     Color( uint32_t hex, uint8_t alpha = 200 )
     {
@@ -37,10 +44,10 @@ struct REFLECT NCAPI Color {
                ( static_cast<uint32_t>( g * 255.0f ) << 8 ) | ( static_cast<uint32_t>( r * 255.0f ) );
     }
 
-    REFLECT uint8_t r = 0;
-    REFLECT uint8_t g = 0;
-    REFLECT uint8_t b = 0;
-    REFLECT uint8_t a = 0;
+    Vec4f normalize() const
+    {
+        return Vec4f( r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f );
+    }
 
     bool operator==( const Color& other ) const
     {

@@ -30,6 +30,8 @@ Ref<IResource> make_resource( uint32_t format_id )
         return Ref<MaterialShader>::create();
     if (format_id == ResourceFormatID( "nimg" ).id)
         return Ref<Image>::create();
+    if (format_id == ResourceFormatID( "ncbm" ).id)
+        return Ref<CubeMap>::create();
     if (format_id == ResourceFormatID( "naud" ).id)
         return Ref<AudioClip>::create();
     if (format_id == ResourceFormatID( "nfnt" ).id)
@@ -40,8 +42,8 @@ Ref<IResource> make_resource( uint32_t format_id )
 bool known_format( uint32_t format_id )
 {
     return format_id == ResourceFormatID( "nshd" ).id || format_id == ResourceFormatID( "nmat" ).id ||
-           format_id == ResourceFormatID( "nimg" ).id || format_id == ResourceFormatID( "naud" ).id ||
-           format_id == ResourceFormatID( "nfnt" ).id;
+           format_id == ResourceFormatID( "nimg" ).id || format_id == ResourceFormatID( "ncbm" ).id ||
+           format_id == ResourceFormatID( "naud" ).id || format_id == ResourceFormatID( "nfnt" ).id;
 }
 
 String format_id_string( uint32_t id )
@@ -83,6 +85,19 @@ struct BinaryWriterVisitor final : public rtti::RecordVisitor {
             return;
         }
         out.write( static_cast<const char*>( instance ), static_cast<std::streamsize>( t->size ) );
+        if (!out)
+            ok = false;
+    }
+
+    void primitive_array( const rtti::TypeInfo* elem_type, void* data, size_t count ) override
+    {
+        if (count == 0)
+            return;
+        if (!data || !elem_type) {
+            ok = false;
+            return;
+        }
+        out.write( static_cast<const char*>( data ), static_cast<std::streamsize>( count * elem_type->size ) );
         if (!out)
             ok = false;
     }
@@ -138,6 +153,19 @@ struct BinaryReaderVisitor final : public rtti::RecordVisitor {
             return;
         }
         in.read( static_cast<char*>( instance ), static_cast<std::streamsize>( t->size ) );
+        if (!in)
+            ok = false;
+    }
+
+    void primitive_array( const rtti::TypeInfo* elem_type, void* data, size_t count ) override
+    {
+        if (count == 0)
+            return;
+        if (!data || !elem_type) {
+            ok = false;
+            return;
+        }
+        in.read( static_cast<char*>( data ), static_cast<std::streamsize>( count * elem_type->size ) );
         if (!in)
             ok = false;
     }

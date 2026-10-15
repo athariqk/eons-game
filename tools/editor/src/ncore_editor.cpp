@@ -8,6 +8,7 @@
 #include <editor/ncore_editor.h>
 #include <ncore/core/rid.h>
 #include <ncore/game_world.h>
+#include <ncore/resources/resource.h>
 #include <ncore/runtime/components/material.h>
 #include <ncore/runtime/components/services.h>
 #include <ncore/runtime/components/time.h>
@@ -16,19 +17,36 @@
 #include <ncore/runtime/ecs/ecs_events.h>
 #include <ncore/runtime/ecs/ecs_world.h>
 #include <ncore/runtime/node.h>
+#include <ncore/runtime/resources/resource_loader.h>
 #include <ncore/runtime/scene.h>
 #include <ncore/services/io/input_service.h>
 #include <ncore/services/video/render_service.h>
+#include <ncore/utils/math.h>
 
 #include "editor_camera.h"
 #include "editor_state.h"
 #include "gui_plugin.h"
+#include "property_grid.h"
 
 namespace nc::editor {
 
 static bool is_internal_component( const rtti::TypeInfo* type )
 {
     return type == rtti::TypeRegistry::find<NodeRefComponent>();
+}
+
+// Copies a material's params to every entity using the same shader (e.g. all water tiles).
+static void
+apply_material_params_to_all( Scene& scene, RID shader, const DynamicArray<MaterialComponent::Param>& params )
+{
+    auto q = scene.get_ecs().query( "MaterialParamsApplyAll" ).with<MaterialComponent>().build();
+    for (auto mat_entity : q.entities()) {
+        auto* m = mat_entity.get_component<MaterialComponent>();
+        if (!m || m->Shader != shader)
+            continue;
+        m->Params = params;
+        mat_entity.notify_changed<MaterialComponent>();
+    }
 }
 
 static void draw_scene_tree_node( Node& node, EditorState& state )
@@ -92,208 +110,9 @@ static void draw_scene_tree_node( Node& node, EditorState& state )
     }
 }
 
-namespace {
-
-using namespace nc::rtti;
-
-bool draw_record_fields( const RecordInfo* record, void* data, int depth );
-
-void begin_labeled_row( StringView label )
-{
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted( label.data(), label.data() + label.size() );
-    ImGui::SameLine( ImGui::GetWindowContentRegionMax().x * 0.4f );
-    ImGui::SetNextItemWidth( -FLT_MIN );
-}
-
-ImGuiDataType imgui_data_type( TypeKind kind )
-{
-    switch (kind) {
-        case TypeKind::INT8:
-            return ImGuiDataType_S8;
-        case TypeKind::UINT8:
-            return ImGuiDataType_U8;
-        case TypeKind::INT16:
-            return ImGuiDataType_S16;
-        case TypeKind::UINT16:
-            return ImGuiDataType_U16;
-        case TypeKind::INT32:
-            return ImGuiDataType_S32;
-        case TypeKind::UINT32:
-            return ImGuiDataType_U32;
-        case TypeKind::INT64:
-            return ImGuiDataType_S64;
-        case TypeKind::UINT64:
-            return ImGuiDataType_U64;
-        case TypeKind::FLOAT:
-            return ImGuiDataType_Float;
-        case TypeKind::DOUBLE:
-            return ImGuiDataType_Double;
-        default:
-            return ImGuiDataType_COUNT;
-    }
-}
-
-static int string_resize_callback( ImGuiInputTextCallbackData* cb )
-{
-    if (cb->EventFlag == ImGuiInputTextFlags_CallbackResize) {
-        auto* s = static_cast<String*>( cb->UserData );
-        s->resize( static_cast<size_t>( cb->BufTextLen ) );
-        cb->Buf = s->data();
-    }
-    return 0;
-}
-
-bool draw_leaf_value( const TypeInfo* type, void* ptr )
-{
-    switch (type->kind) {
-        case TypeKind::BOOL:
-            return ImGui::Checkbox( "##v", static_cast<bool*>( ptr ) );
-
-        case TypeKind::INT8:
-        case TypeKind::UINT8:
-        case TypeKind::INT16:
-        case TypeKind::UINT16:
-        case TypeKind::INT32:
-        case TypeKind::UINT32:
-        case TypeKind::INT64:
-        case TypeKind::UINT64: {
-            return ImGui::DragScalar( "##v", imgui_data_type( type->kind ), ptr, 1.0f );
-        }
-
-        case TypeKind::FLOAT:
-        case TypeKind::DOUBLE: {
-            return ImGui::DragScalar( "##v", imgui_data_type( type->kind ), ptr, 0.01f );
-        }
-
-        case TypeKind::ENUM: {
-            auto* info       = static_cast<const EnumInfo*>( type );
-            int64_t current  = info->get_value( ptr );
-            StringView cname = info->get_name( current );
-            bool changed     = false;
-
-            if (ImGui::BeginCombo( "##v", cname.data() )) {
-                for (const auto& elem : info->elements()) {
-                    bool selected = elem.value == current;
-                    if (ImGui::Selectable( elem.name.data(), selected )) {
-                        info->set_value( ptr, elem.value );
-                        changed = true;
-                    }
-                    if (selected) {
-                        ImGui::SetItemDefaultFocus();
-                    }
-                }
-                ImGui::EndCombo();
-            }
-            return changed;
-        }
-
-        case TypeKind::STRING: {
-            auto* str = static_cast<String*>( ptr );
-            return ImGui::InputText(
-                "##v", str->data(), str->capacity() + 1, ImGuiInputTextFlags_CallbackResize, string_resize_callback, str
-            );
-        }
-
-        default: {
-            // Vectors, pointers and anything unknown: read-only textual dump.
-            String out;
-            type->to_string( out, ptr );
-            ImGui::TextDisabled( "%s", out.c_str() );
-            return false;
-        }
-    }
-}
-
-bool draw_labeled_value( StringView label, const TypeInfo* type, void* ptr, int depth )
-{
-    if (!type) {
-        begin_labeled_row( label );
-        ImGui::TextDisabled( "<unregistered type>" );
-        return false;
-    }
-
-    if (type->kind == TypeKind::RECORD) {
-        bool changed = false;
-        String lbl( label );
-        if (depth < 8 && ImGui::TreeNodeEx( lbl.c_str(), ImGuiTreeNodeFlags_DefaultOpen )) {
-            changed = draw_record_fields( static_cast<const RecordInfo*>( type ), ptr, depth + 1 );
-            ImGui::TreePop();
-        }
-        return changed;
-    }
-
-    begin_labeled_row( label );
-    return draw_leaf_value( type, ptr );
-}
-
-bool draw_field( const FieldInfo& field, void* data, int depth )
-{
-    if (field.is( PropertyFlags::HIDDEN )) {
-        return false;
-    }
-
-    const TypeInfo* type = field.get_type();
-    StringView name{ field.name.data(), field.name.size() };
-    void* ptr = field.get_void_ptr( data );
-
-    bool changed = false;
-
-    ImGui::PushID( name.data(), name.data() + name.size() );
-    ImGui::BeginDisabled( field.is( PropertyFlags::READ_ONLY ) );
-
-    if (field.qualifier.is_pointer()) {
-        // Pointers are shown, never edited.
-        begin_labeled_row( name );
-        void* target = field.get_as<void*>( data );
-        if (field.qualifier.is_cstring) {
-            const char* s = static_cast<const char*>( target );
-            ImGui::TextDisabled( "%s", s ? s : "(null)" );
-        } else {
-            ImGui::TextDisabled( "%p", target );
-        }
-    } else if (field.qualifier.is_array()) {
-        std::string lbl = std::string( name ) + " [" + std::to_string( field.qualifier.array_length ) + "]";
-        if (type && ImGui::TreeNodeEx( lbl.c_str(), ImGuiTreeNodeFlags_None )) {
-            auto* base = static_cast<uint8_t*>( ptr );
-            for (uint32_t i = 0; i < field.qualifier.array_length; ++i) {
-                ImGui::PushID( static_cast<int>( i ) );
-                std::string idx = "[" + std::to_string( i ) + "]";
-                changed |= draw_labeled_value( idx, type, base + i * type->size, depth + 1 );
-                ImGui::PopID();
-            }
-            ImGui::TreePop();
-        }
-    } else {
-        changed = draw_labeled_value( name, type, ptr, depth );
-    }
-
-    ImGui::EndDisabled();
-    ImGui::PopID();
-    return changed;
-}
-
-bool draw_record_fields( const RecordInfo* record, void* data, int depth )
-{
-    bool changed = false;
-    for (const auto& field : record->fields()) {
-        changed |= draw_field( field, data, depth );
-    }
-    return changed;
-}
-
-} // namespace
-
 static bool draw_component_properties( const rtti::TypeInfo* type, void* data )
 {
-    NC_ASSERT( type->is_record() );
-
-    auto record = static_cast<const rtti::RecordInfo*>( type );
-    if (record->field_count() == 0) {
-        return false;
-    }
-
-    return draw_record_fields( record, data, 0 );
+    return propgrid::draw_component_properties( type, data );
 }
 
 void NCAPI_EDITOR register_editor_plugin( Scene& scene )
@@ -378,12 +197,12 @@ void NCAPI_EDITOR register_editor_plugin( Scene& scene )
             auto state = it.get_component<EditorState>();
             auto vid   = it.get_component<VideoServices>();
 
-            RenderService::RenderFrameDesc desc;
+            RenderService::RenderTargetDesc desc;
             desc.camera       = state->EditorCamSource;
             desc.draw_spatial = false;
             desc.draw_canvas  = true;
             desc.to_screen    = true;
-            vid->Renderer->render_frame( desc );
+            vid->Renderer->render_target( desc );
         } );
 
     scene.get_ecs()
@@ -505,15 +324,21 @@ void NCAPI_EDITOR register_editor_plugin( Scene& scene )
 
                 ImGuizmo::SetDrawlist( ImGui::GetWindowDrawList() );
 
-                auto& cam_attribs   = vid->Renderer->camera_get_attribs( state->EditorCamSource );
-                auto projection_mat = vid->Renderer->camera_get_perspective( state->EditorCamSource );
-                auto view_mat       = cam_attribs.Transform.affine_inverse();
+                auto cam_attribs    = vid->Renderer->camera_attribs_get( state->EditorCamSource );
+                auto projection_mat = vid->Renderer->camera_perspective_get( state->EditorCamSource );
+                auto view_mat       = cam_attribs->Transform.affine_inverse();
 
-                Mat4 local     = xform->to_matrix();
-                auto mode      = state->GlobalXformGizmo ? ImGuizmo::MODE::WORLD : ImGuizmo::MODE::LOCAL;
+                auto parent        = selected->get_parent();
+                auto parent_xform  = parent ? parent->get_component<Transform3DComponent>() : nullptr;
+                Mat4 parent_global = parent_xform ? parent_xform->Global : Mat4::identity();
+                Mat4 contrib       = xform->parent_contrib( parent_global );
+
+                Mat4 world     = xform->Global;
+                auto mode      = state->GlobalXformGizmo ? ImGuizmo::WORLD : ImGuizmo::LOCAL;
                 auto operation = static_cast<ImGuizmo::OPERATION>( state->XformGizmoOperation );
-                if (ImGuizmo::Manipulate( view_mat.data(), projection_mat.data(), operation, mode, local.data() )) {
-                    xform->from_matrix( local );
+
+                if (ImGuizmo::Manipulate( view_mat.data(), projection_mat.data(), operation, mode, world.data() )) {
+                    xform->from_matrix( contrib.affine_inverse() * world );
                 }
             }
 
@@ -542,17 +367,22 @@ void NCAPI_EDITOR register_editor_plugin( Scene& scene )
                 ImGui::Text( "FPS: %.3f", time->FPS );
                 ImGui::Text( "Frame count: %d", time->FrameCount );
 
-                const auto& stats = vid->Renderer->get_stats();
-                ImGui::Text( "GPU time: %.3f ms", stats.gpu_duration_ms );
-                for (uint32_t i = 0; i < stats.pass_count; ++i)
-                    ImGui::Text( "  pass[%u]: %.3f ms", i, stats.pass_duration_ms[i] );
-                ImGui::Text( "  compute: %.3f ms", stats.compute_duration_ms );
-                ImGui::Text( "IA Prims: %llu", stats.input_primitives );
-                ImGui::Text( "IA Verts: %llu", stats.input_vertices );
-                ImGui::Text( "VS Invokes: %llu", stats.vs_invocations );
-                ImGui::Text( "PS Invokes: %llu", stats.ps_invocations );
-                ImGui::Text( "Clipping Prims: %llu", stats.clipping_primitives );
-                ImGui::Text( "Clipping Invokes: %llu", stats.clipping_invocations );
+                const auto gfx_stats = vid->Renderer->get_graphics_api()->get_stats();
+                ImGui::Text( "GPU time: %.3f ms", gfx_stats.gpu_duration_ms );
+                if (ImGui::TreeNode( "Timestamps (ms)" )) {
+                    auto* gfx = vid->Renderer->get_graphics_api();
+                    for (uint32_t i = 0; i < GfxInterface::MAX_TIMESTAMP_SLOTS; ++i) {
+                        ImGui::Text( "  %s: %.3f ms", gfx->get_timestamp_name( i ), gfx_stats.timestamps_ms[i] );
+                    }
+                    ImGui::TreePop();
+                }
+
+                ImGui::Text( "IA Prims: %llu", gfx_stats.input_primitives );
+                ImGui::Text( "IA Verts: %llu", gfx_stats.input_vertices );
+                ImGui::Text( "VS Invokes: %llu", gfx_stats.vs_invocations );
+                ImGui::Text( "PS Invokes: %llu", gfx_stats.ps_invocations );
+                ImGui::Text( "Clipping Prims: %llu", gfx_stats.clipping_primitives );
+                ImGui::Text( "Clipping Invokes: %llu", gfx_stats.clipping_invocations );
             }
             ImGui::End();
             ImGui::PopStyleVar();
@@ -591,7 +421,6 @@ void NCAPI_EDITOR register_editor_plugin( Scene& scene )
         .with<EditorState>()
         .in( EcsSystemPhase::UPDATE )
         .run( []( EcsIterState& it ) {
-            auto vid   = it.world().get_singleton<VideoServices>();
             auto state = it.get_component<EditorState>();
 
             // Main Menu Bar
@@ -607,8 +436,8 @@ void NCAPI_EDITOR register_editor_plugin( Scene& scene )
                         if (ImGui::MenuItem( "Logs" )) {
                             state->ShowLogsWindow = true;
                         }
-                        if (ImGui::MenuItem( "Stats" )) {
-                            state->ShowStatsWindow = true;
+                        if (ImGui::MenuItem( "Misc" )) {
+                            state->ShowMiscWindow = true;
                         }
                         if (ImGui::MenuItem( "Inputs" )) {
                             state->ShowInputsWindow = true;
@@ -674,7 +503,7 @@ void NCAPI_EDITOR register_editor_plugin( Scene& scene )
                         for (auto mat_entity : q.entities()) {
                             auto mat      = mat_entity.get_component<MaterialComponent>();
                             mat->DrawMode = state->DrawWireframe ? gfx::FillMode::WIREFRAME : gfx::FillMode::SOLID;
-                            mat_entity.mark_component_modified<MaterialComponent>();
+                            mat_entity.notify_changed<MaterialComponent>();
                         }
                     }
                 }
@@ -794,7 +623,25 @@ void NCAPI_EDITOR register_editor_plugin( Scene& scene )
                             if (ImGui::CollapsingHeader( type->name, ImGuiTreeNodeFlags_DefaultOpen )) {
                                 ImGui::PushID( static_cast<int>( id << 16 | type->id.value ) );
                                 if (draw_component_properties( type, data_ptr )) {
-                                    state->SelectedNode->mark_component_modified( type );
+                                    state->SelectedNode->notify_changed( type );
+                                }
+
+                                if (type == rtti::TypeRegistry::find<MaterialComponent>()) {
+                                    auto* mat = static_cast<MaterialComponent*>( data_ptr );
+                                    auto shader =
+                                        state->CurrentScene->get_resource_loader().get<MaterialShader>( mat->Shader );
+                                    if (shader) {
+                                        if (propgrid::draw_material_uniforms( *mat, *shader )) {
+                                            state->SelectedNode->notify_changed<MaterialComponent>();
+                                            if (state->ApplyMaterialToAll)
+                                                apply_material_params_to_all(
+                                                    *state->CurrentScene, mat->Shader, mat->Params
+                                                );
+                                        }
+                                        ImGui::Checkbox( "Apply to all with this shader", &state->ApplyMaterialToAll );
+                                    } else {
+                                        ImGui::TextDisabled( "Shader not loaded" );
+                                    }
                                 }
 
                                 if (ImGui::SmallButton( "Remove" )) {
@@ -856,24 +703,11 @@ void NCAPI_EDITOR register_editor_plugin( Scene& scene )
                 ImGui::End();
             }
 
-            if (state->ShowStatsWindow) {
-                if (ImGui::Begin( "Stats", &state->ShowStatsWindow )) {
+            if (state->ShowMiscWindow) {
+                if (ImGui::Begin( "Misc", &state->ShowMiscWindow )) {
 
                     ImGui::SeparatorText( "RTTI" );
                     ImGui::Text( "Hits: %d", rtti::TypeRegistry::get_rtti_hits() );
-
-                    ImGui::SeparatorText( "Rendering" );
-                    const auto& stats = vid->Renderer->get_stats();
-                    ImGui::Text( "GPU Duration: %.3f ms", stats.gpu_duration_ms );
-                    for (uint32_t i = 0; i < stats.pass_count; ++i)
-                        ImGui::Text( "  pass[%u]: %.3f ms", i, stats.pass_duration_ms[i] );
-                    ImGui::Text( "  compute: %.3f ms", stats.compute_duration_ms );
-                    ImGui::Text( "Input Assembler Primitives: %llu", stats.input_primitives );
-                    ImGui::Text( "Input Assembler Vertices: %llu", stats.input_vertices );
-                    ImGui::Text( "Vertex Shader Invocations: %llu", stats.vs_invocations );
-                    ImGui::Text( "Pixel Shader Invocations: %llu", stats.ps_invocations );
-                    ImGui::Text( "Clipping Primitives: %llu", stats.clipping_primitives );
-                    ImGui::Text( "Clipping Invocations: %llu", stats.clipping_invocations );
 
                     ImGui::SeparatorText( "ECS Debug" );
                     ImGui::Text(
