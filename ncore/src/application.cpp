@@ -24,6 +24,7 @@
 #include <ncore/services/video/window_service.h>
 #include <ncore/utils/config.h>
 #include <ncore/utils/log.h>
+#include <ncore/utils/profiler.h>
 #include <utils/logger/logger.h>
 #include <utils/logger/sink.h>
 
@@ -41,6 +42,8 @@ Application::~Application()
 
 void Application::init()
 {
+    NC_ZONE_COLOR( "Application::init", NC_COLOR_APP );
+
     rtti::TypeRegistry::initialize();
 
     context.Config.load( context.AppDesc.ConfigFile );
@@ -75,6 +78,7 @@ void Application::init()
 
 static void throttle_framerate( std::chrono::steady_clock::time_point& cur_time, double target_frame_time )
 {
+    NC_ZONE_NAMED( "throttle_framerate" );
     auto frame_end_time      = std::chrono::steady_clock::now();
     double actual_frame_time = std::chrono::duration<double>( frame_end_time - cur_time ).count();
     if (actual_frame_time < target_frame_time) {
@@ -105,21 +109,32 @@ void Application::run()
 
         accumulator += context.DeltaTime;
 
-        process_events();
-
-        while (accumulator >= FIXED_DT) {
-            if (game_world->on_fixed_update( FIXED_DT )) {
-                break;
-            }
-            accumulator -= FIXED_DT;
-            context.Ticks++;
+        {
+            NC_ZONE_COLOR( "process_events", NC_COLOR_INPUT );
+            process_events();
         }
 
-        if (game_world->on_variable_update( context.DeltaTime )) {
-            break;
+        {
+            NC_ZONE_COLOR( "fixed_update", NC_COLOR_APP );
+            while (accumulator >= FIXED_DT) {
+                if (game_world->on_fixed_update( FIXED_DT )) {
+                    break;
+                }
+                accumulator -= FIXED_DT;
+                context.Ticks++;
+            }
+        }
+
+        {
+            NC_ZONE_COLOR( "variable_update", NC_COLOR_APP );
+            if (game_world->on_variable_update( context.DeltaTime )) {
+                break;
+            }
         }
 
         throttle_framerate( cur_time, TARGET_FRAME_TIME );
+
+        NC_FRAME_MARK;
     }
 
     context.IsRunning = false;
@@ -137,6 +152,8 @@ void Application::process_events()
 
 void Application::register_services()
 {
+    NC_ZONE_NAMED( "register_services" );
+
     SDL_SetMemoryFunctions(
         []( size_t size ) -> void* { return memalloc( size ); },
         []( size_t nmemb, size_t size ) -> void* { return memcalloc( nmemb, size ); },
@@ -168,6 +185,7 @@ Ptr<IGameWorld> Application::create_world()
 
 void Application::finish()
 {
+    NC_ZONE_COLOR( "Application::finish", NC_COLOR_APP );
     NC_LOG_TRACE( "Application teardown" );
     game_world->on_exit();
     game_world.reset(); // destroy heap allocations.

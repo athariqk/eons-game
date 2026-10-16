@@ -6,6 +6,7 @@
 #include <ncore/runtime/ecs/ecs_events.h>
 #include <ncore/runtime/node.h>
 #include <ncore/runtime/scene.h>
+#include <ncore/utils/profiler.h>
 
 #include "scene_plugins.h"
 
@@ -13,6 +14,8 @@ namespace nc {
 
 void Scene::on_enter()
 {
+    NC_ZONE_COLOR( "Scene::on_enter", NC_COLOR_ECS );
+
     ecs_world.set_singleton<AppDesc>( app_ctx->AppDesc );
 
     auto* config  = ecs_world.add_singleton<ConfigComponent>();
@@ -92,14 +95,25 @@ void Scene::on_ready() {}
 
 bool Scene::on_fixed_update( double p_delta )
 {
+    NC_ZONE_COLOR( "Scene::on_fixed_update", NC_COLOR_ECS );
     // TODO: run ecs in fixed-update pipeline
     return wants_to_quit;
 }
 
 bool Scene::on_variable_update( double p_delta )
 {
-    process_pending_node_deletions_();
-    ecs_world.progress( p_delta );
+    NC_ZONE_COLOR( "Scene::on_variable_update", NC_COLOR_ECS );
+
+    {
+        NC_ZONE_NAMED( "process_pending_node_deletions" );
+        process_pending_node_deletions_();
+    }
+
+    {
+        NC_ZONE_COLOR( "ecs_progress", NC_COLOR_ECS );
+        ecs_world.progress( p_delta );
+    }
+
     return wants_to_quit;
 }
 
