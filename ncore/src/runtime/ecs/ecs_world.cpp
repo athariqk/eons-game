@@ -12,6 +12,11 @@
 #include <ncore/utils/log.h>
 #include <ncore/utils/profiler.h>
 
+#if defined( NCORE_ENABLE_TRACY )
+#include <tracy/TracyC.h>
+#include <cstring>
+#endif
+
 namespace nc {
 
 static void flecs_log_callback( int32_t level, const char* file, int32_t line, const char* msg )
@@ -42,36 +47,38 @@ static void flecs_log_callback( int32_t level, const char* file, int32_t line, c
 }
 
 #if defined( NCORE_ENABLE_TRACY )
-// Flecs 4.1+ OS API perf_trace hooks → Tracy zones.
-// Automatically instruments every system, observer and internal Flecs work.
-static void flecs_tracy_trace_push( const char* file, size_t line, const char* name )
-{
-    (void)file;
-    (void)line;
-    // ZoneTransient creates a named zone without requiring a unique compile-time ID.
-    // Depth is left at 1; Tracy will nest correctly with matching pop.
-    tracy::ScopedZone ___tracy_zone( &___tracy_source_location, true );
-    // Prefer the explicit name when available.
-    if (name && name[0]) {
-        ___tracy_zone.Name( name, strlen( name ) );
-    }
-}
+// Thread-local stack of active TracyC zones so push/pop pairs nest correctly.
+// Flecs guarantees matching push/pop on the same thread.
+struct TracyZoneStack {
+    static constexpr int kMaxDepth = 64;
+    TracyCZoneCtx stack[kMaxDepth];
+    int          depth = 0;
+};
 
-// We need a proper RAII-free push/pop pair. Tracy's C API is the right tool here.
+static thread_local TracyZoneStack g_tracy_zones;
+
 static void flecs_tracy_push( const char* /*file*/, size_t /*line*/, const char* name )
 {
+    if (g_tracy_zones.depth >= TracyZoneStack::kMaxDepth)
+        return;
+
+    TracyCZoneCtx ctx;
     if (name && name[0]) {
-        TracyCZoneN( ctx, name, true );
-        (void)ctx; // zone is tracked by Tracy's internal stack
+        // TracyCZoneN expands to a compound statement; capture the ctx.
+        TracyCZoneN( _ctx, name, true );
+        ctx = _ctx;
     } else {
-        TracyCZone( ctx, true );
-        (void)ctx;
+        TracyCZone( _ctx, true );
+        ctx = _ctx;
     }
+    g_tracy_zones.stack[g_tracy_zones.depth++] = ctx;
 }
 
 static void flecs_tracy_pop( const char* /*file*/, size_t /*line*/, const char* /*name*/ )
 {
-    TracyCZoneEnd( 0 ); // ends the most recent TracyCZone / TracyCZoneN
+    if (g_tracy_zones.depth <= 0)
+        return;
+    TracyCZoneEnd( g_tracy_zones.stack[--g_tracy_zones.depth] );
 }
 #endif
 
