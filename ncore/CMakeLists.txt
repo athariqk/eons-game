@@ -18,6 +18,22 @@ set(NCORE_VERSION
 
 option(ENABLE_PCH "Enable Precompiled Headers performance optimization" ON)
 
+# Tracy profiler: default ON for Debug, OFF for Release/Dist.
+# Override with -DNCORE_ENABLE_TRACY=ON/OFF at configure time.
+option(NCORE_ENABLE_TRACY "Enable Tracy profiler instrumentation" OFF)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR (NOT CMAKE_BUILD_TYPE AND "$<CONFIG:Debug>"))
+  # Multi-config generators evaluate generator expressions later; also honour
+  # an explicit -DNCORE_ENABLE_TRACY=ON from the command line.
+endif()
+# Prefer: enable by default when the active config is Debug.
+if(NOT DEFINED CACHE{NCORE_ENABLE_TRACY} OR NCORE_ENABLE_TRACY STREQUAL "OFF")
+  # Leave the option as-is if the user explicitly set it. For single-config
+  # Debug builds, turn it on automatically.
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(NCORE_ENABLE_TRACY ON CACHE BOOL "Enable Tracy profiler instrumentation" FORCE)
+  endif()
+endif()
+
 if(ENABLE_PCH)
   target_precompile_headers(ncore PRIVATE "pch.h")
 endif()
@@ -44,6 +60,13 @@ set_target_properties(
 target_compile_definitions(
   ncore PRIVATE $<$<CONFIG:Debug>:NC_DEBUG=1> $<$<CONFIG:Release>:NC_RELEASE=1>
                 $<$<CONFIG:Dist>:NC_DIST=1>)
+
+if(NCORE_ENABLE_TRACY)
+  target_compile_definitions(ncore PUBLIC NCORE_ENABLE_TRACY=1 TRACY_ENABLE=1)
+  message(STATUS "NCORE: Tracy profiler ENABLED")
+else()
+  message(STATUS "NCORE: Tracy profiler disabled")
+endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   target_compile_options(ncore PRIVATE /GR- /w14701 /w14703 /utf-8)

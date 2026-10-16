@@ -201,6 +201,37 @@ else()
   install(FILES "${SLANG_RUNTIME}" DESTINATION .)
 endif()
 
+# Tracy profiler (optional)
+if(NCORE_ENABLE_TRACY)
+  include(FetchContent)
+  FetchContent_Declare(
+    tracy
+    GIT_REPOSITORY https://github.com/wolfpld/tracy.git
+    GIT_TAG v0.11.1
+    GIT_SHALLOW TRUE)
+  set(TRACY_ENABLE
+      ON
+      CACHE BOOL "" FORCE)
+  set(TRACY_ON_DEMAND
+      ON
+      CACHE BOOL "" FORCE)
+  set(TRACY_NO_EXIT
+      OFF
+      CACHE BOOL "" FORCE)
+  set(TRACY_NO_CRASH_HANDLER
+      OFF
+      CACHE BOOL "" FORCE)
+  FetchContent_MakeAvailable(tracy)
+  # Silence Tracy warnings the same way as other vendored deps
+  if(TARGET TracyClient)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+      target_compile_options(TracyClient PRIVATE -w)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+      target_compile_options(TracyClient PRIVATE /w)
+    endif()
+  endif()
+endif()
+
 target_link_libraries(
   ncore
   PRIVATE mimalloc-static
@@ -214,6 +245,10 @@ target_link_libraries(
           Diligent-GraphicsAccessories
           Diligent-ShaderTools
           slang::slang)
+
+if(NCORE_ENABLE_TRACY AND TARGET TracyClient)
+  target_link_libraries(ncore PUBLIC TracyClient)
+endif()
 
 # Install runtime DLLs (dynamic-only)
 if(NOT NCORE_STATIC_DEPS)
