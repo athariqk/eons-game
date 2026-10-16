@@ -21,6 +21,8 @@ struct SpatialItem {
     RID material;
     RID gpu_mesh;
     Mat4 transform;
+    // Cached (transform)^{-1} for the normal matrix. Updated in spatial_item_set_transform.
+    Mat4 normal_matrix;
 };
 
 struct RenderContext {
@@ -39,6 +41,8 @@ struct RenderContext {
     struct SpatialDrawCmd : public SortableItem<SpatialItem> {
         uint32_t instancing;
         uint32_t index_count;
+        // Cached at submit time so render_target does not re-query materials every pass.
+        bool transparent = false;
     };
 
     struct CanvasDrawCmd : public SortableItem<CanvasItem> {
@@ -61,6 +65,11 @@ struct RenderContext {
     DynamicArray<uint32_t> canvas_sort_indices;
     // Transparent spatial draws, sorted back-to-front and issued after the opaque pass.
     DynamicArray<uint32_t> spatial_transparent_sort_indices;
+
+    // Built once per frame on the first spatial render_target; reused by later views
+    // (game + scene view) so we do not re-partition/re-sort the same command list.
+    bool spatial_lists_ready = false;
+
     uint32_t canvas_override_vert_count = 0;
     uint32_t canvas_override_idx_count  = 0;
     uint32_t canvas_staging_vert_count  = 0;
@@ -76,6 +85,7 @@ struct RenderContext {
         spatial_sort_indices.clear();
         canvas_sort_indices.clear();
         spatial_transparent_sort_indices.clear();
+        spatial_lists_ready = false;
         canvas_verts_staging.clear();
         canvas_indices_staging.clear();
         canvas_override_vert_count = 0;
