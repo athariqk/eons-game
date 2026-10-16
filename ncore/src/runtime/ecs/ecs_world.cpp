@@ -10,6 +10,7 @@
 #include <ncore/runtime/ecs/ecs_events.h>
 #include <ncore/runtime/ecs/ecs_world.h>
 #include <ncore/utils/log.h>
+#include <ncore/utils/profiler.h>
 
 namespace nc {
 
@@ -40,6 +41,40 @@ static void flecs_log_callback( int32_t level, const char* file, int32_t line, c
     );
 }
 
+#if defined( NCORE_ENABLE_TRACY )
+// Flecs 4.1+ OS API perf_trace hooks → Tracy zones.
+// Automatically instruments every system, observer and internal Flecs work.
+static void flecs_tracy_trace_push( const char* file, size_t line, const char* name )
+{
+    (void)file;
+    (void)line;
+    // ZoneTransient creates a named zone without requiring a unique compile-time ID.
+    // Depth is left at 1; Tracy will nest correctly with matching pop.
+    tracy::ScopedZone ___tracy_zone( &___tracy_source_location, true );
+    // Prefer the explicit name when available.
+    if (name && name[0]) {
+        ___tracy_zone.Name( name, strlen( name ) );
+    }
+}
+
+// We need a proper RAII-free push/pop pair. Tracy's C API is the right tool here.
+static void flecs_tracy_push( const char* /*file*/, size_t /*line*/, const char* name )
+{
+    if (name && name[0]) {
+        TracyCZoneN( ctx, name, true );
+        (void)ctx; // zone is tracked by Tracy's internal stack
+    } else {
+        TracyCZone( ctx, true );
+        (void)ctx;
+    }
+}
+
+static void flecs_tracy_pop( const char* /*file*/, size_t /*line*/, const char* /*name*/ )
+{
+    TracyCZoneEnd( 0 ); // ends the most recent TracyCZone / TracyCZoneN
+}
+#endif
+
 // static function so this is called only once
 static void init_flecs_os_api()
 {
@@ -52,6 +87,13 @@ static void init_flecs_os_api()
     };
     os_api.calloc_ = []( ecs_size_t size ) -> void* { return memcalloc( 1, static_cast<size_t>( size ) ); };
     os_api.log_    = flecs_log_callback;
+
+#if defined( NCORE_ENABLE_TRACY )
+    // Available since Flecs 4.1 — automatic system / observer / pipeline zones.
+    os_api.perf_trace_push_ = flecs_tracy_push;
+    os_api.perf_trace_pop_  = flecs_tracy_pop;
+#endif
+
     ecs_os_set_api( &os_api );
 }
 
@@ -100,6 +142,7 @@ EcsWorld::~EcsWorld()
 
 void EcsWorld::progress( double delta_time )
 {
+    NC_ZONE_COLOR( "EcsWorld::progress", NC_COLOR_ECS );
     ecs_progress( pImpl->world, static_cast<float>( delta_time ) );
 }
 
