@@ -198,3 +198,20 @@ struct REFLECT NCAPI Rect2i {
 };
 
 } // namespace nc
+
+template<>
+struct std::formatter<nc::Rect2i> {
+    constexpr auto parse( std::format_parse_context& ctx )
+    {
+        auto it = ctx.begin();
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error( "Invalid format arguments for Rect2i." );
+        }
+        return it;
+    }
+
+    auto format( const nc::Rect2i& r, std::format_context& ctx ) const
+    {
+        return std::format_to( ctx.out(), "Rect2i({}, {}, {}, {})", r.x, r.y, r.w, r.h );
+    }
+};

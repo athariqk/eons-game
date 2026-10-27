@@ -90,7 +90,11 @@ using Ptr = std::unique_ptr<T, D>;
 template<typename T>
 class BumpAllocator {
 public:
-    static constexpr uint32_t DEFAULT_ARENA_SIZE = 256; // 256 bytes
+    static constexpr uint32_t DEFAULT_ARENA_SIZE = 256; // 256 elements of T
+
+    using value_type     = T;
+    using iterator       = T*;
+    using const_iterator = const T*;
 
     BumpAllocator( size_t p_capacity = DEFAULT_ARENA_SIZE ) : capacity( p_capacity )
     {
@@ -111,7 +115,7 @@ public:
 
     T* alloc_at( size_t position )
     {
-        if (position > capacity)
+        if (position >= capacity)
             return nullptr;
         head_ = position;
         return &data_[head_];
@@ -131,10 +135,19 @@ public:
         return ptr;
     }
 
+    /**
+     * @brief Deallocates the entire arena and frees the memory.
+     *
+     * This calls the destructors of all allocated objects in the arena.
+     */
     void dealloc()
     {
+        if (!data_)
+            return;
         head_ = 0;
+        std::destroy( begin(), end() );
         memfree_align( data_, alignof( T ) );
+        data_ = nullptr;
     }
 
     T* operator[]( size_t index )
@@ -152,10 +165,13 @@ public:
 
     /**
      * @brief This does NOT free memory, just resets the head pointer to 0!
+     *
+     * See also: dealloc() to free the memory.
      */
     void reset()
     {
         head_ = 0;
+        std::destroy( begin(), end() );
     }
 
     /**
@@ -179,6 +195,33 @@ public:
     const T* data() const
     {
         return data_;
+    }
+
+    iterator begin()
+    {
+        return data_;
+    }
+    iterator end()
+    {
+        return data_ + head_;
+    }
+
+    const_iterator begin() const
+    {
+        return data_;
+    }
+    const_iterator end() const
+    {
+        return data_ + head_;
+    }
+
+    const_iterator cbegin() const
+    {
+        return data_;
+    }
+    const_iterator cend() const
+    {
+        return data_ + head_;
     }
 
 private:

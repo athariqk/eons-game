@@ -93,23 +93,31 @@ EcsEntity EcsEntityBuilder::build()
     if (existing_name)
         name = existing_name; // gotta do this cus c++ string can't handle nullptr
 
+    // only new entities carry a name.
+    bool is_new = id == 0 && !name.empty();
+
     // create bare entity
     ecs_entity_desc_t desc{};
     desc.id = id;
-    if (!name.empty())
+    if (is_new)
         desc.name = name.c_str();
     if (!alias_.empty())
         desc.symbol = alias_.c_str(); // TODO: rectify this
-    ecs_entity_t ent = ecs_entity_init( world_, &desc );
-    NC_ASSERT_MSG( ent != 0, "FAIL to create entity" );
+
+    EcsEntity ent = ecs_entity_init( world_, &desc );
+    NC_ASSERT_MSG( ent != 0, "FAIL to init entity" );
+
+    if (is_new) {
+        NC_LOG_DEBUG_C( log::ECS, "NEW entity created '{}' (id {})", name, ent );
+    }
 
     // set components
     for (auto& c : components) {
         EcsComponent comp_id = world.register_component_type( c.type );
         ecs_set_id( world_, ent, comp_id, c.data.size(), c.data.data() );
         if (c.disabled) {
-            // FIXME: can't toggle error due to CanToggle trait not being set? :\
-            // but IT IS already set in register_component_type. potential race condition
+            // FIXME: "can't toggle error" due to CanToggle trait not being set??? :\
+            // but IT IS already set in register_component_type(), potential race condition?
             ecs_enable_id( world_, ent, comp_id, false );
         }
     }
@@ -125,7 +133,6 @@ EcsEntity EcsEntityBuilder::build()
     }
 
     built = true;
-    NC_LOG_DEBUG_C( log::ECS, "NEW entity '{}' (id {})", name, ent );
     return static_cast<EcsEntity>( ent );
 }
 
