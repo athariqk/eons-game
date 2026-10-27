@@ -3,6 +3,19 @@
 
 namespace nc::log {
 
+namespace {
+std::atomic<Level> g_MinLogLevel = Level::LTRACE;
+}
+
+void set_min_level( Level level )
+{
+    g_MinLogLevel.store( level );
+}
+Level get_min_level()
+{
+    return g_MinLogLevel.load();
+}
+
 StringView level_triplet( Level l )
 {
     switch (l) {

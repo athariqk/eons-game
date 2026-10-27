@@ -23,27 +23,27 @@ class InputService;
  * @brief A semantic version representation for the application.
  */
 struct REFLECT NCAPI AppVersion {
-    REFLECT int Major = 0;
-    REFLECT int Minor = 0;
-    REFLECT int Patch = 0;
-    REFLECT String Identifier;
+    REFLECT int major         = 0;
+    REFLECT int minor         = 0;
+    REFLECT int patch         = 0;
+    REFLECT String identifier = "n";
 };
 
 /**
  * @brief AppDesc can be used to initialize an app with the given specification.
  */
 struct REFLECT NCAPI AppDesc {
-    REFLECT String Name;        // Name of the application.
-    REFLECT AppVersion Version; // Semantic version of the application.
-    REFLECT String ConfigFile;  // Relative path to the application's config file.
+    REFLECT String name;        // Name of the application.
+    REFLECT AppVersion version; // Semantic version of the application.
+    REFLECT String config_file; // Relative path to the application's config file.
 };
 
 namespace cfg {
 
 struct REFLECT NCAPI Log {
-    REFLECT int Level       = 0;
-    REFLECT String FilePath = "logs/engine.log";
-    REFLECT String Overrides;
+    REFLECT int level        = 0;
+    REFLECT String file_path = "logs/engine.log";
+    REFLECT String overrides;
 };
 
 } // namespace cfg
@@ -52,12 +52,12 @@ struct REFLECT NCAPI Log {
  * @brief State of an Application object.
  */
 struct NCAPI AppContext {
-    AppDesc AppDesc;          // Descriptor used to init this application.
-    ConfFile Config;          // Parsed application config (loaded once in Application::init).
-    ServiceRegistry Services; // Registry of all registered engine services.
-    bool IsRunning   = false; // Whether game loop is still looping.
-    uint64_t Ticks   = 0;     // Ticks since first run() frame.
-    double DeltaTime = 0.0;
+    AppDesc app_desc;          // Descriptor used to init this application.
+    ConfFile config;           // Parsed application config (loaded once in Application::init).
+    ServiceRegistry services;  // Registry of all registered engine services.
+    bool is_running   = false; // Whether game loop is still looping.
+    uint64_t ticks    = 0;     // Ticks since first run() frame.
+    double delta_time = 0.0;
 };
 
 /**
@@ -70,7 +70,7 @@ struct NCAPI AppContext {
  */
 class NCAPI Application {
 public:
-    Application( const AppDesc& desc );
+    Application( const AppDesc& p_desc );
     virtual ~Application();
 
     Application( const Application& )            = delete;
