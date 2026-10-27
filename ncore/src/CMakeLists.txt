@@ -1,8 +1,9 @@
 target_sources(
   ncore
   PRIVATE "application.cpp"
-          "core/memory.cpp"
+		  "core/aabb.cpp"
           "core/asan_leaks.cpp"
+          "core/memory.cpp"
           "core/object.cpp"
           "core/rid.cpp"
           "core/types.cpp"

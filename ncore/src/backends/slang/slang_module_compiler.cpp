@@ -535,7 +535,7 @@ void SlangModuleCompiler::set_search_paths_( const DynamicArray<String>& p_paths
     // releases it via writeRef() before creating the replacement.
     session_created = false;
 
-    NC_LOG_INFO_C( log::IO, "Shader search paths set to: {}", paths);
+    NC_LOG_INFO_C( log::IO, "Shader search paths set to: {}", paths );
 }
 
 // ---------------------------------------------------------------------------
@@ -557,17 +557,17 @@ static void read_field_ui_attrs_( slang::VariableReflection* var, ShaderParamFie
         const char* name = attr->getName();
         if (std::strcmp( name, "Color" ) == 0) {
             out.widget = gfx::ParamWidget::COLOR;
-        } else if (std::strcmp( name, "Range" ) == 0 ) {
+        } else if (std::strcmp( name, "Range" ) == 0) {
             out.widget = gfx::ParamWidget::SLIDER;
-            float mn = 0.0f;
-            float mx = 0.0f;
+            float mn   = 0.0f;
+            float mx   = 0.0f;
             if (attr->getArgumentCount() >= 2) {
                 attr->getArgumentValueFloat( 0, &mn );
                 attr->getArgumentValueFloat( 1, &mx );
             }
             out.range_min = mn;
             out.range_max = mx;
-        } else if (std::strcmp( name, "Header" ) == 0 ) {
+        } else if (std::strcmp( name, "Header" ) == 0) {
             size_t len = 0;
             if (const char* text = attr->getArgumentValueString( 0, &len ); text && len > 0)
                 out.header = String( text, len );
@@ -655,7 +655,8 @@ void SlangModuleCompiler::reflect_fields_(
         out_fields.push_back( out );
 
         NC_LOG_DEBUG_C(
-            log::IO, "  field '{}' type='{}' offset={} size={} stride={} array_size={} widget={} range=[{},{}] header='{}'",
+            log::IO,
+            "  field '{}' type='{}' offset={} size={} stride={} array_size={} widget={} range=[{},{}] header='{}'",
             out.name, rtti::get_enum_name( &out.type ), out.offset, out.size, out.stride, out.array_size,
             rtti::get_enum_name( &out.widget ), out.range_min, out.range_max, out.header.c_str()
         );

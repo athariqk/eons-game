@@ -117,6 +117,9 @@ set(DILIGENT_NO_SUPER_RESOLUTION
 set(DILIGENT_NO_HLSL
     ON
     CACHE BOOL "" FORCE)
+set(DILIGENT_NO_GLSLANG
+    ON
+    CACHE BOOL "" FORCE)
 
 add_subdirectory(diligent-core SYSTEM)
 

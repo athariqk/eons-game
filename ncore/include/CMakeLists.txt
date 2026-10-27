@@ -9,6 +9,7 @@ target_sources(
          "ncore.hpp"
          "ncore/application.h"
          "ncore/game_world.h"
+		 "ncore/core/aabb.h"
          "ncore/core/alloc_overrides.h"
          "ncore/core/collection.h"
          "ncore/core/color.h"

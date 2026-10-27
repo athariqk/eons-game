@@ -29,7 +29,7 @@ class NCAPI RenderService : public IService {
 
 public:
     struct REFLECT NCAPI RenderSettings {
-        REFLECT bool VSync = true;
+        REFLECT bool vsync = true;
     };
 
     const RenderSettings& get_settings() const [[clang::lifetimebound]]
@@ -53,19 +53,23 @@ public:
      */
     Vec2i swapchain_get_size( RID swapchain );
     /**
-     * @brief Return the primary swapchain RID.
+     * @brief Return the primary swapchain RID. Invalid RID if none exists.
      */
     RID swapchain_get_primary() const;
     void swapchain_destroy( RID swapchain );
 
-    RID texture_2d_create( const Image& image );
+    RID texture_2d_create( const Image& image, bool updatable = false );
+    void texture_data_update(
+        RID texture, uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint32_t row_pitch_bytes,
+        const void* p_data
+    );
     /**
      * @brief Create a cube mapped texture from 6 separate images (faces).
      */
     RID texture_cube_create( const CubeMap& cubemap );
     /**
-     * @brief Create a new render texture.
-     * @return RenderTexture RID.
+     * @brief Create a new renderable texture, sampleable by shaders.
+     * @return render_texture RID.
      */
     RID texture_render_create( Vec2i size, gfx::TextureFormat format = gfx::TextureFormat::RGBA8_UNORM );
     /**
@@ -74,10 +78,10 @@ public:
     void* texture_view_get( RID texture, gfx::TextureViewType view );
     /**
      * @brief Copy data from source texture into destination texture.
-     * @param tex_src Source texture to copy from.
-     * @param tex_dest Destination texture. If none (0), target is the primary swapchain.
+     * @param p_src Source texture to copy from.
+     * @param p_dest Destination texture. If none (0), target is the primary swapchain.
      */
-    void texture_blit( RID tex_src, RID tex_dest = 0 );
+    void texture_blit( RID p_src, RID p_dest = 0 );
 
     RID buffer_create( const gfx::BufferDesc& desc );
     /**
@@ -115,7 +119,7 @@ public:
 
     /**
      * @brief Uploads a CPU Mesh resource into the current GPU device.
-     * @return A new RID handle to the buffer.
+     * @return A new RID handle to the mesh buffer object.
      */
     RID mesh_create( const Mesh& mesh );
 
@@ -130,11 +134,11 @@ public:
     void compute_dispatch( uint32_t x, uint32_t y, uint32_t z );
 
     struct CameraAttribs {
-        Mat4 Transform = Mat4::identity();
-        float Fov      = 1.5708f; // a.k.a angle-of-view (in radians).
-        float zNear    = 0.1f;    // Near clipping plane.
-        float zFar     = 100.0f;  // Far clipping plane.
-        Vec2i DisplaySize;
+        Mat4 transform = Mat4::identity();
+        float fov      = 1.5708f; // a.k.a angle-of-view (in radians).
+        float z_near    = 0.1f;    // Near clipping plane.
+        float z_far     = 100.0f;  // Far clipping plane.
+        Vec2i display_size;
 
         // cached perspective projection.
         // recomputed only when the projection inputs change.
@@ -151,6 +155,10 @@ public:
 
     RID spatial_item_create();
     void spatial_item_set_mesh( RID p_spatial_item, RID p_gpu_mesh );
+    /**
+     * @brief Get GPU mesh bound to a spatial item (0 when none/unowned).
+     */
+    RID spatial_item_get_mesh( RID p_spatial_item );
     void spatial_item_set_transform( RID p_spatial_item, const Mat4& p_transform );
     void spatial_item_set_material( RID p_spatial_item, RID p_material );
     /**
@@ -158,12 +166,12 @@ public:
      *
      * Pushes a new 3D draw command to the draw list to be rendered next frame.
      */
-    void spatial_item_draw( RID p_spatial_item, uint32_t instancing = 1 );
+    void spatial_item_draw( RID p_spatial_item, uint16_t p_layer_index = 0, uint32_t p_instancing = 1 );
 
     RID canvas_item_create();
     void canvas_item_set_material( RID p_canvas_item, RID p_material );
     void canvas_item_set_clipping( RID p_canvas_item, Rect2i p_clip );
-    void canvas_item_add_triangles( RID p_canvas_item, Span<const Vertex2D> p_verts, Span<const uint16_t> p_indices );
+    void canvas_item_add_triangles( RID p_canvas_item, Span<const Vertex2D> p_verts, Span<const uint32_t> p_indices );
     /**
      * @brief Add a simple 2D rectangle to the canvas item.
      */
@@ -178,7 +186,7 @@ public:
      */
     void canvas_item_draw( RID p_canvas_item, uint32_t z_order = 0 );
     void canvas_item_draw(
-        RID p_canvas_item, Span<const Vertex2D> p_verts_override, Span<const uint16_t> p_indices_override,
+        RID p_canvas_item, Span<const Vertex2D> p_verts_override, Span<const uint32_t> p_indices_override,
         RID p_texture_override, Rect2i p_clip_override, uint32_t z_order = 0
     );
 
@@ -191,8 +199,8 @@ public:
      * @brief Describes a single render target and camera.
      */
     struct RenderTargetDesc {
-        RID color_texture; // Target color RenderTexture RID.
-        RID depth_texture; // Target depth RenderTexture RID.
+        RID color_texture; // Target color render_texture RID.
+        RID depth_texture; // Target depth render_texture RID.
         Rect2i rectangle;  // Target render dimensions.
         Color clear_color = Color( 0, 0, 0, 255 );
         bool clear        = true;
@@ -256,7 +264,7 @@ public:
 private:
     void ensure_canvas_vertex_buf_( uint32_t p_needed_verts );
     void ensure_canvas_index_buf_( uint32_t p_needed_ids );
-    Mat4 camera_perspective_get_( CameraAttribs& attribs );
+    Mat4 camera_perspective_get_impl( CameraAttribs& attribs );
 
     RenderSettings settings;
     Ptr<GfxInterface> gfx_api;
@@ -267,7 +275,7 @@ private:
     RID primary_swapchain;
     RIDPool<CameraAttribs> cameras{ 16 };
     float time;
-    float last_dt_ = 0.0f;
+    float last_dt = 0.0f;
 
     // Per-frame GPU timing of each render_target() pass (see get_stats()).
     RenderStats m_stats;

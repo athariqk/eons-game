@@ -5,7 +5,9 @@
 #include <ncore/services/video/gfx_interface.h>
 #include <ncore/services/video/renderer/render_storage.h>
 #include <ncore/services/video/renderer/vertex_format.h>
+#include <ncore/utils/assert.h>
 #include <ncore/utils/log.h>
+#include <utils/profiler.h>
 
 namespace nc {
 
@@ -62,17 +64,12 @@ RID RenderStorage::get_render_pipeline_or_create( const PSOKey& key )
 
     auto it = pso_cache.find( key );
     if (it != pso_cache.end()) {
-        NC_LOG_DEBUG_C(
-            log::GRAPHICS, "get_render_pipeline_or_create: '{}_{}' cache HIT (rid={})", key.debug_name, hash,
-            it->second.value
+        NC_LOG_TRACE_C(
+            log::GRAPHICS, "CACHE HIT render PSO '{}_{}' (rid={})", key.debug_name, hash, it->second.value
         );
         return it->second;
     }
 
-    NC_LOG_DEBUG_C(
-        log::GRAPHICS, "get_render_pipeline_or_create: '{}_{}' cache MISS -> creating new render PSO", key.debug_name,
-        hash
-    );
     NC_VERIFY( gfx_api );
 
     gfx::RenderPipelineDesc desc;
@@ -128,6 +125,9 @@ RID RenderStorage::get_render_pipeline_or_create( const PSOKey& key )
 
     auto rid = gfx_api->render_pipeline_create( desc );
     pso_cache.emplace( key, rid );
+
+    NC_LOG_DEBUG_C( log::GRAPHICS, "NEW render PSO RID={} -> cache MISS ('{}_{}')", rid.value, key.debug_name, hash );
+
     return rid;
 }
 
@@ -137,17 +137,12 @@ RID RenderStorage::get_compute_pipeline_or_create( const PSOKey& key )
 
     auto it = pso_cache.find( key );
     if (it != pso_cache.end()) {
-        NC_LOG_DEBUG_C(
-            log::GRAPHICS, "get_compute_pipeline_or_create: '{}_{}' cache HIT (rid={})", key.debug_name, hash,
-            it->second.value
+        NC_LOG_TRACE_C(
+            log::GRAPHICS, "CACHE HIT compute PSO '{}_{}' (rid={})", key.debug_name, hash, it->second.value
         );
         return it->second;
     }
 
-    NC_LOG_DEBUG_C(
-        log::GRAPHICS, "get_compute_pipeline_or_create: '{}_{}' cache MISS -> creating new compute PSO", key.debug_name,
-        hash
-    );
     NC_VERIFY( gfx_api );
 
     gfx::ComputePSODesc desc{};
@@ -157,6 +152,9 @@ RID RenderStorage::get_compute_pipeline_or_create( const PSOKey& key )
 
     auto rid = gfx_api->compute_pipeline_create( desc );
     pso_cache.emplace( key, rid );
+
+    NC_LOG_DEBUG_C( log::GRAPHICS, "NEW compute PSO RID={} -> cache MISS ('{}_{}')", rid.value, key.debug_name, hash );
+
     return rid;
 }
 
@@ -205,19 +203,14 @@ RID RenderStorage::resource_set_create(
     RID sig_rid;
     if (auto it = res_signature_cache.find( sig_key ); it != res_signature_cache.end()) {
         sig_rid = it->second;
-        NC_LOG_DEBUG_C(
-            log::GRAPHICS, "ResourceSignature_{} cache HIT (rid={}) -> Shader='{}' BindingSet={}", hash, sig_rid.value,
+        NC_LOG_TRACE_C(
+            log::GRAPHICS, "CACHE HIT ResourceSignature_{} (rid={}) -> Shader='{}' BindingSet={}", hash, sig_rid.value,
             p_shader.filepath, p_set
         );
     } else {
         gfx::ResourceSignatureDesc signature;
         signature.name    = "ResourceSignature_" + std::to_string( hash );
         signature.set_idx = p_set;
-
-        NC_LOG_DEBUG_C(
-            log::GRAPHICS, "{} cache MISS -> creating new for shader='{}' BindingSet={}", signature.name,
-            p_shader.filepath, p_set
-        );
 
         auto params = p_shader.get_param_set( p_set );
         for (auto& param : params) {
@@ -234,6 +227,12 @@ RID RenderStorage::resource_set_create(
         }
 
         sig_rid = gfx_api->resource_signature_create( signature );
+
+        NC_LOG_DEBUG_C(
+            log::GRAPHICS, "NEW resource signature RID={} name={} shader='{}' BindingSet={} -> cache MISS",
+            sig_rid.value, signature.name, p_shader.filepath, p_set
+        );
+
         res_signature_cache.emplace( sig_key, sig_rid );
     }
 
@@ -266,6 +265,7 @@ RID RenderStorage::resource_set_get_signature( RID p_resource_set )
 
 void RenderStorage::resource_set_bind( RID p_resource_set )
 {
+    NC_ZONE_COLOR( "RenderStorage::resource_set_bind", NC_COLOR_RENDER )
     NC_VERIFY( gfx_api );
     auto* set = resource_sets.get_or_fail( p_resource_set );
     gfx_api->resource_binding_commit( set->binding );
@@ -300,21 +300,32 @@ size_t RenderStorage::PSOKeyHasher::operator()( const PSOKey& p ) const
 
 void RenderStorage::scene_data_update( const SceneData& p_scene_data )
 {
+    NC_ZONE_COLOR( "RenderStorage::scene_data_update", NC_COLOR_RENDER )
     NC_VERIFY( gfx_api );
-    ensure_scene_data_ubo_();
+    ensure_global_uniforms_();
+
+    // DEFAULT buffer persists across frames: skip the upload when nothing changed
+    // (identical multi-pass frames and repeated calls).
+    if (scene_data_valid_ && std::memcmp( &last_scene_data_, &p_scene_data, sizeof( SceneData ) ) == 0)
+        return;
+    last_scene_data_  = p_scene_data;
+    scene_data_valid_ = true;
+
     gfx_api->buffer_data_write( scene_data_ubo, &p_scene_data, sizeof( p_scene_data ) );
-    // the SRB is committed in material_bind(), after SetPipelineState — committing it
-    // here would be discarded, because binding a PSO clears the bound SRB slots
+
+    // the globals SRB is committed in material_bind().
 }
 
 // ---------------------------------------------------------------------------
 
 RID RenderStorage::material_create( const Ref<MaterialShader>& p_shader )
 {
+    NC_ZONE_COLOR( "RenderStorage::material_create", NC_COLOR_RENDER )
+
     NC_VERIFY( gfx_api );
 
     if (!p_shader) {
-        NC_LOG_ERROR_C( log::GRAPHICS, "material_create: null MaterialShader, material not created" );
+        NC_LOG_ERROR_C( log::GRAPHICS, "FAIL creating material: null MaterialShader" );
         return RID();
     }
 
@@ -322,8 +333,7 @@ RID RenderStorage::material_create( const Ref<MaterialShader>& p_shader )
     auto mat    = materials.get_or_fail( handle );
     mat->shader = p_shader;
 
-    ensure_scene_data_ubo_();
-    ensure_light_env_();
+    ensure_global_uniforms_();
     ensure_push_constant_signatures_();
 
     for (const auto& param : p_shader->get_params()) {
@@ -349,15 +359,12 @@ RID RenderStorage::material_create( const Ref<MaterialShader>& p_shader )
 
     if (param_buffer_size > 0) {
         gfx::BufferDesc buf_desc;
-        buf_desc.debug_name      = "MaterialParam_" + std::to_string( handle.value );
-        buf_desc.size            = param_buffer_size;
-        buf_desc.usage           = gfx::ResourceUsage::DYNAMIC;
-        buf_desc.cpu_access_mask = gfx::ResourceCpuAccessFlags::WRITE;
-        buf_desc.bind_mask       = gfx::ResourceBindFlags::UNIFORM_BUFFER;
-        mat->param_buffer        = gfx_api->buffer_create( buf_desc );
+        buf_desc.debug_name = "MaterialParam_" + std::to_string( handle.value );
+        buf_desc.size       = param_buffer_size;
+        buf_desc.usage      = gfx::ResourceUsage::DEFAULT;
+        buf_desc.bind_mask  = gfx::ResourceBindFlags::UNIFORM_BUFFER;
+        mat->param_buffer   = gfx_api->buffer_create( buf_desc );
         mat->param_staging.resize( param_buffer_size, 0 );
-        // a DYNAMIC buffer is only mapped on the first write — Diligent asserts if the buffer
-        // reaches a draw before that, so upload the zeroed staging on the first material_bind
         mat->param_dirty = true;
     }
 
@@ -409,22 +416,22 @@ RID RenderStorage::material_create( const Ref<MaterialShader>& p_shader )
     }
     mat->has_push_constants = has_push_constants;
 
-    // set 0 also holds parameters that slang reported but the SPIR-V dropped (dead
-    // g_Material blocks etc.) — only g_LightEnv is a real set-0 descriptor
     bool has_light_env = false;
+    bool has_scene     = false;
     for (const auto& param : p_shader->get_param_set( BINDING_SET_SHADER_GLOBAL )) {
         if (param.name == "g_LightEnv") {
             has_light_env = true;
-            break;
+        }
+        if (param.name == "g_Scene") {
+            has_scene = true;
         }
     }
-    mat->has_light_env = has_light_env;
+    mat->has_globals = has_light_env || has_scene;
 
     auto key = get_pso_key_( p_shader );
 
-    key.res_signatures.push_back( resource_set_get_signature( scene_data_ubo_res_set ) );
-    if (has_light_env)
-        key.res_signatures.push_back( resource_set_get_signature( light_env_res_set ) );
+    if (mat->has_globals)
+        key.res_signatures.push_back( resource_set_get_signature( global_uniforms_res_set ) );
     if (has_material_set)
         key.res_signatures.push_back( resource_set_get_signature( mat->material_res_set ) );
     if (has_push_constants) {
@@ -436,10 +443,9 @@ RID RenderStorage::material_create( const Ref<MaterialShader>& p_shader )
     mat->pso     = get_render_pipeline_or_create( key );
     mat->pso_key = key;
 
-    // flat permutation: identical except it declares no depth attachment — and a pass without
-    // one cannot test or write depth either
-    auto flat  = key;
-    flat.flags = static_cast<PSOFlags>(
+    // TODO: remove this
+    PSOKey flat = key;
+    flat.flags  = static_cast<PSOFlags>(
         ( flat.flags & ~static_cast<PSOFlags>( PSO_DST_FMT_MASK ) & ~( PSO_DEPTH_TEST | PSO_DEPTH_WRITE ) ) |
         ( static_cast<uint64_t>( gfx::TextureFormat::UNKNOWN ) << PSO_DST_FMT_SHIFT )
     );
@@ -448,9 +454,9 @@ RID RenderStorage::material_create( const Ref<MaterialShader>& p_shader )
 
     NC_LOG_DEBUG_C(
         log::GRAPHICS,
-        "material_create: RID={} shader='{}' textures={} param_buf={} signatures={} set0={} set1={} push={}",
-        handle.value, p_shader->filepath, mat->texture_slots.size(), param_buffer_size, key.res_signatures.size(),
-        p_shader->get_param_set( BINDING_SET_SHADER_GLOBAL ).size(),
+        "NEW material RID={} PSO={} shader='{}' textures={} param_buf={} signatures={} set0={} set1={} push={}",
+        handle.value, mat->pso.value, p_shader->filepath, mat->texture_slots.size(), param_buffer_size,
+        key.res_signatures.size(), p_shader->get_param_set( BINDING_SET_SHADER_GLOBAL ).size(),
         p_shader->get_param_set( BINDING_SET_MATERIAL ).size(), has_push_constants
     );
 
@@ -459,6 +465,8 @@ RID RenderStorage::material_create( const Ref<MaterialShader>& p_shader )
 
 void RenderStorage::material_set_param( RID p_material, const String& p_param, const void* p_data, size_t p_data_size )
 {
+    NC_ZONE_COLOR( "RenderStorage::material_set_param", NC_COLOR_RENDER )
+
     NC_VERIFY( gfx_api );
 
     auto mat = materials.get_or_fail( p_material );
@@ -469,7 +477,7 @@ void RenderStorage::material_set_param( RID p_material, const String& p_param, c
         if (offset + p_data_size <= mat->param_staging.size()) {
             std::memcpy( mat->param_staging.data() + offset, p_data, p_data_size );
             mat->param_dirty = true;
-            NC_LOG_DEBUG_C(
+            NC_LOG_TRACE_C(
                 log::GRAPHICS, "material_set_param: material={} param='{}' offset={} size={}", p_material.value,
                 p_param, offset, p_data_size
             );
@@ -532,6 +540,10 @@ void RenderStorage::material_set_texture( RID p_material, RID p_texture, uint32_
     );
     gfx_api->resource_binding_update( set->binding, set->mapping, mat->shader->get_stage_flags() );
 
+    // invalidate the bound material cache
+    if (p_material == bound_material_)
+        bound_valid_ = false;
+
     NC_LOG_TRACE_C(
         log::GRAPHICS, "material_set_texture: material={} slot={} texture={}", p_material.value, p_slot, p_texture.value
     );
@@ -553,14 +565,6 @@ void RenderStorage::material_set_draw_mode( RID p_material, gfx::FillMode p_mode
     mat->pso_flat = get_render_pipeline_or_create( flat );
 }
 
-bool RenderStorage::material_has_push_constants( RID p_material )
-{
-    auto mat = materials.get( p_material );
-    if (!mat)
-        return false;
-    return mat->has_push_constants;
-}
-
 bool RenderStorage::material_is_transparent( RID p_material )
 {
     auto mat = materials.get( p_material );
@@ -569,92 +573,58 @@ bool RenderStorage::material_is_transparent( RID p_material )
     return mat->shader->blend != gfx::BlendPreset::OPAQUE;
 }
 
-void RenderStorage::scene_depth_set( RID p_texture )
+bool RenderStorage::material_bind( RID handle, bool p_pass_has_depth )
 {
-    ensure_light_env_();
+    NC_ZONE_COLOR( "RenderStorage::material_bind", NC_COLOR_RENDER )
 
-    RID tex = ( p_texture && gfx_api->is_rid_owned( p_texture ) ) ? p_texture : scene_depth_fallback;
-    if (tex == scene_depth_texture)
-        return;
-
-    scene_depth_texture = tex;
-
-    auto set = resource_sets.get_or_fail( light_env_res_set );
-    gfx_api->resource_mapping_add_entry(
-        set->mapping,
-        gfx::ResourceMappingEntry{
-            .variable_name = "g_SceneDepth",
-            .kind          = gfx::ResourceType::TEXTURE_SRV,
-            .resource      = tex,
-        },
-        false
-    );
-    gfx_api->resource_binding_update( set->binding, set->mapping, gfx::ShaderStage::PIXEL );
-}
-
-RID RenderStorage::material_create_texture_variant( RID p_material, RID p_texture )
-{
-    auto mat = materials.get_or_fail( p_material );
-
-    TextureVariantKey key{ .material = p_material, .texture = p_texture };
-    if (auto it = texture_variant_cache.find( key ); it != texture_variant_cache.end())
-        return it->second;
-
-    // Clone the material and bake the override into slot 0. The base material is never
-    // mutated, so its texture slots stay stable across frames regardless of draw order.
-    RID variant         = material_create( mat->shader );
-    auto vmat           = materials.get_or_fail( variant );
-    vmat->param_staging = mat->param_staging;
-    vmat->param_dirty   = mat->param_dirty || !mat->param_staging.empty();
-    material_set_texture( variant, p_texture, 0 );
-
-    texture_variant_cache.insert( { key, variant } );
-    return variant;
-}
-
-void RenderStorage::material_bind( RID handle, bool p_pass_has_depth )
-{
     NC_VERIFY( gfx_api );
     auto mat = materials.get_or_fail( handle );
 
-    // Diligent discards dynamic allocations at the end of every frame — a buffer that is
-    // drawn to has to be re-mapped in every frame, even when its contents did not change.
-    if (mat->param_buffer && ( mat->param_dirty || mat->param_frame != frame_index )) {
+    if (mat->param_buffer && mat->param_dirty) {
         gfx_api->buffer_data_write( mat->param_buffer, mat->param_staging.data(), mat->param_staging.size() );
         mat->param_dirty = false;
-        mat->param_frame = frame_index;
     }
 
     const RID pso = p_pass_has_depth ? mat->pso : mat->pso_flat;
-    gfx_api->render_pipeline_bind( pso );
-    // every signature of the PSO needs its SRB committed after the PSO is bound —
-    // Diligent clears the SRB slots on SetPipelineState (index == resource set id)
-    resource_set_bind( scene_data_ubo_res_set );
-    if (mat->material_res_set)
-        resource_set_bind( mat->material_res_set );
-    if (light_env_res_set && mat->has_light_env) {
-        if (light_env_frame != frame_index) {
-            gfx_api->buffer_data_write( light_env_ubo, light_env_data_.data(), light_env_data_.size() );
-            light_env_frame = frame_index;
-        }
-        resource_set_bind( light_env_res_set );
+
+    // skip binding pso if the same material and same permutation are already bound.
+    if (bound_valid_ && handle == bound_material_ && pso == bound_pso_) {
+        NC_LOG_TRACE_C(
+            log::GRAPHICS, "material_bind: cache HIT, PSO rid={} depth_pass={}", pso.value, p_pass_has_depth
+        );
+        return false;
     }
 
+    gfx_api->render_pipeline_bind( pso );
+
+    // every signature of the PSO needs its SRB committed after the PSO is bound
+    if (mat->has_globals)
+        resource_set_bind( global_uniforms_res_set );
+    if (mat->material_res_set)
+        resource_set_bind( mat->material_res_set );
+
+    bound_material_ = handle;
+    bound_pso_      = pso;
+    bound_valid_    = true;
+
     NC_LOG_TRACE_C( log::GRAPHICS, "material_bind: PSO rid={} depth_pass={}", pso.value, p_pass_has_depth );
+    return true;
 }
 
 // ---------------------------------------------------------------------------
 
 RID RenderStorage::mesh_create( const Mesh& mesh )
 {
+    NC_ZONE_COLOR( "RenderStorage::mesh_create", NC_COLOR_RENDER )
+
     NC_VERIFY( gfx_api );
 
     auto rid    = meshes.acquire();
     auto result = meshes.get_or_fail( rid );
 
     NC_LOG_DEBUG_C(
-        log::GRAPHICS, "mesh_create: RID={} vert_count={} idx_count={}", rid.value, mesh.vertex_count(),
-        mesh.index_count()
+        log::GRAPHICS, "NEW mesh RID={} vert_count={} idx_count={} layers={}", rid.value, mesh.vertex_count(),
+        mesh.index_count(), mesh.get_layers().size()
     );
 
     gfx::BufferDesc vdesc;
@@ -675,11 +645,18 @@ RID RenderStorage::mesh_create( const Mesh& mesh )
     result->indices     = gfx_api->buffer_create( idesc );
     result->index_count = static_cast<uint32_t>( mesh.index_count() );
 
+    // CPU-side copy of the layer table.
+    Span<const MeshLayerDesc> layers = mesh.get_layers();
+    NC_ASSERT_MSG( layers.size() <= GPUMesh::MAX_LAYERS, "Mesh has more layers than MAX_LAYERS (split the mesh)" );
+    result->layer_count = static_cast<uint8_t>( layers.size() );
+    std::copy( layers.begin(), layers.end(), result->layers.begin() );
+
     return rid;
 }
 
 void RenderStorage::mesh_bind( RID handle )
 {
+    NC_ZONE_COLOR( "RenderStorage::mesh_bind", NC_COLOR_RENDER )
     NC_VERIFY( gfx_api );
     auto mesh = meshes.get_or_fail( handle );
     gfx_api->buffer_vertices_bind( { &mesh->vertices, 1 }, 0 );
@@ -689,6 +666,20 @@ void RenderStorage::mesh_bind( RID handle )
 uint32_t RenderStorage::mesh_get_index_count( RID p_gpu_mesh )
 {
     return meshes.get_or_fail( p_gpu_mesh )->index_count;
+}
+
+uint8_t RenderStorage::mesh_get_layer_count( RID p_gpu_mesh )
+{
+    return meshes.get_or_fail( p_gpu_mesh )->layer_count;
+}
+
+bool RenderStorage::mesh_get_layer( RID p_gpu_mesh, uint32_t p_index, MeshLayerDesc& p_out )
+{
+    auto mesh = meshes.get_or_fail( p_gpu_mesh );
+    if (p_index >= mesh->layer_count)
+        return false;
+    p_out = mesh->layers[p_index];
+    return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -709,16 +700,53 @@ bool RenderStorage::destroy_rid( RID rid )
 
 void RenderStorage::flush_pending_destroys()
 {
+    NC_ZONE_COLOR( "RenderStorage::flush_pending_destroys", NC_COLOR_RENDER )
+
     for (auto& rid : pending_destroys) {
         NC_LOG_DEBUG_C( log::GRAPHICS, "Flushing pending destroys: RID={}", rid.value );
-        if (resource_sets.release( rid ))
+        if (resource_sets.contains( rid )) {
+            release_resource_set_( rid );
             continue;
-        if (materials.release( rid ))
+        }
+        if (auto mat = materials.get( rid )) {
+            release_material_gpu_( *mat );
+            materials.release( rid );
+            if (bound_material_ == rid)
+                bound_valid_ = false;
             continue;
-        if (meshes.release( rid ))
+        }
+        if (auto mesh = meshes.get( rid )) {
+            gfx_api->destroy_rid( mesh->vertices );
+            gfx_api->destroy_rid( mesh->indices );
+            meshes.release( rid );
             continue;
+        }
     }
     pending_destroys.clear();
+}
+
+void RenderStorage::release_material_gpu_( MaterialData& p_material )
+{
+    if (p_material.param_buffer) {
+        gfx_api->destroy_rid( p_material.param_buffer );
+        p_material.param_buffer = 0;
+    }
+    if (p_material.material_res_set) {
+        release_resource_set_( p_material.material_res_set );
+        p_material.material_res_set = 0;
+    }
+}
+
+void RenderStorage::release_resource_set_( RID p_resource_set )
+{
+    auto rs = resource_sets.get( p_resource_set );
+    if (!rs)
+        return;
+    if (rs->mapping)
+        gfx_api->destroy_rid( rs->mapping );
+    if (rs->binding)
+        gfx_api->destroy_rid( rs->binding );
+    resource_sets.release( p_resource_set );
 }
 
 void RenderStorage::set_graphics_api( GfxInterface* p_gfx_api )
@@ -802,88 +830,33 @@ std::size_t RenderStorage::ResSignatureKeyHasher::operator()( const ResSignature
     return h;
 }
 
-bool RenderStorage::TextureVariantKey::operator==( const TextureVariantKey& o ) const
-{
-    return material == o.material && texture == o.texture;
-}
-
-std::size_t RenderStorage::TextureVariantKeyHasher::operator()( const TextureVariantKey& p ) const
-{
-    auto combine = []( size_t a, size_t b ) -> size_t { return a ^ ( b + 0x9e3779b9 + ( a << 6 ) + ( a >> 2 ) ); };
-    size_t h     = std::hash<uint64_t>{}( p.material.value );
-    h            = combine( h, std::hash<uint64_t>{}( p.texture.value ) );
-    return h;
-}
-
 // ---------------------------------------------------------------------------
 
-void RenderStorage::ensure_scene_data_ubo_()
-{
-    if (scene_data_ubo)
-        return;
-
-    gfx::BufferDesc sdb_desc;
-    sdb_desc.debug_name      = "SceneData_UBO";
-    sdb_desc.size            = sizeof( SceneData );
-    sdb_desc.usage           = gfx::ResourceUsage::DYNAMIC;
-    sdb_desc.cpu_access_mask = gfx::ResourceCpuAccessFlags::WRITE;
-    sdb_desc.bind_mask       = gfx::ResourceBindFlags::UNIFORM_BUFFER;
-    scene_data_ubo           = gfx_api->buffer_create( sdb_desc );
-
-    gfx::ResourceSignatureDesc sdb_sig_desc;
-    sdb_sig_desc.name      = "SceneData_UBO_Signature";
-    sdb_sig_desc.set_idx   = RenderStorage::BINDING_SET_SCENE;
-    sdb_sig_desc.resources = { gfx::PipelineResourceDesc{
-        .name          = "g_Scene",
-        .stage         = gfx::ShaderStage::VS_PS,
-        .resource_type = gfx::ResourceType::CONSTANT_BUFFER,
-        .array_size    = 1
-    } };
-
-    RID sig = gfx_api->resource_signature_create( sdb_sig_desc );
-
-    gfx::ResourceMappingEntry mapping;
-    mapping.variable_name = "g_Scene";
-    mapping.kind          = gfx::ResourceType::CONSTANT_BUFFER;
-    mapping.resource      = scene_data_ubo;
-    RID res_mapping       = gfx_api->resource_mapping_create( { &mapping, 1 } );
-
-    RID binding = gfx_api->resource_binding_create( sig );
-    gfx_api->resource_binding_update( binding, res_mapping, gfx::ShaderStage::VS_PS );
-
-    auto set_rid   = resource_sets.acquire();
-    auto set       = resource_sets.get_or_fail( set_rid );
-    set->signature = sig;
-    set->mapping   = res_mapping;
-    set->binding   = binding;
-    set->set       = BINDING_SET_SCENE;
-    set->slot_kinds.push_back( gfx::ResourceType::CONSTANT_BUFFER );
-
-    scene_data_ubo_res_set = set_rid;
-
-    NC_LOG_DEBUG_C(
-        log::GRAPHICS, "ensure_scene_data_ubo_: created SceneData_UBO size={} RID={} ResSet={}", sizeof( SceneData ),
-        scene_data_ubo.value, set_rid.value
-    );
-}
-
-// ---------------------------------------------------------------------------
-
-void RenderStorage::ensure_light_env_()
+void RenderStorage::ensure_global_uniforms_()
 {
     NC_VERIFY( gfx_api );
 
-    if (light_env_ubo)
+    if (global_uniforms_res_set)
         return;
+
+    // --- SceneData UBO (g_Scene) ---
+
+    gfx::BufferDesc sdb_desc;
+    sdb_desc.debug_name = "SceneData_UBO";
+    sdb_desc.size       = sizeof( SceneData );
+    sdb_desc.usage      = gfx::ResourceUsage::DEFAULT;
+    sdb_desc.bind_mask  = gfx::ResourceBindFlags::UNIFORM_BUFFER;
+    scene_data_ubo      = gfx_api->buffer_create( sdb_desc );
+
+    // --- LightEnv UBO (g_LightEnv) ---
 
     // Sized generously: the shader block is `LightArray<DirectionalLight, 4>`.
     gfx::BufferDesc buf_desc;
-    buf_desc.debug_name      = "LightEnv_UBO";
-    buf_desc.size            = 512;
-    buf_desc.usage           = gfx::ResourceUsage::DYNAMIC;
-    buf_desc.cpu_access_mask = gfx::ResourceCpuAccessFlags::WRITE;
-    buf_desc.bind_mask       = gfx::ResourceBindFlags::UNIFORM_BUFFER;
-    light_env_ubo            = gfx_api->buffer_create( buf_desc );
+    buf_desc.debug_name = "LightEnv_UBO";
+    buf_desc.size       = 512;
+    buf_desc.usage      = gfx::ResourceUsage::DEFAULT;
+    buf_desc.bind_mask  = gfx::ResourceBindFlags::UNIFORM_BUFFER;
+    light_env_ubo       = gfx_api->buffer_create( buf_desc );
 
     // The block must contain at least one light: `illuminate()` walks
     // `lights[0..count)` and a zero-filled block means `count == 0`, i.e. every
@@ -912,39 +885,27 @@ void RenderStorage::ensure_light_env_()
     put_f32( kLightBase + kIntensityOffset + 4, 3.0f );
     put_f32( kLightBase + kIntensityOffset + 8, 3.0f );
 
-    // Written again by material_bind() on first use: Diligent discards dynamic
-    // buffer allocations at frame boundaries, so a write made here may not survive.
     gfx_api->buffer_data_write( light_env_ubo, light_env_data_.data(), light_env_data_.size() );
 
-    // 1x1 far-depth fallback so every spatial SRB has a valid `g_SceneDepth`.
-    if (!scene_depth_fallback) {
-        const float far_depth = 1.0f;
-        gfx::TextureDesc depth_desc{};
-        depth_desc.debug_name      = "SceneDepth_Fallback";
-        depth_desc.format          = gfx::TextureFormat::D32_FLOAT;
-        depth_desc.dimension       = gfx::ResourceDimension::DIM_2D;
-        depth_desc.bind_mask       = gfx::ResourceBindFlags::DEPTH_STENCIL | gfx::ResourceBindFlags::SHADER_RESOURCE;
-        depth_desc.width           = 1;
-        depth_desc.height          = 1;
-        depth_desc.subresources.emplace_back( gfx::TextureDataDesc{ .pixels = &far_depth } );
-        scene_depth_fallback = gfx_api->texture_create( depth_desc );
-        scene_depth_texture  = scene_depth_fallback;
-    }
-
+    // --- one combined set-0 signature/SRB for both blocks ---
+    // Set 0 (BINDING_SET_SHADER_GLOBAL) holds g_LightEnv at binding 1 and
+    // g_Scene at binding 0 (see scene.slang). Sharing a single signature means
+    // one SRB and therefore one CommitShaderResources per PSO switch instead of
+    // one per uniform block.
     gfx::ResourceSignatureDesc sig_desc;
-    sig_desc.name    = "LightEnv_Signature";
-    sig_desc.set_idx = RenderStorage::BINDING_SET_SHADER_GLOBAL;
+    sig_desc.name      = "GlobalUniforms_Signature";
+    sig_desc.set_idx   = RenderStorage::BINDING_SET_SHADER_GLOBAL;
     sig_desc.resources = {
         gfx::PipelineResourceDesc{
-            .name          = "g_LightEnv",
-            .stage         = gfx::ShaderStage::PIXEL,
+            .name          = "g_Scene",
+            .stage         = gfx::ShaderStage::VS_PS,
             .resource_type = gfx::ResourceType::CONSTANT_BUFFER,
             .array_size    = 1
         },
         gfx::PipelineResourceDesc{
-            .name          = "g_SceneDepth",
+            .name          = "g_LightEnv",
             .stage         = gfx::ShaderStage::PIXEL,
-            .resource_type = gfx::ResourceType::TEXTURE_SRV,
+            .resource_type = gfx::ResourceType::CONSTANT_BUFFER,
             .array_size    = 1
         }
     };
@@ -953,20 +914,20 @@ void RenderStorage::ensure_light_env_()
 
     gfx::ResourceMappingEntry mappings[2] = {
         gfx::ResourceMappingEntry{
+            .variable_name = "g_Scene",
+            .kind          = gfx::ResourceType::CONSTANT_BUFFER,
+            .resource      = scene_data_ubo,
+        },
+        gfx::ResourceMappingEntry{
             .variable_name = "g_LightEnv",
             .kind          = gfx::ResourceType::CONSTANT_BUFFER,
             .resource      = light_env_ubo,
-        },
-        gfx::ResourceMappingEntry{
-            .variable_name = "g_SceneDepth",
-            .kind          = gfx::ResourceType::TEXTURE_SRV,
-            .resource      = scene_depth_fallback,
         }
     };
     RID res_mapping = gfx_api->resource_mapping_create( mappings );
 
     RID binding = gfx_api->resource_binding_create( sig );
-    gfx_api->resource_binding_update( binding, res_mapping, gfx::ShaderStage::PIXEL );
+    gfx_api->resource_binding_update( binding, res_mapping, gfx::ShaderStage::VS_PS );
 
     auto set_rid   = resource_sets.acquire();
     auto set       = resource_sets.get_or_fail( set_rid );
@@ -975,13 +936,13 @@ void RenderStorage::ensure_light_env_()
     set->binding   = binding;
     set->set       = BINDING_SET_SHADER_GLOBAL;
     set->slot_kinds.push_back( gfx::ResourceType::CONSTANT_BUFFER );
-    set->slot_kinds.push_back( gfx::ResourceType::TEXTURE_SRV );
+    set->slot_kinds.push_back( gfx::ResourceType::CONSTANT_BUFFER );
 
-    light_env_res_set = set_rid;
+    global_uniforms_res_set = set_rid;
 
     NC_LOG_DEBUG_C(
-        log::GRAPHICS, "ensure_light_env_: created LightEnv size=512 RID={} ResSet={}", light_env_ubo.value,
-        set_rid.value
+        log::GRAPHICS, "ensure_global_uniforms_: created SceneData size={} RID={} LightEnv size=512 RID={} ResSet={}",
+        sizeof( SceneData ), scene_data_ubo.value, light_env_ubo.value, set_rid.value
     );
 }
 
@@ -1034,7 +995,7 @@ void RenderStorage::ensure_fallback_textures_()
         desc.debug_name      = name;
         desc.format          = gfx::TextureFormat::RGBA8_UNORM_SRGB;
         desc.dimension       = dim;
-        desc.usage           = gfx::ResourceUsage::DYNAMIC;
+        desc.usage           = gfx::ResourceUsage::IMMUTABLE;
         desc.cpu_access_mask = gfx::ResourceCpuAccessFlags::WRITE;
         desc.width           = 1;
         desc.height          = 1;

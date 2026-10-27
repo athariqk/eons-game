@@ -69,8 +69,7 @@ public:
 
     static constexpr gfx::BindingSet BINDING_SET_SHADER_GLOBAL = 0;
     static constexpr gfx::BindingSet BINDING_SET_MATERIAL      = 1;
-    static constexpr gfx::BindingSet BINDING_SET_SCENE         = 2;
-    static constexpr gfx::BindingSet BINDING_SET_INSTANCE      = 3;
+    static constexpr gfx::BindingSet BINDING_SET_INSTANCE      = 2;
 
     /**
      * @brief Size of the spatial [[vk::push_constant]] block, in 4-byte constants.
@@ -120,7 +119,7 @@ public:
         uint32_t std140_pad0[2];
         // The current camera's transform.
         Mat4 camera_matrix;
-		Mat4 view_matrix;
+        Mat4 view_matrix;
         // The current camera's inverse matrix pre-multiplied with the projection matrix.
         Mat4 view_proj_matrix;
         // Elapsed time in seconds.
@@ -147,34 +146,21 @@ public:
     void material_set_texture( RID p_material, RID p_texture, uint32_t p_slot );
     void material_set_draw_mode( RID p_material, gfx::FillMode p_mode );
     /**
-     * @brief Bind material instance to the current render pipeline.
-     */
-    void material_bind( RID p_material, bool p_pass_has_depth );
-    bool material_has_push_constants( RID p_material );
-
-    /**
-     * @brief Set the sampleable opaque-scene depth texture bound to spatial materials.
-     *
-     * Bound into the shader-global set as `g_SceneDepth`; used by transparent materials
-     * (e.g. water) for depth-based absorption. Pass RID() to fall back to a 1x1 depth.
-     */
-    void scene_depth_set( RID p_texture );
-
-    /**
      * @brief Whether a material's shader declares a non-opaque blend preset.
      *
      * Used by the renderer to classify draw calls into the opaque and transparent
      * passes.
      */
     bool material_is_transparent( RID p_material );
-
     /**
-     * @brief Get-or-create a material variant whose texture slot 0 is bound to `p_texture`.
+     * @brief Bind material instance to the current render pipeline.
      *
-     * Avoids mutating the shared base material during the draw loop: the variant is
-     * created once per (material, texture) pair and cached for reuse across frames.
+     * Skips the GPU pipeline/resource rebinding when the same material and PSO
+     * permutation are already bound.
+     *
+     * @return true when the PSO was (re)bound, false on a state-cache hit.
      */
-    RID material_create_texture_variant( RID p_material, RID p_texture );
+    bool material_bind( RID p_material, bool p_pass_has_depth );
 
     /**
      * @brief Creates vertex/index buffer objects from Mesh resource.
@@ -188,6 +174,14 @@ public:
      */
     void mesh_bind( RID handle );
     uint32_t mesh_get_index_count( RID p_gpu_mesh );
+    /**
+     * @brief Get the number of layers in the GPU mesh.
+     */
+    uint8_t mesh_get_layer_count( RID p_gpu_mesh );
+    /**
+     * @brief Copies layer `i` of the GPU mesh out.
+     */
+    bool mesh_get_layer( RID p_gpu_mesh, uint32_t p_index, MeshLayerDesc& p_out );
 
     bool is_rid_owned( RID rid );
     bool destroy_rid( RID rid );
@@ -201,19 +195,16 @@ public:
      */
     void set_graphics_api( GfxInterface* p_gfx_api );
 
-    /**
-     * @brief Advance the per-frame counter used to decide when a dynamic buffer must be
-     * re-mapped. Diligent invalidates dynamic allocations at the end of every frame, so
-     * "written once" is only valid for the frame the write happened in.
-     */
-    void next_frame()
-    {
-        ++frame_index;
-    }
-
 private:
     friend class RenderService;
-    uint64_t frame_index = 0;
+
+    // Last material/PSO actually bound on the graphics context. material_bind()
+    // skips SetPipelineState + SRB commits while these match the request. Keyed
+    // on the material handle, not just the PSO: get_render_pipeline_or_create()
+    // shares PSO RIDs between materials that only differ in their resource set.
+    RID bound_material_;
+    RID bound_pso_;
+    bool bound_valid_ = false;
 
     /**
      * @brief GPU-side data of a Material.
@@ -229,13 +220,13 @@ private:
         PSOKey pso_key_flat;
         RID material_res_set;            // resource set for BINDING_SET_MATERIAL
         bool has_push_constants = false; // shader declares a [[vk::push_constant]] block
-        bool has_light_env      = false; // shader references g_LightEnv in set 0
-        RID param_buffer;                // Per-material constant buffer
+        // Shader declares g_Scene and/or g_LightEnv: its PSO carries the combined
+        // set-0 globals signature and material_bind commits the globals SRB.
+        bool has_globals = false;
+        RID param_buffer; // Per-material constant buffer
         DynamicArray<uint8_t> param_staging;
+        // Upload the staging on the next material_bind (creation zero-fill or a change).
         bool param_dirty = false;
-        // Diligent discards dynamic allocations at the end of every frame, so a buffer that
-        // is drawn to must be re-mapped in each frame. Tracks the last frame it was written.
-        uint64_t param_frame = ~0ull;
         struct TextureSlot {
             gfx::ParameterType type;
             RID texture_rid;
@@ -262,23 +253,17 @@ private:
         std::size_t operator()( const ResSignatureKey& p ) const;
     };
 
-    struct TextureVariantKey {
-        RID material;
-        RID texture;
-
-        bool operator==( const TextureVariantKey& o ) const;
-    };
-    struct TextureVariantKeyHasher {
-        std::size_t operator()( const TextureVariantKey& p ) const;
-    };
-
     /**
      * @brief GPU-side Mesh resource.
      */
     struct GPUMesh {
+        constexpr static size_t MAX_LAYERS = 32;
+
         RID vertices;
         RID indices;
         uint32_t index_count;
+        uint8_t layer_count                     = 0;
+        Array<MeshLayerDesc, MAX_LAYERS> layers = {};
     };
 
 private:
@@ -290,27 +275,32 @@ private:
     GfxInterface* gfx_api;
     HashMap<PSOKey, RID, PSOKeyHasher> pso_cache;
     HashMap<ResSignatureKey, RID, ResSignatureKeyHasher> res_signature_cache;
-    HashMap<TextureVariantKey, RID, TextureVariantKeyHasher> texture_variant_cache;
     RIDPool<ResourceSet> resource_sets;
     RIDPool<MaterialData> materials;
     RIDPool<GPUMesh> meshes;
     HashSet<RID> pending_destroys;
 
-    RID scene_data_ubo;
-    RID scene_data_ubo_res_set;
-    void ensure_scene_data_ubo_();
+    // destroy-path helpers (flush_pending_destroys / evict_texture_variants_for_)
+    void release_material_gpu_( MaterialData& p_material );
+    void release_resource_set_( RID p_resource_set );
 
-    // `g_LightEnv` lives in BINDING_SET_SHADER_GLOBAL (set 0) of every spatial
-    // shader. The engine has no light system yet, so a single default "sun" is
-    // kept in a staging block — a zero-filled block makes every surface black.
+private:
+    // Combined set-0 "globals" resource set: g_LightEnv (PIXEL CB) and g_Scene
+    // (VS_PS CB) share a single Diligent signature/SRB, so a material/PSO switch
+    // costs one CommitShaderResources instead of one per uniform block.
+    RID scene_data_ubo;
     RID light_env_ubo;
-    RID light_env_res_set;
-    uint64_t light_env_frame = ~0ull;
+    RID global_uniforms_res_set;
+    // shadow of the last upload so scene_data_update can skip no-op rewrites
+    SceneData last_scene_data_{};
+    bool scene_data_valid_ = false;
     DynamicArray<uint8_t> light_env_data_;
+    // The engine has no light system yet, so a single default "sun" is kept in
+    // a staging block — a zero-filled block makes every surface black.
     // 1x1 D32 fallback bound to `g_SceneDepth` until a real scene depth is provided.
     RID scene_depth_fallback;
     RID scene_depth_texture;
-    void ensure_light_env_();
+    void ensure_global_uniforms_();
 
     RID spatial_push_sig;
     RID spatial_push_binding;

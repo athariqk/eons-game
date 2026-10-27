@@ -25,7 +25,7 @@ struct VertexOutput
 
 struct CanvasInstance
 {
-    float4x4 ViewProjMatrix; // 2D ortho projection, updated once per canvas pass
+    float4x4 ViewProjMatrix; // 2D ortho projection, updated once per canvas pass.
 };
 [[vk::push_constant]] ConstantBuffer<CanvasInstance> g_Instance;
 

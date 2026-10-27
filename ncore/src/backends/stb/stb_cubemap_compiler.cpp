@@ -20,15 +20,15 @@ bool StbCubemapCompiler::is_handling_extension( const String& ext )
 
 Error StbCubemapCompiler::compile( StringView p_input, StringView p_output, AssetImportContext ctx )
 {
-    ( void )ctx;
+    ( void ) ctx;
 
     const String input_path( p_input );
     const String output_path( p_output );
 
-    int      width    = 0;
-    int      height   = 0;
-    int      channels = 0;
-    stbi_uc* pixels   = stbi_load( input_path.c_str(), &width, &height, &channels, 4 );
+    int width       = 0;
+    int height      = 0;
+    int channels    = 0;
+    stbi_uc* pixels = stbi_load( input_path.c_str(), &width, &height, &channels, 4 );
     if (!pixels) {
         NC_LOG_ERROR_C( log::IO, "Failed importing equirect image, reason: {}", stbi_failure_reason() );
         return Error::FAIL;

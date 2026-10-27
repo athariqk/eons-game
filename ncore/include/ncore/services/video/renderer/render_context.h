@@ -14,13 +14,14 @@ struct CanvasItem {
     RID texture;
     Rect2i clip;
     DynamicArray<Vertex2D> verts;
-    DynamicArray<uint16_t> indices;
+    DynamicArray<uint32_t> indices;
 };
 
 struct SpatialItem {
     RID material;
     RID gpu_mesh;
-    Mat4 transform;
+    Mat4 transform     = Mat4::identity();
+    Mat4 normal_matrix = Mat4::identity();
 };
 
 struct RenderContext {
@@ -28,7 +29,7 @@ struct RenderContext {
     RIDPool<SpatialItem> spatial_items;
 
     DynamicArray<Vertex2D> canvas_verts_staging;
-    DynamicArray<uint16_t> canvas_indices_staging;
+    DynamicArray<uint32_t> canvas_indices_staging;
 
     template<class T>
     struct SortableItem {
@@ -38,14 +39,14 @@ struct RenderContext {
 
     struct SpatialDrawCmd : public SortableItem<SpatialItem> {
         uint32_t instancing;
-        uint32_t index_count;
+        uint16_t layer_index = 0;
     };
 
     struct CanvasDrawCmd : public SortableItem<CanvasItem> {
         Rect2i clip_override;
         RID texture_override;
         Span<const Vertex2D> verts_override;
-        Span<const uint16_t> indices_override;
+        Span<const uint32_t> indices_override;
         uint32_t start_vert = 0;
         uint32_t start_idx  = 0;
         uint32_t idx_count  = 0;
@@ -57,10 +58,7 @@ struct RenderContext {
     BumpAllocator<CanvasDrawCmd> canvas_draw_cmds{ 4096 };
     // Index arrays into the draw command arenas, sorted by sort_key each frame. Sorting
     // indices avoids copying whole command structs (which embed spans/strings).
-    DynamicArray<uint32_t> spatial_sort_indices;
-    DynamicArray<uint32_t> canvas_sort_indices;
-    // Transparent spatial draws, sorted back-to-front and issued after the opaque pass.
-    DynamicArray<uint32_t> spatial_transparent_sort_indices;
+    BumpAllocator<uint32_t> sort_indices;
     uint32_t canvas_override_vert_count = 0;
     uint32_t canvas_override_idx_count  = 0;
     uint32_t canvas_staging_vert_count  = 0;
@@ -73,9 +71,7 @@ struct RenderContext {
     {
         spatial_draw_cmds.reset();
         canvas_draw_cmds.reset();
-        spatial_sort_indices.clear();
-        canvas_sort_indices.clear();
-        spatial_transparent_sort_indices.clear();
+        sort_indices.reset();
         canvas_verts_staging.clear();
         canvas_indices_staging.clear();
         canvas_override_vert_count = 0;

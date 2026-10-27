@@ -4,6 +4,7 @@ import types;
 
 public interface IBRDF
 {
+    // A function of the incident (`wi`), exitant (`wo`) directions and the surface normal (`N`).
     public float3 evaluate(float3 wo, float3 wi, float3 N);
 };
 

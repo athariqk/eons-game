@@ -41,12 +41,20 @@ public:
     virtual void sync_queue( GpuQueue queue ) = 0;
 
     /**
-     * @brief Makes the `dst` queue wait for all work submitted to the `src` queue so far.
+     * @brief Submits pending work recorded on `src`, then orders the `dst` queue after it.
      *
-     * Uses a GPU fence (signal on `src`, wait on `dst`), so it does not block the CPU.
-     * No-op when both queues resolve to the same hardware context.
+     * Non-blocking: `src`'s commands are flushed as their own queue submission and the
+     * `dst` queue waits for them on the GPU (fence signal on `src`, wait attached to
+     * `dst`'s next submission). The CPU keeps running, so pipelining is preserved.
+     * When both queues resolve to the same hardware context this is a plain Flush(),
+     * which also keeps the compute chain in a separate submission (submission split).
      */
-    virtual void queue_submit_and_wait( GpuQueue src, GpuQueue dst ) = 0;
+    virtual void queue_submit_ordered( GpuQueue src, GpuQueue dst ) = 0;
+
+    /**
+     * @brief Returns the name of the graphics adapter in use.
+     */
+    virtual const char* get_adapter_name() const = 0;
 
     // Graphics pipeline
 
@@ -113,8 +121,20 @@ public:
 
     // Resources
 
+    /**
+     * @brief Create a GPU-side texture resource.
+     */
     virtual RID texture_create( const gfx::TextureDesc& desc )               = 0;
     virtual void* texture_view_get( RID texture, gfx::TextureViewType view ) = 0;
+    /**
+     * @brief Copy a pixel rectangle into an existing USAGE_DEFAULT texture (mip 0,
+     * array slice 0). The RID stays valid, unlike destroy+recreate.
+     * @param row_pitch_bytes Distance in bytes between two rows in p_data.
+     */
+    virtual void texture_data_update(
+        RID texture, uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint32_t row_pitch_bytes,
+        const void* p_data
+    ) = 0;
     virtual void texture_binding_update(
         RID p_texture, RID p_binding, gfx::ShaderStage p_shader_type, gfx::TextureViewType p_view_type,
         StringView p_name
@@ -237,7 +257,7 @@ public:
     };
 
     virtual void designate_timestamp_slot( uint32_t slot, const char* name ) = 0;
-    virtual const char* get_timestamp_name( uint32_t slot ) const       = 0;
+    virtual const char* get_timestamp_name( uint32_t slot ) const            = 0;
 
     /**
      * @brief Record a GPU timestamp at the current point on the active queue.

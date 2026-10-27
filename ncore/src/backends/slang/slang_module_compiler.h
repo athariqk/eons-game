@@ -24,7 +24,7 @@ struct ShaderCompileDesc {
 struct MaterialShaderDesc {
     // Spatial vs Canvas, inferred from which interface the material struct implements
     // (ISpatialMaterial -> Spatial, ICanvasMaterial -> Canvas).
-    MaterialShaderType material_kind = MaterialShaderType::Spatial;
+    MaterialShaderType material_kind            = MaterialShaderType::Spatial;
     gfx::CullMode cull_mode                     = gfx::CullMode::NONE;
     gfx::FillMode fill_mode                     = gfx::FillMode::SOLID;
     bool depth_test                             = false;

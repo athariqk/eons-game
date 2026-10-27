@@ -65,7 +65,7 @@ public:
 			nc::Vertex3D{  1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0xFFFF0000 },
 		};
 		// Each face: (0,1,2) (0,2,3), offset by 4 per face
-		nc::Array<uint16_t, 36> cube_indices = {
+		nc::Array<uint32_t, 36> cube_indices = {
 			 0, 1, 2,   0, 2, 3,   // -Z
 			 4, 5, 6,   4, 6, 7,   // +Z
 			 8, 9,10,   8,10,11,   // -Y
@@ -80,7 +80,7 @@ public:
 			nc::Vertex3D{  1.0f, 0.0f, -1.0f,  0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0xFFFFFFFF },
 			nc::Vertex3D{  1.0f, 0.0f,  1.0f,  0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0xFFFFFFFF }
 		};
-		nc::Array<uint16_t, 6> plane_indices = {
+		nc::Array<uint32_t, 6> plane_indices = {
 			0, 2, 1,
 			0, 3, 2
 		};
@@ -92,8 +92,8 @@ public:
                     reinterpret_cast<std::byte const*>( cube_verts.data() ),
                     reinterpret_cast<std::byte const*>( cube_verts.data() + 8 )
                 ),
-                .indices       = nc::DynamicArray<uint16_t>( cube_indices.data(), cube_indices.data() + 36 ),
-                .vertex_stride = sizeof( nc::Vertex3D )
+                .indices       = nc::DynamicArray<uint32_t>( cube_indices.data(), cube_indices.data() + 36 ),
+                .vertex_stride = sizeof( nc::Vertex3D ),
             }
         );
         auto mesh_rid = res_svc.add( mesh );
@@ -104,25 +104,25 @@ public:
                     reinterpret_cast<std::byte const*>( plane_verts.data() ),
                     reinterpret_cast<std::byte const*>( plane_verts.data() + 4 )
                 ),
-                .indices       = nc::DynamicArray<uint16_t>( plane_indices.data(), plane_indices.data() + 6 ),
-                .vertex_stride = sizeof( nc::Vertex3D )
+                .indices       = nc::DynamicArray<uint32_t>( plane_indices.data(), plane_indices.data() + 6 ),
+                .vertex_stride = sizeof( nc::Vertex3D ),
             }
         );
         auto pmesh_rid = res_svc.add( pmesh );
 
         auto test_model = root()->create_child( "TestModel3D" );
         test_model->add_component<nc::Transform3DComponent>( nc::Transform3DComponent{
-            .Translation = nc::Vec3f( 0, 0, 0 ),
-            .Rotation    = nc::Quaternion( 180, nc::Vec3f::up() ),
-            .Scale       = nc::Vec3f( 1, 1, 1 )
+            .translation = nc::Vec3f( 0, 0, 0 ),
+            .rotation    = nc::Quaternion( 180, nc::Vec3f::up() ),
+            .scale       = nc::Vec3f( 1, 1, 1 )
         } );
         test_model->add_component<TestSpin>();
 
         auto cube_mesh = test_model->create_child( "CubeMesh" );
-        cube_mesh->add_component<nc::MeshComponent>( nc::MeshComponent{ .Source = mesh_rid } );
+        cube_mesh->add_component<nc::MeshComponent>( nc::MeshComponent{ .source = mesh_rid } );
         cube_mesh->add_component<nc::MeshRenderComponent>();
         cube_mesh->add_component<nc::HasResourceTag>();
-        nc::MaterialComponent cube_material{ .Shader = res_svc.load( "shaders/materials/standard_spatial.slang" ) };
+        nc::MaterialComponent cube_material{ .shader = res_svc.load( "shaders/materials/standard_spatial.slang" ) };
         // Material uniforms are zero-initialized on the GPU; without a white albedo the
         // albedoTexture * albedoColor * vertex-color product is black.
         cube_material.set_params<nc::Vec4f>( "albedoColor", nc::Vec4f( 1, 1, 1, 1 ) );
@@ -131,13 +131,13 @@ public:
 
         auto plane = root()->create_child( "Plane" );
         plane->add_component<nc::Transform3DComponent>( nc::Transform3DComponent{
-            .Translation = nc::Vec3f( 0, -5, 0 ), .Rotation = nc::Quaternion::identity(), .Scale = nc::Vec3f( 5, 1, 5 )
+            .translation = nc::Vec3f( 0, -5, 0 ), .rotation = nc::Quaternion::identity(), .scale = nc::Vec3f( 5, 1, 5 )
         } );
         auto plane_mesh = plane->create_child( "PlaneMesh" );
-        plane_mesh->add_component<nc::MeshComponent>( nc::MeshComponent{ .Source = pmesh_rid } );
+        plane_mesh->add_component<nc::MeshComponent>( nc::MeshComponent{ .source = pmesh_rid } );
         plane_mesh->add_component<nc::MeshRenderComponent>();
         plane_mesh->add_component<nc::HasResourceTag>();
-        nc::MaterialComponent plane_material{ .Shader = res_svc.load( "shaders/materials/standard_spatial.slang" ) };
+        nc::MaterialComponent plane_material{ .shader = res_svc.load( "shaders/materials/standard_spatial.slang" ) };
         plane_material.set_params<nc::Vec4f>( "albedoColor", nc::Vec4f( 1, 1, 1, 1 ) );
         plane_mesh->add_component<nc::MaterialComponent>( plane_material );
         plane_mesh->add_component<nc::MaterialRenderComponent>();
@@ -145,7 +145,7 @@ public:
         auto main_camera = root()->create_child( "MainCamera" );
         main_camera->add_component<nc::ActiveCameraTag>();
         main_camera->add_component<nc::Transform3DComponent>( nc::Transform3DComponent{
-            .Translation = nc::Vec3f( 0, 0, 5 ), .Rotation = nc::Quaternion::identity(), .Scale = nc::Vec3f( 1, 1, 1 )
+            .translation = nc::Vec3f( 0, 0, 5 ), .rotation = nc::Quaternion::identity(), .scale = nc::Vec3f( 1, 1, 1 )
         } );
         main_camera->add_component<nc::CameraComponent>();
         main_camera->add_component<nc::InputComponent>();
@@ -178,7 +178,7 @@ public:
                     nc::Quaternion weird_swaying = nc::Quaternion( 30, nc::Vec3f::forward() );
                     spin.end                     = spin.start * flip_180 * weird_swaying;
                 }
-                xform.Rotation = nc::Quaternion::slerp( spin.start, spin.end, std::min( spin.rotation, 1.0f ) );
+                xform.rotation = nc::Quaternion::slerp( spin.start, spin.end, std::min( spin.rotation, 1.0f ) );
             },
             nc::EcsSystemPhase::UPDATE
         );
@@ -191,16 +191,16 @@ public:
         Application(
             { "Eons",
               nc::AppVersion{
-                  .Major      = GAME_VERSION_MAJOR,
-                  .Minor      = GAME_VERSION_MINOR,
-                  .Patch      = GAME_VERSION_PATCH,
-                  .Identifier = GAME_VERSION_IDENTIFIER
+                  .major      = GAME_VERSION_MAJOR,
+                  .minor      = GAME_VERSION_MINOR,
+                  .patch      = GAME_VERSION_PATCH,
+                  .identifier = GAME_VERSION_IDENTIFIER
               },
               "eons.ini" }
         )
     {}
 
-    std::unique_ptr<nc::IGameWorld> create_world() override
+    nc::Ptr<nc::IGameWorld> create_world() override
     {
         return std::make_unique<TestScene>();
     }

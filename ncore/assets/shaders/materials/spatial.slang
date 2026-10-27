@@ -18,10 +18,9 @@ public interface ISpatialMaterial {
     BRDF prepare(SurfaceOutput s);
 };
 
-// 3D vertex format
 struct Vertex3D
 {
-    float3 Position; // In local space.
+    float3 Position; // in local space.
     float3 Normal;
     float4 Tangent;
     float2 UV1 : TEXCOORD1;
@@ -31,23 +30,20 @@ struct Vertex3D
 
 struct VertexOutput
 {
-    float4 Position : SV_Position; // In screen/clip space.
+    float4 Position : SV_Position; // in screen/clip space.
     float3 WorldPos;
     float3 Normal;
     float4 Color : TEXCOORD1;
     float2 UV : TEXCOORD2;
-    float4 Custom : TEXCOORD3; // material varyings (see SpatialGeometry::Custom)
+    float4 Custom : TEXCOORD3; // material varyings (see SpatialGeometry::Custom).
 };
 
 // TODO: make this work with any kind of lighting environment
-[[vk::binding(0, 0)]] ParameterBlock<LightArray<DirectionalLight, 4>> g_LightEnv;
-
-// Sampleable opaque scene depth (R32), provided by the renderer for the transparent pass.
-[[vk::binding(1, 0)]] Texture2D<float> g_SceneDepth;
+[[vk::binding(1, 0)]] ConstantBuffer<LightArray<DirectionalLight, 4>> g_LightEnv;
 
 struct SpatialInstance
 {
-    float4x4 ModelMatrix; // The object's current transform.
+    float4x4 ModelMatrix; // the object's current transform.
     float4x4 NormalMatrix;
 };
 [[vk::push_constant]] ConstantBuffer<SpatialInstance> g_Instance;
@@ -63,7 +59,7 @@ VertexOutput spatialVertexMain<M : ISpatialMaterial>(Vertex3D assembledVertex, P
 {
     float4 worldPos = mul(MODEL_MATRIX, float4(assembledVertex.Position, 1.0));
     float3 n = mul(float3x3(NORMAL_MATRIX), assembledVertex.Normal);
-    // normalize(0) is NaN; keep a zero vector so the pixel stage can substitute a
+    // normalize(0) is NaN, keep a zero vector so the pixel stage can substitute a
     // geometric normal instead of propagating NaN (which renders as black).
     float3 worldNormal = (dot(n, n) > 1e-12) ? normalize(n) : float3(0.0, 0.0, 0.0);
 
@@ -71,6 +67,7 @@ VertexOutput spatialVertexMain<M : ISpatialMaterial>(Vertex3D assembledVertex, P
     g.WorldPos = worldPos.xyz;
     g.Normal = worldNormal;
     g.UV = assembledVertex.UV1;
+    g.UV2 = assembledVertex.UV2;
     g.Color = assembledVertex.Color;
     g.Custom = float4(0.0, 0.0, 0.0, 0.0);
     g.ScreenUV = float2(0.0, 0.0);
@@ -95,6 +92,7 @@ float4 spatialPixelMain<M : ISpatialMaterial>(VertexOutput v, ParameterBlock<M> 
     g.WorldPos = v.WorldPos;
     g.Normal = normalize(v.Normal);
 	g.UV = v.UV;
+    g.UV2 = float2(0.0, 0.0); // fragment doesn't receive UV2, zero to avoid uninitialized reads.
     g.Color = v.Color;
     g.Custom = v.Custom;
     g.ScreenUV = v.Position.xy / float2(RENDER_WIDTH, RENDER_HEIGHT);
@@ -108,7 +106,7 @@ float4 spatialPixelMain<M : ISpatialMaterial>(VertexOutput v, ParameterBlock<M> 
     float3 lit = g_LightEnv.illuminate(o, brdf, V);
     lit += o.Emission;
 
-    // Emit premultiplied alpha.
+    // emit premultiplied alpha.
     return float4(lit * o.Alpha, o.Alpha);
 }
 

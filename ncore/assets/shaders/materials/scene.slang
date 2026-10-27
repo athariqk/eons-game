@@ -16,7 +16,7 @@ public struct SceneData
     public float ZFar;
 };
 
-[[vk::binding(0, 2)]] public ParameterBlock<SceneData> g_Scene;
+[[vk::binding(0, 0)]] public ConstantBuffer<SceneData> g_Scene;
 
 #define RENDER_WIDTH g_Scene.RenderWidth
 #define RENDER_HEIGHT g_Scene.RenderHeight

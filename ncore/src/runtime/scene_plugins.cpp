@@ -21,6 +21,7 @@
 #include <ncore/services/video/render_service.h>
 #include <ncore/services/video/window/window_event.h>
 #include <ncore/services/video/window_service.h>
+#include <utils/profiler.h>
 
 namespace nc {
 
@@ -34,93 +35,69 @@ void NCAPI register_core_plugin( Scene& scene )
         .in( EcsSystemPhase::PRE_FRAME )
         .run( []( EcsIterState& it ) {
             auto time = it.get_component<TimeComponent>();
-            time->Ticks++;
-            time->FrameCount++;
-            time->Accumulator += it.delta_time();
-            if (time->Accumulator >= 1.0) {
-                time->FPS         = static_cast<double>( time->FrameCount ) / time->Accumulator;
-                time->FrameCount  = 0;
-                time->Accumulator = 0.0;
+            time->ticks++;
+            time->frame_count++;
+            time->accumulator += it.delta_time();
+            if (time->accumulator >= 1.0) {
+                time->fps         = static_cast<double>( time->frame_count ) / time->accumulator;
+                time->frame_count = 0;
+                time->accumulator = 0.0;
             }
+            NC_PLOT( "FPS", time->fps );
         } );
 
     auto io       = scene.get_ecs().add_singleton<IOServices>();
-    io->Resources = &scene.get_resource_loader();
-    io->Inputs    = scene.get_app_ctx()->Services.resolve<InputService>();
+    io->resources = &scene.get_resource_loader();
+    io->inputs    = scene.get_app_ctx()->services.resolve<InputService>();
 
     auto vid      = scene.get_ecs().add_singleton<VideoServices>();
-    vid->Window   = scene.get_app_ctx()->Services.resolve<WindowService>();
-    vid->Renderer = scene.get_app_ctx()->Services.resolve<RenderService>();
+    vid->window   = scene.get_app_ctx()->services.resolve<WindowService>();
+    vid->renderer = scene.get_app_ctx()->services.resolve<RenderService>();
 }
 
 void register_video_plugin( Scene& scene )
 {
-    scene.get_ecs()
-        .system( "SceneVideoPlugin_Init" )
-        .with<AppDesc>()
-        .with<IOServices>()
-        .with<VideoServices>()
-        .in( EcsSystemPhase::INIT )
-        .run( []( EcsIterState& it ) {
-            auto app_desc = it.get_component<AppDesc>();
-            auto io       = it.get_component<IOServices>();
-            auto vid      = it.get_component<VideoServices>();
-
-            vid->Window->set_default_icon( io->Resources->load<Image>( "images/window.png" ) );
-
-            it.world()
-                .entity( "MainWindow" )
-                .add<MainWindowTag>()
-                .add<WindowComponent>( WindowComponent{
-                    .Swapchain      = 0,
-                    .Title          = app_desc->Name,
-                    .Resolution     = Vec2i( 1280, 720 ),
-                    .Mode           = vid->Window->get_settings().Mode,
-                    .Visible        = true,
-                    .PixelsPerMeter = vid->Window->get_settings().PixelsPerMeter
-                } )
-                .build();
-        } );
+    auto window_svc   = scene.get_app_ctx()->services.resolve<WindowService>();
+    auto default_icon = scene.get_resource_loader().load<Image>( "images/window.png" );
+    window_svc->set_default_icon( default_icon );
 
     scene.get_ecs()
-        .observer( "SceneVideoPlugin_CreateWindow" )
-        .on<WindowComponent>( EcsCoreEvent::OnSet )
+        .observer( "SceneVideoPlugin_Window_Init" )
+        .on<WindowComponent>( ecs::ON_SET )
         .each( []( EcsIterState& it ) {
             auto win = it.get_component<WindowComponent>();
             auto vid = it.world().get_singleton<VideoServices>();
 
-            if (win->Source == UINT32_MAX) {
-                auto winflag = WindowService::DEFAULT_WINDOW_FLAGS;
-                if (win->Mode == WindowMode::MAXIMIZED) {
-                    winflag = static_cast<WindowService::WindowFlag>( winflag | WindowService::MAXIMIZED );
-                } else if (win->Mode == WindowMode::FULLSCREEN) {
-                    winflag = static_cast<WindowService::WindowFlag>( winflag | WindowService::FULLSCREEN );
+            if (win->source == UINT32_MAX) {
+                auto flags = WindowService::DEFAULT_WINDOW_FLAGS;
+                if (win->mode == WindowMode::MAXIMIZED) {
+                    flags = static_cast<WindowService::WindowFlag>( flags | WindowService::MAXIMIZED );
+                } else if (win->mode == WindowMode::FULLSCREEN) {
+                    flags = static_cast<WindowService::WindowFlag>( flags | WindowService::FULLSCREEN );
                 }
-                win->Source    = vid->Window->window_create( winflag );
-                auto nat_hnd   = vid->Window->get_native_handle( win->Source );
-                win->Swapchain = vid->Renderer->swapchain_create(
+                win->source = vid->window->window_create( flags );
+                vid->window->window_set_resolution( win->source, win->resolution );
+                auto native    = vid->window->get_native_handle( win->source );
+                win->swapchain = vid->renderer->swapchain_create(
                     // NOTE: Screen/swapchain is exclusively a flat 2D render (no depth).
-                    // NOTE: This means for depth-required renders, it should always go to offscreen buffers
-                    // with depth/stencil tex format enabled
-                    nat_hnd, win->Resolution, gfx::TextureFormat::RGBA8_UNORM_SRGB, gfx::TextureFormat::UNKNOWN
+                    // NOTE: This means for depth-requiring renders, it should always go
+                    // to an offscreen buffer with depth/stencil tex format enabled
+                    native, win->resolution, gfx::TextureFormat::RGBA8_UNORM_SRGB, gfx::TextureFormat::UNKNOWN
                 );
-                vid->Window->window_set_resolution( win->Source, win->Resolution );
-                vid->Window->window_set_centered( win->Source );
+                vid->window->window_set_centered( win->source );
             }
 
-            vid->Window->window_set_title( win->Source, win->Title );
-            vid->Window->window_set_visible( win->Source, win->Visible );
+            vid->window->window_set_title( win->source, win->title );
+            vid->window->window_set_visible( win->source, win->visible );
         } );
 
     scene.get_ecs()
-        .observer( "SceneVideoPlugin_DestroyWindow" )
-        .on<WindowComponent>( EcsCoreEvent::OnRemove )
+        .observer( "SceneVideoPlugin_Window_Destroy" )
+        .on<WindowComponent>( ecs::ON_REMOVE )
         .each( []( EcsIterState& it ) {
             auto win = it.get_component<WindowComponent>();
             auto vid = it.world().get_singleton<VideoServices>();
-            NC_ASSERT_MSG(
-                vid->Window->window_pop( win->Source ), "Error happened on window destroy (from component removal)"
-            );
+            NC_ASSERT_MSG( vid->window->window_pop( win->source ), "Error happened on window destroy." );
         } );
 
     scene.get_ecs()
@@ -129,74 +106,33 @@ void register_video_plugin( Scene& scene )
         .in( EcsSystemPhase::PRE_FRAME )
         .run( []( EcsIterState& it ) {
             auto vid = it.get_component<VideoServices>();
-            vid->Window->pump_events();
+            vid->window->pump_events();
         } );
 
     scene.get_ecs()
-        .system( "SceneVideoPlugin_HandleWindowEvents" )
+        .system( "SceneVideoPlugin_Window_HandleEvents" )
         .with<WindowComponent>()
         .in( EcsSystemPhase::POST_FRAME )
         .order( 100 )
         .each( []( EcsIterState& it ) {
             auto win    = it.get_component<WindowComponent>();
             auto vid    = it.world().get_singleton<VideoServices>();
-            auto events = vid->Window->window_events();
+            auto events = vid->window->window_events();
 
             for (const auto& ev : events) {
                 if (auto resize = std::get_if<WindowResizeEvent>( &ev )) {
-                    if (resize->window_id == win->Source) {
+                    if (resize->window_id == win->source) {
                         Vec2i new_size( resize->width, resize->height );
-                        vid->Renderer->swapchain_set_size( win->Swapchain, new_size );
+                        vid->renderer->swapchain_set_size( win->swapchain, new_size );
                         it.world().emit_event<WindowResizedComponent>(
-                            WindowResizedComponent{ .NewSize = new_size }, it.entity()
+                            WindowResizedComponent{ .new_size = new_size }, it.entity()
                         );
                     }
                 } else if (auto close = std::get_if<WindowCloseEvent>( &ev )) {
-                    if (close->window_id == win->Source) {
+                    if (close->window_id == win->source) {
                         it.world().destroy_entity( it.entity() );
                     }
                 }
-            }
-        } );
-
-    scene.get_ecs()
-        .observer( "SceneVideoPlugin_Camera_Init" )
-        .on<CameraComponent>( EcsCoreEvent::OnSet )
-        .each( []( EcsIterState& it ) {
-            auto cam = it.get_component<CameraComponent>();
-            auto vid = it.world().get_singleton<VideoServices>();
-            if (!cam->Source) {
-                cam->Source = vid->Renderer->camera_create();
-                NC_LOG_DEBUG_C( log::ECS, "NEW camera RID={}", cam->Source.value );
-            }
-        } );
-
-    scene.get_ecs()
-        .system( "SceneVideoPlugin_Camera_UpdateTransform" )
-        .with<CameraComponent, Transform3DComponent>()
-        .in( EcsSystemPhase::UPDATE )
-        .each( []( EcsIterState& it ) {
-            auto vid   = it.world().get_singleton<VideoServices>();
-            auto cam   = it.get_component<CameraComponent>();
-            auto xform = it.get_component<Transform3DComponent>();
-
-            if (cam->Source) {
-                auto attribs       = vid->Renderer->camera_attribs_get( cam->Source );
-                attribs->Transform = xform->Global;
-            }
-        } );
-
-    scene.get_ecs()
-        .observer( "SceneVideoPlugin_Camera_DestroyRTs" )
-        .on<CameraComponent>( EcsCoreEvent::OnRemove )
-        .each( []( EcsIterState& it ) {
-            auto cam = it.get_component<CameraComponent>();
-            auto vid = it.world().get_singleton<VideoServices>();
-            if (cam->RenderToScreen) {
-                if (cam->RenderTexture)
-                    vid->Renderer->destroy_rid( cam->RenderTexture );
-                if (cam->DepthTexture)
-                    vid->Renderer->destroy_rid( cam->DepthTexture );
             }
         } );
 
@@ -212,42 +148,55 @@ void register_video_plugin( Scene& scene )
             auto handle = it.get_component<MaterialRenderComponent>();
             auto loaded = it.event_payload<ResourceLoadedComponent>();
 
-            if (mat->Shader != loaded->ResourceId)
+            if (mat->shader != loaded->resource_id && mat->shader != loaded->replaced)
                 return;
+            mat->shader = loaded->resource_id;
 
-            auto source = io->Resources->get<MaterialShader>( loaded->ResourceId );
+            auto source = io->resources->get<MaterialShader>( loaded->resource_id );
             if (!source)
                 return;
 
-            if (handle->Handle)
-                vid->Renderer->destroy_rid( handle->Handle );
+            if (handle->handle)
+                vid->renderer->destroy_rid( handle->handle );
 
-            handle->Handle = vid->Renderer->material_create( source );
+            handle->handle = vid->renderer->material_create( source );
 
-            for (int i = 0; i < mat->TextureCount; ++i)
-                vid->Renderer->material_set_texture( handle->Handle, mat->Textures[i], i );
+            for (int i = 0; i < mat->texture_count; ++i)
+                vid->renderer->material_set_texture( handle->handle, mat->textures[i], i );
 
-            vid->Renderer->material_set_draw_mode( handle->Handle, mat->DrawMode );
+            vid->renderer->material_set_draw_mode( handle->handle, mat->draw_mode );
 
-            for (const auto& p : mat->Params)
-                vid->Renderer->material_set_param( handle->Handle, p.name, p.data.data(), p.data.size() );
+            for (const auto& p : mat->params)
+                vid->renderer->material_set_param( handle->handle, p.name, p.data.data(), p.data.size() );
         } );
 
     scene.get_ecs()
         .observer( "SceneVideoPlugin_MaterialComponent_Update" )
-        .on<MaterialComponent>( EcsCoreEvent::OnSet )
+        .on<MaterialComponent>( ecs::ON_SET )
         .with<MaterialRenderComponent>()
         .each( []( EcsIterState& it ) {
             auto vid    = it.world().get_singleton<VideoServices>();
             auto mat    = it.get_component<MaterialComponent>();
             auto handle = it.get_component<MaterialRenderComponent>();
-            if (!handle->Handle)
+            if (!handle->handle)
                 return;
-            vid->Renderer->material_set_draw_mode( handle->Handle, mat->DrawMode );
-            for (int i = 0; i < mat->TextureCount; ++i)
-                vid->Renderer->material_set_texture( handle->Handle, mat->Textures[i], i );
-            for (const auto& p : mat->Params)
-                vid->Renderer->material_set_param( handle->Handle, p.name, p.data.data(), p.data.size() );
+            vid->renderer->material_set_draw_mode( handle->handle, mat->draw_mode );
+            for (int i = 0; i < mat->texture_count; ++i)
+                vid->renderer->material_set_texture( handle->handle, mat->textures[i], i );
+            for (const auto& p : mat->params)
+                vid->renderer->material_set_param( handle->handle, p.name, p.data.data(), p.data.size() );
+        } );
+
+    scene.get_ecs()
+        .observer( "SceneVideoPlugin_MaterialRender_Cleanup" )
+        .on<MaterialRenderComponent>( ecs::ON_REMOVE )
+        .each( []( EcsIterState& it ) {
+            auto handle = it.get_component<MaterialRenderComponent>();
+            auto vid    = it.world().get_singleton<VideoServices>();
+            if (!handle->handle)
+                return;
+            vid->renderer->destroy_rid( handle->handle );
+            handle->handle = 0;
         } );
 
     scene.get_ecs()
@@ -262,17 +211,40 @@ void register_video_plugin( Scene& scene )
             auto render = it.get_component<MeshRenderComponent>();
             auto loaded = it.event_payload<ResourceLoadedComponent>();
 
-            if (mesh->Source != loaded->ResourceId)
+            if (mesh->source != loaded->resource_id && mesh->source != loaded->replaced)
                 return;
+            mesh->source = loaded->resource_id;
 
-            if (render->Item)
-                vid->Renderer->destroy_rid( render->Item );
+            // Re-init (resource reload): release the old item AND its GPU mesh;
+            // items never own their mesh implicitly.
+            if (render->item) {
+                auto old_gpu_mesh = vid->renderer->spatial_item_get_mesh( render->item );
+                vid->renderer->destroy_rid( render->item );
+                if (old_gpu_mesh)
+                    vid->renderer->destroy_rid( old_gpu_mesh );
+                render->item = 0;
+            }
 
-            auto source   = io->Resources->get<Mesh>( loaded->ResourceId );
-            auto gpu_mesh = vid->Renderer->mesh_create( *source );
+            auto source   = io->resources->get<Mesh>( loaded->resource_id );
+            auto gpu_mesh = vid->renderer->mesh_create( *source );
 
-            render->Item = vid->Renderer->spatial_item_create();
-            vid->Renderer->spatial_item_set_mesh( render->Item, gpu_mesh );
+            render->item = vid->renderer->spatial_item_create();
+            vid->renderer->spatial_item_set_mesh( render->item, gpu_mesh );
+        } );
+
+    scene.get_ecs()
+        .observer( "SceneVideoPlugin_MeshRenderer_Cleanup" )
+        .on<MeshRenderComponent>( ecs::ON_REMOVE )
+        .each( []( EcsIterState& it ) {
+            auto render = it.get_component<MeshRenderComponent>();
+            auto vid    = it.world().get_singleton<VideoServices>();
+            if (!render->item)
+                return;
+            auto gpu_mesh = vid->renderer->spatial_item_get_mesh( render->item );
+            vid->renderer->destroy_rid( render->item );
+            if (gpu_mesh)
+                vid->renderer->destroy_rid( gpu_mesh );
+            render->item = 0;
         } );
 
     scene.get_ecs()
@@ -287,10 +259,10 @@ void register_video_plugin( Scene& scene )
             auto xform    = it.get_component<Transform3DComponent>();
             auto vid      = it.world().get_singleton<VideoServices>();
 
-            if (mesh->Item && material->Handle) {
-                vid->Renderer->spatial_item_set_transform( mesh->Item, xform->Global );
-                vid->Renderer->spatial_item_set_material( mesh->Item, material->Handle );
-                vid->Renderer->spatial_item_draw( mesh->Item, mesh->InstanceCount );
+            if (mesh->item && material->handle) {
+                vid->renderer->spatial_item_set_transform( mesh->item, xform->global );
+                vid->renderer->spatial_item_set_material( mesh->item, material->handle );
+                vid->renderer->spatial_item_draw( mesh->item, mesh->layer_index, mesh->instance_count );
             }
         } );
 
@@ -336,10 +308,10 @@ void register_video_plugin( Scene& scene )
             //        }
 
             //        if (material->Instance) {
-            //            auto item = vid->Renderer->canvas_item_create();
-            //            vid->Renderer->canvas_item_set_material( item, material->Instance );
-            //            vid->Renderer->canvas_item_add_quad( item, world_coords, Rect2i(), sprite->Tint );
-            //            vid->Renderer->canvas_item_draw( item );
+            //            auto item = vid->renderer->canvas_item_create();
+            //            vid->renderer->canvas_item_set_material( item, material->Instance );
+            //            vid->renderer->canvas_item_add_quad( item, world_coords, Rect2i(), sprite->Tint );
+            //            vid->renderer->canvas_item_draw( item );
             //        }
         } );
 
@@ -350,7 +322,101 @@ void register_video_plugin( Scene& scene )
         .order( 0 )
         .run( []( EcsIterState& it ) {
             auto vid = it.get_component<VideoServices>();
-            vid->Renderer->prepare_frame( static_cast<float>( it.delta_time() ) );
+            vid->renderer->prepare_frame( static_cast<float>( it.delta_time() ) );
+        } );
+
+    scene.get_ecs()
+        .observer( "SceneVideoPlugin_Camera_Init" )
+        .on<CameraComponent>( ecs::ON_SET )
+        .each( []( EcsIterState& it ) {
+            auto cam = it.get_component<CameraComponent>();
+            auto vid = it.world().get_singleton<VideoServices>();
+
+            auto primary_swapchain = vid->renderer->swapchain_get_primary();
+            if (cam->render_to_screen && primary_swapchain) {
+                auto screen_size  = vid->renderer->swapchain_get_size( primary_swapchain );
+                cam->display_rect = Rect2i( 0, 0, screen_size.x, screen_size.y );
+            }
+
+            if (cam->display_rect.has_area()) {
+                if (!cam->render_texture) {
+                    cam->render_texture = vid->renderer->texture_render_create(
+                        cam->display_rect.size(), gfx::TextureFormat::RGBA8_UNORM_SRGB
+                    );
+                }
+                if (!cam->depth_texture) {
+                    cam->depth_texture =
+                        vid->renderer->texture_render_create( cam->display_rect.size(), gfx::TextureFormat::D32_FLOAT );
+                }
+            }
+
+            if (!cam->source) {
+                cam->source = vid->renderer->camera_create();
+                NC_LOG_DEBUG_C(
+                    log::ECS, "NEW camera RID={} render_to_screen={}, display_rect={}", cam->source.value,
+                    cam->render_to_screen, cam->display_rect
+                );
+            }
+        } );
+
+    scene.get_ecs()
+        .system( "SceneVideoPlugin_Camera_Update" )
+        .with<CameraComponent, Transform3DComponent>()
+        .in( EcsSystemPhase::UPDATE )
+        .each( []( EcsIterState& it ) {
+            auto vid   = it.world().get_singleton<VideoServices>();
+            auto cam   = it.get_component<CameraComponent>();
+            auto xform = it.get_component<Transform3DComponent>();
+
+            auto primary_swapchain = vid->renderer->swapchain_get_primary();
+            if (cam->render_to_screen && primary_swapchain) {
+                auto screen_size = vid->renderer->swapchain_get_size( primary_swapchain );
+                const Rect2i screen_rect( 0, 0, screen_size.x, screen_size.y );
+                if (screen_rect.size() != cam->display_rect.size()) {
+                    if (cam->render_texture) {
+                        vid->renderer->destroy_rid( cam->render_texture );
+                        cam->render_texture = 0;
+                    }
+                    if (cam->depth_texture) {
+                        vid->renderer->destroy_rid( cam->depth_texture );
+                        cam->depth_texture = 0;
+                    }
+                    cam->display_rect = screen_rect;
+                    NC_LOG_DEBUG_C(
+                        log::ECS, "camera targets recreated for rect={}x{} textures={} Source={}", cam->display_rect.w,
+                        cam->display_rect.h, cam->render_texture.value, cam->source.value
+                    );
+                    if (cam->display_rect.has_area()) {
+                        cam->render_texture = vid->renderer->texture_render_create(
+                            cam->display_rect.size(), gfx::TextureFormat::RGBA8_UNORM_SRGB
+                        );
+                        cam->depth_texture = vid->renderer->texture_render_create(
+                            cam->display_rect.size(), gfx::TextureFormat::D32_FLOAT
+                        );
+                    }
+                }
+            }
+
+            if (cam->source) {
+                auto attribs          = vid->renderer->camera_attribs_get( cam->source );
+                attribs->transform    = xform->global;
+                attribs->fov          = cam->field_of_view;
+                attribs->z_far        = cam->z_far;
+                attribs->z_near       = cam->z_near;
+                attribs->display_size = cam->display_rect.size();
+            }
+        } );
+
+    scene.get_ecs()
+        .observer( "SceneVideoPlugin_Camera_Cleanup" )
+        .on<CameraComponent>( ecs::ON_REMOVE )
+        .each( []( EcsIterState& it ) {
+            auto cam = it.get_component<CameraComponent>();
+            auto vid = it.world().get_singleton<VideoServices>();
+            if (cam->render_texture)
+                vid->renderer->destroy_rid( cam->render_texture );
+            if (cam->depth_texture)
+                vid->renderer->destroy_rid( cam->depth_texture );
         } );
 
     scene.get_ecs()
@@ -362,43 +428,18 @@ void register_video_plugin( Scene& scene )
             auto cam = it.get_component<CameraComponent>();
             auto vid = it.world().get_singleton<VideoServices>();
 
-            if (cam->Source) {
-                auto attribs         = vid->Renderer->camera_attribs_get( cam->Source );
-                attribs->Fov         = cam->FieldOfView;
-                attribs->zFar        = cam->zFar;
-                attribs->zNear       = cam->zNear;
-                attribs->DisplaySize = cam->DisplayRect.size();
-            }
-
-            if (cam->RenderToScreen) {
-                auto screen_size = vid->Renderer->swapchain_get_size( vid->Renderer->swapchain_get_primary() );
-
-                if (cam->DisplayRect.size() != screen_size) {
-                    if (cam->RenderTexture)
-                        vid->Renderer->destroy_rid( cam->RenderTexture );
-                    if (cam->DepthTexture)
-                        vid->Renderer->destroy_rid( cam->DepthTexture );
-
-                    cam->RenderTexture =
-                        vid->Renderer->texture_render_create( screen_size, gfx::TextureFormat::RGBA8_UNORM_SRGB );
-                    cam->DepthTexture =
-                        vid->Renderer->texture_render_create( screen_size, gfx::TextureFormat::D32_FLOAT );
-                    cam->DisplayRect = Rect2i( 0, 0, screen_size.x, screen_size.y );
-                }
-            }
-
             RenderService::RenderTargetDesc pass{};
-            pass.color_texture = cam->RenderTexture;
-            pass.depth_texture = cam->DepthTexture;
-            pass.camera        = cam->Source;
-            pass.rectangle     = cam->DisplayRect;
+            pass.color_texture = cam->render_texture;
+            pass.depth_texture = cam->depth_texture;
+            pass.camera        = cam->source;
+            pass.rectangle     = cam->display_rect;
             pass.draw_spatial  = true;
-            pass.draw_canvas   = cam->DrawCanvas;
-            vid->Renderer->render_target( pass );
+            pass.draw_canvas   = cam->draw_canvas;
+            vid->renderer->render_target( pass );
 
-            // blit offscreen color to swapchain.
-            if (cam->RenderToScreen)
-                vid->Renderer->texture_blit( cam->RenderTexture );
+            // blit offscreen color to swapchain for final display.
+            if (cam->render_to_screen)
+                vid->renderer->texture_blit( cam->render_texture );
         } );
 
     scene.get_ecs()
@@ -408,30 +449,39 @@ void register_video_plugin( Scene& scene )
         .order( 20 )
         .run( []( EcsIterState& it ) {
             auto vid = it.get_component<VideoServices>();
-            vid->Renderer->present();
+            vid->renderer->present();
         } );
+
+    auto display_settings = window_svc->get_settings();
+    scene.get_ecs()
+        .entity( "MainWindow" )
+        .add<MainWindowTag>()
+        .add<WindowComponent>( WindowComponent{
+            .swapchain        = 0, // will be created by the window init system above.
+            .title            = scene.get_app_ctx()->app_desc.name,
+            .resolution       = Vec2i( display_settings.size_width, display_settings.size_height ),
+            .mode             = display_settings.mode,
+            .visible          = true,
+            .pixels_per_meter = display_settings.pixels_per_meter
+        } )
+        .build();
 }
 
 void register_inputs_plugin( Scene& scene )
 {
-    scene.get_ecs()
-        .system( "SceneInputPlugin_Init" )
-        .with<IOServices>()
-        .in( EcsSystemPhase::INIT )
-        .run( []( EcsIterState& it ) {
-            auto io = it.get_component<IOServices>();
-            io->Inputs->action_bind_event( InputService::FORWARD_ACTION_NAME, KeyEvent{ .key = Key::W } );
-            io->Inputs->action_bind_event( InputService::BACKWARD_ACTION_NAME, KeyEvent{ .key = Key::S } );
-            io->Inputs->action_bind_event( InputService::LEFT_ACTION_NAME, KeyEvent{ .key = Key::A } );
-            io->Inputs->action_bind_event( InputService::RIGHT_ACTION_NAME, KeyEvent{ .key = Key::D } );
-            io->Inputs->action_bind_event( InputService::UP_ACTION_NAME, KeyEvent{ .key = Key::SPACE } );
-            io->Inputs->action_bind_event( InputService::DOWN_ACTION_NAME, KeyEvent{ .key = Key::SHIFT } );
+    auto inputs_svc = scene.get_app_ctx()->services.resolve<InputService>();
 
-            io->Inputs->action_register( "G_LeftRoll" );
-            io->Inputs->action_register( "G_RightRoll" );
-            io->Inputs->action_bind_event( "G_LeftRoll", KeyEvent{ .key = Key::Q } );
-            io->Inputs->action_bind_event( "G_RightRoll", KeyEvent{ .key = Key::E } );
-        } );
+    inputs_svc->action_bind_event( InputService::FORWARD_ACTION_NAME, KeyEvent{ .key = Key::W } );
+    inputs_svc->action_bind_event( InputService::BACKWARD_ACTION_NAME, KeyEvent{ .key = Key::S } );
+    inputs_svc->action_bind_event( InputService::LEFT_ACTION_NAME, KeyEvent{ .key = Key::A } );
+    inputs_svc->action_bind_event( InputService::RIGHT_ACTION_NAME, KeyEvent{ .key = Key::D } );
+    inputs_svc->action_bind_event( InputService::UP_ACTION_NAME, KeyEvent{ .key = Key::SPACE } );
+    inputs_svc->action_bind_event( InputService::DOWN_ACTION_NAME, KeyEvent{ .key = Key::SHIFT } );
+
+    inputs_svc->action_register( "G_LeftRoll" );
+    inputs_svc->action_register( "G_RightRoll" );
+    inputs_svc->action_bind_event( "G_LeftRoll", KeyEvent{ .key = Key::Q } );
+    inputs_svc->action_bind_event( "G_RightRoll", KeyEvent{ .key = Key::E } );
 
     scene.get_ecs()
         .system( "SceneInputPlugin_Update" )
@@ -439,7 +489,7 @@ void register_inputs_plugin( Scene& scene )
         .in( EcsSystemPhase::PRE_UPDATE )
         .run( []( EcsIterState& it ) {
             auto io = it.get_component<IOServices>();
-            io->Inputs->update();
+            io->inputs->update();
         } );
 
     scene.get_ecs()
@@ -450,17 +500,22 @@ void register_inputs_plugin( Scene& scene )
             auto io    = it.world().get_singleton<IOServices>();
             auto input = it.get_component<InputComponent>();
 
-            input->Direction.zero();
+            input->direction.zero();
 
-            Vec2f xz = io->Inputs->action_get_vector(
+            if (io->inputs->is_ui_keyboard_captured()) {
+                input->angular_delta.z = 0.0f;
+                return;
+            }
+
+            Vec2f xz = io->inputs->action_get_vector(
                 InputService::LEFT_ACTION_NAME, InputService::RIGHT_ACTION_NAME, InputService::BACKWARD_ACTION_NAME,
                 InputService::FORWARD_ACTION_NAME
             );
-            float y = io->Inputs->action_get_axis( InputService::DOWN_ACTION_NAME, InputService::UP_ACTION_NAME );
-            input->Direction = Vec3f( -xz.x, -y, xz.y ); // (-LeftRight, -UpDown, ForwardBackward)
+            float y = io->inputs->action_get_axis( InputService::DOWN_ACTION_NAME, InputService::UP_ACTION_NAME );
+            input->direction = Vec3f( -xz.x, -y, xz.y ); // (-LeftRight, -UpDown, ForwardBackward)
 
-            float r               = io->Inputs->action_get_axis( "G_LeftRoll", "G_RightRoll" );
-            input->AngularDelta.z = -r * input->RollRate;
+            float r                = io->inputs->action_get_axis( "G_LeftRoll", "G_RightRoll" );
+            input->angular_delta.z = -r * input->roll_rate;
         } );
 
     scene.get_ecs()
@@ -472,18 +527,24 @@ void register_inputs_plugin( Scene& scene )
             auto vid   = it.world().get_singleton<VideoServices>();
             auto input = it.get_component<InputComponent>();
 
-            auto win_id = vid->Window->get_main_window_id();
+            auto win_id = vid->window->get_main_window_id();
 
-            if (vid->Window->window_get_mouse_locked( win_id )) {
+            if (io->inputs->is_ui_keyboard_captured()) {
+                input->angular_delta.x = 0;
+                input->angular_delta.y = 0;
+                return;
+            }
+
+            if (vid->window->window_get_mouse_locked( win_id )) {
                 // per-frame deltas
-                auto md               = io->Inputs->get_mouse_delta();
-                auto dt               = static_cast<float>( it.delta_time() );
-                float inv_dt          = ( dt > 0.0f ) ? ( 1.0f / dt ) : 0.0f;
-                input->AngularDelta.x = -md.x * inv_dt * input->MouseSensitivity;
-                input->AngularDelta.y = -md.y * inv_dt * input->MouseSensitivity;
+                auto md                = io->inputs->get_mouse_delta();
+                auto dt                = static_cast<float>( it.delta_time() );
+                float inv_dt           = ( dt > 0.0f ) ? ( 1.0f / dt ) : 0.0f;
+                input->angular_delta.x = -md.x * inv_dt * input->mouse_sensitivity;
+                input->angular_delta.y = -md.y * inv_dt * input->mouse_sensitivity;
             } else {
-                input->AngularDelta.x = 0;
-                input->AngularDelta.y = 0;
+                input->angular_delta.x = 0;
+                input->angular_delta.y = 0;
             }
         } );
 
@@ -496,20 +557,20 @@ void register_inputs_plugin( Scene& scene )
             auto vid = it.world().get_singleton<VideoServices>();
             auto io  = it.world().get_singleton<IOServices>();
 
-            auto win_id = vid->Window->get_main_window_id();
+            auto win_id = vid->window->get_main_window_id();
 
-            auto rmb_clicked = io->Inputs->is_mouse_button_pressed( ButtonIndex::RIGHT );
-            if (io->Inputs->is_key_pressed( Key::ESC )) {
-                cam->MouseCaptured = false;
-            } else if (rmb_clicked) {
-                cam->MouseCaptured = !cam->MouseCaptured;
+            auto rmb_clicked = io->inputs->is_mouse_button_pressed( ButtonIndex::RIGHT );
+            if (io->inputs->is_key_pressed( Key::ESC )) {
+                cam->mouse_captured = false;
+            } else if (rmb_clicked && !io->inputs->is_ui_mouse_captured()) {
+                cam->mouse_captured = !cam->mouse_captured;
             }
-            vid->Window->window_set_mouse_locked( win_id, cam->MouseCaptured );
+            vid->window->window_set_mouse_locked( win_id, cam->mouse_captured );
 
-            if (cam->MouseCaptured) {
+            if (cam->mouse_captured) {
                 // confine to center each frame
-                auto win_res = vid->Window->window_get_resolution( win_id );
-                vid->Window->window_set_mouse_position(
+                auto win_res = vid->window->window_get_resolution( win_id );
+                vid->window->window_set_mouse_position(
                     win_id, Vec2f( static_cast<float>( win_res.x ), static_cast<float>( win_res.y ) ) / 2
                 );
             }
@@ -527,29 +588,54 @@ void NCAPI register_resources_plugin( Scene& scene )
             auto io    = it.world().get_singleton<IOServices>();
             auto state = it.world().get_singleton<ResourceWatchState>();
 
-            state->PendingEvents.clear();
+            state->pending_events.clear();
             ResourceLoader::Event e;
-            while (io->Resources->poll_event( &e )) { // has any resource event occurred?
-                state->PendingEvents.push_back( e );
+            while (io->resources->poll_event( &e )) { // has any resource event occurred?
+                state->pending_events.push_back( e );
             }
         } );
 
+    // Resource events are dispatched only to entities that actually reference
+    // the loaded resource (MeshComponent.Source / MaterialComponent.Shader).
+    // Broadcasting every event to every HasResourceTag entity made frame-1
+    // cost O(entities x pending events), which blows up with many entities
+    // sharing a resource (per-chunk water meshes).
+    // NOTE: any new resource-backed component type must be added here.
+    auto mesh_entities = scene.get_ecs()
+                             .query( "Scene_ResourceWatcher_MeshEntities" )
+                             .with<MeshComponent>()
+                             .with<HasResourceTag>()
+                             .build();
+
+    auto material_entities = scene.get_ecs()
+                                 .query( "Scene_ResourceWatcher_MaterialEntities" )
+                                 .with<MaterialComponent>()
+                                 .with<HasResourceTag>()
+                                 .build();
+
     scene.get_ecs()
         .system( "Scene_ResourceWatcher_Emit" )
-        .with<HasResourceTag>()
         .in( EcsSystemPhase::POST_UPDATE )
-        .each( []( EcsIterState& it ) {
-            auto state = it.world().get_singleton<ResourceWatchState>();
-            for (auto& entry : state->PendingEvents) {
-                if (auto loaded = std::get_if<ResourceLoader::LoadEvent>( &entry )) { // handle a resource loaded event
-                    NC_LOG_DEBUG(
-                        "ResourceLoader::LoadEvent: RID={} ResourceFormatID={}", loaded->Handle.value,
-                        loaded->FormatId.to_string()
-                    );
-                    it.world().emit_event<ResourceLoadedComponent>(
-                        ResourceLoadedComponent{ .ResourceId = loaded->Handle, .format_id = loaded->FormatId },
-                        it.entity()
-                    );
+        .run( [mesh_entities, material_entities]( EcsIterState& it ) mutable {
+            auto state  = it.world().get_singleton<ResourceWatchState>();
+            auto& world = it.world();
+
+            for (auto& entry : state->pending_events) {
+                auto loaded = std::get_if<ResourceLoader::LoadEvent>( &entry ); // resource loaded event
+                if (!loaded)
+                    continue;
+
+                ResourceLoadedComponent payload{
+                    .resource_id = loaded->handle, .format_id = loaded->format_id, .replaced = loaded->replaced
+                };
+
+                for (auto ctx : mesh_entities.entities()) {
+                    if (ctx.get_component<MeshComponent>()->source == loaded->handle)
+                        world.emit_event<ResourceLoadedComponent>( payload, ctx.entity() );
+                }
+                for (auto ctx : material_entities.entities()) {
+                    if (ctx.get_component<MaterialComponent>()->shader == loaded->handle)
+                        world.emit_event<ResourceLoadedComponent>( payload, ctx.entity() );
                 }
             }
         } );

@@ -5,6 +5,9 @@
 #include <EngineMemory.h>
 #include <GraphicsTypes.h>
 #include <MapHelper.hpp>
+#include <cstring>
+
+#include <utils/profiler.h>
 
 #include "diligent_allocator.h"
 #include "diligent_type_helpers.h"
@@ -38,6 +41,20 @@ static void DILIGENT_CALL_TYPE OutputMessageCallbackDiligent(
 
 static NcoreDiligentAllocator allocator;
 
+static const char* adapter_type_name( Diligent::ADAPTER_TYPE type )
+{
+    switch (type) {
+        case Diligent::ADAPTER_TYPE_INTEGRATED:
+            return "integrated";
+        case Diligent::ADAPTER_TYPE_DISCRETE:
+            return "discrete";
+        case Diligent::ADAPTER_TYPE_SOFTWARE:
+            return "software";
+        default:
+            return "unknown";
+    }
+}
+
 DiligentGfxImpl::DiligentGfxImpl()
 {
     Diligent::SetRawAllocator( &allocator );
@@ -54,6 +71,13 @@ DiligentGfxImpl::DiligentGfxImpl()
     DynamicArray<Diligent::GraphicsAdapterInfo> adapters;
     adapters.resize( num_adapters );
     engine_factory->EnumerateAdapters( vk_version, num_adapters, adapters.data() );
+
+    for (Diligent::Uint32 i = 0; i < num_adapters; ++i) {
+        NC_LOG_DEBUG_C(
+            log::GRAPHICS, "Vulkan adapter {}: '{}' ({}, {} queue families)", i, adapters[i].Description,
+            adapter_type_name( adapters[i].Type ), adapters[i].NumQueues
+        );
+    }
 
     {
         Diligent::EngineVkCreateInfo ci;
@@ -84,15 +108,22 @@ DiligentGfxImpl::DiligentGfxImpl()
 
         // defaulting to the zeroth adapter (might be a integrated gfx on mobile platforms)
         Diligent::Uint32 adapter_index = 0;
-        ci.AdapterId                   = adapter_index;
-        auto& adapter_info             = adapters[adapter_index];
-        for (adapter_index = 0; adapter_index < num_adapters; ++adapter_index) {
+        for (Diligent::Uint32 i = 0; i < num_adapters; ++i) {
             // search through all adapters till we hit discrete gfx
-            if (adapters[adapter_index].Type == Diligent::ADAPTER_TYPE_DISCRETE) {
-                ci.AdapterId = adapter_index;
-                adapter_info = adapters[adapter_index];
+            if (adapters[i].Type == Diligent::ADAPTER_TYPE_DISCRETE) {
+                adapter_index = i;
                 break;
             }
+        }
+        ci.AdapterId = adapter_index;
+
+        const auto& adapter_info = adapters[adapter_index];
+
+        if (adapter_info.Type != Diligent::ADAPTER_TYPE_DISCRETE) {
+            NC_LOG_WARN_C(
+                log::GRAPHICS, "No discrete graphics adapter enumerated, falling back to adapter {}: {}", adapter_index,
+                adapter_info.Description
+            );
         }
 
         // find correct QueueId indices based on actual QueueType bitmasks
@@ -239,7 +270,7 @@ void DiligentGfxImpl::sync_queue( GpuQueue queue )
     ctx->WaitForIdle();
 }
 
-void DiligentGfxImpl::queue_submit_and_wait( GpuQueue src, GpuQueue dst )
+void DiligentGfxImpl::queue_submit_ordered( GpuQueue src, GpuQueue dst )
 {
     if (src == dst)
         return;
@@ -252,14 +283,26 @@ void DiligentGfxImpl::queue_submit_and_wait( GpuQueue src, GpuQueue dst )
                                         : dst == GpuQueue::COMPUTE ? ctx_of( ctx_comp )
                                                                    : ctx_of( ctx_tx );
 
-    if (!src_ctx || !dst_ctx || src_ctx == dst_ctx || !queue_fence)
+    if (!src_ctx || !dst_ctx || !queue_fence)
         return;
+
+    if (src_ctx == dst_ctx) {
+        // Same physical queue (e.g. single-family iGPU adapters): still submit what has
+        // been recorded so far so the compute chain lands in its own queue submission.
+        src_ctx->Flush();
+        return;
+    }
 
     const uint64_t value = ++queue_fence_value;
     src_ctx->EnqueueSignal( queue_fence, value );
     // EnqueueSignal does not flush; flush so the signal value becomes pending before dst waits.
     src_ctx->Flush();
     dst_ctx->DeviceWaitForFence( queue_fence, value );
+}
+
+const char* DiligentGfxImpl::get_adapter_name() const
+{
+    return device->GetAdapterInfo().Description;
 }
 
 RID DiligentGfxImpl::swapchain_create( const gfx::SwapChainDesc& desc )
@@ -289,17 +332,15 @@ RID DiligentGfxImpl::swapchain_create( const gfx::SwapChainDesc& desc )
     NC_ASSERT_MSG( out, "Failed to create Vulkan swap chain" );
 
     auto rid    = swapchains.acquire();
-    auto handle = swapchains.get( rid );
-    NC_VERIFY( handle );
-    *handle = std::move( out );
+    auto handle = swapchains.get_or_fail( rid );
+    *handle     = std::move( out );
 
     return rid;
 }
 
 Vec2i DiligentGfxImpl::swapchain_get_size( RID sc )
 {
-    auto entry = swapchains.get( sc );
-    NC_VERIFY( entry );
+    auto entry  = swapchains.get_or_fail( sc );
     auto width  = ( *entry )->GetDesc().Width;
     auto height = ( *entry )->GetDesc().Height;
     return Vec2i( width, height );
@@ -307,12 +348,11 @@ Vec2i DiligentGfxImpl::swapchain_get_size( RID sc )
 
 void DiligentGfxImpl::swapchain_set_size( RID sc, Vec2i size )
 {
-    auto entry = swapchains.get( sc );
-    NC_VERIFY( entry );
+    auto entry      = swapchains.get_or_fail( sc );
     auto& desc      = ( *entry )->GetDesc();
     auto new_width  = static_cast<Diligent::Uint32>( size.x );
     auto new_height = static_cast<Diligent::Uint32>( size.y );
-    if (desc.Width != new_width && desc.Height != new_height) {
+    if (desc.Width != new_width || desc.Height != new_height) {
         ( *entry )->Resize( new_width, new_height );
         NC_LOG_DEBUG_C(
             log::GRAPHICS, "Swapchain RID={} size is different, setting to {}x{}", sc.value, new_width, new_height
@@ -322,15 +362,14 @@ void DiligentGfxImpl::swapchain_set_size( RID sc, Vec2i size )
 
 void DiligentGfxImpl::swapchain_present( RID sc, bool sync_interval )
 {
-    auto entry = swapchains.get( sc );
-    NC_VERIFY( entry );
+    NC_ZONE_COLOR( "gfx::swapchain_present", NC_COLOR_RENDER )
+    auto entry = swapchains.get_or_fail( sc );
     ( *entry )->Present( sync_interval ? 1 : 0 );
 }
 
 void* DiligentGfxImpl::swapchain_get_view( RID sc, gfx::TextureViewType view )
 {
-    auto entry = swapchains.get( sc );
-    NC_VERIFY( entry );
+    auto entry = swapchains.get_or_fail( sc );
     switch (view) {
         case gfx::TextureViewType::RENDER_TARGET:
             return ( *entry )->GetCurrentBackBufferRTV();
@@ -350,6 +389,19 @@ void DiligentGfxImpl::swapchain_destroy( RID target )
 
 RID DiligentGfxImpl::shader_create( const gfx::ShaderCreateDesc& desc )
 {
+    // FNV-1a over the bytecode words; identical precompiled SPIR-V requested from
+    // multiple materials returns one shared RID (see shader_bytecode_cache).
+    uint64_t h = 0xcbf29ce484222325ull;
+    for (uint32_t word : desc.bytecode) {
+        h ^= static_cast<uint64_t>( word );
+        h *= 0x100000001b3ull;
+    }
+    const ShaderBcKey bc_key{ h, desc.bytecode.size_bytes(), desc.stage };
+    if (auto it = shader_bytecode_cache.find( bc_key ); it != shader_bytecode_cache.end()) {
+        NC_LOG_TRACE_C( log::GRAPHICS, "shader_create: dedup hit for '{}'", desc.name );
+        return it->second;
+    }
+
     Diligent::ShaderCreateInfo ci;
     ci.Desc.Name                       = desc.name.data();
     ci.Desc.ShaderType                 = DiligentTypeHelpers::translate_shader_stage( desc.stage );
@@ -363,6 +415,7 @@ RID DiligentGfxImpl::shader_create( const gfx::ShaderCreateDesc& desc )
     NC_VERIFY( shader );
     device->CreateShader( ci, &*shader );
 
+    shader_bytecode_cache.emplace( bc_key, handle );
     return handle;
 }
 
@@ -511,33 +564,32 @@ void DiligentGfxImpl::render_target_bind( Span<const void*> rtvs, void* dsv )
 
 void DiligentGfxImpl::render_target_set_viewport( Span<const Viewport> p_viewports )
 {
-    DynamicArray<Diligent::Viewport> vps;
-    for (auto& vp : p_viewports) {
-        vps.push_back( { vp.rect.x, vp.rect.y, vp.rect.w, vp.rect.h, vp.min_depth, vp.max_depth } );
-    }
     NC_LOG_TRACE_C(
-        log::GRAPHICS, "set_viewport: {} viewports (first: {:.0f},{:.0f} {:.0f}x{:.0f})", vps.size(), vps[0].TopLeftX,
-        vps[0].TopLeftY, vps[0].Width, vps[0].Height
+        log::GRAPHICS, "set_viewport: {} viewports (first: {:.0f},{:.0f} {:.0f}x{:.0f})", p_viewports.size(),
+        p_viewports[0].rect.x, p_viewports[0].rect.y, p_viewports[0].rect.w, p_viewports[0].rect.h
     );
-    get_active_ctx_()->SetViewports( static_cast<Diligent::Uint32>( vps.size() ), vps.data(), 0, 0 );
+    get_active_ctx_()->SetViewports(
+        static_cast<Diligent::Uint32>( p_viewports.size() ),
+        reinterpret_cast<const Diligent::Viewport*>( p_viewports.data() ), 0, 0
+    );
 }
 
 void DiligentGfxImpl::render_target_set_scissor_rect( Span<const Rect2i> p_rects )
 {
-    DynamicArray<Diligent::Rect> rects;
-    for (auto r : p_rects) {
-        rects.push_back(
-            Diligent::Rect{
-                static_cast<Diligent::Int32>( r.x ), static_cast<Diligent::Int32>( r.y ),
-                static_cast<Diligent::Int32>( r.x + r.w ), static_cast<Diligent::Int32>( r.y + r.h )
-            }
-        );
-    }
+    if (p_rects.empty())
+        return;
     NC_LOG_TRACE_C(
-        log::GRAPHICS, "set_scissor: {} rects (first: {},{} {},{})", rects.size(), rects[0].left, rects[0].top,
-        rects[0].right, rects[0].bottom
+        log::GRAPHICS, "set_scissor: {} rects (first: {},{} {},{})", p_rects.size(), p_rects[0].x, p_rects[0].y,
+        p_rects[0].w, p_rects[0].h
     );
-    get_active_ctx_()->SetScissorRects( static_cast<Diligent::Uint32>( p_rects.size() ), rects.data(), 0, 0 );
+    constexpr size_t kMaxRects = 16;
+    const size_t count         = ( std::min ) ( p_rects.size(), kMaxRects );
+    Diligent::Rect converted[kMaxRects];
+    for (size_t i = 0; i < count; ++i) {
+        const Rect2i& r = p_rects[i];
+        converted[i]    = Diligent::Rect( r.x, r.y, r.x + r.w, r.y + r.h );
+    }
+    get_active_ctx_()->SetScissorRects( static_cast<Diligent::Uint32>( count ), converted, 0, 0 );
 }
 
 void DiligentGfxImpl::render_target_clear_color( void* rtv, const Color& color )
@@ -689,9 +741,18 @@ RID DiligentGfxImpl::texture_create( const gfx::TextureDesc& desc )
     }
 
     RID handle = textures.acquire();
-    auto entry = textures.get( handle );
-    NC_ASSERT_MSG( entry, "Failed acquiring new texture slot" );
-    *entry = std::move( texture );
+    auto entry = textures.get_or_fail( handle );
+    *entry     = std::move( texture );
+
+    NC_LOG_DEBUG_C(
+        log::GRAPHICS,
+        "NEW texture object name={} rid={} dim={} size={}x{} array={} mip={} sample={} format={} usage={} bind={} "
+        "cpu_access_mask={}",
+        desc.debug_name, handle.value, rtti::get_enum_name( &desc.dimension ), ddesc.Width, ddesc.Height,
+        ddesc.ArraySize, ddesc.MipLevels, ddesc.SampleCount, rtti::get_enum_name( &desc.format ),
+        rtti::get_enum_name( &desc.usage ), rtti::get_enum_name( &desc.bind_mask ),
+        rtti::get_enum_name( &desc.cpu_access_mask )
+    );
 
     return handle;
 }
@@ -722,6 +783,25 @@ void* DiligentGfxImpl::texture_view_get( RID texture, gfx::TextureViewType view 
         );
     }
     return result;
+}
+
+void DiligentGfxImpl::texture_data_update(
+    RID texture, uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint32_t row_pitch_bytes, const void* p_data
+)
+{
+    NC_LOG_TRACE_C(
+        log::GRAPHICS, "texture_data_update: rid={} rect={},{} {}x{} pitch={}", texture.value, x, y, width, height,
+        row_pitch_bytes
+    );
+    auto tex = textures.get_or_fail( texture );
+    Diligent::Box box( x, x + width, y, y + height, 0u, 1u );
+    Diligent::TextureSubResData subres{};
+    subres.pData  = p_data;
+    subres.Stride = row_pitch_bytes;
+    get_active_ctx_()->UpdateTexture(
+        *tex, 0, 0, box, subres, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION
+    );
 }
 
 void DiligentGfxImpl::texture_binding_update(
@@ -854,14 +934,13 @@ RID DiligentGfxImpl::buffer_create( const gfx::BufferDesc& p_desc )
     device->CreateBuffer( desc, p_desc.initial_data ? &init_data : nullptr, &buffer );
 
     RID handle = buffers.acquire();
-    auto entry = buffers.get( handle );
-    NC_VERIFY( entry );
-    *entry = std::move( buffer );
+    auto entry = buffers.get_or_fail( handle );
+    *entry     = std::move( buffer );
 
     NC_LOG_DEBUG_C(
-        log::GRAPHICS, "buffer_create: name='{}' size={} usage='{}' bind='{}' cpu='{}' rid={}", p_desc.debug_name,
-        p_desc.size, rtti::get_enum_name( &p_desc.usage ), rtti::get_enum_name( &p_desc.bind_mask ),
-        rtti::get_enum_name( &p_desc.cpu_access_mask ), handle.value
+        log::GRAPHICS, "NEW buffer object RID={} name='{}' size={} usage='{}' bind='{}' cpu_access='{}'", handle.value,
+        p_desc.debug_name, p_desc.size, rtti::get_enum_name( &p_desc.usage ), rtti::get_enum_name( &p_desc.bind_mask ),
+        rtti::get_enum_name( &p_desc.cpu_access_mask )
     );
 
     return handle;
@@ -893,6 +972,8 @@ void* DiligentGfxImpl::buffer_view_get( RID buffer, gfx::BufferViewType view )
 
 void DiligentGfxImpl::buffer_data_write( RID p_buffer, const void* p_src, size_t p_src_size, size_t p_offset )
 {
+    NC_ZONE_NAMED( "DiligentGfxImpl::buffer_data_write" )
+
     auto buffer = buffers.get_or_fail( p_buffer );
     auto& desc  = ( *buffer )->GetDesc();
 
@@ -925,6 +1006,8 @@ void DiligentGfxImpl::buffer_data_write( RID p_buffer, const void* p_src, size_t
 
 void DiligentGfxImpl::buffer_data_read( RID p_buffer, void* p_dst, size_t p_dst_size )
 {
+    NC_ZONE_NAMED( "DiligentGfxImpl::buffer_data_read" )
+
     auto buffer = buffers.get_or_fail( p_buffer );
 
     Diligent::MapHelper<const void*> map(
@@ -984,24 +1067,24 @@ void DiligentGfxImpl::buffer_binding_update(
 
 void DiligentGfxImpl::buffer_vertices_bind( Span<const RID> p_buffers, uint32_t slot, Span<const uint64_t> offsets )
 {
-    DynamicArray<Diligent::IBuffer*> buffer_arr;
-    for (auto& rid : p_buffers) {
-        auto ptr = buffers.get( rid );
-        NC_VERIFY( ptr );
-        buffer_arr.push_back( ptr->RawPtr() );
+    NC_ASSERT_MSG( p_buffers.size() <= 16, "Too many buffers specified, max is 16" );
+
+    Diligent::IBuffer* buffer_ptrs[16] = {};
+    for (size_t i = 0; i < p_buffers.size(); ++i) {
+        auto ptr       = buffers.get_or_fail( p_buffers[i] );
+        buffer_ptrs[i] = ptr->RawPtr();
     }
 
     NC_LOG_TRACE_C( log::GRAPHICS, "buffer_vertices_bind: {} buffers at slot={}", p_buffers.size(), slot );
     get_active_ctx_()->SetVertexBuffers(
-        slot, static_cast<Diligent::Uint32>( buffer_arr.size() ), buffer_arr.data(), offsets.data(),
+        slot, static_cast<Diligent::Uint32>( p_buffers.size() ), buffer_ptrs, offsets.data(),
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, Diligent::SET_VERTEX_BUFFERS_FLAG_RESET
     );
 }
 
 void DiligentGfxImpl::buffer_index_bind( RID buffer, uint32_t offset )
 {
-    auto buf = buffers.get( buffer );
-    NC_VERIFY( buf );
+    auto buf = buffers.get_or_fail( buffer );
     NC_LOG_TRACE_C( log::GRAPHICS, "buffer_index_bind: rid={} offset={}", buffer.value, offset );
     get_active_ctx_()->SetIndexBuffer( *buf, offset, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION );
 }
@@ -1136,16 +1219,23 @@ void DiligentGfxImpl::set_inline_constants(
     RID resource_binding, const char* variable_name, const void* data, uint32_t first_constant, uint32_t num_constants
 )
 {
+    NC_ZONE_COLOR( "gfx::set_inline_constants", NC_COLOR_RENDER )
     auto srb = res_bindings.get_or_fail( resource_binding );
     NC_LOG_TRACE_C(
         log::GRAPHICS, "set_inline_constants: rid={} var={} first={} count={}", resource_binding.value, variable_name,
         first_constant, num_constants
     );
-    Diligent::IShaderResourceVariable* var = ( *srb )->GetVariableByName( Diligent::SHADER_TYPE_VERTEX, variable_name );
-    if (!var) {
-        var = ( *srb )->GetVariableByName( Diligent::SHADER_TYPE_PIXEL, variable_name );
+    Diligent::IShaderResourceVariable* var = nullptr;
+    if (auto it = inline_const_vars.find( resource_binding ); it != inline_const_vars.end()) {
+        var = it->second.second;
+    } else {
+        var = ( *srb )->GetVariableByName( Diligent::SHADER_TYPE_VERTEX, variable_name );
+        if (!var) {
+            var = ( *srb )->GetVariableByName( Diligent::SHADER_TYPE_PIXEL, variable_name );
+        }
+        NC_VERIFY_MSG( var, "Inline constant variable not found in shader resource binding" );
+        inline_const_vars.emplace( resource_binding, std::make_pair( variable_name, var ) );
     }
-    NC_VERIFY_MSG( var, "Inline constant variable not found in shader resource binding" );
     var->SetInlineConstants( data, first_constant, num_constants );
 }
 
@@ -1170,10 +1260,18 @@ bool DiligentGfxImpl::destroy_rid( RID rid )
         return true;
     if (swapchains.release( rid ))
         return true;
-    if (shaders.release( rid ))
-        return true;
     if (pipelines.release( rid ))
         return true;
+    if (shaders.release( rid )) {
+        // small map (bounded by unique shader permutations) — linear erase is fine
+        for (auto it = shader_bytecode_cache.begin(); it != shader_bytecode_cache.end(); ++it) {
+            if (it->second == rid) {
+                shader_bytecode_cache.erase( it );
+                break;
+            }
+        }
+        return true;
+    }
     if (textures.release( rid ))
         return true;
     if (buffers.release( rid ))
@@ -1184,8 +1282,10 @@ bool DiligentGfxImpl::destroy_rid( RID rid )
         return true;
     if (res_mappings.release( rid ))
         return true;
-    if (res_bindings.release( rid ))
+    if (res_bindings.release( rid )) {
+        inline_const_vars.erase( rid );
         return true;
+    }
     return false;
 }
 
@@ -1200,7 +1300,11 @@ void DiligentGfxImpl::draw( uint32_t vertex_count, uint32_t start_vertex, uint32
     attrs.NumVertices         = vertex_count;
     attrs.StartVertexLocation = start_vertex;
     attrs.NumInstances        = instance_count;
-    attrs.Flags               = Diligent::DRAW_FLAG_VERIFY_ALL;
+#if defined( NC_DEBUG )
+    attrs.Flags = Diligent::DRAW_FLAG_VERIFY_ALL;
+#else
+    attrs.Flags = Diligent::DRAW_FLAG_NONE;
+#endif
     get_active_ctx_()->Draw( attrs );
 }
 
@@ -1218,8 +1322,12 @@ void DiligentGfxImpl::draw_indexed(
     attrs.BaseVertex            = base_vertex;
     attrs.NumInstances          = instance_count;
     attrs.FirstInstanceLocation = first_instance;
-    attrs.IndexType             = Diligent::VT_UINT16;
-    attrs.Flags                 = Diligent::DRAW_FLAG_VERIFY_ALL;
+    attrs.IndexType             = Diligent::VT_UINT32;
+#if defined( NC_DEBUG )
+    attrs.Flags = Diligent::DRAW_FLAG_VERIFY_ALL;
+#else
+    attrs.Flags = Diligent::DRAW_FLAG_NONE;
+#endif
     get_active_ctx_()->DrawIndexed( attrs );
 }
 

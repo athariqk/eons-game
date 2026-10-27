@@ -27,13 +27,7 @@ struct BlinnPhong : IBRDF
         float3 H = normalize(L + V);
         float nDotH = saturate(dot(N, H));
 
-        // TODO: The current model loading has a bug that is leading
-        // to the `ks` and `specularity` fields being invalid garbage
-        // for our example cube, and the result is a non-finite value
-        // coming out of `evaluate()` if we include the specular term.
-
-        // return kd*nDotL + ks*pow(nDotH, specularity);
-        return kd * nDotL;
+        return kd*nDotL + ks*pow(nDotH, specularity);
     }
 };
 
@@ -47,8 +41,7 @@ public struct StandardSpatial : ISpatialMaterial {
     [Color] uniform float3 specularColor;
     [Range(1.0, 256.0)] uniform float specularity;
 
-    void vertex(inout SpatialGeometry g) {
-	}
+    void vertex(inout SpatialGeometry g) {}
 
     SurfaceOutput fragment(in SpatialGeometry g) {
         SurfaceOutput o;

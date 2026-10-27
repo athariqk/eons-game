@@ -17,6 +17,9 @@ enum class PrimitiveTopology {
     TRIANGLE_LIST,
     POINT_LIST,
 };
+NENUM(
+    PrimitiveTopology, NENUM_ELEMENT( PrimitiveTopology, TRIANGLE_LIST ), NENUM_ELEMENT( PrimitiveTopology, POINT_LIST )
+)
 
 enum class FillMode {
     SOLID,
@@ -139,6 +142,12 @@ enum class ResourceDimension {
     DIM_CUBE,
     DIM_CUBE_ARRAY
 };
+NENUM(
+    ResourceDimension, NENUM_ELEMENT( ResourceDimension, DIM_1D ), NENUM_ELEMENT( ResourceDimension, DIM_1D_ARRAY ),
+    NENUM_ELEMENT( ResourceDimension, DIM_2D ), NENUM_ELEMENT( ResourceDimension, DIM_2D_ARRAY ),
+    NENUM_ELEMENT( ResourceDimension, DIM_3D ), NENUM_ELEMENT( ResourceDimension, DIM_CUBE ),
+    NENUM_ELEMENT( ResourceDimension, DIM_CUBE_ARRAY )
+)
 
 enum class VertexFrequency {
     PER_VERTEX,
@@ -253,6 +262,10 @@ enum class ResourceBindType {
     MUTABLE,
     DYNAMIC,
 };
+NENUM(
+    ResourceBindType, NENUM_ELEMENT( ResourceBindType, STATIC ), NENUM_ELEMENT( ResourceBindType, MUTABLE ),
+    NENUM_ELEMENT( ResourceBindType, DYNAMIC )
+)
 
 enum class ResourceFlags : uint8_t {
     NONE               = 0,
@@ -290,6 +303,10 @@ enum class BufferMode : uint8_t {
     STRUCTURED,
     RAW
 };
+NENUM(
+    BufferMode, NENUM_ELEMENT( BufferMode, NONE ), NENUM_ELEMENT( BufferMode, FORMATTED ),
+    NENUM_ELEMENT( BufferMode, STRUCTURED ), NENUM_ELEMENT( BufferMode, RAW )
+)
 
 enum class SwapChainUsage : uint32_t {
     NONE             = 0,
@@ -306,6 +323,10 @@ enum class TextureViewType {
     DEPTH_STENCIL,
     UNORDERED_ACCESS,
 };
+NENUM(
+    TextureViewType, NENUM_ELEMENT( TextureViewType, SHADER_RESOURCE ), NENUM_ELEMENT( TextureViewType, RENDER_TARGET ),
+    NENUM_ELEMENT( TextureViewType, DEPTH_STENCIL ), NENUM_ELEMENT( TextureViewType, UNORDERED_ACCESS )
+)
 
 enum class BufferViewType {
     SHADER_RESOURCE, // for shader read operations.

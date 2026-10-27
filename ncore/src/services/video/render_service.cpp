@@ -16,6 +16,7 @@
 #include <ncore/services/video/renderer/vertex_format.h>
 #include <ncore/utils/config.h>
 #include <ncore/utils/log.h>
+#include <utils/profiler.h>
 
 namespace nc {
 
@@ -68,6 +69,10 @@ RID RenderService::swapchain_create(
     swapchains.insert( rid );
     if (!primary_swapchain)
         primary_swapchain = rid;
+    NC_LOG_DEBUG_C(
+        log::GRAPHICS, "Created swapchain RID={} size={}x{} color_format={} depth_format={}", rid.value, size.x, size.y,
+        rtti::get_enum_name( &color_format ), rtti::get_enum_name( &depth_format )
+    );
     return rid;
 }
 
@@ -96,18 +101,25 @@ void RenderService::swapchain_destroy( RID swapchain )
 
 // ---------------------------------------------------------------------------
 
-RID RenderService::texture_2d_create( const Image& image )
+RID RenderService::texture_2d_create( const Image& image, bool updatable )
 {
     gfx::TextureDesc desc{};
     desc.debug_name      = image.filepath;
     desc.format          = gfx::TextureFormat::RGBA8_UNORM_SRGB;
     desc.dimension       = gfx::ResourceDimension::DIM_2D;
-    desc.usage           = gfx::ResourceUsage::DYNAMIC;
-    desc.cpu_access_mask = gfx::ResourceCpuAccessFlags::WRITE;
+    desc.usage           = updatable ? gfx::ResourceUsage::DEFAULT : gfx::ResourceUsage::IMMUTABLE;
+    desc.cpu_access_mask = updatable ? gfx::ResourceCpuAccessFlags::WRITE : gfx::ResourceCpuAccessFlags::NONE;
     desc.width           = image.get_width();
     desc.height          = image.get_height();
     desc.subresources.emplace_back( image.get_pixels().data() );
     return gfx_api->texture_create( desc );
+}
+
+void RenderService::texture_data_update(
+    RID texture, uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint32_t row_pitch_bytes, const void* p_data
+)
+{
+    gfx_api->texture_data_update( texture, x, y, width, height, row_pitch_bytes, p_data );
 }
 
 RID RenderService::texture_cube_create( const CubeMap& cubemap )
@@ -131,7 +143,6 @@ RID RenderService::texture_render_create( Vec2i size, gfx::TextureFormat format 
 {
     gfx::ResourceBindFlags bind_mask = gfx::ResourceBindFlags::NONE;
     if (format == gfx::TextureFormat::D32_FLOAT) {
-        // Sampleable depth: the transparent pass reads the opaque depth as an SRV.
         bind_mask = gfx::ResourceBindFlags::DEPTH_STENCIL | gfx::ResourceBindFlags::SHADER_RESOURCE;
     } else {
         bind_mask = gfx::ResourceBindFlags::RENDER_TARGET | gfx::ResourceBindFlags::SHADER_RESOURCE;
@@ -153,16 +164,17 @@ void* RenderService::texture_view_get( RID texture, gfx::TextureViewType view )
     return gfx_api->texture_view_get( texture, view );
 }
 
-void RenderService::texture_blit( RID tex_src, RID tex_dest )
+void RenderService::texture_blit( RID p_src, RID p_dest )
 {
-    bool to_swapchain = !tex_dest;
+    NC_ZONE_COLOR( "RenderService::texture_blit", NC_COLOR_RENDER )
+    bool to_swapchain = !p_dest;
     if (to_swapchain) {
         NC_FAIL_MSG_RET(
             primary_swapchain, "Target texture is set to default (primary swapchain) but it does not exist"
         );
-        tex_dest = primary_swapchain;
+        p_dest = primary_swapchain;
     }
-    gfx_api->texture_blit( tex_src, tex_dest, to_swapchain );
+    gfx_api->texture_blit( p_src, p_dest, to_swapchain );
 }
 
 //------------------------------------------------------------------------------
@@ -275,7 +287,7 @@ RenderService::CameraAttribs* RenderService::camera_attribs_get( RID camera )
 
 Mat4 RenderService::camera_perspective_get( RID camera )
 {
-    return camera_perspective_get_( *camera_attribs_get( camera ) );
+    return camera_perspective_get_impl( *camera_attribs_get( camera ) );
 }
 
 // ---------------------------------------------------------------------------
@@ -291,10 +303,19 @@ void RenderService::spatial_item_set_mesh( RID p_spatial_item, RID p_gpu_mesh )
     item->gpu_mesh = p_gpu_mesh;
 }
 
+RID RenderService::spatial_item_get_mesh( RID p_spatial_item )
+{
+    auto item = ctx.spatial_items.get( p_spatial_item );
+    return item ? item->gpu_mesh : RID{};
+}
+
 void RenderService::spatial_item_set_transform( RID p_spatial_item, const Mat4& p_transform )
 {
-    auto item       = ctx.spatial_items.get_or_fail( p_spatial_item );
-    item->transform = p_transform;
+    auto item = ctx.spatial_items.get_or_fail( p_spatial_item );
+    if (item->transform == p_transform)
+        return;
+    item->transform     = p_transform;
+    item->normal_matrix = p_transform.affine_inverse();
 }
 
 void RenderService::spatial_item_set_material( RID p_spatial_item, RID p_material )
@@ -303,19 +324,19 @@ void RenderService::spatial_item_set_material( RID p_spatial_item, RID p_materia
     item->material = p_material;
 }
 
-void RenderService::spatial_item_draw( RID p_spatial_item, uint32_t instancing )
+void RenderService::spatial_item_draw( RID p_spatial_item, uint16_t p_layer_index, uint32_t p_instancing )
 {
+    NC_ZONE_COLOR( "RenderService::spatial_item_draw", NC_COLOR_RENDER )
     auto item = ctx.spatial_items.get_or_fail( p_spatial_item );
-    // alloc() hands out raw storage — emplace() runs the constructors so the
-    // remaining fields are not whatever was in the arena
-    auto cmd = ctx.spatial_draw_cmds.emplace();
+    auto cmd  = ctx.spatial_draw_cmds.emplace();
     if (!cmd) {
         NC_LOG_ERROR_C( log::GRAPHICS, "spatial_item_draw: spatial draw command arena is full, draw skipped" );
         return;
     }
     cmd->item        = item;
-    cmd->instancing  = instancing;
-    cmd->index_count = storage.mesh_get_index_count( item->gpu_mesh );
+    cmd->instancing  = p_instancing;
+    cmd->layer_index = p_layer_index;
+
     // RID is (validator << 32) | index; the index is the stable slot id, so use only
     // the low 32 bits of each handle. Packing the full 64-bit mesh value into the key
     // would overlap the material bits via OR and break the sort order.
@@ -344,7 +365,7 @@ void RenderService::canvas_item_set_clipping( RID p_canvas_item, Rect2i clip )
 }
 
 void RenderService::canvas_item_add_triangles(
-    RID p_canvas_item, Span<const Vertex2D> verts, Span<const uint16_t> indices
+    RID p_canvas_item, Span<const Vertex2D> verts, Span<const uint32_t> indices
 )
 {
     auto item = ctx.canvas_items.get_or_fail( p_canvas_item );
@@ -371,7 +392,7 @@ void RenderService::canvas_item_add_quad(
         { p_points[3].x, p_points[3].y, u0, v1, c }
     };
 
-    uint16_t indices[6] = { 0, 1, 2, 2, 3, 0 };
+    uint32_t indices[6] = { 0, 1, 2, 2, 3, 0 };
 
     auto item     = ctx.canvas_items.get_or_fail( p_canvas_item );
     item->texture = p_texture;
@@ -396,7 +417,7 @@ void RenderService::canvas_item_draw( RID p_canvas_item, uint32_t z_order )
 }
 
 void RenderService::canvas_item_draw(
-    RID p_canvas_item, Span<const Vertex2D> p_verts_override, Span<const uint16_t> p_indices_override,
+    RID p_canvas_item, Span<const Vertex2D> p_verts_override, Span<const uint32_t> p_indices_override,
     RID p_texture_override, Rect2i p_clip_override, uint32_t z_order
 )
 {
@@ -422,22 +443,27 @@ void RenderService::canvas_item_draw(
 
 void RenderService::prepare_frame( float delta_time )
 {
+    NC_ZONE_COLOR( "RenderService::prepare_frame", NC_COLOR_RENDER )
     time += delta_time;
-    last_dt_ = delta_time;
-    storage.next_frame();
+    last_dt            = delta_time;
     m_stats.pass_count = 0;
 
-    // any compute work submitted this frame must be visible to the
-    // graphics queue before we record draws.
-    gfx_api->queue_submit_and_wait( GpuQueue::COMPUTE, GpuQueue::GRAPHICS );
+    // order the graphics queue after any compute work recorded this frame.
+    gfx_api->queue_submit_ordered( GpuQueue::COMPUTE, GpuQueue::GRAPHICS );
 
     gfx_api->set_queue( GpuQueue::GRAPHICS );
     gfx_api->set_context_state( false );
+
     gfx_api->begin_general_queries();
 }
 
 void RenderService::render_target( const RenderTargetDesc& p_desc )
 {
+    NC_ZONE_NAMED( "RenderService::render_target" )
+
+    gfx_api->set_queue( GpuQueue::GRAPHICS );
+    gfx_api->set_context_state( false );
+
     auto target_size = p_desc.rectangle.size();
 
     void* rtv = nullptr;
@@ -466,7 +492,7 @@ void RenderService::render_target( const RenderTargetDesc& p_desc )
     }
 
     const uint32_t pass_slot = m_stats.pass_count;
-    if (pass_slot < GfxInterface::MAX_TIMESTAMP_SLOTS)
+    if (pass_slot < RenderStats::kMaxPassTimestamps)
         gfx_api->timestamp_begin( pass_slot );
 
     ctx.pass_has_depth = ( dsv != nullptr );
@@ -485,13 +511,6 @@ void RenderService::render_target( const RenderTargetDesc& p_desc )
         )
     };
 
-    // The shared global SRB may still reference the previous frame's depth as
-    // `g_SceneDepth`. Committing it while that same texture is bound as the depth
-    // attachment would transition it to DEPTH_READ mid-pass, so point it at the
-    // fallback first; the transparent pass rebinds the real depth after the opaque
-    // batch. (No-op when the fallback is already bound.)
-    storage.scene_depth_set( RID() );
-
     gfx_api->render_target_bind( rtvs, dsv );
     gfx_api->render_target_set_scissor_rect( { &full_rect, 1 } );
     gfx_api->render_target_set_viewport( { &vp, 1 } );
@@ -509,95 +528,76 @@ void RenderService::render_target( const RenderTargetDesc& p_desc )
     scene_data.render_width  = static_cast<uint32_t>( target_size.x );
     scene_data.render_height = static_cast<uint32_t>( target_size.y );
     scene_data.time          = time;
-    scene_data.delta_time    = last_dt_;
+    scene_data.delta_time    = last_dt;
 
     CameraAttribs* cam_attribs = nullptr;
     if (should_draw_spatial) {
         cam_attribs              = camera_attribs_get( p_desc.camera );
-        scene_data.z_near        = cam_attribs->zNear;
-        scene_data.z_far         = cam_attribs->zFar;
-        scene_data.view_matrix   = cam_attribs->Transform.affine_inverse();
-        scene_data.camera_matrix = cam_attribs->Transform;
+        scene_data.z_near        = cam_attribs->z_near;
+        scene_data.z_far         = cam_attribs->z_far;
+        scene_data.view_matrix   = cam_attribs->transform.affine_inverse();
+        scene_data.camera_matrix = cam_attribs->transform;
         // precompute the V*P part of M*V*P so we don't have do it on the GPU.
         // here we take the inverse of camera transform to get its view matrix.
-        scene_data.view_proj_matrix = camera_perspective_get_( *cam_attribs ) * scene_data.view_matrix;
+        scene_data.view_proj_matrix = camera_perspective_get_impl( *cam_attribs ) * scene_data.view_matrix;
+
+        storage.scene_data_update( scene_data );
     }
 
-    storage.scene_data_update( scene_data );
-
     if (should_draw_spatial) {
-        auto& opaque_idx      = ctx.spatial_sort_indices;
-        auto& transparent_idx = ctx.spatial_transparent_sort_indices;
-        opaque_idx.clear();
-        transparent_idx.clear();
+        NC_ZONE_NAMED( "RenderService::render_target:draw_spatial" )
+
+        auto& opaque_idx = ctx.sort_indices;
+        opaque_idx.reset();
         for (size_t i = 0; i < ctx.spatial_draw_cmds.head(); ++i) {
-            auto* cmd = ctx.spatial_draw_cmds[i];
-            if (storage.material_is_transparent( cmd->item->material ))
-                transparent_idx.push_back( static_cast<uint32_t>( i ) );
-            else
-                opaque_idx.push_back( static_cast<uint32_t>( i ) );
+            auto ptr = opaque_idx.alloc();
+            *ptr     = static_cast<uint32_t>( i );
         }
 
-        // Opaque first, grouped by material then mesh so state changes are minimized.
-        std::sort( opaque_idx.begin(), opaque_idx.end(), [&]( uint32_t a, uint32_t b ) {
-            return ctx.spatial_draw_cmds[a]->sort_key < ctx.spatial_draw_cmds[b]->sort_key;
+        // grouped by material then mesh so state changes are minimized.
+        std::stable_sort( opaque_idx.begin(), opaque_idx.end(), [&]( uint32_t a, uint32_t b ) {
+            const uint64_t key_a = ctx.spatial_draw_cmds[a]->sort_key;
+            const uint64_t key_b = ctx.spatial_draw_cmds[b]->sort_key;
+            return key_a < key_b;
         } );
 
-        // Transparent draws blend against whatever is already in the target, so they run
-        // after the opaque pass and are sorted back-to-front by distance to the camera.
-        const float cam_x         = cam_attribs->Transform.col3.x;
-        const float cam_y         = cam_attribs->Transform.col3.y;
-        const float cam_z         = cam_attribs->Transform.col3.z;
-        const auto dist_to_cam_sq = [&]( const Mat4& m ) {
-            const float dx = m.col3.x - cam_x;
-            const float dy = m.col3.y - cam_y;
-            const float dz = m.col3.z - cam_z;
-            return dx * dx + dy * dy + dz * dz;
-        };
-        std::sort( transparent_idx.begin(), transparent_idx.end(), [&]( uint32_t a, uint32_t b ) {
-            return dist_to_cam_sq( ctx.spatial_draw_cmds[a]->item->transform ) >
-                   dist_to_cam_sq( ctx.spatial_draw_cmds[b]->item->transform );
-        } );
-
+        RID last_bound_mesh{};
         const auto draw_spatial_cmd = [&]( uint32_t idx ) {
             auto* cmd      = ctx.spatial_draw_cmds[idx];
             auto& material = cmd->item->material;
             auto gpu_mesh  = cmd->item->gpu_mesh;
 
-            storage.material_bind( material, ctx.pass_has_depth );
-            storage.mesh_bind( gpu_mesh );
+            const bool rebound = storage.material_bind( material, ctx.pass_has_depth );
 
-            SpatialInstanceData instance{};
-            instance.model_matrix  = cmd->item->transform;
-            instance.normal_matrix = cmd->item->transform.affine_inverse();
+            SpatialInstanceData instance{
+                .model_matrix = cmd->item->transform, .normal_matrix = cmd->item->normal_matrix
+            };
             gfx_api->set_inline_constants(
                 storage.spatial_push_binding, "g_Instance", &instance, 0, sizeof( instance ) / 4
             );
-            gfx_api->resource_binding_commit( storage.spatial_push_binding );
+            if (rebound)
+                gfx_api->resource_binding_commit( storage.spatial_push_binding );
 
-            gfx_api->draw_indexed( cmd->index_count, 0, 0, cmd->instancing, 0 );
+            if (gpu_mesh != last_bound_mesh) {
+                storage.mesh_bind( gpu_mesh );
+                last_bound_mesh = gpu_mesh;
+            }
+
+            MeshLayerDesc layer_desc;
+            if (!storage.mesh_get_layer( gpu_mesh, cmd->layer_index, layer_desc ))
+                return; // stale/invalid layer index: skip rather than draw garbage
+            gfx_api->draw_indexed(
+                layer_desc.index_count, layer_desc.first_index, layer_desc.base_vertex, cmd->instancing, 0
+            );
         };
 
         for (uint32_t idx : opaque_idx)
             draw_spatial_cmd( idx );
-
-        if (!transparent_idx.empty()) {
-            // Transparent materials sample the opaque depth as an SRV, which is illegal
-            // while it is the bound depth attachment. Unbind the depth (keeping color and
-            // its contents), expose it as `g_SceneDepth`, and draw the transparent batch
-            // without a depth attachment — water performs its own depth test in-shader.
-            storage.scene_depth_set( p_desc.depth_texture );
-            gfx_api->render_target_bind( rtvs, nullptr );
-            gfx_api->render_target_set_scissor_rect( { &full_rect, 1 } );
-            gfx_api->render_target_set_viewport( { &vp, 1 } );
-            ctx.pass_has_depth = false;
-
-            for (uint32_t idx : transparent_idx)
-                draw_spatial_cmd( idx );
-        }
     }
 
     if (should_draw_canvas) {
+        NC_ZONE_NAMED( "RenderService::render_target:draw_canvas" )
+
         uint32_t total_verts = ctx.canvas_override_vert_count + ctx.canvas_staging_vert_count;
         uint32_t total_ids   = ctx.canvas_override_idx_count + ctx.canvas_staging_idx_count;
 
@@ -615,11 +615,11 @@ void RenderService::render_target( const RenderTargetDesc& p_desc )
             uint32_t idx_off  = 0;
 
             for (size_t i = 0; i < ctx.canvas_draw_cmds.head(); ++i) {
-                auto* cmd = ctx.canvas_draw_cmds[i];
-                const auto v =
-                    cmd->verts_override.size() > 0 ? cmd->verts_override : Span<const Vertex2D>( cmd->item->verts );
-                const auto ix   = cmd->indices_override.size() > 0 ? cmd->indices_override
-                                                                   : Span<const uint16_t>( cmd->item->indices );
+                auto* cmd       = ctx.canvas_draw_cmds[i];
+                auto verts_view = Span<const Vertex2D>( cmd->item->verts );
+                auto idx_view   = Span<const uint32_t>( cmd->item->indices );
+                const auto v    = cmd->verts_override.size() > 0 ? cmd->verts_override : verts_view;
+                const auto ix   = cmd->indices_override.size() > 0 ? cmd->indices_override : idx_view;
                 cmd->start_vert = vert_off;
                 cmd->start_idx  = idx_off;
 
@@ -629,7 +629,7 @@ void RenderService::render_target( const RenderTargetDesc& p_desc )
                 }
                 if (!ix.empty()) {
                     std::memcpy(
-                        ctx.canvas_indices_staging.data() + idx_off, ix.data(), ix.size() * sizeof( uint16_t )
+                        ctx.canvas_indices_staging.data() + idx_off, ix.data(), ix.size() * sizeof( uint32_t )
                     );
                     idx_off += static_cast<uint32_t>( ix.size() );
                 }
@@ -642,7 +642,7 @@ void RenderService::render_target( const RenderTargetDesc& p_desc )
             }
             if (idx_off > 0) {
                 gfx_api->buffer_data_write(
-                    canvas_ibo, ctx.canvas_indices_staging.data(), static_cast<size_t>( idx_off ) * sizeof( uint16_t )
+                    canvas_ibo, ctx.canvas_indices_staging.data(), static_cast<size_t>( idx_off ) * sizeof( uint32_t )
                 );
             }
 
@@ -652,10 +652,12 @@ void RenderService::render_target( const RenderTargetDesc& p_desc )
             // Sort canvas draws by z-order. A stable sort preserves submission order
             // within the same z, which is the correct blend order for non-depth-tested
             // alpha-blended geometry.
-            auto& sort_idx = ctx.canvas_sort_indices;
-            sort_idx.clear();
-            for (size_t i = 0; i < ctx.canvas_draw_cmds.head(); ++i)
-                sort_idx.push_back( static_cast<uint32_t>( i ) );
+            auto& sort_idx = ctx.sort_indices;
+            sort_idx.reset();
+            for (size_t i = 0; i < ctx.canvas_draw_cmds.head(); ++i) {
+                auto ptr = sort_idx.alloc();
+                *ptr     = static_cast<uint32_t>( i );
+            }
             std::stable_sort( sort_idx.begin(), sort_idx.end(), [&]( uint32_t a, uint32_t b ) {
                 return ctx.canvas_draw_cmds[a]->z_order < ctx.canvas_draw_cmds[b]->z_order;
             } );
@@ -680,24 +682,21 @@ void RenderService::render_target( const RenderTargetDesc& p_desc )
 
                 RID material = cmd->item->material;
                 if (cmd->texture_override)
-                    material = storage.material_create_texture_variant( material, cmd->texture_override );
+                    storage.material_set_texture( material, cmd->texture_override, 0 );
 
-                storage.material_bind( material, ctx.pass_has_depth );
-
-                if (storage.material_has_push_constants( material ))
+                const bool pso_rebound = storage.material_bind( material, ctx.pass_has_depth );
+                if (pso_rebound)
                     gfx_api->resource_binding_commit( storage.canvas_push_binding );
 
                 auto clip = cmd->clip_override;
-                if (clip.w <= 0 || clip.h <= 0)
+                if (!clip.has_area())
                     clip = cmd->item->clip;
 
-                if (clip.x >= 0 && clip.y >= 0 && clip.w > 0 && clip.h > 0)
+                if (clip.x >= 0 && clip.y >= 0 && clip.has_area())
                     gfx_api->render_target_set_scissor_rect( { &clip, 1 } );
 
                 gfx_api->draw_indexed( cmd->idx_count, cmd->start_idx, cmd->start_vert );
             }
-
-            gfx_api->render_target_set_scissor_rect( { &full_rect, 1 } );
         }
     }
 
@@ -711,8 +710,9 @@ void RenderService::render_target( const RenderTargetDesc& p_desc )
 
 void RenderService::present()
 {
+    NC_ZONE_COLOR( "RenderService::present", NC_COLOR_RENDER )
     gfx_api->end_general_queries();
-    gfx_api->swapchain_present( swapchain_get_primary(), settings.VSync );
+    gfx_api->swapchain_present( swapchain_get_primary(), settings.vsync );
     storage.flush_pending_destroys();
     ctx.clear();
 }
@@ -730,9 +730,7 @@ bool RenderService::destroy_rid( RID rid )
         return true;
     if (storage.destroy_rid( rid ))
         return true;
-    if (gfx_api->destroy_rid( rid ))
-        return true;
-    return false;
+    return gfx_api->destroy_rid( rid );
 }
 
 // ---------------------------------------------------------------------------
@@ -762,8 +760,8 @@ void RenderService::ensure_canvas_vertex_buf_( uint32_t p_needed_verts )
 
 void RenderService::ensure_canvas_index_buf_( uint32_t p_needed_ids )
 {
-    size_t required = p_needed_ids * sizeof( uint16_t );
-    if (required <= canvas_ibo_size * sizeof( uint16_t ))
+    size_t required = p_needed_ids * sizeof( uint32_t );
+    if (required <= canvas_ibo_size * sizeof( uint32_t ))
         return;
 
     // Grow to the next power of two to reduce how often the buffer is recreated.
@@ -772,7 +770,7 @@ void RenderService::ensure_canvas_index_buf_( uint32_t p_needed_ids )
         new_capacity <<= 1;
     gfx::BufferDesc desc;
     desc.debug_name      = "Canvas Index Buffer";
-    desc.size            = new_capacity * sizeof( uint16_t );
+    desc.size            = new_capacity * sizeof( uint32_t );
     desc.usage           = gfx::ResourceUsage::DYNAMIC;
     desc.cpu_access_mask = gfx::ResourceCpuAccessFlags::WRITE;
     desc.bind_mask       = gfx::ResourceBindFlags::INDEX_BUFFER;
@@ -783,26 +781,27 @@ void RenderService::ensure_canvas_index_buf_( uint32_t p_needed_ids )
     canvas_ibo_size = new_capacity;
 }
 
-Mat4 RenderService::camera_perspective_get_( CameraAttribs& attribs )
+Mat4 RenderService::camera_perspective_get_impl( CameraAttribs& attribs )
 {
     // Reuse the cached matrix unless a projection input changed. Compare floats bitwise
     // so we recompute exactly when a value changes, without tripping -Wfloat-equal.
-    const bool same_fov  = std::bit_cast<uint32_t>( attribs.cached_fov ) == std::bit_cast<uint32_t>( attribs.Fov );
-    const bool same_near = std::bit_cast<uint32_t>( attribs.cached_znear ) == std::bit_cast<uint32_t>( attribs.zNear );
-    const bool same_far  = std::bit_cast<uint32_t>( attribs.cached_zfar ) == std::bit_cast<uint32_t>( attribs.zFar );
-    if (same_fov && same_near && same_far && attribs.cached_display == attribs.DisplaySize)
+    const bool same_fov  = std::bit_cast<uint32_t>( attribs.cached_fov ) == std::bit_cast<uint32_t>( attribs.fov );
+    const bool same_near = std::bit_cast<uint32_t>( attribs.cached_znear ) == std::bit_cast<uint32_t>( attribs.z_near );
+    const bool same_far  = std::bit_cast<uint32_t>( attribs.cached_zfar ) == std::bit_cast<uint32_t>( attribs.z_far );
+    if (same_fov && same_near && same_far && attribs.cached_display == attribs.display_size)
         return attribs.cached_proj;
 
     // perspective projection from target size
     // https://www.scratchapixel.com/lessons/3d-basic-rendering/perspective-and-orthographic-projection-matrix//building-basic-perspective-projection-matrix.html
     // https://github.com/DiligentGraphics/DiligentSamples/blob/master/SampleBase/src/SampleBase.cpp
-    const auto aspect_ratio = static_cast<float>( attribs.DisplaySize.x ) / static_cast<float>( attribs.DisplaySize.y );
-    const float y_scale     = 1.0f / std::tan( attribs.Fov * 0.5f );
-    const float x_scale     = y_scale / aspect_ratio;
-    const auto n            = attribs.zNear;
-    const auto f            = attribs.zFar;
-    const auto zz           = -f / ( f - n );     // used to remap z to [0,1]
-    const auto wz           = -f * n / ( f - n ); // used to remap z [0,1]
+    const auto aspect_ratio =
+        static_cast<float>( attribs.display_size.x ) / static_cast<float>( attribs.display_size.y );
+    const float y_scale = 1.0f / std::tan( attribs.fov * 0.5f );
+    const float x_scale = y_scale / aspect_ratio;
+    const auto n        = attribs.z_near;
+    const auto f        = attribs.z_far;
+    const auto zz       = -f / ( f - n );     // used to remap z to [0,1]
+    const auto wz       = -f * n / ( f - n ); // used to remap z [0,1]
 
     attribs.cached_proj = Mat4(
         Vec4f( x_scale, 0, 0, 0 ), // scale the x coordinates of the projected point
@@ -810,10 +809,10 @@ Mat4 RenderService::camera_perspective_get_( CameraAttribs& attribs )
         Vec4f( 0, 0, zz, -1 ),     // set w = -z
         Vec4f( 0, 0, wz, 0 )
     );
-    attribs.cached_fov     = attribs.Fov;
-    attribs.cached_znear   = attribs.zNear;
-    attribs.cached_zfar    = attribs.zFar;
-    attribs.cached_display = attribs.DisplaySize;
+    attribs.cached_fov     = attribs.fov;
+    attribs.cached_znear   = attribs.z_near;
+    attribs.cached_zfar    = attribs.z_far;
+    attribs.cached_display = attribs.display_size;
 
     return attribs.cached_proj;
 }

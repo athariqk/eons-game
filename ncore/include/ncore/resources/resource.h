@@ -7,6 +7,7 @@
 #include <fstream>
 #include <string>
 
+#include <ncore/core/aabb.h>
 #include <ncore/core/object.h>
 #include <ncore/core/reference.h>
 #include <ncore/core/rid.h>
@@ -232,10 +233,26 @@ public:
 // Mesh, CubeMesh, PlaneMesh
 // ------------------------------------------------------------------------------
 
+/**
+ * @brief One index range of a mesh.
+ *
+ * AABB is in mesh space.
+ */
+struct REFLECT NCAPI MeshLayerDesc {
+    REFLECT uint32_t first_index = 0;
+    REFLECT uint32_t index_count = 0;
+    REFLECT int32_t base_vertex  = 0;
+    REFLECT AABB bounds;
+};
+
 struct REFLECT NCAPI MeshDesc {
+    constexpr static size_t MAX_LAYERS = 32;
+
     REFLECT BytesBuffer vertices;
-    REFLECT DynamicArray<uint16_t> indices;
+    REFLECT DynamicArray<uint32_t> indices;
     REFLECT uint32_t vertex_stride;
+    REFLECT uint8_t layer_count              = 0;  // (optional) number of valid entries in layers[].
+    REFLECT MeshLayerDesc layers[MAX_LAYERS] = {}; // (optional) index ranges for each layer.
 };
 
 /**
@@ -245,15 +262,17 @@ class NCAPI Mesh : public IResource {
     NCLASS( Mesh, IResource )
 
 public:
-    Mesh( const MeshDesc& p_desc ) : desc( p_desc ) {}
+    Mesh( const MeshDesc& p_desc );
 
     ResourceFormatID get_format_id() const override;
     size_t get_size_bytes() const override;
 
-    Span<const std::byte> get_vertices() const [[clang::lifetimebound]];
-    Span<const uint16_t> get_indices() const [[clang::lifetimebound]];
-    size_t vertex_count() const;
-    size_t index_count() const;
+    Span<const MeshLayerDesc> get_layers() const;
+    Span<const std::byte> get_vertices( const uint8_t p_layer_index = 0 ) const;
+    Span<const uint32_t> get_indices( const uint8_t p_layer_index = 0 ) const;
+    AABB get_bounds( const uint8_t p_layer_index = 0 ) const;
+    size_t vertex_count( const uint8_t p_layer_index = 0 ) const;
+    size_t index_count( const uint8_t p_layer_index = 0 ) const;
     uint32_t get_vertex_stride() const;
 
 protected:
@@ -272,8 +291,7 @@ public:
  * @brief A primitve plane mesh.
  *
  * The plane lies on the XZ plane (normal +Y) with a unit size of 2x2 (-1..1),
- * subdivided into x_segments * z_segments quads. Limited to 255 segments per
- * side due to 16-bit indices.
+ * subdivided into x_segments * z_segments quads.
  */
 class NCAPI PlaneMesh : public Mesh {
 public:

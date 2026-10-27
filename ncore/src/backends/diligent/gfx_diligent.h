@@ -33,7 +33,9 @@ public:
 
     void set_queue( GpuQueue queue ) override;
     void sync_queue( GpuQueue queue ) override;
-    void queue_submit_and_wait( GpuQueue src, GpuQueue dst ) override;
+    void queue_submit_ordered( GpuQueue src, GpuQueue dst ) override;
+
+    const char* get_adapter_name() const override;
 
     RID swapchain_create( const gfx::SwapChainDesc& desc ) override;
     Vec2i swapchain_get_size( RID sc ) override;
@@ -65,6 +67,10 @@ public:
 
     RID texture_create( const gfx::TextureDesc& desc ) override;
     void* texture_view_get( RID texture, gfx::TextureViewType view ) override;
+    void texture_data_update(
+        RID texture, uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint32_t row_pitch_bytes,
+        const void* p_data
+    ) override;
     void texture_binding_update(
         RID p_texture, RID p_binding, gfx::ShaderStage p_shader_type, gfx::TextureViewType p_view_type,
         StringView p_name
@@ -148,6 +154,26 @@ private:
     RIDPool<Diligent::RefCntAutoPtr<Diligent::IDeviceContext>> ctx_tx_defer;
     RIDPool<Diligent::RefCntAutoPtr<Diligent::ISwapChain>> swapchains;
     RIDPool<Diligent::RefCntAutoPtr<Diligent::IShader>> shaders;
+    // shader_create is called once per material from get_pso_key_ with the same
+    // precompiled bytecode — dedup so materials (and their texture variants) share
+    // IShader objects, which in turn lets pso_cache share whole PSOs.
+    struct ShaderBcKey {
+        uint64_t hash;
+        uint64_t size_bytes;
+        gfx::ShaderStage stage;
+        bool operator==( const ShaderBcKey& o ) const
+        {
+            return hash == o.hash && size_bytes == o.size_bytes && stage == o.stage;
+        }
+    };
+    struct ShaderBcKeyHasher {
+        std::size_t operator()( const ShaderBcKey& p ) const
+        {
+            auto combine = []( size_t a, size_t b ) -> size_t { return a ^ ( b + 0x9e3779b9 + ( a << 6 ) + ( a >> 4 ) ); };
+            return combine( std::hash<uint64_t>{}( p.hash ), combine( std::hash<uint64_t>{}( p.size_bytes ), std::hash<uint8_t>{}( static_cast<uint8_t>( p.stage ) ) ) );
+        }
+    };
+    HashMap<ShaderBcKey, RID, ShaderBcKeyHasher> shader_bytecode_cache;
     RIDPool<Diligent::RefCntAutoPtr<Diligent::IPipelineState>> pipelines;
     RIDPool<Diligent::RefCntAutoPtr<Diligent::ITexture>> textures;
     RIDPool<Diligent::RefCntAutoPtr<Diligent::IBuffer>> buffers;
@@ -155,6 +181,12 @@ private:
     RIDPool<Diligent::RefCntAutoPtr<Diligent::IPipelineResourceSignature>> res_signatures;
     RIDPool<Diligent::RefCntAutoPtr<Diligent::IResourceMapping>> res_mappings;
     RIDPool<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> res_bindings;
+
+    // set_inline_constants runs per draw; GetVariableByName is a linear scan, so cache
+    // the resolved pointer (valid for the SRB's lifetime) keyed by binding RID.
+    // Entry stores the variable name it was resolved for to stay correct if a binding
+    // ever gains a second inline-constant variable.
+    HashMap<RID, std::pair<const char*, Diligent::IShaderResourceVariable*>> inline_const_vars;
 
     Diligent::RefCntAutoPtr<Diligent::IVertexPool> vertex_pool;
 
