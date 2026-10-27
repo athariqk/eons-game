@@ -52,7 +52,8 @@ static String get_extension( const StringView path )
 }
 
 Error AssetService::compile(
-    const String& p_input_file, const String& p_output_path, const DynamicArray<String>& p_search_paths
+    const String& p_input_file, const String& p_output_path, const DynamicArray<String>& p_search_paths,
+    bool p_skip_cache
 )
 {
     auto fs_input = std::filesystem::current_path() / "assets" / p_input_file;
@@ -98,7 +99,7 @@ Error AssetService::compile(
     AssetImportContext ctx;
     ctx.load         = nullptr;
     ctx.get          = nullptr;
-    ctx.skip_cache   = false;
+    ctx.skip_cache   = p_skip_cache;
     ctx.search_paths = p_search_paths;
 
     auto start = std::chrono::steady_clock::now();
@@ -108,7 +109,7 @@ Error AssetService::compile(
     auto result        = handler->compile( fs_input_str, fs_output_str, ctx );
 
     auto end         = std::chrono::steady_clock::now();
-    auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>( start - end );
+    auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>( end - start );
 
     if (result != Error::OK) {
         NC_LOG_ERROR_C( log::IO, "Failed to compile asset from '{}'", p_input_file );

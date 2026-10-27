@@ -11,11 +11,19 @@ class NCAPI ResourceLoader : public Object {
 
 public:
     struct LoadEvent {
-        RID Handle;
-        ResourceFormatID FormatId;
+        RID handle;
+        ResourceFormatID format_id;
+        RID replaced = 0; // previous handle when this load was a forced reload.
     };
 
     using Event = std::variant<LoadEvent>;
+
+    ResourceLoader();
+
+    /**
+     * @brief Get the absolute path of the runtime `assets/` directory.
+     */
+    const char* get_asset_root() const [[clang::lifetimebound]];
 
     /**
      * @brief Loads a resource format from disk at given path and
@@ -23,15 +31,21 @@ public:
      *
      * Blocks execution of the calling thread until load completes.
      *
-     * @param path The relative path from the `assets` folder, NOT absolute path.
-     * @param skip_cache Force re-loading from disk rather than from cache. Use this
+     * @param p_path The relative path from the `assets` folder, NOT absolute path.
+     * @param p_skip_cache Force re-loading from disk rather than from cache. Use this
      * for hot-reloading.
      *
      * @return Stable opaque handle as RID. Use get(RID) to access it.
      */
-    RID load( const String& path, bool skip_cache = false );
+    RID load( const String& p_path, bool p_skip_cache = false );
 
-    void unload_resource( RID rid );
+    /**
+     * @brief Inverse of load(). Returns the asset path a handle was loaded from.
+     * @return Empty view for handles that were not loaded from disk.
+     */
+    StringView path_of( RID p_rid ) const [[clang::lifetimebound]];
+
+    void unload_resource( RID p_rid );
     void unload_all();
 
     /**
@@ -40,7 +54,7 @@ public:
      * TODO: this function's existence is probably more justified once
      * we've got asynchronous loading in place.
      */
-    Ref<IResource> get( RID rid );
+    Ref<IResource> get( RID p_rid );
 
     /**
      * @brief Insert a procedurally generated resource to storage.
@@ -49,7 +63,7 @@ public:
      *
      * @return Its newly-assigned RID handle or existing one.
      */
-    RID add( Ref<IResource> res );
+    RID add( Ref<IResource> p_res );
 
     /**
      * @brief Loads a resource format from disk at given path and
@@ -60,16 +74,16 @@ public:
      * This is the same as calling non-generic load(const String&, bool) function
      * and then calling get(RID) on the returned RID.
      *
-     * @param path The relative path from the `assets` folder, NOT absolute path.
-     * @param skip_cache Force re-loading from disk rather than from cache. Use this
+     * @param p_path The relative path from the `assets` folder, NOT absolute path.
+     * @param p_skip_cache Force re-loading from disk rather than from cache. Use this
      * for hot-reloading.
      *
      * @return Typed reference to the loaded resource or null if fail.
      */
     template<class T>
-    Ref<T> load( const String& path, bool skip_cache = false )
+    Ref<T> load( const String& p_path, bool p_skip_cache = false )
     {
-        RID handle = load( path, skip_cache );
+        RID handle = load( p_path, p_skip_cache );
         return get<T>( handle );
     }
 
@@ -80,9 +94,9 @@ public:
      * we've got asynchronous loading in place.
      */
     template<typename T>
-    Ref<T> get( RID rid )
+    Ref<T> get( RID p_rid )
     {
-        auto entry = get( rid );
+        auto entry = get( p_rid );
         if (!entry)
             return nullptr;
         return entry.as<T>();
@@ -101,12 +115,14 @@ public:
      * @brief Pull (remove) events from queue into the event ptr param.
      * Systems can use this to pump_events for pending events.
      */
-    bool poll_event( Event* event );
+    bool poll_event( Event* p_event );
 
 private:
     HashMap<String, RID> path_map;
+    HashMap<uint64_t, String> rid_paths;
     RIDPool<Ref<IResource>> storage;
     RingBuffer<Event> events;
+    String asset_root;
 };
 
 } // namespace nc

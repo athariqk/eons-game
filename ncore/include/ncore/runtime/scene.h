@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include <ncore/core/collection.h>
 #include <ncore/game_world.h>
 #include <ncore/runtime/ecs/ecs_component.h>
@@ -16,9 +18,7 @@ class ServiceRegistry;
 /**
  * @brief ECS tag to mark the Scene's root node.
  */
-NC_COMPONENT_API( RootNodeTag )
-{
-};
+NC_COMPONENT_API( RootNodeTag ){};
 
 NC_COMPONENT_API( NodeRefComponent )
 {
@@ -60,11 +60,11 @@ public:
     void on_exit() override;
 
     template<class... Comps, typename Fn>
-    void add_system( Fn&& callback, EcsSystemPhase phase, int order = 0 )
+    void add_system( Fn&& p_callback, EcsSystemPhase p_phase, int p_order = 0 )
     {
         auto name = std::format( "Scene_Sys_{}", ++system_counter );
-        ecs_world.system( name ).with<NodeRefComponent, Comps...>().in( phase ).order( order ).each(
-            [fn = std::forward<Fn>( callback )]( EcsIterState& ctx ) {
+        ecs_world.system( name ).with<NodeRefComponent, Comps...>().in( p_phase ).order( p_order ).each(
+            [fn = std::forward<Fn>( p_callback )]( EcsIterState& ctx ) {
                 auto ref = ctx.get_component<NodeRefComponent>();
                 NC_ASSERT_MSG( ref && ref->node, "Entity missing NodeRefComponent" );
                 fn( *ref->node, ( *ctx.get_component<Comps>() )..., ctx.delta_time() );
@@ -73,22 +73,22 @@ public:
     }
 
     template<typename Fn>
-    void add_startup( Fn&& callback, int order = 0 )
+    void add_startup( Fn&& p_callback, int p_order = 0 )
     {
         auto name = std::format( "Scene_Startup_{}", ++system_counter );
         ecs_world.system( name )
             .in( EcsSystemPhase::INIT )
-            .order( order )
-            .run( [fn = std::forward<Fn>( callback )]( EcsIterState& ctx ) { fn(); } );
+            .order( p_order )
+            .run( [fn = std::forward<Fn>( p_callback )]( EcsIterState& ctx ) { fn(); } );
     }
 
     template<typename T, typename Fn>
-    void add_observer( Fn&& callback, EcsComponent event )
+    void add_observer( Fn&& p_callback, EcsComponent p_event )
     {
         ecs_world.observer( std::format( "Scene_Obs_{}", ++system_counter ) )
             .with<NodeRefComponent>()
-            .on<T>( event )
-            .each( [fn = std::forward<Fn>( callback )]( EcsIterState& ctx ) {
+            .on<T>( p_event )
+            .each( [fn = std::forward<Fn>( p_callback )]( EcsIterState& ctx ) {
                 auto ref = ctx.get_component<NodeRefComponent>();
                 fn( *ref->node, *ctx.get_component<T>() );
             } );
@@ -111,29 +111,54 @@ public:
     }
 
     /**
-     * @brief This creates a new root node if current one doesn't exist.
+     * @brief Get the root node of this scene.
+	 *
+	 * This creates a new root node if current one doesn't exist.
      */
     Node* root();
 
     /**
      * @brief Checks whether a node is not being destroyed.
      */
-    bool is_node_valid( Node* node );
+    bool is_node_valid( Node* p_node );
+
+    /**
+	 * @brief Get the Node associated with an entity ID, or nullptr if the entity is invalid or has no Node.
+     */
+    Node* node_from_entity( EcsEntity p_entity );
 
     /**
      * @brief Safely defer the deletion of a Node at the next frame.
      */
-    void queue_destroy_node( Node* node );
+    void queue_destroy_node( Node* p_node );
+
+    /**
+     * @brief Queue work that must run outside the ECS progress (structural changes).
+     *
+     * Systems execute with the world read-only, so spawning/destroying entities
+     * from a system callback only yields deferred (temporary) ids. Editor and
+     * gameplay code that reacts to input queues the work here instead; it runs
+     * at the start of the next variable update, before cs_world.progress().
+     */
+    void queue_task( std::function<void()> p_task );
+
+    /** @brief
+	* Generate a unique display name for an unnamed child node.
+	*/
+    String generate_node_name();
 
 private:
     void ensure_root_node_exists_();
+    void process_pending_tasks_();
     void process_pending_node_deletions_();
 
     EcsWorld ecs_world;
     ResourceLoader resource_loader;
     Node::NodePool node_pool;
-    Node* root_node       = nullptr;
-    size_t system_counter = 0;
+    Node* root_node            = nullptr;
+    size_t system_counter      = 0;
+    uint64_t node_name_counter = 0;
+    DynamicArray<std::function<void()>> pending_tasks;
     HashSet<Node*> pending_node_deletions; // TODO: any way to do this efficiently would be nice
 };
 

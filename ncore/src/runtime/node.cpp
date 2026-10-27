@@ -75,7 +75,12 @@ void Node::destroy()
 
 Node* Node::create_child( const String& name )
 {
-    auto node       = node_pool->acquire( name, scene, this );
+    // Flecs hands out internal ids for anonymous entities created through
+    // ecs_entity_init with an empty name, which then poisons pair/query state.
+    // Unnamed nodes get a generated display name instead.
+    const String child_name = name.empty() ? scene->generate_node_name() : name;
+
+    auto node       = node_pool->acquire( child_name, scene, this );
     node->node_pool = node_pool;
     NC_LOG_TRACE( "Created child node '{}' with entity ID {}", name, node->internal_id );
     return node;
@@ -119,7 +124,7 @@ const void* Node::get_component_const( const rtti::TypeInfo* type ) const
 
 void* Node::get_component( const rtti::TypeInfo* type ) const
 {
-    return scene->get_ecs().get_component_( internal_id, type );
+    return scene->get_ecs().get_component_impl( internal_id, type );
 }
 
 Span<Component> Node::get_components()
@@ -129,7 +134,7 @@ Span<Component> Node::get_components()
 
 void* Node::add_component( const rtti::TypeInfo* type, const void* data )
 {
-    if (has_component_( type ))
+    if (has_component_impl( type ))
         return get_component( type );
 
     auto& ecs = scene->get_ecs();
@@ -178,14 +183,14 @@ void Node::track_ecs_component( const rtti::TypeInfo* type, EcsComponent id )
     components[component_count++] = Component{ id, true, ecs_has_id( world, id, EcsCanToggle ) };
 }
 
-bool Node::has_component_( const rtti::TypeInfo* type ) const
+bool Node::has_component_impl( const rtti::TypeInfo* type ) const
 {
-    return scene->get_ecs().has_component_( internal_id, type );
+    return scene->get_ecs().has_component_impl( internal_id, type );
 }
 
-void Node::remove_component_( const rtti::TypeInfo* type )
+void Node::remove_component_impl( const rtti::TypeInfo* type )
 {
-    scene->get_ecs().remove_component_( internal_id, type );
+    scene->get_ecs().remove_component_impl( internal_id, type );
     auto comp_id = scene->get_ecs().register_component_type( type );
     for (uint32_t i = 0; i < component_count; ++i) {
         if (components[i].EcsId == comp_id) {
@@ -198,12 +203,12 @@ void Node::remove_component_( const rtti::TypeInfo* type )
 
 bool Node::has_component( const rtti::TypeInfo* type ) const
 {
-    return has_component_( type );
+    return has_component_impl( type );
 }
 
 void Node::remove_component( const rtti::TypeInfo* type )
 {
-    remove_component_( type );
+    remove_component_impl( type );
 }
 
 void Node::set_component_enabled( const rtti::TypeInfo* type, bool enabled )
@@ -227,9 +232,9 @@ void Node::notify_changed( const rtti::TypeInfo* type ) const
     ecs_modified_id( world, internal_id, comp_id );
 }
 
-void Node::emit_event_( const rtti::TypeInfo* type, EcsEntity target, const void* data ) const
+void Node::emit_event_impl( const rtti::TypeInfo* type, EcsEntity target, const void* data ) const
 {
-    scene->get_ecs().emit_event_( type, target, data );
+    scene->get_ecs().emit_event_impl( type, target, data );
 }
 
 //------------------------------------------------------------------------------

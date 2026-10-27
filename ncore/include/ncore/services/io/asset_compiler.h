@@ -26,6 +26,9 @@ struct AssetImportContext {
     DynamicArray<String> search_paths;
 };
 
+/***
+ * @brief Base class for asset compilers.
+ */
 class IAssetCompiler : public Object {
     NCLASS( IAssetCompiler, Object )
 

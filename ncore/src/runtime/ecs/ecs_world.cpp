@@ -10,6 +10,11 @@
 #include <ncore/runtime/ecs/ecs_events.h>
 #include <ncore/runtime/ecs/ecs_world.h>
 #include <ncore/utils/log.h>
+#include <utils/profiler.h>
+
+#if defined( NCORE_ENABLE_TRACY )
+#include <tracy/TracyC.h>
+#endif
 
 namespace nc {
 
@@ -40,6 +45,39 @@ static void flecs_log_callback( int32_t level, const char* file, int32_t line, c
     );
 }
 
+#if defined( NCORE_ENABLE_TRACY )
+static constexpr int kMaxZoneDepth = 256;
+
+struct ZoneStack {
+    TracyCZoneCtx ctx[kMaxZoneDepth];
+    int depth;
+};
+
+static thread_local ZoneStack g_zone_stack;
+
+static void tracy_perf_push( const char* file, size_t line, const char* name )
+{
+    uint64_t srcloc = ___tracy_alloc_srcloc_name(
+        static_cast<uint32_t>( line ), file, std::strlen( file ), name, std::strlen( name ), name, std::strlen( name ),
+        0
+    );
+    TracyCZoneCtx ctx = ___tracy_emit_zone_begin_alloc( srcloc, 1 );
+
+    if (g_zone_stack.depth < kMaxZoneDepth) {
+        g_zone_stack.ctx[g_zone_stack.depth++] = ctx;
+    } else {
+        ___tracy_emit_zone_end( ctx );
+    }
+}
+
+static void tracy_perf_pop( const char*, size_t, const char* )
+{
+    if (g_zone_stack.depth == 0)
+        return;
+    ___tracy_emit_zone_end( g_zone_stack.ctx[--g_zone_stack.depth] );
+}
+#endif
+
 // static function so this is called only once
 static void init_flecs_os_api()
 {
@@ -52,6 +90,12 @@ static void init_flecs_os_api()
     };
     os_api.calloc_ = []( ecs_size_t size ) -> void* { return memcalloc( 1, static_cast<size_t>( size ) ); };
     os_api.log_    = flecs_log_callback;
+
+#if defined( NCORE_ENABLE_TRACY )
+    os_api.perf_trace_push_ = tracy_perf_push;
+    os_api.perf_trace_pop_  = tracy_perf_pop;
+#endif
+
     ecs_os_set_api( &os_api );
 }
 
@@ -99,7 +143,7 @@ EcsWorld::~EcsWorld()
 //------------------------------------------------------------------------------
 
 void EcsWorld::progress( double delta_time )
-{
+{    NC_ZONE_COLOR( "EcsWorld::progress", NC_COLOR_ECS )
     ecs_progress( pImpl->world, static_cast<float>( delta_time ) );
 }
 
@@ -142,6 +186,20 @@ size_t EcsWorld::get_entity_count( bool alive ) const
 {
     ecs_entities_t ents = ecs_get_entities( pImpl->world );
     return static_cast<size_t>( alive ? ents.alive_count : ents.count );
+}
+
+bool EcsWorld::is_alive( EcsEntity entity ) const
+{
+    if (entity == INVALID_ENTITY_ID)
+        return false;
+    return ecs_is_alive( pImpl->world, entity );
+}
+
+void* EcsWorld::get_component_ptr( EcsEntity entity, const rtti::TypeInfo* type ) const
+{
+    if (!is_alive( entity ))
+        return nullptr;
+    return get_component_impl( entity, type );
 }
 
 void EcsWorld::destroy_entity( EcsEntity entity )
@@ -261,7 +319,7 @@ EcsEntity EcsWorld::register_component_type( const rtti::TypeInfo* type ) const
     desc.type    = type_info;
 
     auto comp_id = ecs_component_init( pImpl->world, &desc );
-    NC_ASSERT_MSG( comp_id > 0, std::format( "FAIL to auto-register component '{}'.", type->name ).c_str() );
+    NC_ASSERT_MSG( comp_id > 0, std::format( "FAIL to auto-register component type '{}'.", type->name ).c_str() );
 
     ecs_add_id( pImpl->world, comp_id, EcsCanToggle ); // NOTE: flecs doc say this adds overhead to queries
 
@@ -269,7 +327,7 @@ EcsEntity EcsWorld::register_component_type( const rtti::TypeInfo* type ) const
     pImpl->comp_id_to_type[comp_id] = type;
     pImpl->registered_comp_types.push_back( type );
 
-    NC_LOG_DEBUG_C( log::ECS, "NEW component registered type_name='{}', eid={}", type->name, comp_id );
+    NC_LOG_DEBUG_C( log::ECS, "NEW component type registered name='{}' eid={}", type->name, comp_id );
 
     return static_cast<EcsEntity>( comp_id );
 }
@@ -419,17 +477,27 @@ void* EcsWorld::add_component_( EcsEntity eid, const rtti::TypeInfo* type, const
         ecs_add_id( pImpl->world, eid, EcsSingleton );
     }
 
+    bool is_new = false;
+
     if (data) {
-        bool is_new   = false;
         auto instance = ecs_emplace_id( pImpl->world, eid, cid, type->size, &is_new );
         if (is_new)
             type->construct( instance, data );
+    } else {
+        is_new = !ecs_has_id( pImpl->world, eid, cid );
+        ecs_ensure_id( pImpl->world, eid, cid, type->size );
     }
 
-    return ecs_ensure_id( pImpl->world, eid, cid, type->size );
+    void* instance = ecs_get_mut_id( pImpl->world, eid, cid );
+
+    if (is_new) {
+        ecs_modified_id( pImpl->world, eid, cid );
+    }
+
+    return instance;
 }
 
-void* EcsWorld::get_component_( EcsEntity cid, const rtti::TypeInfo* type ) const
+void* EcsWorld::get_component_impl( EcsEntity cid, const rtti::TypeInfo* type ) const
 {
     auto it = pImpl->comp_type_to_id.find( type );
     if (it == pImpl->comp_type_to_id.end())
@@ -451,7 +519,7 @@ const void* EcsWorld::get_component_const_( EcsEntity cid, const rtti::TypeInfo*
     return ecs_get_id( pImpl->world, cid, it->second );
 }
 
-bool EcsWorld::has_component_( EcsEntity cid, const rtti::TypeInfo* type ) const
+bool EcsWorld::has_component_impl( EcsEntity cid, const rtti::TypeInfo* type ) const
 {
     auto it = pImpl->comp_type_to_id.find( type );
     if (it == pImpl->comp_type_to_id.end())
@@ -462,7 +530,7 @@ bool EcsWorld::has_component_( EcsEntity cid, const rtti::TypeInfo* type ) const
     return ecs_has_id( pImpl->world, cid, it->second );
 }
 
-void EcsWorld::remove_component_( EcsEntity cid, const rtti::TypeInfo* type ) const
+void EcsWorld::remove_component_impl( EcsEntity cid, const rtti::TypeInfo* type ) const
 {
     auto it = pImpl->comp_type_to_id.find( type );
     if (it == pImpl->comp_type_to_id.end())
@@ -473,7 +541,7 @@ void EcsWorld::remove_component_( EcsEntity cid, const rtti::TypeInfo* type ) co
     ecs_remove_id( pImpl->world, cid, it->second );
 }
 
-EcsQuery EcsWorld::create_query_( const String& name, void* data )
+EcsQuery EcsWorld::create_query_impl( const String& name, void* data )
 {
     auto& cached = pImpl->query_cache[name];
     if (cached) {
@@ -489,7 +557,7 @@ EcsQuery EcsWorld::create_query_( const String& name, void* data )
     return EcsQuery( name, this, pImpl->world, q );
 }
 
-void EcsWorld::emit_event_( const rtti::TypeInfo* type, EcsEntity target, const void* data ) const
+void EcsWorld::emit_event_impl( const rtti::TypeInfo* type, EcsEntity target, const void* data ) const
 {
     auto it = pImpl->comp_type_to_id.find( type );
     if (it == pImpl->comp_type_to_id.end())

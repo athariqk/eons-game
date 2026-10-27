@@ -41,11 +41,12 @@ public:
      * @param p_output_path Absolute path, or a path relative to `assets/`.
      * @param p_search_paths `#include` roots for the compiler (see
      *        AssetImportContext::search_paths). Empty uses the compiler default.
+     * @param p_skip_cache Skip the cache check and force a recompile.
      * @return Error status.
      */
     Error compile(
-        const String& p_input_file, const String& p_output_path,
-        const DynamicArray<String>& p_search_paths = {}
+        const String& p_input_file, const String& p_output_path, const DynamicArray<String>& p_search_paths = {},
+        bool p_skip_cache = false
     );
 
     template<std::derived_from<IAssetCompiler> T, typename... TArgs>
