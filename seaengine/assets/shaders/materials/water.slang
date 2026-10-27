@@ -66,7 +66,7 @@ struct WaterBRDF : IBRDF {
     }
 };
 
-[CullMode(2), DepthTest(1), DepthWrite(1), Blend(0)]
+[CullMode(0), DepthTest(1), DepthWrite(1), Blend(0)]
 public struct WaterMaterial : ISpatialMaterial {
     Texture2DArray<float4> displacementMap;
     Texture2DArray<float4> normalMap;
@@ -84,8 +84,27 @@ public struct WaterMaterial : ISpatialMaterial {
 
     [Header("Waves")] uniform uint numCascades;
     [Header("Waves")] uniform float4 mapScales[MAX_CASCADES];
+    [Header("Clipmap")] uniform float morphTransitionWidth; // seam morph band as a fraction of the level half-extent
 
 	void vertex(inout SpatialGeometry g) {
+        // Clipmap placement + seam morph (GPU Gems 2 ch. 2, CDLOD-style variant).
+        float2 localXZ = g.UV;
+        float2 levelInfo = g.UV2;
+        float sp = levelInfo.x;
+        float2 originL = round(CAMERA_POSITION.xz / sp) * sp;
+        float2 morphed = localXZ;
+        if (levelInfo.y > 0.0) {
+            float2 ci = round(localXZ / sp);           // fine-lattice index
+            float2 odd = ci - 2.0 * floor(ci * 0.5);   // 1 on odd cells (Euclidean mod, safe for negatives)
+            float2 psp = 2.0 * sp;
+            float2 delta = originL - round(CAMERA_POSITION.xz / psp) * psp;
+            float cheb = max(abs(localXZ.x), abs(localXZ.y));
+            float band = levelInfo.y * clamp(morphTransitionWidth, 0.05, 0.5);
+            float alpha = saturate((cheb - (levelInfo.y - band)) / band * 1.001);
+            morphed = localXZ - alpha * (odd * sp + delta);
+        }
+
+        g.WorldPos.xz = originL + morphed;
         float2 uv = g.WorldPos.xz;
         float3 displacement = 0;
         uint cascade_count = min(numCascades, (uint)MAX_CASCADES);
@@ -149,7 +168,7 @@ public struct WaterMaterial : ISpatialMaterial {
         float3 N = normalize(float3(-gradient.x, 1.0, -gradient.y));
         float3 V = normalize(CAMERA_POSITION - g.WorldPos);
 
-        float foam_factor = smoothstep(0.0, 1.0, gradient.z * 0.75) * exp(-dist * 0.0075);
+        float foam_factor = smoothstep(0.0, 1.0, gradient.z * 0.75) * exp(-dist * 0.0005);
         float fresnel = lerp(pow(saturate(1.0 - dot(V, N)), 5.0 * exp(-2.69 * roughness)) / (1.0 + 22.7 * pow(roughness, 1.5)), 1.0, REFLECTANCE);
 
         SurfaceOutput o;

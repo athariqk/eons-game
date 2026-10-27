@@ -15,7 +15,7 @@ using namespace nc;
 void hello_world_compute_shader( nc::Scene& scene )
 {
     auto& resources = scene.get_resource_loader();
-    auto renderer   = scene.get_app_ctx()->Services.resolve<RenderService>();
+    auto renderer   = scene.get_app_ctx()->services.resolve<RenderService>();
 
     auto hello_world_shd = resources.load<Shader>( "shaders/compute/hello_world.slang" );
 

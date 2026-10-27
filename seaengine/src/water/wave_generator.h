@@ -23,17 +23,17 @@ class WaveGenerator : nc::Object {
     NCLASS( WaveGenerator, nc::Object )
 
 public:
-    static constexpr float kGravity           = 9.81f;
-    static constexpr float kDepth             = 20.0f;
-    static constexpr uint32_t kNumSpectra     = 4;
-    static constexpr uint32_t kDefaultMapSize = 512;
+    static constexpr float GRAVITY             = 9.81f;
+    static constexpr float DEPTH               = 20.0f;
+    static constexpr uint32_t NUM_SPECTRA      = 4;
+    static constexpr uint32_t DEFAULT_MAP_SIZE = 512;
 
-    static constexpr uint32_t kWaveGenerationTimestampSlot = GfxInterface::MAX_TIMESTAMP_SLOTS - 1;
-    static constexpr uint32_t kWaveModulateTimestampSlot   = kWaveGenerationTimestampSlot - 1;
-    static constexpr uint32_t kWaveFF1TimestampSlot        = kWaveModulateTimestampSlot - 1;
-    static constexpr uint32_t kWaveTransposeTimestampSlot  = kWaveFF1TimestampSlot - 1;
-    static constexpr uint32_t kWaveFFT2TimestampSlot       = kWaveTransposeTimestampSlot - 1;
-    static constexpr uint32_t kWaveUnpackTimestampSlot     = kWaveFFT2TimestampSlot - 1;
+    static constexpr uint32_t WAVE_GEN_TS_SLOT       = GfxInterface::MAX_TIMESTAMP_SLOTS - 1;
+    static constexpr uint32_t WAVE_MODULATE_TS_SLOT  = WAVE_GEN_TS_SLOT - 1;
+    static constexpr uint32_t WAVE_FF1_TS_SLOT       = WAVE_MODULATE_TS_SLOT - 1;
+    static constexpr uint32_t WAVE_TRANSPOSE_TS_SLOT = WAVE_FF1_TS_SLOT - 1;
+    static constexpr uint32_t WAVE_FFT2_TS_SLOT      = WAVE_TRANSPOSE_TS_SLOT - 1;
+    static constexpr uint32_t WAVE_UNPACK_TS_SLOT    = WAVE_FFT2_TS_SLOT - 1;
 
     WaveGenerator() = default;
     ~WaveGenerator();
@@ -41,81 +41,77 @@ public:
     WaveGenerator( const WaveGenerator& )            = delete;
     WaveGenerator& operator=( const WaveGenerator& ) = delete;
 
-    void
-    init_gpu( nc::RenderService& renderer, nc::ResourceLoader& resources, uint32_t map_size, uint32_t num_cascades );
+    void init_gpu(
+        nc::RenderService& p_renderer, nc::ResourceLoader& p_resources, uint32_t p_map_size, uint32_t p_num_cascades
+    );
+    void shutdown( nc::RenderService& p_renderer );
+    void update( nc::RenderService& p_renderer, float p_delta, nc::Span<WaveCascadeParams> p_cascades );
+    void flush( nc::RenderService& p_renderer );
 
-    void shutdown( nc::RenderService& renderer );
-
-    void update( nc::RenderService& renderer, float delta, nc::Span<WaveCascadeParams> cascades );
-
-    void flush( nc::RenderService& renderer );
-
-    bool is_initialized() const
+    bool get_initialized() const
     {
-        return initialized_;
+        return initialized;
     }
-    uint32_t map_size() const
+    uint32_t get_map_size() const
     {
-        return map_size_;
+        return map_size;
     }
-    uint32_t num_cascades() const
+    uint32_t get_num_cascades() const
     {
-        return num_cascades_;
+        return num_cascades;
     }
 
-    nc::RID displacement_map() const
+    nc::RID get_displacement_map() const
     {
-        return displacement_map_;
+        return displacement_map;
     }
-    nc::RID normal_map() const
+    nc::RID get_normal_map() const
     {
-        return normal_map_;
+        return normal_map;
     }
 
     static float jonswap_alpha( float wind_speed, float fetch_meters );
     static float jonswap_peak_angular_frequency( float wind_speed, float fetch_meters );
 
 private:
-    void create_resources_( nc::RenderService& renderer );
-    void create_pipelines_( nc::RenderService& renderer, nc::ResourceLoader& resources );
-    void destroy_resources_( nc::RenderService& renderer );
+    void create_resources( nc::RenderService& renderer );
+    void create_pipelines( nc::RenderService& renderer, nc::ResourceLoader& resources );
+    void destroy_resources( nc::RenderService& renderer );
+    void dispatch_cascade( nc::RenderService& renderer, uint32_t cascade_index, nc::Span<WaveCascadeParams> cascades );
+    void write_cb( nc::RenderService& renderer, nc::RID buffer, const void* data, size_t size );
 
-    void dispatch_cascade_( nc::RenderService& renderer, uint32_t cascade_index, nc::Span<WaveCascadeParams> cascades );
+    bool initialized        = false;
+    uint32_t map_size       = 0;
+    uint32_t num_cascades   = 0;
+    uint32_t num_fft_stages = 0;
 
-    void write_cb_( nc::RenderService& renderer, nc::RID buffer, const void* data, size_t size );
+    nc::RID spectrum;
+    nc::RID displacement_map;
+    nc::RID normal_map;
 
-    bool initialized_        = false;
-    uint32_t map_size_       = 0;
-    uint32_t num_cascades_   = 0;
-    uint32_t num_fft_stages_ = 0;
+    nc::RID fft_buffer;
 
-    nc::RID spectrum_;
-    nc::RID displacement_map_;
-    nc::RID normal_map_;
+    nc::RID cb_spectrum_compute;
+    nc::RID cb_spectrum_modulate;
+    nc::RID cb_cascade_index;
+    nc::RID cb_map_size;
+    nc::RID cb_fft_unpack;
 
-    nc::RID fft_buffer_;
+    nc::RID set_spectrum_compute;
+    nc::RID set_spectrum_modulate;
+    nc::RID set_fft_compute;
+    nc::RID set_transpose;
+    nc::RID set_fft_unpack;
 
-    nc::RID cb_spectrum_compute_;
-    nc::RID cb_spectrum_modulate_;
-    nc::RID cb_cascade_index_;
-    nc::RID cb_map_size_;
-    nc::RID cb_fft_unpack_;
+    nc::RID pso_spectrum_compute;
+    nc::RID pso_spectrum_modulate;
+    nc::RID pso_fft_compute;
+    nc::RID pso_transpose;
+    nc::RID pso_fft_unpack;
 
-    nc::RID set_spectrum_compute_;
-    nc::RID set_spectrum_modulate_;
-    nc::RID set_fft_compute_;
-    nc::RID set_transpose_;
-    nc::RID set_fft_unpack_;
-
-    nc::RID pso_spectrum_compute_;
-    nc::RID pso_spectrum_modulate_;
-    nc::RID pso_fft_compute_;
-    nc::RID pso_transpose_;
-    nc::RID pso_fft_unpack_;
-
-    WaveCascadeParams* pass_cascades_ = nullptr;
-    uint32_t pass_cascade_count_      = 0;
-    uint32_t pass_remaining_          = 0;
+    WaveCascadeParams* pass_cascades = nullptr;
+    uint32_t pass_cascade_count      = 0;
+    uint32_t pass_remaining          = 0;
 };
 
 } // namespace sea

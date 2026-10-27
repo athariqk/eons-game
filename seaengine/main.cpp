@@ -21,16 +21,16 @@ public:
         Application(
             { "SeaEngine",
               nc::AppVersion{
-                  .Major      = SEA_VERSION_MAJOR,
-                  .Minor      = SEA_VERSION_MINOR,
-                  .Patch      = SEA_VERSION_PATCH,
-                  .Identifier = SEA_VERSION_IDENTIFIER
+                  .major      = SEA_VERSION_MAJOR,
+                  .minor      = SEA_VERSION_MINOR,
+                  .patch      = SEA_VERSION_PATCH,
+                  .identifier = SEA_VERSION_IDENTIFIER
               },
               "seaengine.ini" }
         )
     {}
 
-    std::unique_ptr<nc::IGameWorld> create_world() override
+    nc::Ptr<nc::IGameWorld> create_world() override
     {
         return std::make_unique<sea::WorldScene>();
     }

@@ -1,21 +1,22 @@
 add_executable(SeaEngine)
 
-target_sources(SeaEngine PRIVATE
-	"main.cpp"
-	"src/tests/test_compute_shader.h"
-	"src/tests/test_compute_shader.cpp"
-	"src/water/water_sim.h"
-	"src/water/water_sim.cpp"
-	"src/water/polar_mesh.h"
-	"src/water/polar_mesh.cpp"
-	"src/water/wave_cascade_params.h"
-	"src/water/wave_generator.h"
-	"src/water/wave_generator.cpp"
-	"src/world_scene.h"
-	"src/world_scene.cpp")
+target_sources(
+  SeaEngine
+  PRIVATE "main.cpp"
+          "src/tests/test_compute_shader.h"
+          "src/tests/test_compute_shader.cpp"
+          "src/water/water_sim.h"
+          "src/water/water_sim.cpp"
+          "src/water/water_mesh.h"
+          "src/water/water_mesh.cpp"
+          "src/water/wave_cascade_params.h"
+          "src/water/wave_generator.h"
+          "src/water/wave_generator.cpp"
+          "src/world_scene.h"
+          "src/world_scene.cpp")
 
 target_link_libraries(SeaEngine PRIVATE $<$<CONFIG:Debug>:ncore ncore_editor>
-										$<$<CONFIG:Release>:ncore>)
+                                        $<$<CONFIG:Release>:ncore>)
 
 set_target_properties(
   SeaEngine PROPERTIES DEBUG_POSTFIX "_d" VS_DEBUGGER_WORKING_DIRECTORY

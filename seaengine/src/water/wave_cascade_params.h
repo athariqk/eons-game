@@ -36,10 +36,10 @@ struct REFLECT WaveCascadeParams {
 
 NC_COMPONENT( WaterSimComponent )
 {
-    static constexpr uint32_t kMaxCascades = 8;
+    static constexpr uint32_t MAX_CASCADES = 8;
 
-    REFLECT int CascadeCount = 0;
-    REFLECT WaveCascadeParams Cascades[kMaxCascades];
+    REFLECT int cascade_count = 0;
+    REFLECT WaveCascadeParams cascades[MAX_CASCADES];
 };
 
 struct alignas( 16 ) SpectrumComputeCB {
