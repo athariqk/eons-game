@@ -141,8 +141,8 @@ void TypeRegistry::provide_fields( TypeId id, const FieldInfo* begin, const Fiel
         if (c->id != id)
             continue;
         if (auto* rec = dynamic_cast<RecordInfo*>( c ); rec && !rec->fields_begin) {
-            rec->fields_begin = begin;
-            rec->fields_end   = end;
+            rec->fields_begin   = begin;
+            rec->fields_end     = end;
             inst.type_cache[id] = rec;
             return;
         }

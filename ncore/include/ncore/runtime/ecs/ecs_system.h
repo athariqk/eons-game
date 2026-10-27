@@ -63,7 +63,7 @@ struct SystemDelegate {
 
 class NCAPI EcsSystemBuilder {
 public:
-    EcsSystemBuilder( EcsWorld& world [[clang::lifetimebound]], const String& name );
+    EcsSystemBuilder( EcsWorld& p_world [[clang::lifetimebound]], const String& p_name );
     ~EcsSystemBuilder();
 
     EcsSystemBuilder( const EcsSystemBuilder& )            = delete;

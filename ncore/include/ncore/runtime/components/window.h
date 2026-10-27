@@ -10,18 +10,18 @@ namespace nc {
 
 NC_COMPONENT_API( WindowComponent )
 {
-    REFLECT uint32_t Source = UINT32_MAX; // The window ID, from WindowService.
-    REFLECT RID Swapchain;
-    REFLECT StringView Title     = "NCORE Engine";
-    REFLECT Vec2i Resolution     = Vec2i();
-    REFLECT WindowMode Mode      = WindowMode::WINDOWED;
-    REFLECT bool Visible         = false;
-    REFLECT float PixelsPerMeter = 0;
+    REFLECT_HINT( rtti::PropertyFlags::HIDDEN ) uint32_t source = UINT32_MAX; // The window ID, from WindowService.
+    REFLECT_HINT( rtti::PropertyFlags::HIDDEN ) RID swapchain;
+    REFLECT StringView title       = "NCORE Engine";
+    REFLECT Vec2i resolution       = Vec2i();
+    REFLECT WindowMode mode        = WindowMode::WINDOWED;
+    REFLECT bool visible           = false;
+    REFLECT float pixels_per_meter = 0;
 };
 
 NC_COMPONENT_API( WindowResizedComponent )
 {
-    REFLECT Vec2i NewSize;
+    REFLECT Vec2i new_size;
 };
 
 NC_COMPONENT_API( MainWindowTag ){};

@@ -1,6 +1,7 @@
 #include <ncore/core/collection.h>
 #include <ncore/resources/resource.h>
 #include <ncore/services/audio/audio_service.h>
+#include <utils/profiler.h>
 
 namespace nc {
 
@@ -47,6 +48,7 @@ RID AudioService::create_stream( const AudioClip& p_clip )
 
 void AudioService::play_sound( RID stream_rid )
 {
+    NC_ZONE_COLOR( "AudioService::play_sound", NC_COLOR_AUDIO )
     NC_FAIL_MSG_RET( stream_rid.is_valid(), "Failed to play sound: invalid handle" );
 
     auto sound = pImpl->sounds.get( stream_rid );

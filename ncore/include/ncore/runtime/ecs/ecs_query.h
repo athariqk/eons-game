@@ -205,9 +205,9 @@ public:
     T* get_component()
     {
         static const auto& info = rtti::TypeRegistry::get<T>();
-        int32_t idx             = resolve_term_index_( info );
+        int32_t idx             = resolve_term_index_impl( info );
         NC_ASSERT_MSG( idx >= 0, "Component not found in query terms" );
-        return static_cast<T*>( get_component_( idx, info.size, info.alignment ) );
+        return static_cast<T*>( get_component_impl( idx, info.size, info.alignment ) );
     }
 
     /**
@@ -217,7 +217,7 @@ public:
     T* get_component( uint8_t column )
     {
         static const auto& info = rtti::TypeRegistry::get<T>();
-        return static_cast<T*>( get_component_( column, info.size, info.alignment ) );
+        return static_cast<T*>( get_component_impl( column, info.size, info.alignment ) );
     }
 
     /**
@@ -231,7 +231,7 @@ public:
     T* get_entity_component()
     {
         static const auto* info = rtti::TypeRegistry::find<T>();
-        return static_cast<T*>( get_entity_component_( info ) );
+        return static_cast<T*>( get_entity_component_impl( info ) );
     }
 
     /**
@@ -241,7 +241,7 @@ public:
     void notify_changed( EcsEntity p_entity )
     {
         static const auto& info = rtti::TypeRegistry::get<T>();
-        notify_changed_( p_entity, &info );
+        notify_changed_impl( p_entity, &info );
     }
 
     /**
@@ -258,9 +258,9 @@ public:
     {
         static const auto& first_info  = rtti::TypeRegistry::get<First>();
         static const auto& second_info = rtti::TypeRegistry::get<Second>();
-        int32_t idx                    = resolve_pair_index_( first_info, second_info );
+        int32_t idx                    = resolve_pair_index_impl( first_info, second_info );
         NC_ASSERT_MSG( idx >= 0, "Pair component not found in query terms" );
-        return static_cast<First*>( get_component_( idx, first_info.size, first_info.alignment ) );
+        return static_cast<First*>( get_component_impl( idx, first_info.size, first_info.alignment ) );
     }
 
 private:
@@ -268,11 +268,11 @@ private:
     friend class EcsObserverBuilder;
     friend class EcsQuery;
 
-    void* get_component_( int32_t column, size_t size, size_t alignment ) const;
-    void* get_entity_component_( const rtti::TypeInfo* p_type ) const;
-    void notify_changed_( EcsEntity p_entity, const rtti::TypeInfo* type ) const;
-    int32_t resolve_term_index_( const rtti::TypeInfo& info ) const;
-    int32_t resolve_pair_index_( const rtti::TypeInfo& first, const rtti::TypeInfo& second ) const;
+    void* get_component_impl( int32_t column, size_t size, size_t alignment ) const;
+    void* get_entity_component_impl( const rtti::TypeInfo* p_type ) const;
+    void notify_changed_impl( EcsEntity p_entity, const rtti::TypeInfo* type ) const;
+    int32_t resolve_term_index_impl( const rtti::TypeInfo& info ) const;
+    int32_t resolve_pair_index_impl( const rtti::TypeInfo& first, const rtti::TypeInfo& second ) const;
     void* it_            = nullptr;
     int32_t current_row_ = 0;
 

@@ -4,6 +4,7 @@
 #include <backends/sdl/sdl_type_helpers.h>
 
 #include <ncore/services/io/input_service.h>
+#include <utils/profiler.h>
 
 namespace nc {
 
@@ -127,7 +128,8 @@ void InputService::add_input_event( const InputEvent& event )
 
 void InputService::update()
 {
-    pump_events_();
+    NC_ZONE_COLOR( "InputService::update", NC_COLOR_INPUT )
+    pump_events_impl();
 
     mouse_wheel.zero();
     mouse_delta.zero();
@@ -204,8 +206,9 @@ void InputService::update()
     }
 }
 
-void InputService::pump_events_()
+void InputService::pump_events_impl()
 {
+    NC_ZONE_COLOR( "InputService::pump_events", NC_COLOR_INPUT )
     event_queue.reset();
 
     SDL_Event sdl_events[64];

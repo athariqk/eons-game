@@ -10,7 +10,7 @@ NC_COMPONENT_API( SpriteComponent )
 {
     REFLECT RID source;
     REFLECT RID texture;
-    REFLECT Color Tint{ 255, 255, 255, 255 };
+    REFLECT Color tint{ 255, 255, 255, 255 };
 };
 
 NC_COMPONENT( EcsCircleDraw )

@@ -7,14 +7,13 @@
 
 namespace nc {
 
-NC_COMPONENT_API( HasResourceTag )
-{
-};
+NC_COMPONENT_API( HasResourceTag ){};
 
 NC_COMPONENT_API( ResourceLoadedComponent )
 {
-    REFLECT RID ResourceId;
+    REFLECT RID resource_id;
     REFLECT ResourceFormatID format_id;
+    RID replaced = 0; // previous handle when this notification came from a forced reload.
 };
 
 } // namespace nc

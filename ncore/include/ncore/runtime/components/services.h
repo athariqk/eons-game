@@ -19,8 +19,8 @@ class ResourceLoader;
  */
 NC_COMPONENT_API( VideoServices )
 {
-    REFLECT WindowService* Window   = nullptr;
-    REFLECT RenderService* Renderer = nullptr;
+    REFLECT WindowService* window   = nullptr;
+    REFLECT RenderService* renderer = nullptr;
 };
 
 /**
@@ -31,8 +31,8 @@ NC_COMPONENT_API( VideoServices )
  */
 NC_COMPONENT_API( IOServices )
 {
-    REFLECT ResourceLoader* Resources = nullptr;
-    REFLECT InputService* Inputs      = nullptr;
+    REFLECT ResourceLoader* resources = nullptr;
+    REFLECT InputService* inputs      = nullptr;
 };
 
 } // namespace nc

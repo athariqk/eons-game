@@ -73,9 +73,9 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
             -Wno-switch-default
             -Wno-invalid-offsetof
             -Wno-switch-enum
-			-Wno-nonportable-system-include-path
-			-Wno-lifetime-safety-intra-tu-suggestions
-			-Wno-lifetime-safety-invalidation
+            -Wno-nonportable-system-include-path
+            -Wno-lifetime-safety-intra-tu-suggestions
+            -Wno-lifetime-safety-invalidation
             # false positive: early error-returns next to an NRVO candidate
             # (llvm/llvm-project#158594)
             -Wno-nrvo
@@ -85,12 +85,14 @@ endif()
 
 target_include_directories(
   ncore SYSTEM
-  PRIVATE "${CMAKE_SOURCE_DIR}/ncore/external/imgui"
-          "${CMAKE_SOURCE_DIR}/ncore/external/sdl/include"
-          "${CMAKE_SOURCE_DIR}/ncore/external/stb"
-          "${CMAKE_SOURCE_DIR}/ncore/external/inifile-cpp"
-          "${CMAKE_SOURCE_DIR}/ncore/external/flecs/include"
-          "${CMAKE_SOURCE_DIR}/ncore/external/diligent-core/ThirdParty/Vulkan-Headers/include")
+  PRIVATE
+    "${CMAKE_SOURCE_DIR}/ncore/external/imgui"
+    "${CMAKE_SOURCE_DIR}/ncore/external/sdl/include"
+    "${CMAKE_SOURCE_DIR}/ncore/external/stb"
+    "${CMAKE_SOURCE_DIR}/ncore/external/inifile-cpp"
+    "${CMAKE_SOURCE_DIR}/ncore/external/flecs/include"
+    "${CMAKE_SOURCE_DIR}/ncore/external/diligent-core/ThirdParty/Vulkan-Headers/include"
+)
 
 add_subdirectory(external)
 add_subdirectory(include)

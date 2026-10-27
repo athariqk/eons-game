@@ -8,10 +8,10 @@ namespace nc {
 
 NC_COMPONENT_API( TimeComponent )
 {
-    REFLECT uint32_t Ticks     = 0;
-    REFLECT int FrameCount     = 0;
-    REFLECT double FPS         = 0;
-    REFLECT double Accumulator = 0.0;
+    REFLECT uint32_t ticks     = 0;
+    REFLECT int frame_count     = 0;
+    REFLECT double fps         = 0;
+    REFLECT double accumulator = 0.0;
 };
 
 } // namespace nc

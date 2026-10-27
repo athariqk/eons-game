@@ -19,7 +19,7 @@ struct DiskHeader {
 static_assert( sizeof( DiskHeader ) == 16, "resource header must be 16 bytes" );
 
 // Sanity caps for corrupt-file protection while reading.
-constexpr uint32_t kMaxArrayCount = 1u << 28; // 268M elements
+constexpr uint32_t kMaxArrayCount   = 1u << 28; // 268M elements
 constexpr uint32_t kMaxStringLength = 1u << 26; // 64M chars
 
 Ref<IResource> make_resource( uint32_t format_id )
@@ -108,7 +108,7 @@ struct BinaryWriterVisitor final : public rtti::RecordVisitor {
             ok = false;
             return;
         }
-        const auto* str     = static_cast<const String*>( instance );
+        const auto* str       = static_cast<const String*>( instance );
         const uint32_t length = static_cast<uint32_t>( str->length() );
         out.write( reinterpret_cast<const char*>( &length ), sizeof( length ) );
         if (length > 0)
@@ -132,7 +132,8 @@ struct BinaryReaderVisitor final : public rtti::RecordVisitor {
     void class_end( const rtti::RecordInfo*, int ) override {}
     void class_member( const rtti::FieldInfo*, int ) override {}
 
-    void array_begin( const rtti::TypeInfo*, const rtti::RecordInfo* container_type, void* container, int, int ) override
+    void
+    array_begin( const rtti::TypeInfo*, const rtti::RecordInfo* container_type, void* container, int, int ) override
     {
         uint32_t count = 0;
         in.read( reinterpret_cast<char*>( &count ), sizeof( count ) );
@@ -215,9 +216,7 @@ Error ResourceArchive::serialize( const Ref<IResource>& p_resource, const String
     header.size_bytes = 0; // patched once the body has been written
 
     if (header.format_id == 0 || header.version == 0) {
-        NC_LOG_ERROR_C(
-            log::IO, "serialize: '{}' has no valid format id / version", p_resource->get_class_name()
-        );
+        NC_LOG_ERROR_C( log::IO, "serialize: '{}' has no valid format id / version", p_resource->get_class_name() );
         return Error::ERR_INVALID_PARAMETER;
     }
 
@@ -296,8 +295,7 @@ Ref<IResource> ResourceArchive::deserialize( const String& input_path )
     }
 
     const std::streampos body_end = in.tellg();
-    const uint64_t consumed =
-        ( body_end >= body_start ) ? static_cast<uint64_t>( body_end - body_start ) : 0;
+    const uint64_t consumed       = ( body_end >= body_start ) ? static_cast<uint64_t>( body_end - body_start ) : 0;
     if (consumed != header.size_bytes) {
         NC_LOG_ERROR_C(
             log::IO, "deserialize: '{}' payload size mismatch (header {} bytes, read {} bytes)", input_path,

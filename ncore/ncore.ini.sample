@@ -1,22 +1,19 @@
 [WindowSettings]
-SizeWidth = 1280
-SizeHeight = 720
+size_width = 1280
+size_height = 720
 ; Window modes: 0 = Windowed, 1 = Maximized, 2 = Fullscreen
-Mode = 0
-PixelsPerMeter = 32
+mode = 0
+pixels_per_meter = 32
 
 [RenderSettings]
-VSync = true
-
-[Runtime]
-DefaultWorld = MicrocosmWorld
+vsync = true
 
 [Log]
 ; Levels are: 0 = Trace, 1 = Debug, 2 = Info, 3 = Warning, 4 = Error, 5 = Critical
-Level = 1
-FilePath = logs/engine.log
+level = 1
+file_path = logs/engine.log
 ; You can override individual engine modules by specifying them in the Overrides field,
 ; using the format "channel:level". For instance: "phys:2, render:4" sets the log level
 ; for the "phys" module to 2 (Info) and the "render" category to 4 (Error)
 ; available channels include: audio, ecs, evts, graphs, gui, phys, io
-Overrides = phys:2, render:4
+overrides = phys:2, render:4

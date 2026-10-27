@@ -10,7 +10,7 @@ class Scene;
 
 NC_COMPONENT_API( ResourceWatchState )
 {
-    REFLECT DynamicArray<ResourceLoader::Event> PendingEvents;
+    REFLECT DynamicArray<ResourceLoader::Event> pending_events;
 };
 
 /**

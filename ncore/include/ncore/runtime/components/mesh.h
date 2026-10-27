@@ -8,13 +8,14 @@ namespace nc {
 
 NC_COMPONENT_API( MeshComponent )
 {
-    REFLECT RID Source = 0;
+    REFLECT RID source = 0;
 };
 
 NC_COMPONENT_API( MeshRenderComponent )
 {
-    REFLECT RID Item           = 0; // spatial item RID (spatial_item_create)
-    REFLECT uint32_t InstanceCount = 1;
+    REFLECT_HINT( rtti::PropertyFlags::HIDDEN ) RID item = 0; // spatial item RID.
+    REFLECT uint32_t instance_count = 1;
+    REFLECT uint16_t layer_index    = 0;
 };
 
 } // namespace nc

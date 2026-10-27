@@ -30,8 +30,8 @@ static void trampoline_each( ecs_iter_t* it )
 // EcsSystemBuilder
 //------------------------------------------------------------------------------
 
-EcsSystemBuilder::EcsSystemBuilder( EcsWorld& world, const String& p_name ) :
-    world_( world ), name( std::move( p_name ) ), qb_( world, name + "_qb" )
+EcsSystemBuilder::EcsSystemBuilder( EcsWorld& p_world, const String& p_name ) :
+    world_( p_world ), name( std::move( p_name ) ), qb_( p_world, name + "_qb" )
 {}
 
 EcsSystemBuilder::~EcsSystemBuilder()

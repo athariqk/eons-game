@@ -12,16 +12,18 @@
 
 namespace OrganismFactory {
 
-inline OrganismComponent create( [[maybe_unused]] nc::EcsWorld& world, [[maybe_unused]] SpeciesRegistry& reg,
-                                 [[maybe_unused]] SpeciesComponent* species )
+inline OrganismComponent create(
+    [[maybe_unused]] nc::EcsWorld& world, [[maybe_unused]] SpeciesRegistry& reg,
+    [[maybe_unused]] SpeciesComponent* species
+)
 {
     auto instance = world.entity();
 
     float spawn_x = 0.0f;
     float spawn_y = 0.0f;
-    (void)instance;
-    (void)spawn_x;
-    (void)spawn_y;
+    ( void ) instance;
+    ( void ) spawn_x;
+    ( void ) spawn_y;
 
     // auto renderer = world.get_modules().resolve<nc::IRenderService>();
     //  if (renderer) {

@@ -189,25 +189,25 @@ public:
     template<class T>
     bool has_component() const
     {
-        return has_component_( rtti::TypeRegistry::find<T>() );
+        return has_component_impl( rtti::TypeRegistry::find<T>() );
     }
 
     template<class T>
     void remove_component()
     {
-        return remove_component_( rtti::TypeRegistry::find<T>() );
+        return remove_component_impl( rtti::TypeRegistry::find<T>() );
     }
 
     template<class T>
     void emit_event( const T& data, EcsEntity target ) const
     {
-        emit_event_( rtti::TypeRegistry::find<T>(), target, &data );
+        emit_event_impl( rtti::TypeRegistry::find<T>(), target, &data );
     }
 
     template<class T>
     void emit_event( EcsEntity target ) const
     {
-        emit_event_( rtti::TypeRegistry::find<T>(), target, nullptr );
+        emit_event_impl( rtti::TypeRegistry::find<T>(), target, nullptr );
     }
 
     void set_component_enabled( const rtti::TypeInfo* type, bool enabled );
@@ -250,9 +250,9 @@ private:
     friend class Scene;
 
     void track_ecs_component( const rtti::TypeInfo* type, EcsComponent id );
-    bool has_component_( const rtti::TypeInfo* type ) const;
-    void remove_component_( const rtti::TypeInfo* type );
-    void emit_event_( const rtti::TypeInfo* type, EcsEntity target, const void* data ) const;
+    bool has_component_impl( const rtti::TypeInfo* type ) const;
+    void remove_component_impl( const rtti::TypeInfo* type );
+    void emit_event_impl( const rtti::TypeInfo* type, EcsEntity target, const void* data ) const;
 
     bool active           = true;
     Scene* scene          = nullptr;

@@ -137,7 +137,7 @@ class PagedPool {
     // ensures the input type is at least pointer-sized
     // so we can fit in a free list node into its allocated memory
     struct alignas( alignof( T ) ) Slot {
-        std::byte data[(std::max)( sizeof( T ), sizeof( FreeList ) )];
+        std::byte data[( std::max ) ( sizeof( T ), sizeof( FreeList ) )];
         bool is_alive = false;
     };
 

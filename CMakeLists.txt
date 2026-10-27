@@ -133,18 +133,15 @@ add_subdirectory(seaengine)
 # there (see cmake/CompileAssets.cmake). This is the only step that writes
 # assets/; runs every build, staleness checks keep no-op runs to a stat sweep.
 set(EONS_ASSET_SRC_DIRS
-    "${CMAKE_SOURCE_DIR}/ncore/assets"
-    "${CMAKE_SOURCE_DIR}/eons-game/assets"
+    "${CMAKE_SOURCE_DIR}/ncore/assets" "${CMAKE_SOURCE_DIR}/eons-game/assets"
     "${CMAKE_SOURCE_DIR}/seaengine/assets")
 add_custom_target(
-  asset_pipeline
-  ALL
+  asset_pipeline ALL
   COMMAND
-    ${CMAKE_COMMAND}
-    -DASSET_COMPILER=$<TARGET_FILE:resource_compiler>
+    ${CMAKE_COMMAND} -DASSET_COMPILER=$<TARGET_FILE:resource_compiler>
     -DBIN_DIR=$<TARGET_FILE_DIR:EonsPrototype>
-    "-DSRC_DIRS=${EONS_ASSET_SRC_DIRS}"
-    -P ${CMAKE_SOURCE_DIR}/cmake/CompileAssets.cmake
+    "-DSRC_DIRS=${EONS_ASSET_SRC_DIRS}" -P
+    ${CMAKE_SOURCE_DIR}/cmake/CompileAssets.cmake
   COMMENT "Compiling assets to .bin"
   VERBATIM)
 add_dependencies(asset_pipeline resource_compiler)

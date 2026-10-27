@@ -12,7 +12,7 @@ namespace nc {
  */
 NC_COMPONENT_API( ConfigComponent )
 {
-    REFLECT ConfFile* Config = nullptr;
+    REFLECT ConfFile* config = nullptr;
 };
 
 } // namespace nc

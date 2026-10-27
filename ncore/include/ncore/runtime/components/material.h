@@ -10,28 +10,28 @@ namespace nc {
 
 NC_COMPONENT_API( MaterialComponent )
 {
-    static constexpr int kMaxTexture = 12;
+    static constexpr int MAX_TEXTURE = 12;
 
-    REFLECT RID Shader                = 0;
-    REFLECT int TextureCount          = 0;
-    REFLECT RID Textures[kMaxTexture] = {};
-    REFLECT gfx::FillMode DrawMode    = gfx::FillMode::SOLID;
+    REFLECT RID shader                = 0;
+    REFLECT int texture_count         = 0;
+    REFLECT RID textures[MAX_TEXTURE] = {};
+    REFLECT gfx::FillMode draw_mode   = gfx::FillMode::SOLID;
 
     struct Param {
         String name;
         DynamicArray<uint8_t> data;
     };
-    DynamicArray<Param> Params;
+    DynamicArray<Param> params;
 
     /**
      * @brief Add a GPU texture to this material.
      *
      * Obtain GPU textures from RenderService::texture_*_create() methods.
      */
-    void add_texture( RID texture_rid )
+    void add_texture( RID p_texture_rid )
     {
-        NC_FAIL_MSG_RET( TextureCount < kMaxTexture, "Max texture count reached." );
-        Textures[TextureCount++] = texture_rid;
+        NC_FAIL_MSG_RET( texture_count < MAX_TEXTURE, "Max texture count reached." );
+        textures[texture_count++] = p_texture_rid;
     }
 
     /**
@@ -39,19 +39,19 @@ NC_COMPONENT_API( MaterialComponent )
      *
      * NOTE: expensive operation.
      */
-    void set_param( StringView name, const void* data, size_t size )
+    void set_param( StringView p_name, const void* p_data, size_t p_size )
     {
-        for (auto& p : Params) {
-            if (p.name == name) {
-                p.data.assign( static_cast<const uint8_t*>( data ), static_cast<const uint8_t*>( data ) + size );
+        for (auto& p : params) {
+            if (p.name == p_name) {
+                p.data.assign( static_cast<const uint8_t*>( p_data ), static_cast<const uint8_t*>( p_data ) + p_size );
                 return;
             }
         }
 
         Param entry;
-        entry.name = String( name );
-        entry.data.assign( static_cast<const uint8_t*>( data ), static_cast<const uint8_t*>( data ) + size );
-        Params.push_back( std::move( entry ) );
+        entry.name = String( p_name );
+        entry.data.assign( static_cast<const uint8_t*>( p_data ), static_cast<const uint8_t*>( p_data ) + p_size );
+        params.push_back( std::move( entry ) );
     }
 
     /**
@@ -60,9 +60,9 @@ NC_COMPONENT_API( MaterialComponent )
      * NOTE: expensive operation.
      */
     template<typename T>
-    void set_params( StringView name, const T& data )
+    void set_params( StringView p_name, const T& p_data )
     {
-        set_param( name, &data, sizeof( T ) );
+        set_param( p_name, &p_data, sizeof( T ) );
     }
 };
 
@@ -71,7 +71,7 @@ NC_COMPONENT_API( MaterialRenderComponent )
     /**
      * @brief GPU material RID.
      */
-    REFLECT RID Handle = 0;
+    REFLECT_HINT( rtti::PropertyFlags::HIDDEN ) RID handle = 0;
 };
 
 } // namespace nc

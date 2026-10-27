@@ -33,10 +33,10 @@ public:
     static const WindowFlag DEFAULT_WINDOW_FLAGS = WindowFlag::RESIZABLE;
 
     struct REFLECT NCAPI WindowSettings {
-        REFLECT int SizeWidth        = 800;
-        REFLECT int SizeHeight       = 800;
-        REFLECT WindowMode Mode      = WindowMode::WINDOWED;
-        REFLECT float PixelsPerMeter = 32.0f;
+        REFLECT int size_width         = 800;
+        REFLECT int size_height        = 800;
+        REFLECT WindowMode mode        = WindowMode::WINDOWED;
+        REFLECT float pixels_per_meter = 32.0f;
     };
 
 public:

@@ -102,6 +102,23 @@ public:
      */
     void update();
 
+    // Set by the UI layer before input systems run for the frame.
+    void set_ui_capture( bool p_keyboard, bool p_mouse )
+    {
+        ui_keyboard_captured = p_keyboard;
+        ui_mouse_captured    = p_mouse;
+    }
+
+    bool is_ui_keyboard_captured() const
+    {
+        return ui_keyboard_captured;
+    }
+
+    bool is_ui_mouse_captured() const
+    {
+        return ui_mouse_captured;
+    }
+
     /**
      * @brief Returns the queued OS events collected by the last pump_events().
      * Valid until the next pump_events() call.
@@ -112,7 +129,7 @@ public:
     }
 
 private:
-    void pump_events_();
+    void pump_events_impl();
     ActionBinding* get_action_( const char* name );
 
     BumpAllocator<InputEvent> event_queue{ 64 };
@@ -126,6 +143,9 @@ private:
     Vec2f mouse_delta   = Vec2f();                    // accumulated relative motion.
     bool is_any_held    = false;
     bool is_any_pressed = false;
+
+    bool ui_keyboard_captured = false;
+    bool ui_mouse_captured    = false;
 };
 
 } // namespace nc

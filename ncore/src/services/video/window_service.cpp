@@ -11,6 +11,7 @@
 #include <ncore/services/video/window_service.h>
 #include <ncore/utils/config.h>
 #include <ncore/utils/log.h>
+#include <utils/profiler.h>
 
 namespace nc {
 
@@ -215,9 +216,7 @@ void WindowService::window_clear_mouse_confinement( uint32_t window_id ) const
 {
     auto window = pImpl->get_sdl_window( window_id );
     if (!SDL_SetWindowMouseRect( window, nullptr )) {
-        NC_LOG_ERROR_C(
-            log::GRAPHICS, "FAIL to clear mouse confinement for window {}: {}", window_id, SDL_GetError()
-        );
+        NC_LOG_ERROR_C( log::GRAPHICS, "FAIL to clear mouse confinement for window {}: {}", window_id, SDL_GetError() );
     }
 }
 
@@ -337,6 +336,7 @@ void* WindowService::get_native_handle( uint32_t window_id ) const
 
 void WindowService::pump_events()
 {
+    NC_ZONE_COLOR( "WindowService::pump_events", NC_COLOR_INPUT )
     event_queue.clear();
 
     SDL_Event sdl_events[64];

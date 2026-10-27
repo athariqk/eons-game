@@ -182,7 +182,7 @@ EcsEntityIterator& EcsEntityIterator::operator++()
 // EcsEntityView
 //------------------------------------------------------------------------------
 
-EcsEntityView::EcsEntityView( EcsQuery& query ) : query_( &query ) {}
+EcsEntityView::EcsEntityView( EcsQuery& p_query ) : query_( &p_query ) {}
 
 EcsEntityIterator EcsEntityView::begin()
 {
@@ -253,7 +253,7 @@ void* EcsIterState::user_ctx() const
     return it->ctx;
 }
 
-void* EcsIterState::get_component_( int32_t column, size_t size, size_t alignment ) const
+void* EcsIterState::get_component_impl( int32_t column, size_t size, size_t alignment ) const
 {
     ( void ) alignment;
     auto it   = static_cast<ecs_iter_t*>( it_ );
@@ -264,7 +264,7 @@ void* EcsIterState::get_component_( int32_t column, size_t size, size_t alignmen
     return reinterpret_cast<char*>( base ) + size * current_row_;
 }
 
-void* EcsIterState::get_entity_component_( const rtti::TypeInfo* p_type ) const
+void* EcsIterState::get_entity_component_impl( const rtti::TypeInfo* p_type ) const
 {
     auto it    = static_cast<ecs_iter_t*>( it_ );
     auto world = static_cast<EcsWorld*>( ecs_get_binding_ctx( it->world ) );
@@ -272,7 +272,7 @@ void* EcsIterState::get_entity_component_( const rtti::TypeInfo* p_type ) const
     return ecs_get_mut_id( it->world, entity(), comp ); // pointer to stored data
 }
 
-void EcsIterState::notify_changed_( EcsEntity p_entity, const rtti::TypeInfo* type ) const
+void EcsIterState::notify_changed_impl( EcsEntity p_entity, const rtti::TypeInfo* type ) const
 {
     auto it    = static_cast<ecs_iter_t*>( it_ );
     auto world = static_cast<EcsWorld*>( ecs_get_binding_ctx( it->world ) );
@@ -280,7 +280,7 @@ void EcsIterState::notify_changed_( EcsEntity p_entity, const rtti::TypeInfo* ty
     ecs_modified_id( it->world, p_entity, comp );
 }
 
-int32_t EcsIterState::resolve_term_index_( const rtti::TypeInfo& info ) const
+int32_t EcsIterState::resolve_term_index_impl( const rtti::TypeInfo& info ) const
 {
     auto cached = term_cache_.find( &info );
     if (cached != term_cache_.end()) {
@@ -303,12 +303,14 @@ int32_t EcsIterState::resolve_term_index_( const rtti::TypeInfo& info ) const
             ids_str += ", ";
         ids_str += std::to_string( it->ids[i] );
     }
-    NC_LOG_TRACE_C( log::ECS, "resolve_term_index_: '{}' MISS — comp_id={} it->ids=[{}]", info.name, comp_id, ids_str );
+    NC_LOG_TRACE_C(
+        log::ECS, "resolve_term_index_impl: '{}' MISS — comp_id={} it->ids=[{}]", info.name, comp_id, ids_str
+    );
 
     return -1;
 }
 
-int32_t EcsIterState::resolve_pair_index_( const rtti::TypeInfo& first, const rtti::TypeInfo& second ) const
+int32_t EcsIterState::resolve_pair_index_impl( const rtti::TypeInfo& first, const rtti::TypeInfo& second ) const
 {
     auto key    = std::pair{ &first, &second };
     auto cached = pair_cache_.find( key );
@@ -494,7 +496,7 @@ EcsQuery EcsQueryBuilder::build()
     NC_ASSERT_MSG( term_count <= FLECS_TERM_COUNT_MAX, std::format( "Too many query terms ({})", term_count ).c_str() );
 
     ecs_query_desc_t qdesc = pImpl->get_as_descriptor();
-    EcsQuery result        = pImpl->world.create_query_( pImpl->name, &qdesc );
+    EcsQuery result        = pImpl->world.create_query_impl( pImpl->name, &qdesc );
     pImpl->built           = true;
     return result;
 }
