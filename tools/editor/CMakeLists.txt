@@ -5,16 +5,34 @@ add_library(ncore_editor SHARED)
 target_sources(
   ncore_editor
   PRIVATE "include/editor/ncore_editor.h"
-		  "src/editor_camera.cpp"
-		  "src/editor_camera.h"
-          "src/editor_state.h"
-          "src/gui_plugin.h"
-          "src/gui_plugin.cpp"
-		  "src/imgui_style.h"
-          "src/imgui_utils.h"
-		  "src/ncore_editor.cpp"
-		  "src/property_grid.h"
-		  "src/property_grid.cpp")
+          "src/backends/imgui/imgui_style.h"
+          "src/backends/imgui/imgui_utils.h"
+          "src/io/asset_importer.h"
+          "src/io/asset_importer.cpp"
+          "src/io/editor_assets.h"
+          "src/io/editor_assets.cpp"
+		  "src/panels/assets_panel.h"
+		  "src/panels/assets_panel.cpp"
+		  "src/panels/inspector_panel.h"
+		  "src/panels/inspector_panel.cpp"
+		  "src/panels/logs_panel.h"
+		  "src/panels/logs_panel.cpp"
+          "src/panels/material_inspector.h"
+          "src/panels/material_inspector.cpp"
+
+		  "src/panels/scene_tree_panel.h"
+		  "src/panels/scene_tree_panel.cpp"
+		  "src/panels/toolbar_panel.h"
+		  "src/panels/toolbar_panel.cpp"
+		  "src/panels/viewport_panel.h"
+		  "src/panels/viewport_panel.cpp"
+          "src/plugins/editor_plugins.h"
+          "src/plugins/gui_plugin.h"
+          "src/plugins/gui_plugin.cpp"
+          "src/editor.h"
+          "src/editor.cpp"
+          "src/editor_components.h"
+          "src/ncore_editor.cpp")
 
 add_subdirectory(external)
 

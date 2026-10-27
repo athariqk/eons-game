@@ -2,6 +2,9 @@
 
 #include <cstring>
 
+#include <backends/imgui/imgui_style.h>
+#include <backends/imgui/imgui_utils.h>
+
 #include <ncore/resources/resource.h>
 #include <ncore/runtime/components/services.h>
 #include <ncore/runtime/components/window.h>
@@ -12,13 +15,9 @@
 #include <ncore/services/video/render_service.h>
 #include <ncore/services/video/window_service.h>
 
-#include "editor_state.h"
-#include "imgui_style.h"
-#include "imgui_utils.h"
-
 namespace nc::editor {
 
-void NCAPI_EDITOR register_gui_plugin( Scene& scene )
+void register_gui_plugin( Scene& scene )
 {
     scene.get_ecs().add_singleton<GuiStateComponent>();
 
@@ -33,7 +32,7 @@ void NCAPI_EDITOR register_gui_plugin( Scene& scene )
             auto state = it.get_component<GuiStateComponent>();
 
             IMGUI_CHECKVERSION();
-            state->ImGuiCtx   = ImGui::CreateContext();
+            state->imgui_ctx  = ImGui::CreateContext();
             ImGuiIO& imgui_io = ImGui::GetIO();
             imgui_io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
             imgui_io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors | ImGuiBackendFlags_RendererHasVtxOffset |
@@ -43,7 +42,7 @@ void NCAPI_EDITOR register_gui_plugin( Scene& scene )
             // The buffer must come from IM_ALLOC: ImGui frees it with IM_FREE (free),
             // while BytesBuffer allocates through NcAllocator/mimalloc outside ASAN.
             auto load_font = [&]( const char* p_path ) -> ImFont* {
-                auto font = io->Resources->load<Font>( p_path );
+                auto font = io->resources->load<Font>( p_path );
                 if (!font)
                     return nullptr;
                 auto bytes = font->get_data();
@@ -68,7 +67,7 @@ void NCAPI_EDITOR register_gui_plugin( Scene& scene )
                 state->CursorMap[imgui_cursor] = cursor_type;
             }
 
-            ImGui::SetCurrentContext( state->ImGuiCtx );
+            ImGui::SetCurrentContext( state->imgui_ctx );
 
             StyleColorsEditor();
             StyleSizesEditor();
@@ -88,15 +87,15 @@ void NCAPI_EDITOR register_gui_plugin( Scene& scene )
                 col.z       = col.z <= 0.04045f ? col.z / 12.92f : pow( ( col.z + 0.055f ) / 1.055f, 2.4f );
             }
 
-            auto shader       = io->Resources->load<MaterialShader>( "shaders/materials/standard_canvas.slang" );
-            auto mat          = vid->Renderer->material_create( shader );
-            state->CanvasItem = vid->Renderer->canvas_item_create();
-            vid->Renderer->canvas_item_set_material( state->CanvasItem, mat );
+            auto shader       = io->resources->load<MaterialShader>( "shaders/materials/standard_canvas.slang" );
+            auto mat          = vid->renderer->material_create( shader );
+            state->CanvasItem = vid->renderer->canvas_item_create();
+            vid->renderer->canvas_item_set_material( state->CanvasItem, mat );
         } );
 
     scene.get_ecs()
         .observer( "GuiPlugin_Cleanup" )
-        .on<GuiStateComponent>( EcsCoreEvent::OnRemove )
+        .on<GuiStateComponent>( ecs::ON_REMOVE )
         .run( []( EcsIterState& it ) {
             auto state = it.get_component<GuiStateComponent>();
             auto vid   = it.world().get_singleton<VideoServices>();
@@ -104,16 +103,16 @@ void NCAPI_EDITOR register_gui_plugin( Scene& scene )
             // The editor plugin may have already nulled the current context
             // during its own cleanup, so make the GUI context current again
             // before touching any ImGui global state.
-            if (!state->ImGuiCtx)
+            if (!state->imgui_ctx)
                 return;
 
-            ImGui::SetCurrentContext( state->ImGuiCtx );
+            ImGui::SetCurrentContext( state->imgui_ctx );
 
             ImGuiPlatformIO& io = ImGui::GetPlatformIO();
             for (ImTextureData* tex : io.Textures) {
                 if (tex->BackendUserData) {
                     RID rid( static_cast<uint64_t>( reinterpret_cast<uintptr_t>( tex->BackendUserData ) ) );
-                    vid->Renderer->destroy_rid( rid );
+                    vid->renderer->destroy_rid( rid );
                 }
                 tex->BackendUserData = nullptr;
                 tex->SetTexID( ImTextureID_Invalid );
@@ -121,7 +120,7 @@ void NCAPI_EDITOR register_gui_plugin( Scene& scene )
             }
 
             if (state->CanvasItem)
-                vid->Renderer->destroy_rid( state->CanvasItem );
+                vid->renderer->destroy_rid( state->CanvasItem );
 
             auto fonts = ImGui::GetIO().Fonts;
             NC_LOG_DEBUG_C( log::GUI, "Destroying font atlas TexID={}", fonts->TexID.GetTexID() );
@@ -142,7 +141,7 @@ void NCAPI_EDITOR register_gui_plugin( Scene& scene )
             ImGuiIO& gui_io  = ImGui::GetIO();
             gui_io.DeltaTime = static_cast<float>( it.delta_time() );
 
-            for (const auto& ev : io->Inputs->get_events()) {
+            for (const auto& ev : io->inputs->get_events()) {
                 std::visit(
                     [&]( auto&& e ) {
                         using T = std::decay_t<decltype( e )>;
@@ -181,7 +180,7 @@ void NCAPI_EDITOR register_gui_plugin( Scene& scene )
                 );
             }
 
-            for (const auto& ev : vid->Window->window_events()) {
+            for (const auto& ev : vid->window->window_events()) {
                 if (auto focus = std::get_if<WindowFocusEvent>( &ev )) {
                     gui_io.AddFocusEvent( focus->focused );
                 }
@@ -199,9 +198,9 @@ void NCAPI_EDITOR register_gui_plugin( Scene& scene )
             //}
             // !!!! HACKKKKK
             if (gui_io.WantTextInput) {
-                vid->Window->window_text_input_start( vid->Window->get_main_window_id() );
+                vid->window->window_text_input_start( vid->window->get_main_window_id() );
             } else {
-                vid->Window->window_text_input_stop( vid->Window->get_main_window_id() );
+                vid->window->window_text_input_stop( vid->window->get_main_window_id() );
             }
         } );
 
@@ -217,7 +216,7 @@ void NCAPI_EDITOR register_gui_plugin( Scene& scene )
             auto win = it.get_component<WindowComponent>();
             auto vid = it.world().get_singleton<VideoServices>();
 
-            Vec2i size = vid->Renderer->swapchain_get_size( win->Swapchain );
+            Vec2i size = vid->renderer->swapchain_get_size( win->swapchain );
 
             ImGuiIO& io      = ImGui::GetIO();
             io.DisplaySize.x = static_cast<float>( size.x );
@@ -237,7 +236,7 @@ void NCAPI_EDITOR register_gui_plugin( Scene& scene )
             ImGui::Render();
 
             auto wanted_cursor = state->CursorMap.at( ImGui::GetMouseCursor() );
-            vid->Window->set_cursor_type( wanted_cursor );
+            vid->window->set_cursor_type( wanted_cursor );
 
             ImDrawData* dd = ImGui::GetDrawData();
             if (!dd || dd->DisplaySize.x <= 0 || dd->DisplaySize.y <= 0 || !state->CanvasItem) {
@@ -255,8 +254,9 @@ void NCAPI_EDITOR register_gui_plugin( Scene& scene )
             auto handle_tex = [vid]( ImTextureData* tex ) {
                 switch (tex->Status) {
                     case ImTextureStatus_WantCreate: {
+                        NC_ASSERT_MSG( tex->Format == ImTextureFormat_RGBA32, "ImGui Alpha8 textures are unsupported" );
                         Image image( tex->Width, tex->Height, tex->GetPixels() );
-                        RID rid = vid->Renderer->texture_2d_create( image );
+                        RID rid = vid->renderer->texture_2d_create( image, true );
                         tex->SetTexID( reinterpret_cast<ImTextureID>( static_cast<uintptr_t>( rid.value ) ) );
                         tex->BackendUserData = reinterpret_cast<void*>( static_cast<uintptr_t>( rid.value ) );
                         tex->SetStatus( ImTextureStatus_OK );
@@ -264,19 +264,28 @@ void NCAPI_EDITOR register_gui_plugin( Scene& scene )
                     }
                     case ImTextureStatus_WantDestroy: {
                         RID rid( reinterpret_cast<uintptr_t>( tex->BackendUserData ) );
-                        vid->Renderer->destroy_rid( rid );
+                        vid->renderer->destroy_rid( rid );
                         tex->BackendUserData = nullptr;
                         tex->SetTexID( ImTextureID_Invalid );
                         tex->SetStatus( ImTextureStatus_Destroyed );
                         break;
                     }
                     case ImTextureStatus_WantUpdates: {
-                        RID old_rid( reinterpret_cast<uintptr_t>( tex->BackendUserData ) );
-                        vid->Renderer->destroy_rid( old_rid );
-                        Image image( tex->Width, tex->Height, tex->GetPixels() );
-                        RID new_rid = vid->Renderer->texture_2d_create( image );
-                        tex->SetTexID( reinterpret_cast<ImTextureID>( static_cast<uintptr_t>( new_rid.value ) ) );
-                        tex->BackendUserData = reinterpret_cast<void*>( static_cast<uintptr_t>( new_rid.value ) );
+                        RID rid( reinterpret_cast<uintptr_t>( tex->BackendUserData ) );
+                        const auto pitch = static_cast<uint32_t>( tex->GetPitch() );
+                        if (tex->Updates.Size > 0) {
+                            for (int r = 0; r < tex->Updates.Size; ++r) {
+                                const ImTextureRect& rect = tex->Updates[r];
+                                vid->renderer->texture_data_update(
+                                    rid, rect.x, rect.y, rect.w, rect.h, pitch, tex->GetPixelsAt( rect.x, rect.y )
+                                );
+                            }
+                        } else if (tex->UpdateRect.w > 0 && tex->UpdateRect.h > 0) {
+                            const ImTextureRect& rect = tex->UpdateRect;
+                            vid->renderer->texture_data_update(
+                                rid, rect.x, rect.y, rect.w, rect.h, pitch, tex->GetPixelsAt( rect.x, rect.y )
+                            );
+                        }
                         tex->SetStatus( ImTextureStatus_OK );
                         break;
                     }
@@ -337,8 +346,9 @@ void NCAPI_EDITOR register_gui_plugin( Scene& scene )
                     RID tex_id = reinterpret_cast<uintptr_t>( cmd.GetTexID() );
                     // Push a new draw of canvas primitive with its own texture override. The
                     // incrementing z-order preserves ImGui's back-to-front draw order.
-                    vid->Renderer->canvas_item_draw(
-                        state->CanvasItem, { vtx, vert_count }, { idx, idx_count }, tex_id, clip_rect, z_order++
+                    vid->renderer->canvas_item_draw(
+                        state->CanvasItem, { vtx, vert_count }, { reinterpret_cast<const uint32_t*>( idx ), idx_count },
+                        tex_id, clip_rect, z_order++
                     );
                 }
             }
@@ -347,7 +357,7 @@ void NCAPI_EDITOR register_gui_plugin( Scene& scene )
 
 //------------------------------------------------------------------------------
 
-void NCAPI_EDITOR unregister_gui_plugin( Scene& scene )
+void unregister_gui_plugin( Scene& scene )
 {
     scene.get_ecs().remove_singleton<GuiStateComponent>();
 }

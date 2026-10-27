@@ -1,11 +1,10 @@
-#include "property_grid.h"
-
 #include <algorithm>
 #include <cstring>
+#include <functional>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
-
-#include <imgui.h>
 
 #include <ncore/core/color.h>
 #include <ncore/core/matrix.h>
@@ -17,36 +16,211 @@
 #include <ncore/core/vector.h>
 #include <ncore/resources/resource.h>
 #include <ncore/runtime/components/material.h>
+#include <ncore/runtime/components/mesh.h>
+#include <ncore/runtime/components/resource.h>
+#include <ncore/runtime/node.h>
+#include <ncore/runtime/scene.h>
 #include <ncore/services/video/gfx_types.h>
 #include <ncore/utils/math.h>
 
+#include <panels/inspector_panel.h>
+
 namespace nc::editor {
-namespace propgrid {
 
-using namespace nc::rtti;
+InspectorPanel::InspectorPanel() : EditorPanel( "Inspector", DockSlot::RightUpper ) {}
 
-static ImGuiDataType imgui_data_type( TypeKind kind )
+void InspectorPanel::draw_node( EditorContext& ctx, Node& selected )
+{
+    auto& ecs = ctx.scene->get_ecs();
+
+    const auto name = selected.get_name();
+    const auto id   = selected.get_id();
+    auto active     = selected.get_active();
+
+    ImGui::Text( "Node: %s", name.data() );
+    ImGui::Text( "ID: %llu", id );
+    ImGui::Checkbox( "Active", active );
+    ImGui::Separator();
+
+    if (ImGui::Button( "+ Add Component", ImVec2( -FLT_MIN, 0 ) ))
+        ImGui::OpenPopup( "AddComponent" );
+
+    if (ImGui::BeginPopup( "AddComponent" )) {
+        ImGui::InputTextWithHint( "##filter", "Search...", component_filter_, sizeof( component_filter_ ) );
+
+        ImGui::BeginChild( "##complist", ImVec2( 0, 200 ), ImGuiChildFlags_Borders );
+        for (auto type : ecs.get_component_types()) {
+            if (!type->is_record() || is_internal_component( type ))
+                continue;
+            if (component_filter_[0] && !std::strstr( type->name, component_filter_ ))
+                continue;
+
+            const bool already = selected.has_component( type );
+            ImGui::BeginDisabled( already );
+            if (ImGui::Selectable( type->name )) {
+                selected.add_component( type );
+                component_filter_[0] = '\0';
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndDisabled();
+        }
+        ImGui::EndChild();
+        ImGui::EndPopup();
+    }
+
+    // Apply after the loop: remove_component swaps the last entry in.
+    DynamicArray<const rtti::TypeInfo*> to_remove;
+    bool ensure_resource_tag = false;
+
+    active_ctx_ = &ctx;
+
+    for (auto& comp : selected.get_components()) {
+        auto* type = ecs.resolve_component( comp.EcsId );
+        if (!type || is_internal_component( type ))
+            continue;
+
+        void* data_ptr = selected.get_component( type );
+        if (!data_ptr)
+            continue;
+
+        ImGui::Separator();
+        if (!ImGui::CollapsingHeader( type->name, ImGuiTreeNodeFlags_DefaultOpen ))
+            continue;
+
+        ImGui::PushID( static_cast<int>( id << 16 | type->id.value ) );
+
+        // Inspector handlers may take over the sheet entirely (e.g. a future
+        // sprite editor); otherwise the generic sheet draws first and handlers
+        // append their own sections.
+        bool replaces_default = false;
+        if (ctx.inspector_handlers) {
+            for (const auto& handler : *ctx.inspector_handlers) {
+                if (handler && handler->can_handle( type, data_ptr ) && handler->replaces_default()) {
+                    replaces_default = true;
+                    break;
+                }
+            }
+        }
+
+        if (!replaces_default && draw_property( type, data_ptr )) {
+            selected.notify_changed( type );
+
+            // Re-pointed resource handles only re-init on the ResourceLoaded path,
+            // which requires the tag.
+            if (( type == rtti::TypeRegistry::find<MeshComponent>() ||
+                  type == rtti::TypeRegistry::find<MaterialComponent>() ) &&
+                !selected.has_component<HasResourceTag>()) {
+                ensure_resource_tag = true;
+            }
+        }
+
+        if (ctx.inspector_handlers) {
+            for (const auto& handler : *ctx.inspector_handlers) {
+                if (handler)
+                    handler->draw( ctx, selected, type, data_ptr );
+            }
+        }
+
+        if (ImGui::SmallButton( "Remove" ))
+            to_remove.push_back( type );
+
+        ImGui::BeginDisabled( !comp.Toggleable );
+        ImGui::Checkbox( "Active", &comp.Active );
+        ImGui::EndDisabled();
+        ImGui::PopID();
+    }
+
+    active_ctx_ = nullptr;
+
+    for (auto* type : to_remove)
+        selected.remove_component( type );
+
+    if (ensure_resource_tag)
+        selected.add_component<HasResourceTag>();
+}
+
+void InspectorPanel::draw( EditorContext& ctx )
+{
+    if (!ImGui::Begin( title.c_str(), &is_visible )) {
+        ImGui::End();
+        return;
+    }
+
+    Node* selected = ( ctx.scene && ctx.selection_state ) ? ctx.selection_state->node( *ctx.scene ) : nullptr;
+
+    if (!selected)
+        ImGui::TextDisabled( "No node get_selected_eid" );
+    else
+        draw_node( ctx, *selected );
+
+    ImGui::End();
+}
+
+} // namespace nc::editor
+
+namespace nc::editor {
+
+/**
+ * @brief Widget registry wrapper threaded through the property recursion.
+ *
+ * Widgets are matched by reflected
+ * type; the first match owns the row.
+ */
+struct PropertyGridWidgets {
+    const DynamicArray<PropertyWidget>* List = nullptr;
+    EditorContext* ctx                       = nullptr;
+
+    bool handles( const rtti::TypeInfo* type ) const
+    {
+        if (!List)
+            return false;
+        for (const auto& widget : *List) {
+            if (widget.Type == type)
+                return true;
+        }
+        return false;
+    }
+
+    /** @brief Returns true when a widget owned the value; out_changed reports edits. */
+    bool draw(
+        const rtti::TypeInfo* type, const rtti::RecordInfo* owner, StringView field, void* value, bool& out_changed
+    ) const
+    {
+        out_changed = false;
+        if (!List || !ctx)
+            return false;
+
+        for (const auto& widget : *List) {
+            if (widget.Type != type || !widget.Draw)
+                continue;
+            return widget.Draw( *ctx, owner, field, type, value, out_changed );
+        }
+        return false;
+    }
+};
+
+static ImGuiDataType imgui_data_type( rtti::TypeKind kind )
 {
     switch (kind) {
-        case TypeKind::INT8:
+        case rtti::TypeKind::INT8:
             return ImGuiDataType_S8;
-        case TypeKind::UINT8:
+        case rtti::TypeKind::UINT8:
             return ImGuiDataType_U8;
-        case TypeKind::INT16:
+        case rtti::TypeKind::INT16:
             return ImGuiDataType_S16;
-        case TypeKind::UINT16:
+        case rtti::TypeKind::UINT16:
             return ImGuiDataType_U16;
-        case TypeKind::INT32:
+        case rtti::TypeKind::INT32:
             return ImGuiDataType_S32;
-        case TypeKind::UINT32:
+        case rtti::TypeKind::UINT32:
             return ImGuiDataType_U32;
-        case TypeKind::INT64:
+        case rtti::TypeKind::INT64:
             return ImGuiDataType_S64;
-        case TypeKind::UINT64:
+        case rtti::TypeKind::UINT64:
             return ImGuiDataType_U64;
-        case TypeKind::FLOAT:
+        case rtti::TypeKind::FLOAT:
             return ImGuiDataType_Float;
-        case TypeKind::DOUBLE:
+        case rtti::TypeKind::DOUBLE:
             return ImGuiDataType_Double;
         default:
             return ImGuiDataType_COUNT;
@@ -64,9 +238,9 @@ static int string_resize_callback( ImGuiInputTextCallbackData* cb )
 }
 
 template<typename T>
-static bool is_type( const TypeInfo* type )
+static bool is_type( const rtti::TypeInfo* type )
 {
-    return type && type == TypeRegistry::find<T>();
+    return type && type == rtti::TypeRegistry::find<T>();
 }
 
 // Multi-component float drag with XYZ colour coding (Unity-style).
@@ -429,7 +603,7 @@ static bool draw_mat4( void* ptr )
     return changed;
 }
 
-static bool draw_specialized( const TypeInfo* type, void* ptr, bool& out_changed )
+static bool draw_specialized( const rtti::TypeInfo* type, void* ptr, bool& out_changed )
 {
     out_changed = false;
     if (!type || !ptr)
@@ -482,28 +656,28 @@ static bool draw_specialized( const TypeInfo* type, void* ptr, bool& out_changed
     return false;
 }
 
-static bool draw_leaf_value( const TypeInfo* type, void* ptr )
+static bool draw_leaf_value( const rtti::TypeInfo* type, void* ptr )
 {
     switch (type->kind) {
-        case TypeKind::BOOL:
+        case rtti::TypeKind::BOOL:
             return ImGui::Checkbox( "##v", static_cast<bool*>( ptr ) );
 
-        case TypeKind::INT8:
-        case TypeKind::UINT8:
-        case TypeKind::INT16:
-        case TypeKind::UINT16:
-        case TypeKind::INT32:
-        case TypeKind::UINT32:
-        case TypeKind::INT64:
-        case TypeKind::UINT64:
+        case rtti::TypeKind::INT8:
+        case rtti::TypeKind::UINT8:
+        case rtti::TypeKind::INT16:
+        case rtti::TypeKind::UINT16:
+        case rtti::TypeKind::INT32:
+        case rtti::TypeKind::UINT32:
+        case rtti::TypeKind::INT64:
+        case rtti::TypeKind::UINT64:
             return ImGui::DragScalar( "##v", imgui_data_type( type->kind ), ptr, 1.0f );
 
-        case TypeKind::FLOAT:
-        case TypeKind::DOUBLE:
+        case rtti::TypeKind::FLOAT:
+        case rtti::TypeKind::DOUBLE:
             return ImGui::DragScalar( "##v", imgui_data_type( type->kind ), ptr, 0.01f );
 
-        case TypeKind::ENUM: {
-            auto* info       = static_cast<const EnumInfo*>( type );
+        case rtti::TypeKind::ENUM: {
+            auto* info       = static_cast<const rtti::EnumInfo*>( type );
             int64_t current  = info->get_value( ptr );
             StringView cname = info->get_name( current );
             bool changed     = false;
@@ -523,7 +697,7 @@ static bool draw_leaf_value( const TypeInfo* type, void* ptr )
             return changed;
         }
 
-        case TypeKind::STRING: {
+        case rtti::TypeKind::STRING: {
             auto* str = static_cast<String*>( ptr );
             return ImGui::InputText(
                 "##v", str->data(), str->capacity() + 1, ImGuiInputTextFlags_CallbackResize, string_resize_callback, str
@@ -545,7 +719,7 @@ static void begin_prop_row( StringView label, int depth )
     ImGui::TableSetColumnIndex( 0 );
 
     if (depth > 0) {
-        ImGui::Dummy( ImVec2( kIndentPx * static_cast<float>( depth ), 0.0f ) );
+        ImGui::Dummy( ImVec2( InspectorPanel::kIndentPx * static_cast<float>( depth ), 0.0f ) );
         ImGui::SameLine( 0.0f, 0.0f );
     }
 
@@ -556,29 +730,35 @@ static void begin_prop_row( StringView label, int depth )
     ImGui::SetNextItemWidth( -FLT_MIN );
 }
 
-static bool draw_record_fields( const RecordInfo* record, void* data, int depth );
-static bool draw_labeled_value( StringView label, const TypeInfo* type, void* ptr, int depth );
-static bool draw_field( const FieldInfo& field, void* data, int depth );
+static bool
+draw_record_fields( const rtti::RecordInfo* record, void* data, int depth, const PropertyGridWidgets* widgets );
+static bool draw_labeled_value(
+    StringView label, const rtti::TypeInfo* type, void* ptr, int depth, const PropertyGridWidgets* widgets
+);
+static bool draw_field(
+    const rtti::FieldInfo& field, const rtti::RecordInfo* owner, void* data, int depth,
+    const PropertyGridWidgets* widgets
+);
 
-inline bool is_object_derived( const TypeInfo* type )
+inline bool is_object_derived( const rtti::TypeInfo* type )
 {
-    for (const TypeInfo* t = type; t && t->is_record();) {
+    for (const rtti::TypeInfo* t = type; t && t->is_record();) {
         if (t->name && ( std::strcmp( t->name, "Object" ) == 0 || std::strcmp( t->name, "nc::Object" ) == 0 ))
             return true;
-        auto* rec = static_cast<const RecordInfo*>( t );
+        auto* rec = static_cast<const rtti::RecordInfo*>( t );
         if (!rec->parent_id.valid())
             break;
-        t = TypeRegistry::find( rec->parent_id );
+        t = rtti::TypeRegistry::find( rec->parent_id );
     }
     return false;
 }
 
-// Resolve the most-derived RecordInfo for a live instance when possible.
-inline const RecordInfo* resolve_record_info( const TypeInfo* static_type, void* instance )
+// Resolve the most-derived rtti::RecordInfo for a live instance when possible.
+inline const rtti::RecordInfo* resolve_record_info( const rtti::TypeInfo* static_type, void* instance )
 {
     if (!static_type || !static_type->is_record())
         return nullptr;
-    auto* rec = static_cast<const RecordInfo*>( static_type );
+    auto* rec = static_cast<const rtti::RecordInfo*>( static_type );
     if (instance && is_object_derived( static_type )) {
         auto* obj = static_cast<Object*>( instance );
         return &obj->get_class_info();
@@ -587,7 +767,9 @@ inline const RecordInfo* resolve_record_info( const TypeInfo* static_type, void*
 }
 
 // Draw a pointed-to record in the property table (label column already has TreeNode intent).
-inline bool draw_pointee_record( StringView label, const TypeInfo* pointee_type, void* target, int depth )
+inline bool draw_pointee_record(
+    StringView label, const rtti::TypeInfo* pointee_type, void* target, int depth, const PropertyGridWidgets* widgets
+)
 {
     if (!target) {
         begin_prop_row( label, depth );
@@ -596,7 +778,7 @@ inline bool draw_pointee_record( StringView label, const TypeInfo* pointee_type,
         return false;
     }
 
-    const RecordInfo* rec = resolve_record_info( pointee_type, target );
+    const rtti::RecordInfo* rec = resolve_record_info( pointee_type, target );
     if (!rec) {
         begin_prop_row( label, depth );
         const char* tname = ( pointee_type && pointee_type->name ) ? pointee_type->name : "void";
@@ -607,7 +789,7 @@ inline bool draw_pointee_record( StringView label, const TypeInfo* pointee_type,
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex( 0 );
     if (depth > 0) {
-        ImGui::Dummy( ImVec2( kIndentPx * static_cast<float>( depth ), 0.0f ) );
+        ImGui::Dummy( ImVec2( InspectorPanel::kIndentPx * static_cast<float>( depth ), 0.0f ) );
         ImGui::SameLine( 0.0f, 0.0f );
     }
 
@@ -621,19 +803,20 @@ inline bool draw_pointee_record( StringView label, const TypeInfo* pointee_type,
     ImGui::TextDisabled( "%p", target );
 
     if (open && depth < 8)
-        return draw_record_fields( rec, target, depth + 1 );
+        return draw_record_fields( rec, target, depth + 1, widgets );
     return false;
 }
 
-struct PropGridVisitor : RecordVisitor {
-    int base_depth                 = 0;
-    bool changed                   = false;
-    int cur_index                  = -1;
-    int array_depth                = 0;
-    const FieldInfo* pending_field = nullptr;
-    int pending_depth              = 0;
+struct PropGridVisitor : rtti::RecordVisitor {
+    int base_depth                       = 0;
+    bool changed                         = false;
+    int cur_index                        = -1;
+    int array_depth                      = 0;
+    const rtti::FieldInfo* pending_field = nullptr;
+    int pending_depth                    = 0;
+    const PropertyGridWidgets* widgets   = nullptr;
 
-    void class_begin( const RecordInfo* c, int depth ) override
+    void class_begin( const rtti::RecordInfo* c, int depth ) override
     {
         if (cur_index < 0 || !c)
             return;
@@ -642,7 +825,7 @@ struct PropGridVisitor : RecordVisitor {
         ImGui::TableSetColumnIndex( 0 );
         const int d = base_depth + 1;
         if (d > 0) {
-            ImGui::Dummy( ImVec2( kIndentPx * static_cast<float>( d ), 0.0f ) );
+            ImGui::Dummy( ImVec2( InspectorPanel::kIndentPx * static_cast<float>( d ), 0.0f ) );
             ImGui::SameLine( 0.0f, 0.0f );
         }
         std::string lbl = "[" + std::to_string( cur_index ) + "] " + ( c->name ? c->name : "record" );
@@ -652,31 +835,31 @@ struct PropGridVisitor : RecordVisitor {
         ImGui::TableSetColumnIndex( 1 );
         ( void ) depth;
     }
-    void class_end( const RecordInfo*, int ) override {}
-    void class_member( const FieldInfo* f, int depth ) override
+    void class_end( const rtti::RecordInfo*, int ) override {}
+    void class_member( const rtti::FieldInfo* f, int depth ) override
     {
         pending_field = f;
         pending_depth = depth;
     }
 
-    void array_begin( const TypeInfo* t, const RecordInfo*, void*, int depth, int length ) override
+    void array_begin( const rtti::TypeInfo* t, const rtti::RecordInfo*, void*, int depth, int length ) override
     {
         array_depth = depth;
         cur_index   = -1;
         ( void ) t;
         ( void ) length;
     }
-    void array_end( const TypeInfo*, int ) override
+    void array_end( const rtti::TypeInfo*, int ) override
     {
         cur_index = -1;
     }
-    void array_element( const TypeInfo*, int, int elem ) override
+    void array_element( const rtti::TypeInfo*, int, int elem ) override
     {
         cur_index     = elem;
         pending_field = nullptr;
     }
 
-    void primitive( const TypeInfo* t, void* instance ) override
+    void primitive( const rtti::TypeInfo* t, void* instance ) override
     {
         if (!t || !instance)
             return;
@@ -685,24 +868,26 @@ struct PropGridVisitor : RecordVisitor {
             StringView n{ pending_field->name.data(), pending_field->name.size() };
             // Indent under the element record header
             const int d = base_depth + 2;
-            changed |= draw_labeled_value( n, t, instance, d );
+            changed |= draw_labeled_value( n, t, instance, d, widgets );
             pending_field = nullptr;
             return;
         }
         if (cur_index >= 0) {
             std::string idx = "[" + std::to_string( cur_index ) + "]";
-            changed |= draw_labeled_value( idx, t, instance, base_depth + 1 );
+            changed |= draw_labeled_value( idx, t, instance, base_depth + 1, widgets );
             return;
         }
         changed |= draw_leaf_value( t, instance );
     }
-    void string( const TypeInfo* t, void* instance ) override
+    void string( const rtti::TypeInfo* t, void* instance ) override
     {
         primitive( t, instance );
     }
 };
 
-static bool draw_labeled_value( StringView label, const TypeInfo* type, void* ptr, int depth )
+static bool draw_labeled_value(
+    StringView label, const rtti::TypeInfo* type, void* ptr, int depth, const PropertyGridWidgets* widgets
+)
 {
     if (!type) {
         begin_prop_row( label, depth );
@@ -710,7 +895,7 @@ static bool draw_labeled_value( StringView label, const TypeInfo* type, void* pt
         return false;
     }
 
-    if (type->kind == TypeKind::RECORD) {
+    if (type->kind == rtti::TypeKind::RECORD) {
         if (is_type<Vec2f>( type ) || is_type<Vec2i>( type ) || is_type<Vec3f>( type ) || is_type<Vec4f>( type ) ||
             is_type<Color>( type ) || is_type<Quaternion>( type ) || is_type<Mat3>( type ) || is_type<Mat4>( type ) ||
             is_type<Rect2f>( type ) || is_type<Rect2i>( type ) || is_type<RID>( type )) {
@@ -729,7 +914,7 @@ static bool draw_labeled_value( StringView label, const TypeInfo* type, void* pt
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex( 0 );
         if (depth > 0) {
-            ImGui::Dummy( ImVec2( kIndentPx * static_cast<float>( depth ), 0.0f ) );
+            ImGui::Dummy( ImVec2( InspectorPanel::kIndentPx * static_cast<float>( depth ), 0.0f ) );
             ImGui::SameLine( 0.0f, 0.0f );
         }
 
@@ -740,16 +925,16 @@ static bool draw_labeled_value( StringView label, const TypeInfo* type, void* pt
         ImGui::TableSetColumnIndex( 1 );
 
         if (open)
-            return draw_record_fields( static_cast<const RecordInfo*>( type ), ptr, depth + 1 );
+            return draw_record_fields( static_cast<const rtti::RecordInfo*>( type ), ptr, depth + 1, widgets );
         return false;
-    } else if (type->kind == TypeKind::VECTOR) {
-        auto* rec       = static_cast<const RecordInfo*>( type );
+    } else if (type->kind == rtti::TypeKind::VECTOR) {
+        auto* rec       = static_cast<const rtti::RecordInfo*>( type );
         std::string lbl = std::string( label );
 
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex( 0 );
         if (depth > 0) {
-            ImGui::Dummy( ImVec2( kIndentPx * static_cast<float>( depth ), 0.0f ) );
+            ImGui::Dummy( ImVec2( InspectorPanel::kIndentPx * static_cast<float>( depth ), 0.0f ) );
             ImGui::SameLine( 0.0f, 0.0f );
         }
 
@@ -774,7 +959,8 @@ static bool draw_labeled_value( StringView label, const TypeInfo* type, void* pt
         if (open) {
             PropGridVisitor visitor;
             visitor.base_depth = depth;
-            rec->visit( ptr, &visitor, static_cast<PropertyFlags>( 0xFFFF ), static_cast<unsigned>( depth ) );
+            visitor.widgets    = widgets;
+            rec->visit( ptr, &visitor, static_cast<rtti::PropertyFlags>( 0xFFFF ), static_cast<unsigned>( depth ) );
             return visitor.changed;
         }
         return false;
@@ -784,19 +970,24 @@ static bool draw_labeled_value( StringView label, const TypeInfo* type, void* pt
     return draw_leaf_value( type, ptr );
 }
 
-static bool draw_field( const FieldInfo& field, void* data, int depth )
+static bool draw_field(
+    const rtti::FieldInfo& field, const rtti::RecordInfo* owner, void* data, int depth,
+    const PropertyGridWidgets* widgets
+)
 {
-    if (field.is( PropertyFlags::HIDDEN ))
+    if (field.is( rtti::PropertyFlags::HIDDEN ))
         return false;
 
-    const TypeInfo* type = field.get_type();
+    const rtti::TypeInfo* type = field.get_type();
     StringView name{ field.name.data(), field.name.size() };
     void* ptr = field.get_void_ptr( data );
 
     bool changed = false;
 
+    const bool read_only = field.is( rtti::PropertyFlags::READ_ONLY ) || !field.is( rtti::PropertyFlags::EDITABLE );
+
     ImGui::PushID( name.data(), name.data() + name.size() );
-    ImGui::BeginDisabled( field.is( PropertyFlags::READ_ONLY ) );
+    ImGui::BeginDisabled( read_only );
 
     if (field.qualifier.is_pointer()) {
         void* target = field.get_as<void*>( data );
@@ -809,7 +1000,7 @@ static bool draw_field( const FieldInfo& field, void* data, int depth )
             else
                 ImGui::TextUnformatted( s );
         } else if (type && type->is_record()) {
-            changed = draw_pointee_record( name, type, target, depth );
+            changed = draw_pointee_record( name, type, target, depth, widgets );
         } else {
             begin_prop_row( name, depth );
             const char* tname = ( type && type->name ) ? type->name : "void";
@@ -842,7 +1033,7 @@ static bool draw_field( const FieldInfo& field, void* data, int depth )
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex( 0 );
             if (depth > 0) {
-                ImGui::Dummy( ImVec2( kIndentPx * static_cast<float>( depth ), 0.0f ) );
+                ImGui::Dummy( ImVec2( InspectorPanel::kIndentPx * static_cast<float>( depth ), 0.0f ) );
                 ImGui::SameLine( 0.0f, 0.0f );
             }
 
@@ -858,10 +1049,20 @@ static bool draw_field( const FieldInfo& field, void* data, int depth )
                 auto* base              = static_cast<uint8_t*>( ptr );
                 constexpr uint32_t kMax = 64;
                 const uint32_t show     = len < kMax ? len : kMax;
+                const bool use_widget   = widgets && widgets->handles( type );
                 for (uint32_t i = 0; i < show; ++i) {
                     ImGui::PushID( static_cast<int>( i ) );
                     std::string idx = "[" + std::to_string( i ) + "]";
-                    changed |= draw_labeled_value( idx, type, base + i * type->size, depth + 1 );
+                    if (use_widget) {
+                        begin_prop_row( idx, depth + 1 );
+                        bool widget_changed = false;
+                        if (widgets->draw( type, owner, name, base + i * type->size, widget_changed ))
+                            changed |= widget_changed;
+                        else
+                            changed |= draw_leaf_value( type, base + i * type->size );
+                    } else {
+                        changed |= draw_labeled_value( idx, type, base + i * type->size, depth + 1, widgets );
+                    }
                     ImGui::PopID();
                 }
                 if (len > kMax) {
@@ -870,8 +1071,17 @@ static bool draw_field( const FieldInfo& field, void* data, int depth )
                 }
             }
         }
+    } else if (widgets && widgets->handles( type )) {
+        begin_prop_row( name, depth );
+        bool widget_changed = false;
+        if (widgets->draw( type, owner, name, ptr, widget_changed ))
+            changed = widget_changed;
+        else if (is_type<RID>( type ))
+            changed = draw_rid( ptr );
+        else
+            changed = draw_leaf_value( type, ptr );
     } else {
-        changed = draw_labeled_value( name, type, ptr, depth );
+        changed = draw_labeled_value( name, type, ptr, depth, widgets );
     }
 
     ImGui::EndDisabled();
@@ -879,19 +1089,20 @@ static bool draw_field( const FieldInfo& field, void* data, int depth )
     return changed;
 }
 
-static bool draw_record_fields( const RecordInfo* record, void* data, int depth )
+static bool
+draw_record_fields( const rtti::RecordInfo* record, void* data, int depth, const PropertyGridWidgets* widgets )
 {
     bool changed = false;
     for (const auto& field : record->fields())
-        changed |= draw_field( field, data, depth );
+        changed |= draw_field( field, record, data, depth, widgets );
     return changed;
 }
 
-bool draw_component_properties( const TypeInfo* type, void* data )
+bool InspectorPanel::draw_property( const rtti::TypeInfo* type, void* data )
 {
     NC_ASSERT( type->is_record() );
 
-    auto record = static_cast<const RecordInfo*>( type );
+    auto record = static_cast<const rtti::RecordInfo*>( type );
     if (record->field_count() == 0)
         return false;
 
@@ -904,193 +1115,10 @@ bool draw_component_properties( const TypeInfo* type, void* data )
     ImGui::TableSetupColumn( "Property", ImGuiTableColumnFlags_WidthFixed, kLabelWidth );
     ImGui::TableSetupColumn( "Value", ImGuiTableColumnFlags_WidthStretch );
 
-    bool changed = draw_record_fields( record, data, 0 );
+    PropertyGridWidgets widgets{ active_ctx_ ? active_ctx_->property_widgets : nullptr, active_ctx_ };
+    bool changed = draw_record_fields( record, data, 0, active_ctx_ ? &widgets : nullptr );
     ImGui::EndTable();
     return changed;
 }
 
-//------------------------------------------------------------------------------
-// Material shader uniforms
-//------------------------------------------------------------------------------
-
-namespace {
-
-int uniform_component_count( gfx::ParameterType type )
-{
-    const uint32_t t = static_cast<uint32_t>( type );
-    if (t & static_cast<uint32_t>( gfx::ParameterType::VEC4 ))
-        return 4;
-    if (t & static_cast<uint32_t>( gfx::ParameterType::VEC3 ))
-        return 3;
-    if (t & static_cast<uint32_t>( gfx::ParameterType::VEC2 ))
-        return 2;
-    return 1;
-}
-
-// Draws one uniform element (scalar or vector). `ptr` points at its bytes.
-bool draw_uniform_element( const ShaderParamField& field, uint8_t* ptr )
-{
-    const uint32_t type = static_cast<uint32_t>( field.type );
-    const bool is_float = ( type & static_cast<uint32_t>( gfx::ParameterType::FLOAT_32 ) ) != 0;
-    const bool is_unsig = ( type & static_cast<uint32_t>( gfx::ParameterType::UNSIGNED ) ) != 0;
-    const int comps     = uniform_component_count( field.type );
-
-    if (field.widget == gfx::ParamWidget::COLOR && is_float && comps >= 3) {
-        auto* f = reinterpret_cast<float*>( ptr );
-        return comps == 4 ? ImGui::ColorEdit4( "##v", f, ImGuiColorEditFlags_Float )
-                          : ImGui::ColorEdit3( "##v", f, ImGuiColorEditFlags_Float );
-    }
-
-    if (field.widget == gfx::ParamWidget::SLIDER) {
-        bool changed = false;
-        if (comps == 1) {
-            if (is_float)
-                changed |=
-                    ImGui::SliderFloat( "##v", reinterpret_cast<float*>( ptr ), field.range_min, field.range_max );
-            else
-                changed |= ImGui::SliderInt(
-                    "##v", reinterpret_cast<int*>( ptr ), static_cast<int>( field.range_min ),
-                    static_cast<int>( field.range_max )
-                );
-            return changed;
-        }
-        if (is_float) {
-            auto* f             = reinterpret_cast<float*>( ptr );
-            const float spacing = ImGui::GetStyle().ItemInnerSpacing.x;
-            const float total   = ImGui::CalcItemWidth();
-            const float cell    = ( total - spacing * static_cast<float>( comps - 1 ) ) / static_cast<float>( comps );
-            for (int i = 0; i < comps; ++i) {
-                if (i)
-                    ImGui::SameLine( 0.0f, spacing );
-                ImGui::PushID( i );
-                ImGui::SetNextItemWidth( cell );
-                changed |= ImGui::SliderFloat( "##c", &f[i], field.range_min, field.range_max );
-                ImGui::PopID();
-            }
-        }
-        return changed;
-    }
-
-    if (is_float) {
-        auto* f = reinterpret_cast<float*>( ptr );
-        switch (comps) {
-            case 4:
-                return ImGui::DragFloat4( "##v", f, 0.01f );
-            case 3:
-                return ImGui::DragFloat3( "##v", f, 0.01f );
-            case 2:
-                return ImGui::DragFloat2( "##v", f, 0.01f );
-            default:
-                return ImGui::DragFloat( "##v", f, 0.01f );
-        }
-    }
-    if (is_unsig)
-        return ImGui::DragScalar( "##v", ImGuiDataType_U32, ptr, 1.0f );
-    return ImGui::DragInt( "##v", reinterpret_cast<int*>( ptr ), 1.0f );
-}
-
-const MaterialComponent::Param* find_material_param( const MaterialComponent& mat, StringView leaf )
-{
-    for (const auto& p : mat.Params) {
-        if (std::string_view( p.name.data(), p.name.size() ) == leaf)
-            return &p;
-    }
-    return nullptr;
-}
-
-} // namespace
-
-bool draw_material_uniforms( MaterialComponent& mat, const MaterialShader& shader )
-{
-    // BINDING_SET_MATERIAL == 1 (the g_Material parameter block).
-    const auto params = shader.get_param_set( static_cast<gfx::BindingSet>( 1 ) );
-    if (params.empty())
-        return false;
-
-    constexpr ImGuiTableFlags kFlags =
-        ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoPadOuterX | ImGuiTableFlags_NoSavedSettings;
-
-    if (!ImGui::BeginTable( "##matparams", 2, kFlags ))
-        return false;
-    ImGui::TableSetupColumn( "Property", ImGuiTableColumnFlags_WidthFixed, kLabelWidth );
-    ImGui::TableSetupColumn( "Value", ImGuiTableColumnFlags_WidthStretch );
-
-    bool changed = false;
-    std::string current_header;
-
-    for (const auto& param : params) {
-        if (param.resource_type != gfx::ResourceType::CONSTANT_BUFFER)
-            continue; // textures/samplers are already shown via MaterialComponent::Textures
-
-        for (const auto& field : param.fields) {
-            const std::string header( field.header.data(), field.header.size() );
-            if (!header.empty() && header != current_header) {
-                current_header = header;
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex( 0 );
-                ImGui::SeparatorText( header.c_str() );
-            }
-
-            const std::string full( field.name.data(), field.name.size() );
-            const auto dot         = full.rfind( '.' );
-            const std::string leaf = ( dot == std::string::npos ) ? full : full.substr( dot + 1 );
-
-            const uint32_t array_size = field.array_size > 0 ? field.array_size : 1;
-            const size_t element_size = array_size > 0 ? ( field.size / array_size ) : field.size;
-
-            std::vector<uint8_t> bytes( field.size, 0 );
-            if (const auto* p = find_material_param( mat, leaf )) {
-                const size_t n = std::min<size_t>( p->data.size(), bytes.size() );
-                std::memcpy( bytes.data(), p->data.data(), n );
-            }
-
-            bool field_changed = false;
-
-            ImGui::PushID( full.c_str() );
-
-            if (array_size <= 1) {
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex( 0 );
-                ImGui::AlignTextToFramePadding();
-                ImGui::TextUnformatted( leaf.c_str() );
-                ImGui::TableSetColumnIndex( 1 );
-                ImGui::SetNextItemWidth( -FLT_MIN );
-                field_changed |= draw_uniform_element( field, bytes.data() );
-            } else {
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex( 0 );
-                bool open = ImGui::TreeNodeEx(
-                    leaf.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_NoTreePushOnOpen |
-                                      ImGuiTreeNodeFlags_DefaultOpen
-                );
-                ImGui::TableSetColumnIndex( 1 );
-                ImGui::TextDisabled( "%u elements", array_size );
-                if (open) {
-                    for (uint32_t i = 0; i < array_size; ++i) {
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex( 0 );
-                        ImGui::Text( "[%u]", i );
-                        ImGui::TableSetColumnIndex( 1 );
-                        ImGui::SetNextItemWidth( -FLT_MIN );
-                        ImGui::PushID( static_cast<int>( i ) );
-                        field_changed |= draw_uniform_element( field, bytes.data() + i * element_size );
-                        ImGui::PopID();
-                    }
-                }
-            }
-
-            ImGui::PopID();
-
-            if (field_changed) {
-                mat.set_param( StringView( leaf ), bytes.data(), bytes.size() );
-                changed = true;
-            }
-        }
-    }
-
-    ImGui::EndTable();
-    return changed;
-}
-
-} // namespace propgrid
 } // namespace nc::editor

@@ -22,10 +22,11 @@ add_library(
   imgui/misc/freetype/imgui_freetype.cpp
   $<$<CONFIG:Debug>:imgui/imgui_demo.cpp>)
 target_include_directories(ImGui SYSTEM PUBLIC imgui)
+target_include_directories(ImGui SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_features(ImGui PRIVATE cxx_std_17)
 set_target_properties(ImGui PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(ImGui PUBLIC freetype)
-target_compile_definitions(ImGui PUBLIC IMGUI_ENABLE_FREETYPE)
+target_compile_definitions(ImGui PUBLIC IMGUI_ENABLE_FREETYPE IMGUI_USER_CONFIG="imgui_config.h")
 
 set(IMGUIZMO_BUILD_EXAMPLE
     OFF
