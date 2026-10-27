@@ -1,5 +1,6 @@
 #include "ast_visitor.h"
 
+#include <cstring>
 #include <set>
 #include <sstream>
 
@@ -73,11 +74,62 @@ bool has_reflect_attr( const Decl* d )
 {
     for (const auto* attr : d->attrs()) {
         if (const auto* aa = dyn_cast<AnnotateAttr>( attr )) {
-            if (aa->getAnnotation() == "Reflect")
+            llvm::StringRef annotation = aa->getAnnotation();
+            // "Reflect" for bare markers, "Reflect <flags>" when REFLECT(...) was used.
+            if (annotation == "Reflect" || annotation.starts_with( "Reflect " ))
                 return true;
         }
     }
     return false;
+}
+
+struct ReflectFieldFlags {
+    bool hidden    = false;
+    bool read_only = false;
+};
+
+// REFLECT( PropertyFlags::HIDDEN | PropertyFlags::READ_ONLY ) is stringified into
+// the annotation by the macro; parse the flag tokens back out here.
+ReflectFieldFlags parse_reflect_flags( const Decl* d )
+{
+    ReflectFieldFlags out;
+
+    for (const auto* attr : d->attrs()) {
+        const auto* aa = dyn_cast<AnnotateAttr>( attr );
+        if (!aa)
+            continue;
+
+        llvm::StringRef annotation = aa->getAnnotation();
+        if (!annotation.starts_with( "Reflect " ))
+            continue;
+
+        llvm::StringRef spec  = annotation.drop_front( std::strlen( "Reflect " ) );
+        size_t begin          = 0;
+        for (;;) {
+            const size_t sep = spec.find( '|', begin );
+            const size_t end = sep == llvm::StringRef::npos ? spec.size() : sep;
+            llvm::StringRef token = spec.slice( begin, end ).trim();
+
+            // Accept "HIDDEN", "PropertyFlags::HIDDEN", "rtti::PropertyFlags::HIDDEN", ...
+            llvm::StringRef leaf = token;
+            if (const size_t scope = token.rfind( "::" ); scope != llvm::StringRef::npos)
+                leaf = token.drop_front( scope + 2 );
+
+            if (leaf == "HIDDEN") {
+                out.hidden = true;
+            } else if (leaf == "READ_ONLY") {
+                out.read_only = true;
+            } else if (!leaf.empty() && leaf != "SERIALIZABLE" && leaf != "EDITABLE" && leaf != "NONE") {
+                llvm::errs() << "reflection-gen: unknown REFLECT flag '" << token << "' (ignored)\n";
+            }
+
+            if (sep == llvm::StringRef::npos)
+                break;
+            begin = sep + 1;
+        }
+    }
+
+    return out;
 }
 
 bool inherits_from_object( const CXXRecordDecl* rd )
@@ -245,7 +297,7 @@ public:
         }
 
         if (rec.is_class) {
-            const auto* crd = cast<CXXRecordDecl>( rd );
+            const auto* crd      = cast<CXXRecordDecl>( rd );
             rec.is_ecs_component = is_ecs_component_base( crd );
             rec.has_nstruct_v    = has_nstruct_v_marker( crd );
             // Find whichever base actually leads to Object -- not just the
@@ -285,6 +337,13 @@ public:
             f.pointer_count = 0;
             f.array_length  = 0;
             f.is_cstring    = false;
+            f.hidden        = false;
+            f.read_only     = false;
+            {
+                const ReflectFieldFlags flags = parse_reflect_flags( field );
+                f.hidden                      = flags.hidden;
+                f.read_only                   = flags.read_only;
+            }
 
             // Compute field offset from ASTRecordLayout (safe for non-CXX types)
             f.field_offset = 0;
@@ -447,7 +506,7 @@ void ReflectionVisitor::register_container_type( const QualType& qt )
 
     // std::vector gets VectorClass so RTTI visitation walks its elements —
     // without it every DynamicArray field would serialize as an empty record.
-    const bool is_vector       = full_type.rfind( "std::vector<", 0 ) == 0;
+    const bool is_vector = full_type.rfind( "std::vector<", 0 ) == 0;
     const std::string info_type =
         is_vector ? ( "::nc::rtti::VectorClass<" + full_type + ">" ) : "::nc::rtti::RecordInfo";
 
@@ -455,7 +514,9 @@ void ReflectionVisitor::register_container_type( const QualType& qt )
         { key, "    // " + full_type +
                    "\n"
                    "    {\n"
-                   "        static " + info_type + " nc_ct(\n"
+                   "        static " +
+                   info_type +
+                   " nc_ct(\n"
                    "            \"" +
                    full_type +
                    "\",\n"
@@ -479,7 +540,8 @@ void ReflectionVisitor::register_plain_record_type( const CXXRecordDecl* rd, con
     // Skip types the record pass itself registers (REFLECT / NSTRUCT_V /
     // ECS_COMPONENT / nc::Object-derived): an empty dep registration would
     // clobber their field lists depending on static-init order.
-    if (has_reflect_attr( rd ) || is_ecs_component_base( rd ) || has_nstruct_v_marker( rd ) || inherits_from_object( rd ))
+    if (has_reflect_attr( rd ) || is_ecs_component_base( rd ) || has_nstruct_v_marker( rd ) ||
+        inherits_from_object( rd ))
         return;
     for (const auto* field : rd->fields()) {
         if (has_reflect_attr( field ))
@@ -501,21 +563,22 @@ void ReflectionVisitor::register_plain_record_type( const CXXRecordDecl* rd, con
     // Empty RecordInfo: enough for RTTI lookup and is_record() dispatch; the
     // type round-trips as default-constructed (no serializable fields).
     result.dep_types.push_back(
-        { key, "    // " + full_type + " (plain record)\n"
-               "    {\n"
-               "        static ::nc::rtti::RecordInfo nc_ct(\n"
-               "            \"" +
-               full_type +
-               "\",\n"
-               "            ::nc::rtti::TypeId{" +
-               std::to_string( hash ) +
-               "ULL},\n"
-               "            " +
-               std::to_string( sizeof_ct ) + ", " + std::to_string( align_ct ) +
-               "\n"
-               "        );\n"
-               "        ::nc::rtti::TypeRegistry::register_type( &nc_ct );\n"
-               "    }\n" }
+        { key, "    // " + full_type +
+                   " (plain record)\n"
+                   "    {\n"
+                   "        static ::nc::rtti::RecordInfo nc_ct(\n"
+                   "            \"" +
+                   full_type +
+                   "\",\n"
+                   "            ::nc::rtti::TypeId{" +
+                   std::to_string( hash ) +
+                   "ULL},\n"
+                   "            " +
+                   std::to_string( sizeof_ct ) + ", " + std::to_string( align_ct ) +
+                   "\n"
+                   "        );\n"
+                   "        ::nc::rtti::TypeRegistry::register_type( &nc_ct );\n"
+                   "    }\n" }
     );
 }
 

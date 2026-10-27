@@ -103,7 +103,18 @@ file(STRINGS "${HEADERS_FILE}" headers_list)
 
 # --- Build cleaned command string (escaped for JSON) ---
 
-string(JOIN " " cmd_str ${filtered_args})
+# separate_arguments(NATIVE_COMMAND) consumes command-line escapes, e.g.
+#   -DIMGUI_USER_CONFIG=\"imgui_config.h\"  ->  -DIMGUI_USER_CONFIG="imgui_config.h"
+# Re-escape embedded quotes as \" so the emitted command tokenizes back to
+# the same argv when ClangTool re-parses the DB (unescaped " are stripped
+# as grouping quotes, which broke `#include IMGUI_USER_CONFIG`).
+set(escaped_args)
+foreach(arg IN LISTS filtered_args)
+    string(REPLACE "\"" "\\\"" arg "${arg}")
+    list(APPEND escaped_args "${arg}")
+endforeach()
+
+string(JOIN " " cmd_str ${escaped_args})
 string(REPLACE "\\" "\\\\" cmd_str "${cmd_str}")
 string(REPLACE "\"" "\\\"" cmd_str "${cmd_str}")
 

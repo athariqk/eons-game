@@ -2,13 +2,14 @@
 // from the static library builds. The extern template declarations in headers
 // suppress implicit instantiation but the explicit instantiation definitions
 // are absent from the .lib files.
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/Path.h"
-#include "llvm/Support/FormatVariadic.h"
 #include <string>
+
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/Twine.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/FormatVariadic.h"
+#include "llvm/Support/Path.h"
+#include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
 
@@ -21,4 +22,4 @@ template class SmallVectorBase<uint64_t>;
 // cl::basic_parser explicit instantiations
 template class cl::basic_parser<std::string>;
 
-}
+} // namespace llvm

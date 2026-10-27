@@ -58,6 +58,16 @@ std::string generate_dep_type_registrations( const std::vector<ReflectedDepType>
     return oss.str();
 }
 
+std::string property_flags_expr( const ReflectedField& f )
+{
+    std::string flags = "::nc::rtti::PropertyFlags::SERIALIZABLE | ::nc::rtti::PropertyFlags::EDITABLE";
+    if (f.hidden)
+        flags += " | ::nc::rtti::PropertyFlags::HIDDEN";
+    if (f.read_only)
+        flags += " | ::nc::rtti::PropertyFlags::READ_ONLY";
+    return flags;
+}
+
 std::string generate_field_array( const ReflectedRecord& rec )
 {
     if (rec.fields.empty())
@@ -70,7 +80,7 @@ std::string generate_field_array( const ReflectedRecord& rec )
             << "              ::nc::rtti::TypeId{" << f.type_id_hash << "ULL},\n"
             << "              " << f.field_size << ",\n"
             << "              " << f.field_offset << ",\n"
-            << "              ::nc::rtti::PropertyFlags::SERIALIZABLE | ::nc::rtti::PropertyFlags::EDITABLE,\n"
+            << "              " << property_flags_expr( f ) << ",\n"
             << "              ::nc::rtti::Qualifier{";
         if (f.array_length > 0)
             oss << ".array_length = " << f.array_length;
@@ -109,13 +119,11 @@ std::string generate_record_code( const ReflectedRecord& rec )
     // until register_type).
     if (rec.is_ecs_component || rec.has_nstruct_v) {
         if (rec.is_ecs_component) {
-            oss << "        (void)::nc::detail::EcsComponentBase<" << cpp_name
-                << ">::nc_info_();\n";
+            oss << "        (void)::nc::detail::EcsComponentBase<" << cpp_name << ">::nc_info_();\n";
         }
         if (!rec.fields.empty()) {
             oss << "    {\n"
-                << generate_field_array( rec )
-                << "        ::nc::rtti::TypeRegistry::provide_fields(\n"
+                << generate_field_array( rec ) << "        ::nc::rtti::TypeRegistry::provide_fields(\n"
                 << "            ::nc::rtti::TypeId{" << type_hash << "ULL}, fields, fields + " << rec.fields.size()
                 << " );\n"
                 << "    }\n";
@@ -142,7 +150,8 @@ std::string generate_record_code( const ReflectedRecord& rec )
     if (!rec.fields.empty()) {
         oss << generate_field_array( rec );
         oss << "        nc_info_.fields_begin = fields;\n"
-            << "        nc_info_.fields_end = fields + " << rec.fields.size() << ";\n"
+            << "        nc_info_.fields_end = fields + " << rec.fields.size()
+            << ";\n"
             // Also hand the fields to the registry: NSTRUCT_V/NCLASS/
             // ECS_COMPONENT RecordInfoT entries may already have won the
             // type_cache (static-init order vs this TU is unspecified), and

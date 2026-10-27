@@ -35,11 +35,12 @@ add_custom_command(
   VERBATIM)
 
 # Reflection code generation
-file(GLOB_RECURSE SEA_ENGINE_HEADERS
-     LIST_DIRECTORIES false "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
+file(
+  GLOB_RECURSE SEA_ENGINE_HEADERS
+  LIST_DIRECTORIES false
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
 
-nc_add_reflection_gen(SeaEngine HEADERS ${SEA_ENGINE_HEADERS}
-                      FLAGS_FROM "seaengine/src/")
+generate_headers_reflection(SeaEngine HEADERS ${SEA_ENGINE_HEADERS} FLAGS_FROM
+                      "seaengine/src/")
 
-target_include_directories(SeaEngine PRIVATE
-                           "${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_include_directories(SeaEngine PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")

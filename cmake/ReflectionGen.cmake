@@ -1,6 +1,6 @@
 # ReflectionGen.cmake
 #
-# nc_add_reflection_gen(<target>
+# generate_headers_reflection(<target>
 #     HEADERS <abs-header>...
 #     [FLAGS_FROM <regex>]   # compile_commands entry regex supplying flags
 #                            # (default: ncore/src/)
@@ -13,10 +13,10 @@
 # first compile_commands entry whose file path matches FLAGS_FROM, so each
 # target parses its headers with its own include paths and defines.
 
-function(nc_add_reflection_gen target)
+function(generate_headers_reflection target)
     cmake_parse_arguments(ARG "" "FLAGS_FROM;GEN_DIR" "HEADERS" ${ARGN})
     if(NOT ARG_HEADERS)
-        message(FATAL_ERROR "nc_add_reflection_gen(${target}): HEADERS is required")
+        message(FATAL_ERROR "generate_headers_reflection(${target}): HEADERS is required")
     endif()
     if(NOT ARG_FLAGS_FROM)
         set(ARG_FLAGS_FROM "ncore/src/")
@@ -52,7 +52,6 @@ function(nc_add_reflection_gen target)
     foreach(header IN LISTS ARG_HEADERS)
         file(RELATIVE_PATH rel "${CMAKE_SOURCE_DIR}" "${header}")
         string(REGEX REPLACE "\\.h$" ".gen.h" gen_name "${rel}")
-        string(REGEX REPLACE "[/\\\\]" "_" gen_name "${gen_name}")
         set(gen_header "${ARG_GEN_DIR}/${gen_name}")
 
         add_custom_command(

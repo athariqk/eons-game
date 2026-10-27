@@ -934,7 +934,7 @@ public:
     {
         NC_ASSERT_MSG(
             contains<T>(),
-            std::format( "Type '{}' is not found in the registry", detail::type_name<T>().data() ).c_str()
+            std::format( "Type '{}' is not found in the types registry.", detail::type_name<T>().data() ).c_str()
         );
         return get( detail::type_id<T>() );
     }
@@ -960,7 +960,7 @@ public:
     {
         const RecordInfo* c = find_record<T>();
         NC_ASSERT_MSG(
-            c, std::format( "Type '{}' is not found in the registry", detail::type_name<T>().data() ).c_str()
+            c, std::format( "Type '{}' is not found in the types registry.", detail::type_name<T>().data() ).c_str()
         );
         return *c;
     }
@@ -1181,10 +1181,25 @@ constexpr const char* get_enum_name( const T* value ) noexcept
         return nc_info_();                                                                                             \
     }
 
+/**
+ * @brief Marks a field (or record) for reflection.
+ *
+ * REFLECT covers the common case (serializable + editable). REFLECT_HINT takes
+ * extra PropertyFlags, additive to those defaults:
+ *   REFLECT_HINT( rtti::PropertyFlags::HIDDEN )
+ *   REFLECT_HINT( rtti::PropertyFlags::READ_ONLY )
+ *   REFLECT_HINT( rtti::PropertyFlags::HIDDEN | rtti::PropertyFlags::READ_ONLY )
+ *
+ * The argument is stringified into the annotation and parsed by
+ * reflection_gen; it is not evaluated, so an unknown token produces a
+ * generator warning instead of a C++ error.
+ */
 #if __has_cpp_attribute( clang::annotate )
 #define REFLECT __attribute__( ( annotate( "Reflect" ) ) )
+#define REFLECT_HINT( ... ) __attribute__( ( annotate( "Reflect " #__VA_ARGS__ ) ) )
 #else
 #define REFLECT
+#define REFLECT_HINT( ... )
 #endif
 
 //------------------------------------------------------------------------------
