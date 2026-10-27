@@ -201,6 +201,17 @@ else()
   install(FILES "${SLANG_RUNTIME}" DESTINATION .)
 endif()
 
+if(NCORE_ENABLE_TRACY)
+  set(TRACY_ENABLE ON CACHE BOOL "" FORCE)
+  set(TRACY_ON_DEMAND OFF CACHE BOOL "" FORCE)   # must stay OFF to match OD0
+  set(TRACY_CALLSTACK 16 CACHE STRING "" FORCE)
+
+  target_compile_definitions(flecs_static PUBLIC FLECS_PERF_TRACE)
+endif()
+
+# tracy
+add_subdirectory(tracy SYSTEM EXCLUDE_FROM_ALL)
+
 target_link_libraries(
   ncore
   PRIVATE mimalloc-static
@@ -214,6 +225,10 @@ target_link_libraries(
           Diligent-GraphicsAccessories
           Diligent-ShaderTools
           slang::slang)
+
+if(NCORE_ENABLE_TRACY AND TARGET TracyClient)
+  target_link_libraries(ncore PRIVATE TracyClient)
+endif()
 
 # Install runtime DLLs (dynamic-only)
 if(NOT NCORE_STATIC_DEPS)

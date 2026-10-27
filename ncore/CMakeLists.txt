@@ -17,9 +17,17 @@ set(NCORE_VERSION
 )
 
 option(ENABLE_PCH "Enable Precompiled Headers performance optimization" ON)
+option(NCORE_ENABLE_TRACY "Enable Tracy profiler instrumentation" OFF)
 
 if(ENABLE_PCH)
   target_precompile_headers(ncore PRIVATE "pch.h")
+endif()
+
+if(NCORE_ENABLE_TRACY)
+  target_compile_definitions(ncore PRIVATE NCORE_ENABLE_TRACY=1 TRACY_ENABLE=1)
+  message(STATUS "NCORE: Tracy profiler ENABLED")
+else()
+  message(STATUS "NCORE: Tracy profiler disabled")
 endif()
 
 if(MSVC)

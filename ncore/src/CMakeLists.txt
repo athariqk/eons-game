@@ -58,7 +58,8 @@ target_sources(
           "utils/assert.cpp"
           "utils/command_line_parser.cpp"
           "utils/config.cpp"
-          "utils/four_cc.cpp")
+          "utils/four_cc.cpp"
+          "utils/profiler.h")
 
 target_include_directories(ncore PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
