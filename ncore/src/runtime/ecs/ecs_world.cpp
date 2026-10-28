@@ -143,7 +143,8 @@ EcsWorld::~EcsWorld()
 //------------------------------------------------------------------------------
 
 void EcsWorld::progress( double delta_time )
-{    NC_ZONE_COLOR( "EcsWorld::progress", NC_COLOR_ECS )
+{
+    NC_ZONE_COLOR( "EcsWorld::progress", NC_COLOR_ECS )
     ecs_progress( pImpl->world, static_cast<float>( delta_time ) );
 }
 
@@ -173,13 +174,13 @@ EcsEntity EcsWorld::lookup( StringView entity_name, EcsEntity parent ) const
 StringView EcsWorld::lookup( EcsEntity entity ) const
 {
     auto name = ecs_get_name( pImpl->world, entity );
-    return name ? StringView( name ) : unnamed;
+    return name ? StringView( name ) : unnamed_ent;
 }
 
-std::span<EcsEntity> EcsWorld::get_entities() const
+Span<EcsEntity> EcsWorld::get_entities() const
 {
     ecs_entities_t ents = ecs_get_entities( pImpl->world );
-    return std::span<EcsEntity>( const_cast<EcsEntity*>( ents.ids ), static_cast<size_t>( ents.alive_count ) );
+    return Span<EcsEntity>( const_cast<EcsEntity*>( ents.ids ), static_cast<size_t>( ents.alive_count ) );
 }
 
 size_t EcsWorld::get_entity_count( bool alive ) const
@@ -235,7 +236,7 @@ void EcsWorld::emit_event( EcsEntity event, EcsEntity target )
 
 static void handle_ctor_hook( void* ptr, int32_t count, const ecs_type_info_t* type_info )
 {
-    auto ctx       = reinterpret_cast<rtti::RecordInfo*>( type_info->hooks.lifecycle_ctx );
+    auto ctx       = reinterpret_cast<rtti::IValueOps*>( type_info->hooks.lifecycle_ctx );
     char* byte_ptr = static_cast<char*>( ptr );
     for (int i = 0; i < count; i++) {
         void* item_ptr = byte_ptr + ( i * type_info->size );
@@ -246,7 +247,7 @@ static void handle_ctor_hook( void* ptr, int32_t count, const ecs_type_info_t* t
 
 static void handle_dtor_hook( void* ptr, int32_t count, const ecs_type_info_t* type_info )
 {
-    auto ctx       = reinterpret_cast<rtti::RecordInfo*>( type_info->hooks.lifecycle_ctx );
+    auto ctx       = reinterpret_cast<rtti::IValueOps*>( type_info->hooks.lifecycle_ctx );
     char* byte_ptr = static_cast<char*>( ptr );
     for (int i = 0; i < count; i++) {
         void* item_ptr = byte_ptr + ( i * type_info->size );
@@ -257,7 +258,7 @@ static void handle_dtor_hook( void* ptr, int32_t count, const ecs_type_info_t* t
 
 static void handle_copy_hook( void* dst_ptr, const void* src_ptr, int32_t count, const ecs_type_info_t* type_info )
 {
-    auto ctx            = reinterpret_cast<rtti::RecordInfo*>( type_info->hooks.lifecycle_ctx );
+    auto ctx            = reinterpret_cast<rtti::IValueOps*>( type_info->hooks.lifecycle_ctx );
     const char* src_arr = static_cast<const char*>( src_ptr );
     char* dst_arr       = static_cast<char*>( dst_ptr );
     for (int i = 0; i < count; i++) {
@@ -271,7 +272,7 @@ static void handle_copy_hook( void* dst_ptr, const void* src_ptr, int32_t count,
 
 static void handle_move_hook( void* dst_ptr, void* src_ptr, int32_t count, const ecs_type_info_t* type_info )
 {
-    auto ctx            = reinterpret_cast<rtti::RecordInfo*>( type_info->hooks.lifecycle_ctx );
+    auto ctx            = reinterpret_cast<rtti::IValueOps*>( type_info->hooks.lifecycle_ctx );
     const char* src_arr = static_cast<const char*>( src_ptr );
     char* dst_arr       = static_cast<char*>( dst_ptr );
     for (int i = 0; i < count; i++) {
@@ -282,12 +283,9 @@ static void handle_move_hook( void* dst_ptr, void* src_ptr, int32_t count, const
     }
 }
 
-EcsEntity EcsWorld::register_component_type( const rtti::TypeInfo* type ) const
+EcsComponent EcsWorld::register_component_type( const rtti::TypeInfo* type ) const
 {
-    if (!type) {
-        NC_LOG_ERROR_C( log::ECS, "register_component_type: null type_info" );
-        return 0;
-    }
+    NC_FAIL_MSG_RETVAL( type, 0, "Parameter 'type' must be provided" );
 
     auto it = pImpl->comp_type_to_id.find( type );
     if (it != pImpl->comp_type_to_id.end()) {
@@ -319,7 +317,7 @@ EcsEntity EcsWorld::register_component_type( const rtti::TypeInfo* type ) const
     desc.type    = type_info;
 
     auto comp_id = ecs_component_init( pImpl->world, &desc );
-    NC_ASSERT_MSG( comp_id > 0, std::format( "FAIL to auto-register component type '{}'.", type->name ).c_str() );
+    NC_ASSERT_MSG( comp_id > 0, std::format( "FAIL registering component type '{}'.", type->name ).c_str() );
 
     ecs_add_id( pImpl->world, comp_id, EcsCanToggle ); // NOTE: flecs doc say this adds overhead to queries
 
@@ -329,7 +327,7 @@ EcsEntity EcsWorld::register_component_type( const rtti::TypeInfo* type ) const
 
     NC_LOG_DEBUG_C( log::ECS, "NEW component type registered name='{}' eid={}", type->name, comp_id );
 
-    return static_cast<EcsEntity>( comp_id );
+    return static_cast<EcsComponent>( comp_id );
 }
 
 const rtti::TypeInfo* EcsWorld::resolve_component( EcsComponent id ) const
@@ -431,7 +429,7 @@ void* EcsWorld::get_native_handle() const
     return pImpl->world;
 }
 
-EcsEntity EcsWorld::create_entity_impl_( const String& name ) const
+EcsEntity EcsWorld::create_entity_impl( const String& name ) const
 {
     ecs_entity_desc_t desc{};
     if (!name.empty())
@@ -441,10 +439,11 @@ EcsEntity EcsWorld::create_entity_impl_( const String& name ) const
     return static_cast<EcsEntity>( result );
 }
 
-EcsComponent EcsWorld::set_component_( EcsEntity eid, const rtti::TypeInfo* type, const void* data )
+void EcsWorld::set_component_impl( EcsEntity eid, const rtti::TypeInfo* type, const void* data )
 {
     NC_VERIFY( type );
-    ecs_trace( "setting component value of %s to an entity (ID %d)", type->name, eid );
+    NC_FAIL_MSG_RET( type->is_record(), "Adding a non-record component is not possible." );
+    ecs_trace( "setting component %s to an entity (ID %d)", type->name, eid );
 
     EcsComponent cid = register_component_type( type );
 
@@ -458,43 +457,11 @@ EcsComponent EcsWorld::set_component_( EcsEntity eid, const rtti::TypeInfo* type
         ecs_add_id( pImpl->world, eid, EcsSingleton );
     }
 
-    ecs_set_id( pImpl->world, eid, cid, type->size, data );
-
-    return cid;
-}
-
-void* EcsWorld::add_component_( EcsEntity eid, const rtti::TypeInfo* type, const void* data )
-{
-    NC_VERIFY( type );
-    NC_FAIL_MSG_RETVAL( type->is_record(), nullptr, "Adding a non-record component is not possible." );
-
-    EcsComponent cid = register_component_type( type );
-    if (eid == INVALID_ENTITY_ID) {
-        eid = cid;
-    }
-
-    if (eid == cid) { // is singleton?
-        ecs_add_id( pImpl->world, eid, EcsSingleton );
-    }
-
-    bool is_new = false;
-
     if (data) {
-        auto instance = ecs_emplace_id( pImpl->world, eid, cid, type->size, &is_new );
-        if (is_new)
-            type->construct( instance, data );
+        ecs_set_id( pImpl->world, eid, cid, type->size, data );
     } else {
-        is_new = !ecs_has_id( pImpl->world, eid, cid );
         ecs_ensure_id( pImpl->world, eid, cid, type->size );
     }
-
-    void* instance = ecs_get_mut_id( pImpl->world, eid, cid );
-
-    if (is_new) {
-        ecs_modified_id( pImpl->world, eid, cid );
-    }
-
-    return instance;
 }
 
 void* EcsWorld::get_component_impl( EcsEntity cid, const rtti::TypeInfo* type ) const
@@ -508,7 +475,7 @@ void* EcsWorld::get_component_impl( EcsEntity cid, const rtti::TypeInfo* type ) 
     return ecs_get_mut_id( pImpl->world, cid, it->second );
 }
 
-const void* EcsWorld::get_component_const_( EcsEntity cid, const rtti::TypeInfo* type ) const
+const void* EcsWorld::get_component_const( EcsEntity cid, const rtti::TypeInfo* type ) const
 {
     auto it = pImpl->comp_type_to_id.find( type );
     if (it == pImpl->comp_type_to_id.end())
@@ -530,15 +497,16 @@ bool EcsWorld::has_component_impl( EcsEntity cid, const rtti::TypeInfo* type ) c
     return ecs_has_id( pImpl->world, cid, it->second );
 }
 
-void EcsWorld::remove_component_impl( EcsEntity cid, const rtti::TypeInfo* type ) const
+bool EcsWorld::remove_component_impl( EcsEntity cid, const rtti::TypeInfo* type ) const
 {
     auto it = pImpl->comp_type_to_id.find( type );
     if (it == pImpl->comp_type_to_id.end())
-        return;
+        return false;
     if (cid == INVALID_ENTITY_ID) { // is singleton?
         cid = it->second;
     }
     ecs_remove_id( pImpl->world, cid, it->second );
+    return true;
 }
 
 EcsQuery EcsWorld::create_query_impl( const String& name, void* data )

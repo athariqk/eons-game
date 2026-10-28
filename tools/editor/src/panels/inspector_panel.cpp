@@ -1,10 +1,6 @@
 #include <algorithm>
-#include <cstring>
 #include <functional>
-#include <string>
-#include <string_view>
 #include <utility>
-#include <vector>
 
 #include <ncore/core/color.h>
 #include <ncore/core/matrix.h>
@@ -14,28 +10,40 @@
 #include <ncore/core/rid.h>
 #include <ncore/core/types.h>
 #include <ncore/core/vector.h>
-#include <ncore/resources/resource.h>
 #include <ncore/runtime/components/material.h>
 #include <ncore/runtime/components/mesh.h>
 #include <ncore/runtime/components/resource.h>
 #include <ncore/runtime/node.h>
 #include <ncore/runtime/scene.h>
-#include <ncore/services/video/gfx_types.h>
+#include <ncore/services/video/render_service.h>
 #include <ncore/utils/math.h>
 
+#include "../editor_components.h"
+
+#include <fs/utils.h>
+#include <io/asset_importer.h>
+#include <io/editor_assets.h>
+#include <io/thumbnail_cache.h>
 #include <panels/inspector_panel.h>
 
 namespace nc::editor {
 
-InspectorPanel::InspectorPanel() : EditorPanel( "Inspector", DockSlot::RightUpper ) {}
+InspectorPanel::InspectorPanel(
+    Scene& p_scene, EditorSelection& p_selection, AssetDatabase& p_assets, AssetImporter& p_importer,
+    ThumbnailCache& p_thumbnails, ResourceLoader& p_loader, const DynamicArray<Ptr<InspectorHandler>>& p_handlers,
+    const DynamicArray<PropertyWidget>& p_widgets
+) :
+    EditorPanel( "Inspector", DockSlot::RightUpper ), scene( p_scene ), selection( p_selection ), assets( p_assets ),
+    importer( p_importer ), thumbnails( p_thumbnails ), loader( p_loader ), handlers( p_handlers ), widgets( p_widgets )
+{}
 
-void InspectorPanel::draw_node( EditorContext& ctx, Node& selected )
+void InspectorPanel::draw_node( EditorFrame& p_ctx, Node& p_selected )
 {
-    auto& ecs = ctx.scene->get_ecs();
+    auto& ecs = scene.get_ecs();
 
-    const auto name = selected.get_name();
-    const auto id   = selected.get_id();
-    auto active     = selected.get_active();
+    const auto name = p_selected.get_name();
+    const auto id   = p_selected.get_id();
+    auto active     = p_selected.get_active();
 
     ImGui::Text( "Node: %s", name.data() );
     ImGui::Text( "ID: %llu", id );
@@ -46,20 +54,20 @@ void InspectorPanel::draw_node( EditorContext& ctx, Node& selected )
         ImGui::OpenPopup( "AddComponent" );
 
     if (ImGui::BeginPopup( "AddComponent" )) {
-        ImGui::InputTextWithHint( "##filter", "Search...", component_filter_, sizeof( component_filter_ ) );
+        ImGui::InputTextWithHint( "##filter", "Search...", component_filter, sizeof( component_filter ) );
 
         ImGui::BeginChild( "##complist", ImVec2( 0, 200 ), ImGuiChildFlags_Borders );
         for (auto type : ecs.get_component_types()) {
             if (!type->is_record() || is_internal_component( type ))
                 continue;
-            if (component_filter_[0] && !std::strstr( type->name, component_filter_ ))
+            if (component_filter[0] && !std::strstr( type->name, component_filter ))
                 continue;
 
-            const bool already = selected.has_component( type );
+            const bool already = p_selected.has_component( type );
             ImGui::BeginDisabled( already );
             if (ImGui::Selectable( type->name )) {
-                selected.add_component( type );
-                component_filter_[0] = '\0';
+                p_selected.add_component( type );
+                component_filter[0] = '\0';
                 ImGui::CloseCurrentPopup();
             }
             ImGui::EndDisabled();
@@ -68,18 +76,16 @@ void InspectorPanel::draw_node( EditorContext& ctx, Node& selected )
         ImGui::EndPopup();
     }
 
-    // Apply after the loop: remove_component swaps the last entry in.
-    DynamicArray<const rtti::TypeInfo*> to_remove;
     bool ensure_resource_tag = false;
 
-    active_ctx_ = &ctx;
+    active_ctx = &p_ctx;
 
-    for (auto& comp : selected.get_components()) {
+    for (auto& comp : p_selected.get_components()) {
         auto* type = ecs.resolve_component( comp.EcsId );
         if (!type || is_internal_component( type ))
             continue;
 
-        void* data_ptr = selected.get_component( type );
+        void* data_ptr = p_selected.get_component( type );
         if (!data_ptr)
             continue;
 
@@ -93,36 +99,32 @@ void InspectorPanel::draw_node( EditorContext& ctx, Node& selected )
         // sprite editor); otherwise the generic sheet draws first and handlers
         // append their own sections.
         bool replaces_default = false;
-        if (ctx.inspector_handlers) {
-            for (const auto& handler : *ctx.inspector_handlers) {
-                if (handler && handler->can_handle( type, data_ptr ) && handler->replaces_default()) {
-                    replaces_default = true;
-                    break;
-                }
+        for (const auto& handler : handlers) {
+            if (handler && handler->can_handle( type, data_ptr ) && handler->replaces_default()) {
+                replaces_default = true;
+                break;
             }
         }
 
         if (!replaces_default && draw_property( type, data_ptr )) {
-            selected.notify_changed( type );
+            p_selected.notify_changed( type );
 
             // Re-pointed resource handles only re-init on the ResourceLoaded path,
             // which requires the tag.
             if (( type == rtti::TypeRegistry::find<MeshComponent>() ||
                   type == rtti::TypeRegistry::find<MaterialComponent>() ) &&
-                !selected.has_component<HasResourceTag>()) {
+                !p_selected.has_component<HasResourceTag>()) {
                 ensure_resource_tag = true;
             }
         }
 
-        if (ctx.inspector_handlers) {
-            for (const auto& handler : *ctx.inspector_handlers) {
-                if (handler)
-                    handler->draw( ctx, selected, type, data_ptr );
-            }
+        for (const auto& handler : handlers) {
+            if (handler)
+                handler->draw( p_ctx, p_selected, type, data_ptr );
         }
 
         if (ImGui::SmallButton( "Remove" ))
-            to_remove.push_back( type );
+            to_remove.emplace( type );
 
         ImGui::BeginDisabled( !comp.Toggleable );
         ImGui::Checkbox( "Active", &comp.Active );
@@ -130,35 +132,94 @@ void InspectorPanel::draw_node( EditorContext& ctx, Node& selected )
         ImGui::PopID();
     }
 
-    active_ctx_ = nullptr;
+    active_ctx = nullptr;
 
-    for (auto* type : to_remove)
-        selected.remove_component( type );
+    bool any_removed = false;
+    for (auto* type : to_remove) {
+        any_removed |= p_selected.remove_component( type );
+    }
+    if (any_removed)
+        to_remove.reset();
 
     if (ensure_resource_tag)
-        selected.add_component<HasResourceTag>();
+        p_selected.add_component<HasResourceTag>();
 }
 
-void InspectorPanel::draw( EditorContext& ctx )
+void InspectorPanel::draw_contents( EditorFrame& ctx )
 {
-    if (!ImGui::Begin( title.c_str(), &is_visible )) {
-        ImGui::End();
+    if (selection.is_asset()) {
+        draw_asset( ctx, selection.get_selected_asset() );
         return;
     }
 
-    Node* selected = ( ctx.scene && ctx.selection_state ) ? ctx.selection_state->node( *ctx.scene ) : nullptr;
+    Node* selected = selection.node( scene );
 
     if (!selected)
-        ImGui::TextDisabled( "No node get_selected_eid" );
+        ImGui::TextDisabled( "Nothing selected" );
     else
         draw_node( ctx, *selected );
-
-    ImGui::End();
 }
 
-} // namespace nc::editor
+void InspectorPanel::draw_asset( EditorFrame& ctx, StringView p_path )
+{
+    auto renderer = ctx.scene->get_app_ctx()->services.resolve<RenderService>();
+    if (!renderer)
+        return;
 
-namespace nc::editor {
+    const AssetEntry* entry = assets.find( p_path );
+    if (!entry) {
+        ImGui::TextDisabled( "Asset not found in the index" );
+        if (ImGui::Button( "Deselect" ))
+            selection.clear( ctx.scene->get_ecs() );
+        return;
+    }
+
+    ImGui::TextUnformatted( entry->path.c_str() );
+    ImGui::SameLine();
+    ImGui::TextDisabled( "(%s, %s)", asset_kind_name( entry->kind ).data(), asset_origin_name( entry->origin ).data() );
+    ImGui::Separator();
+
+    ImGui::Text( "Status: %s", asset_status_name( entry->status ).data() );
+    ImGui::Text( "Size: %.1f KB", static_cast<double>( entry->compiled_size ) / 1024.0 );
+    ImGui::TextWrapped( "Source: %s", entry->source_path.empty() ? "<not found>" : entry->source_path.c_str() );
+    ImGui::Text( "Hash: %016llX", static_cast<unsigned long long>( entry->source_hash ) );
+    ImGui::Separator();
+
+    const bool reimportable =
+        entry->origin == AssetOrigin::File ? asset_kind_can_import( entry->kind ) : assets.has_generator( entry->path );
+    ImGui::BeginDisabled( !importer.ready() || !reimportable );
+    if (ImGui::Button( "Reimport" )) {
+        if (entry->origin == AssetOrigin::Procedural && renderer)
+            assets.load_or_generate( entry->path, loader, *renderer, true );
+        else
+            importer.enqueue( entry->path );
+    }
+    ImGui::EndDisabled();
+
+    ImGui::SameLine();
+    if (ImGui::Button( "Reload" )) {
+        if (entry->kind == AssetKind::IMAGE && renderer)
+            thumbnails.texture_for( entry->path, loader, *renderer, true );
+        else
+            loader.load( entry->path, true );
+    }
+
+    {
+        AssetImportResult result;
+        if (importer.last_result( entry->path, result ) && !result.ok)
+            ImGui::TextColored( ImVec4( 1.0f, 0.35f, 0.3f, 1.0f ), "%s", result.message.c_str() );
+    }
+
+    ImGui::BeginDisabled( entry->source_path.empty() );
+    if (ImGui::Button( "Reveal" ))
+        reveal_in_explorer( entry->source_path );
+    ImGui::EndDisabled();
+
+    ImGui::SameLine();
+    ImGui::Separator();
+    if (ImGui::Button( "Deselect" ))
+        selection.clear( ctx.scene->get_ecs() );
+}
 
 /**
  * @brief Widget registry wrapper threaded through the property recursion.
@@ -168,7 +229,7 @@ namespace nc::editor {
  */
 struct PropertyGridWidgets {
     const DynamicArray<PropertyWidget>* List = nullptr;
-    EditorContext* ctx                       = nullptr;
+    EditorFrame* ctx                         = nullptr;
 
     bool handles( const rtti::TypeInfo* type ) const
     {
@@ -246,13 +307,13 @@ static bool is_type( const rtti::TypeInfo* type )
 // Multi-component float drag with XYZ colour coding (Unity-style).
 static bool drag_floats_colored( float* v, int components, float speed = 0.01f )
 {
-    static const ImVec4 kAxis[4] = {
+    static const ImVec4 AXIS[4] = {
         ImVec4( 0.92f, 0.28f, 0.28f, 1.0f ),
         ImVec4( 0.32f, 0.82f, 0.32f, 1.0f ),
         ImVec4( 0.32f, 0.55f, 0.95f, 1.0f ),
         ImVec4( 0.85f, 0.85f, 0.35f, 1.0f ),
     };
-    static const char* kFmt[4] = { "X:%.3f", "Y:%.3f", "Z:%.3f", "W:%.3f" };
+    static const char* FMT[4] = { "X:%.3f", "Y:%.3f", "Z:%.3f", "W:%.3f" };
 
     bool changed        = false;
     const float spacing = ImGui::GetStyle().ItemInnerSpacing.x;
@@ -263,10 +324,10 @@ static bool drag_floats_colored( float* v, int components, float speed = 0.01f )
         if (i > 0)
             ImGui::SameLine( 0.0f, spacing );
         ImGui::PushID( i );
-        ImGui::PushStyleColor( ImGuiCol_Border, kAxis[i] );
+        ImGui::PushStyleColor( ImGuiCol_Border, AXIS[i] );
         ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 1.5f );
         ImGui::SetNextItemWidth( cell );
-        changed |= ImGui::DragFloat( "##c", &v[i], speed, 0.0f, 0.0f, kFmt[i] );
+        changed |= ImGui::DragFloat( "##c", &v[i], speed, 0.0f, 0.0f, FMT[i] );
         ImGui::PopStyleVar();
         ImGui::PopStyleColor();
         ImGui::PopID();
@@ -276,11 +337,11 @@ static bool drag_floats_colored( float* v, int components, float speed = 0.01f )
 
 static bool drag_ints_colored( int* v, int components, float speed = 1.0f )
 {
-    static const ImVec4 kAxis[2] = {
+    static const ImVec4 AXIS[2] = {
         ImVec4( 0.92f, 0.28f, 0.28f, 1.0f ),
         ImVec4( 0.32f, 0.82f, 0.32f, 1.0f ),
     };
-    static const char* kFmt[2] = { "X:%d", "Y:%d" };
+    static const char* FMT[2] = { "X:%d", "Y:%d" };
 
     bool changed        = false;
     const float spacing = ImGui::GetStyle().ItemInnerSpacing.x;
@@ -291,10 +352,10 @@ static bool drag_ints_colored( int* v, int components, float speed = 1.0f )
         if (i > 0)
             ImGui::SameLine( 0.0f, spacing );
         ImGui::PushID( i );
-        ImGui::PushStyleColor( ImGuiCol_Border, kAxis[i] );
+        ImGui::PushStyleColor( ImGuiCol_Border, AXIS[i] );
         ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 1.5f );
         ImGui::SetNextItemWidth( cell );
-        changed |= ImGui::DragInt( "##c", &v[i], speed, 0, 0, kFmt[i] );
+        changed |= ImGui::DragInt( "##c", &v[i], speed, 0, 0, FMT[i] );
         ImGui::PopStyleVar();
         ImGui::PopStyleColor();
         ImGui::PopID();
@@ -343,22 +404,22 @@ static bool draw_rect2f( void* ptr )
     // Size (W/H) — same coloured style, custom format
     {
         ImGui::PushID( "size" );
-        static const ImVec4 kAxis[2] = {
+        static const ImVec4 AXIS[2] = {
             ImVec4( 0.85f, 0.55f, 0.15f, 1.0f ), // W orange
             ImVec4( 0.55f, 0.35f, 0.85f, 1.0f ), // H purple
         };
-        static const char* kFmt[2] = { "W:%.3f", "H:%.3f" };
-        const float spacing        = ImGui::GetStyle().ItemInnerSpacing.x;
-        const float total          = ImGui::CalcItemWidth();
-        const float cell           = ( total - spacing ) * 0.5f;
+        static const char* FMT[2] = { "W:%.3f", "H:%.3f" };
+        const float spacing       = ImGui::GetStyle().ItemInnerSpacing.x;
+        const float total         = ImGui::CalcItemWidth();
+        const float cell          = ( total - spacing ) * 0.5f;
         for (int i = 0; i < 2; ++i) {
             if (i > 0)
                 ImGui::SameLine( 0.0f, spacing );
             ImGui::PushID( i );
-            ImGui::PushStyleColor( ImGuiCol_Border, kAxis[i] );
+            ImGui::PushStyleColor( ImGuiCol_Border, AXIS[i] );
             ImGui::PushStyleVar( ImGuiStyleVar_FrameBorderSize, 1.5f );
             ImGui::SetNextItemWidth( cell );
-            if (ImGui::DragFloat( "##c", &sz[i], 0.01f, 0.0f, 0.0f, kFmt[i] )) {
+            if (ImGui::DragFloat( "##c", &sz[i], 0.01f, 0.0f, 0.0f, FMT[i] )) {
                 r->w    = sz[0];
                 r->h    = sz[1];
                 changed = true;
@@ -719,7 +780,7 @@ static void begin_prop_row( StringView label, int depth )
     ImGui::TableSetColumnIndex( 0 );
 
     if (depth > 0) {
-        ImGui::Dummy( ImVec2( InspectorPanel::kIndentPx * static_cast<float>( depth ), 0.0f ) );
+        ImGui::Dummy( ImVec2( InspectorPanel::INDENT_PX * static_cast<float>( depth ), 0.0f ) );
         ImGui::SameLine( 0.0f, 0.0f );
     }
 
@@ -789,7 +850,7 @@ inline bool draw_pointee_record(
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex( 0 );
     if (depth > 0) {
-        ImGui::Dummy( ImVec2( InspectorPanel::kIndentPx * static_cast<float>( depth ), 0.0f ) );
+        ImGui::Dummy( ImVec2( InspectorPanel::INDENT_PX * static_cast<float>( depth ), 0.0f ) );
         ImGui::SameLine( 0.0f, 0.0f );
     }
 
@@ -825,7 +886,7 @@ struct PropGridVisitor : rtti::RecordVisitor {
         ImGui::TableSetColumnIndex( 0 );
         const int d = base_depth + 1;
         if (d > 0) {
-            ImGui::Dummy( ImVec2( InspectorPanel::kIndentPx * static_cast<float>( d ), 0.0f ) );
+            ImGui::Dummy( ImVec2( InspectorPanel::INDENT_PX * static_cast<float>( d ), 0.0f ) );
             ImGui::SameLine( 0.0f, 0.0f );
         }
         std::string lbl = "[" + std::to_string( cur_index ) + "] " + ( c->name ? c->name : "record" );
@@ -914,13 +975,13 @@ static bool draw_labeled_value(
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex( 0 );
         if (depth > 0) {
-            ImGui::Dummy( ImVec2( InspectorPanel::kIndentPx * static_cast<float>( depth ), 0.0f ) );
+            ImGui::Dummy( ImVec2( InspectorPanel::INDENT_PX * static_cast<float>( depth ), 0.0f ) );
             ImGui::SameLine( 0.0f, 0.0f );
         }
 
         String lbl( label );
-        constexpr ImGuiTreeNodeFlags kFlags = ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_NoTreePushOnOpen;
-        bool open                           = ImGui::TreeNodeEx( lbl.c_str(), kFlags );
+        constexpr ImGuiTreeNodeFlags FLAGS = ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+        bool open                          = ImGui::TreeNodeEx( lbl.c_str(), FLAGS );
 
         ImGui::TableSetColumnIndex( 1 );
 
@@ -934,7 +995,7 @@ static bool draw_labeled_value(
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex( 0 );
         if (depth > 0) {
-            ImGui::Dummy( ImVec2( InspectorPanel::kIndentPx * static_cast<float>( depth ), 0.0f ) );
+            ImGui::Dummy( ImVec2( InspectorPanel::INDENT_PX * static_cast<float>( depth ), 0.0f ) );
             ImGui::SameLine( 0.0f, 0.0f );
         }
 
@@ -1033,23 +1094,23 @@ static bool draw_field(
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex( 0 );
             if (depth > 0) {
-                ImGui::Dummy( ImVec2( InspectorPanel::kIndentPx * static_cast<float>( depth ), 0.0f ) );
+                ImGui::Dummy( ImVec2( InspectorPanel::INDENT_PX * static_cast<float>( depth ), 0.0f ) );
                 ImGui::SameLine( 0.0f, 0.0f );
             }
 
-            constexpr ImGuiTreeNodeFlags kFlags =
+            constexpr ImGuiTreeNodeFlags FLAGS =
                 ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_NoTreePushOnOpen;
-            bool open = type && ImGui::TreeNodeEx( lbl.c_str(), kFlags );
+            bool open = type && ImGui::TreeNodeEx( lbl.c_str(), FLAGS );
 
             ImGui::TableSetColumnIndex( 1 );
             if (type)
                 ImGui::TextDisabled( "%u elements", len );
 
             if (open && type) {
-                auto* base              = static_cast<uint8_t*>( ptr );
-                constexpr uint32_t kMax = 64;
-                const uint32_t show     = len < kMax ? len : kMax;
-                const bool use_widget   = widgets && widgets->handles( type );
+                auto* base             = static_cast<uint8_t*>( ptr );
+                constexpr uint32_t MAX = 64;
+                const uint32_t show    = len < MAX ? len : MAX;
+                const bool use_widget  = widgets && widgets->handles( type );
                 for (uint32_t i = 0; i < show; ++i) {
                     ImGui::PushID( static_cast<int>( i ) );
                     std::string idx = "[" + std::to_string( i ) + "]";
@@ -1065,9 +1126,9 @@ static bool draw_field(
                     }
                     ImGui::PopID();
                 }
-                if (len > kMax) {
+                if (len > MAX) {
                     begin_prop_row( "...", depth + 1 );
-                    ImGui::TextDisabled( "%u more elements", len - kMax );
+                    ImGui::TextDisabled( "%u more elements", len - MAX );
                 }
             }
         }
@@ -1106,17 +1167,17 @@ bool InspectorPanel::draw_property( const rtti::TypeInfo* type, void* data )
     if (record->field_count() == 0)
         return false;
 
-    constexpr ImGuiTableFlags kFlags =
+    constexpr ImGuiTableFlags FLAGS =
         ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoPadOuterX | ImGuiTableFlags_NoSavedSettings;
 
-    if (!ImGui::BeginTable( "##propgrid", 2, kFlags ))
+    if (!ImGui::BeginTable( "##propgrid", 2, FLAGS ))
         return false;
 
-    ImGui::TableSetupColumn( "Property", ImGuiTableColumnFlags_WidthFixed, kLabelWidth );
+    ImGui::TableSetupColumn( "Property", ImGuiTableColumnFlags_WidthFixed, LABEL_WIDTH );
     ImGui::TableSetupColumn( "Value", ImGuiTableColumnFlags_WidthStretch );
 
-    PropertyGridWidgets widgets{ active_ctx_ ? active_ctx_->property_widgets : nullptr, active_ctx_ };
-    bool changed = draw_record_fields( record, data, 0, active_ctx_ ? &widgets : nullptr );
+    PropertyGridWidgets gw{ &widgets, active_ctx };
+    bool changed = draw_record_fields( record, data, 0, active_ctx ? &gw : nullptr );
     ImGui::EndTable();
     return changed;
 }

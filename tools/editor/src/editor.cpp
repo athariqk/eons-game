@@ -8,21 +8,23 @@
 #include <utility>
 
 #include <ncore/application.h>
-#include <ncore/runtime/components/camera.h>
-#include <ncore/runtime/components/services.h>
-#include <ncore/runtime/components/time.h>
-#include <ncore/runtime/ecs/ecs_query.h>
-#include <ncore/runtime/ecs/ecs_world.h>
 #include <ncore/runtime/scene.h>
 #include <ncore/services/io/asset_service.h>
 #include <ncore/services/io/input_service.h>
 #include <ncore/services/video/render_service.h>
 #include <ncore/utils/log.h>
 
-#include "plugins/gui_plugin.h"
-
 #include <io/asset_importer.h>
 #include <io/editor_assets.h>
+#include <io/thumbnail_cache.h>
+#include <panels/asset_picker.h>
+#include <panels/assets_panel.h>
+#include <panels/inspector_panel.h>
+#include <panels/logs_panel.h>
+#include <panels/material_inspector.h>
+#include <panels/scene_tree_panel.h>
+#include <panels/toolbar_panel.h>
+#include <panels/viewport_panel.h>
 
 namespace nc::editor {
 
@@ -47,45 +49,6 @@ bool slot_less( const Ptr<EditorPanel>& a, const Ptr<EditorPanel>& b )
 }
 
 } // namespace
-
-//------------------------------------------------------------------------------
-// EditorInterface
-//------------------------------------------------------------------------------
-
-EditorPanel* EditorInterface::add_panel( DockSlot slot, int order, Ptr<EditorPanel> panel )
-{
-    return editor.register_panel( slot, order, std::move( panel ) );
-}
-
-void EditorInterface::add_command( StringView menu, StringView label, std::function<void()> on_invoke )
-{
-    editor.register_command( menu, label, std::move( on_invoke ) );
-}
-
-void EditorInterface::add_inspector_handler( Ptr<InspectorHandler> handler )
-{
-    editor.register_inspector_handler( std::move( handler ) );
-}
-
-void EditorInterface::add_property_widget( const rtti::TypeInfo* type, PropertyWidgetFn widget )
-{
-    editor.register_property_widget( type, std::move( widget ) );
-}
-
-EditorContext& EditorInterface::get_ctx() const
-{
-    return editor.get_ctx();
-}
-
-Scene& EditorInterface::get_scene() const
-{
-    return editor.get_scene();
-}
-
-Editor& EditorInterface::get_editor() const
-{
-    return editor;
-}
 
 //------------------------------------------------------------------------------
 // Settings
@@ -134,51 +97,24 @@ void EditorSettings::save( const char* path ) const
 // Editor
 //------------------------------------------------------------------------------
 
-void register_editor_component_types( Scene& scene )
-{
-    auto& world = scene.get_ecs();
-
-    auto reg = [&world]( const rtti::TypeInfo* type ) {
-        if (type)
-            world.register_component_type( type );
-    };
-
-    reg( rtti::TypeRegistry::find<EditorCameraTag>() );
-    reg( rtti::TypeRegistry::find<SelectedTag>() );
-    reg( rtti::TypeRegistry::find<GuiStateComponent>() );
-}
-
 Editor::Editor( Scene& p_scene ) : scene( p_scene )
 {
-    ctx.scene  = &p_scene;
-    ctx.loader = &p_scene.get_resource_loader();
-
-    assets_index = std::make_unique<AssetIndex>();
-    importer     = std::make_unique<AssetImporter>();
+    assets_database = std::make_unique<AssetDatabase>();
+    importer        = std::make_unique<AssetImporter>();
+    thumbnails      = std::make_unique<ThumbnailCache>();
 
     if (auto* assets_service = p_scene.get_app_ctx()->services.resolve<AssetService>())
-        importer->init( *p_scene.get_app_ctx(), p_scene.get_resource_loader(), *assets_service );
+        importer->init( *p_scene.get_app_ctx(), p_scene.get_resource_loader(), *assets_service, *assets_database );
 
     settings.load( DEFAULT_SETTINGS_PATH );
-    ctx.global_xform_gizmo    = settings.global_xform_gizmo;
-    ctx.xform_gizmo_operation = settings.xform_gizmo_operation;
-    ctx.draw_wireframe        = settings.draw_wireframe;
 
     log_token = install_log_listener();
+
+    create_panels();
 }
 
 Editor::~Editor()
 {
-    // unwind plugins in reverse registration order, then let the panels go.
-    EditorInterface iface( *this );
-    for (auto it = plugins.rbegin(); it != plugins.rend(); ++it) {
-        active_plugin = static_cast<int>( std::distance( plugins.begin(), it.base() ) ) - 1;
-        ( *it )->exit( iface );
-    }
-    active_plugin = -1;
-
-    plugins.clear();
-    commands.clear();
     inspector_handlers.clear();
     property_widgets.clear();
     panels.clear();
@@ -187,42 +123,32 @@ Editor::~Editor()
     clear_staged_logs();
 }
 
-void Editor::add_plugin( Ptr<EditorPlugin> plugin )
-{
-    if (!plugin)
-        return;
-
-    active_plugin = static_cast<int>( plugins.size() );
-    EditorInterface iface( *this );
-    plugin->enter( iface );
-
-    plugins.push_back( std::move( plugin ) );
-    active_plugin = -1;
-
-    sort_panels();
-    apply_settings();
-}
-
 EditorPanel* Editor::register_panel( DockSlot slot, int order, Ptr<EditorPanel> panel )
 {
     // The registration call is authoritative: a panel is docked where the
     // plugin asked, not where its constructor happened to default.
     panel->set_slot( slot );
     panel->set_order( order );
-    panel->set_owner( active_plugin );
 
     panels.push_back( std::move( panel ) );
     return panels.back().get();
 }
 
-void Editor::register_command( StringView menu, StringView label, std::function<void()> on_invoke )
+void EditorPanel::draw_window( EditorFrame& ctx )
 {
-    EditorCommand command;
-    command.menu   = String( menu.data(), menu.size() );
-    command.label  = String( label.data(), label.size() );
-    command.invoke = std::move( on_invoke );
-    command.owner  = active_plugin;
-    commands.push_back( std::move( command ) );
+    pre_begin( ctx );
+
+    if (is_visible) {
+        bool drawn = ImGui::Begin( title.c_str(), is_closable ? &is_visible : nullptr, window_flags() );
+        if (drawn) {
+            draw_contents( ctx );
+        } else {
+            on_collapsed( ctx );
+        }
+        ImGui::End();
+    }
+
+    post_end( ctx );
 }
 
 void Editor::register_inspector_handler( Ptr<InspectorHandler> handler )
@@ -236,7 +162,7 @@ void Editor::register_property_widget( const rtti::TypeInfo* type, PropertyWidge
     if (!type || !widget)
         return;
 
-    property_widgets.push_back( PropertyWidget{ type, std::move( widget ), active_plugin } );
+    property_widgets.push_back( PropertyWidget{ type, std::move( widget ) } );
 }
 
 void Editor::sort_panels()
@@ -255,35 +181,65 @@ void Editor::apply_settings()
     }
 }
 
+void Editor::create_panels()
+{
+    ResourceLoader& loader = scene.get_resource_loader();
+
+    // Toolbar
+    register_panel( DockSlot::Top, 0, std::make_unique<ToolbarPanel>( settings ) );
+
+    // Viewports
+    auto scene_view = std::make_unique<ViewportPanel>(
+        "Scene View", DockSlot::Center, 0, ViewportPanel::CameraSource::EditorCamera, false
+    );
+    auto* scene_panel = static_cast<ViewportPanel*>( register_panel( DockSlot::Center, 0, std::move( scene_view ) ) );
+    scene_panel->add_overlay( std::make_unique<GizmoOverlay>( scene, selection_state, settings ) );
+    scene_panel->add_overlay( std::make_unique<StatsOverlay>() );
+    register_panel(
+        DockSlot::Center, 1,
+        std::make_unique<ViewportPanel>(
+            "Game View", DockSlot::Center, 1, ViewportPanel::CameraSource::ActiveGameCamera, true
+        )
+    );
+
+    // Scene + Inspector
+    register_panel(
+        DockSlot::LeftUpper, 0, std::make_unique<SceneTreePanel>( scene, selection_state, *assets_database, loader )
+    );
+    register_inspector_handler( std::make_unique<MaterialInspectorHandler>( scene ) );
+    register_panel(
+        DockSlot::RightUpper, 0,
+        std::make_unique<InspectorPanel>(
+            scene, selection_state, *assets_database, *importer, *thumbnails, loader, inspector_handlers,
+            property_widgets
+        )
+    );
+
+    // Assets
+    register_panel(
+        DockSlot::Bottom, 0,
+        std::make_unique<AssetsPanel>( *assets_database, *importer, *thumbnails, loader, selection_state )
+    );
+    add_asset_property_widget( *this );
+
+    // Logs
+    register_panel( DockSlot::Bottom, 1, std::make_unique<LogsPanel>( log_store, false ) );
+
+    sort_panels();
+    apply_settings();
+}
+
 void Editor::begin_frame()
 {
-    auto& world = scene.get_ecs();
+    frame.scene = &scene;
 
-    ctx.scene              = &scene;
-    ctx.ecs_world          = &world;
-    ctx.loader             = &scene.get_resource_loader();
-    ctx.assets             = assets_index.get();
-    ctx.importer           = importer.get();
-    ctx.commands           = &commands;
-    ctx.inspector_handlers = &inspector_handlers;
-    ctx.property_widgets   = &property_widgets;
-
-    if (auto* vid = world.get_singleton<VideoServices>())
-        ctx.renderer = vid->renderer;
-    if (auto* io = world.get_singleton<IOServices>())
-        ctx.inputs = io->inputs;
-
-    ctx.time = world.get_singleton<TimeComponent>();
-
-    selection_state.refresh( world );
-    ctx.selection_state      = &selection_state;
-    ctx.log_store            = &log_store;
-    ctx.selected_eid         = selection_state.get_selected_eid();
-    ctx.any_viewport_hovered = false;
-    ctx.any_viewport_focused = false;
+    selection_state.refresh( scene.get_ecs() );
+    frame.any_viewport_hovered = false;
+    frame.any_viewport_focused = false;
 
     // the staging buffer must stay bounded even while the console is closed.
     drain_logs();
+    importer->pump();
 }
 
 void Editor::draw_dockspace()
@@ -368,48 +324,29 @@ void Editor::draw_menu_bar()
     if (ImGui::BeginMenu( "File" )) {
         if (ImGui::MenuItem( "Quit", "Alt+F4" ))
             scene.request_quit();
-
-        for (const auto& command : commands) {
-            if (command.menu != "File" || !command.invoke)
-                continue;
-            if (ImGui::MenuItem( command.label.c_str() ))
-                command.invoke();
-        }
         ImGui::EndMenu();
-    }
-
-    // Plugin menus, in registration order.
-    DynamicArray<String> menus_seen;
-    for (const auto& command : commands) {
-        if (command.menu.empty() || command.menu == "File" || command.menu == "View")
-            continue;
-        if (std::find( menus_seen.begin(), menus_seen.end(), command.menu ) != menus_seen.end())
-            continue;
-        menus_seen.push_back( command.menu );
-
-        if (ImGui::BeginMenu( command.menu.c_str() )) {
-            for (const auto& item : commands) {
-                if (item.menu != command.menu || !item.invoke)
-                    continue;
-                if (ImGui::MenuItem( item.label.c_str() ))
-                    item.invoke();
-            }
-            ImGui::EndMenu();
-        }
     }
 
     if (ImGui::BeginMenu( "View" )) {
         for (auto& panel : panels)
             ImGui::MenuItem( panel->get_title().c_str(), nullptr, &panel->get_visible() );
-
-        for (const auto& command : commands) {
-            if (command.menu != "View" || !command.invoke)
-                continue;
-            if (ImGui::MenuItem( command.label.c_str() ))
-                command.invoke();
-        }
         ImGui::EndMenu();
     }
+
+    auto& app_desc = scene.get_app_ctx()->app_desc;
+
+    char version[64];
+    std::snprintf(
+        version, sizeof version, "%d.%d.%d-%s", app_desc.version.major, app_desc.version.minor, app_desc.version.patch,
+        app_desc.version.identifier.c_str()
+    );
+
+    ImGui::SameLine();
+    const float text_w = ImGui::CalcTextSize( version ).x;
+    const float avail  = ImGui::GetContentRegionAvail().x;
+    if (avail > text_w)
+        ImGui::SetCursorPosX( ImGui::GetCursorPosX() + avail - text_w );
+    ImGui::TextDisabled( "%s", version );
 
     ImGui::EndMainMenuBar();
 }
@@ -419,39 +356,30 @@ void Editor::draw()
     draw_menu_bar();
 
     for (auto& panel : panels)
-        panel->draw( ctx );
+        panel->draw_window( frame );
 }
 
 void Editor::publish_ui_capture()
 {
-    if (!ctx.inputs)
+    auto inputs = scene.get_app_ctx()->services.resolve<InputService>();
+    if (!inputs)
         return;
 
     const ImGuiIO& io = ImGui::GetIO();
-    ctx.inputs->set_ui_capture( io.WantTextInput, io.WantCaptureMouse && !any_viewport_active() );
-}
-
-RID Editor::get_editor_camera()
-{
-    auto query = scene.get_ecs().query( "EditorCanvas_EditorCamera" ).with<EditorCameraTag, CameraComponent>().build();
-    for (auto it : query.entities()) {
-        if (auto* c = it.get_component<CameraComponent>())
-            return c->source;
-    }
-    return RID();
+    inputs->set_ui_capture( io.WantTextInput, io.WantCaptureMouse && !any_viewport_active() );
 }
 
 void Editor::release_gpu()
 {
-    auto* vid = scene.get_ecs().get_singleton<VideoServices>();
-    if (!vid || !vid->renderer)
+    auto renderer = scene.get_app_ctx()->services.resolve<RenderService>();
+    if (!renderer)
         return;
 
     for (auto& panel : panels)
-        panel->release_gpu( *vid->renderer );
+        panel->release_gpu( *renderer );
 
-    if (assets_index)
-        assets_index->release_gpu( *vid->renderer );
+    if (thumbnails)
+        thumbnails->release_gpu( *renderer );
 }
 
 //------------------------------------------------------------------------------
@@ -625,58 +553,6 @@ void LogStore::clear()
 ImVec4 LogStore::level_color( int level )
 {
     return LOG_LEVEL_COLORS[std::clamp( level, 0, LOG_LEVEL_COUNT - 1 )];
-}
-
-//------------------------------------------------------------------------------
-// Selection
-//------------------------------------------------------------------------------
-
-namespace {
-
-EcsQuery selection_query( EcsWorld& world )
-{
-    return world.query( "EditorSelection" ).with<SelectedTag>().build();
-}
-
-} // namespace
-
-void Selection::refresh( EcsWorld& world )
-{
-    selected_eid = INVALID_ENTITY_ID;
-
-    auto query = selection_query( world );
-    for (auto ctx : query.entities())
-        selected_eid = ctx.entity();
-}
-
-void Selection::select( EcsWorld& world, EcsEntity entity )
-{
-    clear( world );
-
-    if (entity != INVALID_ENTITY_ID)
-        world.entity( entity ).add<SelectedTag>( SelectedTag{} ).build();
-
-    selected_eid = entity;
-}
-
-void Selection::clear( EcsWorld& world )
-{
-    DynamicArray<EcsEntity> previous;
-    auto query = selection_query( world );
-    for (auto ctx : query.entities())
-        previous.push_back( ctx.entity() );
-
-    for (auto entity : previous)
-        world.remove_component<SelectedTag>( entity );
-
-    selected_eid = INVALID_ENTITY_ID;
-}
-
-Node* Selection::node( Scene& scene ) const
-{
-    if (selected_eid == INVALID_ENTITY_ID)
-        return nullptr;
-    return scene.node_from_entity( selected_eid );
 }
 
 } // namespace nc::editor

@@ -46,11 +46,13 @@ void NCAPI register_core_plugin( Scene& scene )
             NC_PLOT( "FPS", time->fps );
         } );
 
-    auto io       = scene.get_ecs().add_singleton<IOServices>();
+    scene.get_ecs().add_singleton<IOServices>();
+    auto io       = scene.get_ecs().get_singleton<IOServices>();
     io->resources = &scene.get_resource_loader();
     io->inputs    = scene.get_app_ctx()->services.resolve<InputService>();
 
-    auto vid      = scene.get_ecs().add_singleton<VideoServices>();
+    scene.get_ecs().add_singleton<VideoServices>();
+    auto vid      = scene.get_ecs().get_singleton<VideoServices>();
     vid->window   = scene.get_app_ctx()->services.resolve<WindowService>();
     vid->renderer = scene.get_app_ctx()->services.resolve<RenderService>();
 }

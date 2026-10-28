@@ -149,7 +149,7 @@ void WorldScene::create_environment()
             .vertex_stride = sizeof( Vertex3D )
         }
     );
-    auto skybox_mesh_rid = res.add( skybox_mesh );
+    auto skybox_mesh_rid = res.add( skybox_mesh, "procedural/meshes/skybox" );
 
     auto cubemap = res.load<CubeMap>( "images/skybox.equirect" );
     skybox_tex   = rd->texture_cube_create( *cubemap );
@@ -236,7 +236,7 @@ void WorldScene::create_water( Node* camera )
         .lock_position_z = false,
     } );
     plane->add_component<HasResourceTag>();
-    plane->add_component<MeshComponent>( MeshComponent{ .source = res.add( water_mesh ) } );
+    plane->add_component<MeshComponent>( MeshComponent{ .source = res.add( water_mesh, "procedural/ocean/water_mesh" ) } );
     plane->add_component<MeshRenderComponent>();
 
     MaterialComponent water_mat;

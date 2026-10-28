@@ -2,11 +2,11 @@
 
 #include <ncore/core/object.h>
 
+#include "app_context.h"
+
 namespace nc {
 
 class Application;
-struct AppContext;
-class ServiceRegistry;
 
 /**
  * @brief The game world for an application.
@@ -77,7 +77,7 @@ public:
 
 protected:
     friend class Application;
-    AppContext* app_ctx = nullptr; // Application state.
+    AppContext* app_ctx = nullptr; // the running application state.
     bool wants_to_quit  = false;
 };
 

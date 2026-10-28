@@ -77,15 +77,16 @@ nc::Node* register_water_sim( nc::Scene* p_scene )
     auto* rd  = app->services.resolve<nc::RenderService>();
     auto& res = p_scene->get_resource_loader();
 
-    auto result            = p_scene->root()->create_child( "WaterSim" );
-    auto ws_comp           = result->add_component<WaterSimComponent>();
-    ws_comp->cascade_count = 1;
+    auto result = p_scene->root()->create_child( "WaterSim" );
+    result->add_component<WaterSimComponent>();
+    auto ws_cmp           = result->get_component<WaterSimComponent>();
+    ws_cmp->cascade_count = 1;
 
     auto& app_cfg = p_scene->get_app_ctx()->config;
-    load_cascade_config_( app_cfg, ws_comp );
+    load_cascade_config_( app_cfg, ws_cmp );
 
     // map_size must match MAX_MAP_SIZE in fft_compute/transpose/fft_unpack.slang.
-    g_waves.init_gpu( *rd, res, WaveGenerator::DEFAULT_MAP_SIZE, ws_comp->cascade_count );
+    g_waves.init_gpu( *rd, res, WaveGenerator::DEFAULT_MAP_SIZE, ws_cmp->cascade_count );
 
     NC_LOG_INFO(
         "Water sim registered ({}x{}, {} cascades)", g_waves.get_map_size(), g_waves.get_map_size(),

@@ -5,13 +5,19 @@
 namespace nc::editor {
 
 /**
- * @brief Toolbar strip: gizmo mode, world/local, wireframe.
+ * @brief Toolbar strip for showing gizmo mode, world/local, wireframe checkbuttons etc.
  */
 class ToolbarPanel final : public EditorPanel {
 public:
-    ToolbarPanel();
+    explicit ToolbarPanel( EditorSettings& p_settings [[clang::lifetimebound]] );
 
-    void draw( EditorContext& ctx ) override;
+    void draw_contents( EditorFrame& ctx ) override;
+
+    ImGuiWindowFlags window_flags() const override;
+    void pre_begin( EditorFrame& ) override;
+
+private:
+    EditorSettings& settings;
 };
 
 } // namespace nc::editor

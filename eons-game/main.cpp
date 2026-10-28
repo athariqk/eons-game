@@ -96,7 +96,7 @@ public:
                 .vertex_stride = sizeof( nc::Vertex3D ),
             }
         );
-        auto mesh_rid = res_svc.add( mesh );
+        auto mesh_rid = res_svc.add( mesh, "procedural/meshes/cube" );
 
         auto pmesh = nc::Ref<nc::Mesh>::create(
             nc::MeshDesc{
@@ -108,7 +108,7 @@ public:
                 .vertex_stride = sizeof( nc::Vertex3D ),
             }
         );
-        auto pmesh_rid = res_svc.add( pmesh );
+        auto pmesh_rid = res_svc.add( pmesh, "procedural/meshes/plane" );
 
         auto test_model = root()->create_child( "TestModel3D" );
         test_model->add_component<nc::Transform3DComponent>( nc::Transform3DComponent{

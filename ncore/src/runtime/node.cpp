@@ -117,9 +117,18 @@ void Node::destroy_children()
     }
 }
 
+void Node::add_component( const rtti::TypeInfo* type, const void* data )
+{
+    if (has_component_impl( type ))
+        return;
+    auto& ecs = scene->get_ecs();
+    ecs.set_component_impl( internal_id, type, data );
+    track_ecs_component( type, ecs.register_component_type( type ) );
+}
+
 const void* Node::get_component_const( const rtti::TypeInfo* type ) const
 {
-    return scene->get_ecs().get_component_const_( internal_id, type );
+    return scene->get_ecs().get_component_const( internal_id, type );
 }
 
 void* Node::get_component( const rtti::TypeInfo* type ) const
@@ -130,28 +139,6 @@ void* Node::get_component( const rtti::TypeInfo* type ) const
 Span<Component> Node::get_components()
 {
     return { components.data(), component_count };
-}
-
-void* Node::add_component( const rtti::TypeInfo* type, const void* data )
-{
-    if (has_component_impl( type ))
-        return get_component( type );
-
-    auto& ecs = scene->get_ecs();
-
-    void* result     = nullptr;
-    EcsComponent cid = 0;
-    if (data) {
-        cid    = ecs.set_component_( internal_id, type, data );
-        result = get_component( type );
-    } else {
-        result = ecs.add_component_( internal_id, type, data );
-        cid    = ecs.register_component_type( type ); // resolve id.
-    }
-
-    track_ecs_component( type, cid );
-
-    return result;
 }
 
 StringView Node::get_name() const
@@ -188,9 +175,9 @@ bool Node::has_component_impl( const rtti::TypeInfo* type ) const
     return scene->get_ecs().has_component_impl( internal_id, type );
 }
 
-void Node::remove_component_impl( const rtti::TypeInfo* type )
+bool Node::remove_component_impl( const rtti::TypeInfo* type )
 {
-    scene->get_ecs().remove_component_impl( internal_id, type );
+    bool result  = scene->get_ecs().remove_component_impl( internal_id, type );
     auto comp_id = scene->get_ecs().register_component_type( type );
     for (uint32_t i = 0; i < component_count; ++i) {
         if (components[i].EcsId == comp_id) {
@@ -199,6 +186,7 @@ void Node::remove_component_impl( const rtti::TypeInfo* type )
             break;
         }
     }
+    return result;
 }
 
 bool Node::has_component( const rtti::TypeInfo* type ) const
@@ -206,9 +194,9 @@ bool Node::has_component( const rtti::TypeInfo* type ) const
     return has_component_impl( type );
 }
 
-void Node::remove_component( const rtti::TypeInfo* type )
+bool Node::remove_component( const rtti::TypeInfo* type )
 {
-    remove_component_impl( type );
+    return remove_component_impl( type );
 }
 
 void Node::set_component_enabled( const rtti::TypeInfo* type, bool enabled )

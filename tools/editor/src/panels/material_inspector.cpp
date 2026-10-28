@@ -14,20 +14,22 @@
 
 namespace nc::editor {
 
-MaterialInspectorHandler::MaterialInspectorHandler() = default;
+MaterialInspectorHandler::MaterialInspectorHandler( Scene& p_scene ) : scene( p_scene ) {}
 
-bool MaterialInspectorHandler::can_handle( const rtti::TypeInfo* type, void* component ) const
+bool MaterialInspectorHandler::can_handle( const rtti::TypeInfo* p_type, void* p_component ) const
 {
-    ( void ) component;
-    return type == rtti::TypeRegistry::find<MaterialComponent>();
+    ( void ) p_component;
+    return p_type == rtti::TypeRegistry::find<MaterialComponent>();
 }
 
-void MaterialInspectorHandler::draw( EditorContext& ctx, Node& node, const rtti::TypeInfo* type, void* component )
+void MaterialInspectorHandler::draw(
+    EditorFrame& p_ctx, Node& p_node, const rtti::TypeInfo* p_type, void* p_component
+)
 {
-    if (!ctx.scene || !can_handle( type, component ))
+    if (!can_handle( p_type, p_component ))
         return;
 
-    auto& mat = *static_cast<MaterialComponent*>( component );
+    auto& mat = *static_cast<MaterialComponent*>( p_component );
 
     // Derived field: keep the bound texture count in sync with the array.
     int count = 0;
@@ -37,17 +39,17 @@ void MaterialInspectorHandler::draw( EditorContext& ctx, Node& node, const rtti:
     }
     if (mat.texture_count != count) {
         mat.texture_count = count;
-        node.notify_changed<MaterialComponent>();
+        p_node.notify_changed<MaterialComponent>();
     }
 
-    auto shader = ctx.scene->get_resource_loader().get<MaterialShader>( mat.shader );
+    auto shader = scene.get_resource_loader().get<MaterialShader>( mat.shader );
     if (!shader) {
         ImGui::TextDisabled( "Shader not loaded" );
         return;
     }
 
     if (draw_uniforms( mat, *shader )) {
-        node.notify_changed<MaterialComponent>();
+        p_node.notify_changed<MaterialComponent>();
     }
 }
 //------------------------------------------------------------------------------
@@ -56,9 +58,9 @@ void MaterialInspectorHandler::draw( EditorContext& ctx, Node& node, const rtti:
 
 namespace {
 
-int uniform_component_count( gfx::ParameterType type )
+int uniform_component_count( gfx::ParameterType p_type )
 {
-    const uint32_t t = static_cast<uint32_t>( type );
+    const uint32_t t = static_cast<uint32_t>( p_type );
     if (t & static_cast<uint32_t>( gfx::ParameterType::VEC4 ))
         return 4;
     if (t & static_cast<uint32_t>( gfx::ParameterType::VEC3 ))
@@ -130,10 +132,10 @@ bool draw_uniform_element( const ShaderParamField& field, uint8_t* ptr )
     return ImGui::DragInt( "##v", reinterpret_cast<int*>( ptr ), 1.0f );
 }
 
-const MaterialComponent::Param* find_material_param( const MaterialComponent& mat, StringView leaf )
+const MaterialComponent::Param* find_material_param( const MaterialComponent& p_mat, StringView p_leaf )
 {
-    for (const auto& p : mat.params) {
-        if (std::string_view( p.name.data(), p.name.size() ) == leaf)
+    for (const auto& p : p_mat.params) {
+        if (std::string_view( p.name.data(), p.name.size() ) == p_leaf)
             return &p;
     }
     return nullptr;
@@ -141,10 +143,10 @@ const MaterialComponent::Param* find_material_param( const MaterialComponent& ma
 
 } // namespace
 
-bool MaterialInspectorHandler::draw_uniforms( MaterialComponent& mat, const MaterialShader& shader )
+bool MaterialInspectorHandler::draw_uniforms( MaterialComponent& p_mat, const MaterialShader& p_shader )
 {
     // BINDING_SET_MATERIAL == 1 (the g_Material parameter block).
-    const auto params = shader.get_param_set( static_cast<gfx::BindingSet>( 1 ) );
+    const auto params = p_shader.get_param_set( static_cast<gfx::BindingSet>( 1 ) );
     if (params.empty())
         return false;
 
@@ -153,7 +155,7 @@ bool MaterialInspectorHandler::draw_uniforms( MaterialComponent& mat, const Mate
 
     if (!ImGui::BeginTable( "##matparams", 2, kFlags ))
         return false;
-    ImGui::TableSetupColumn( "Property", ImGuiTableColumnFlags_WidthFixed, InspectorPanel::kLabelWidth );
+    ImGui::TableSetupColumn( "Property", ImGuiTableColumnFlags_WidthFixed, InspectorPanel::LABEL_WIDTH );
     ImGui::TableSetupColumn( "Value", ImGuiTableColumnFlags_WidthStretch );
 
     bool changed = false;
@@ -180,7 +182,7 @@ bool MaterialInspectorHandler::draw_uniforms( MaterialComponent& mat, const Mate
             const size_t element_size = array_size > 0 ? ( field.size / array_size ) : field.size;
 
             std::vector<uint8_t> bytes( field.size, 0 );
-            if (const auto* p = find_material_param( mat, leaf )) {
+            if (const auto* p = find_material_param( p_mat, leaf )) {
                 const size_t n = std::min<size_t>( p->data.size(), bytes.size() );
                 std::memcpy( bytes.data(), p->data.data(), n );
             }
@@ -223,7 +225,7 @@ bool MaterialInspectorHandler::draw_uniforms( MaterialComponent& mat, const Mate
             ImGui::PopID();
 
             if (field_changed) {
-                mat.set_param( StringView( leaf ), bytes.data(), bytes.size() );
+                p_mat.set_param( StringView( leaf ), bytes.data(), bytes.size() );
                 changed = true;
             }
         }

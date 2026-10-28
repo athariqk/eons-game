@@ -1,202 +1,519 @@
 #include "editor_assets.h"
 
 #include <algorithm>
-#include <cctype>
-#include <cstring>
+#include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <string>
 
-#include <ncore/resources/resource.h>
 #include <ncore/runtime/resources/resource_loader.h>
-#include <ncore/services/video/render_service.h>
 #include <ncore/utils/log.h>
+
+#include "asset_importer.h"
 
 namespace nc::editor {
 
 namespace {
 
-AssetKind kind_from_format( uint32_t id )
+// Stable context token: hashing the asset root + source dirs means a project or
+// source-dir change invalidates the manifest and forces one full re-hash.
+String manifest_ctx( const AssetPaths& paths )
 {
-    if (id == ResourceFormatID( "nimg" ).id)
-        return AssetKind::IMAGE;
-    if (id == ResourceFormatID( "ncbm" ).id)
-        return AssetKind::CUBEMAP;
-    if (id == ResourceFormatID( "nmsh" ).id)
-        return AssetKind::MESH;
-    if (id == ResourceFormatID( "nmat" ).id)
-        return AssetKind::MATERIAL_SHADER;
-    if (id == ResourceFormatID( "nshd" ).id)
-        return AssetKind::SHADER;
-    if (id == ResourceFormatID( "naud" ).id)
-        return AssetKind::AUDIO;
-    if (id == ResourceFormatID( "nfnt" ).id)
-        return AssetKind::FONT;
-    return AssetKind::UNKNOWN;
+    uint64_t h = fnv1a( paths.asset_root );
+    for (const auto& dir : paths.source_dirs)
+        h = fnv1a( dir, h );
+
+    char buffer[17];
+    std::snprintf( buffer, sizeof( buffer ), "%016llx", static_cast<unsigned long long>( h ) );
+    return String( buffer );
 }
 
-// The compiled file starts with ResourceArchive's DiskHeader, whose first field
-// is the FourCC of the resource format.
-bool read_format_id( const std::filesystem::path& p, uint32_t& out )
+bool records_equal( const HashMap<String, ManifestRecord>& a, const HashMap<String, ManifestRecord>& b )
 {
-    std::ifstream in( p, std::ios::binary );
-    if (!in.is_open())
+    if (a.size() != b.size())
         return false;
-    in.read( reinterpret_cast<char*>( &out ), sizeof( out ) );
-    return in.good();
+    for (const auto& [path, record] : a) {
+        const auto it = b.find( path );
+        if (it == b.end() || !( it->second == record ))
+            return false;
+    }
+    return true;
 }
 
 } // namespace
 
-StringView asset_kind_name( AssetKind kind )
+StringView asset_status_name( AssetStatus status )
 {
-    switch (kind) {
-        case AssetKind::IMAGE:
-            return "image";
-        case AssetKind::CUBEMAP:
-            return "cubemap";
-        case AssetKind::MESH:
-            return "mesh";
-        case AssetKind::MATERIAL_SHADER:
-            return "material";
-        case AssetKind::SHADER:
-            return "shader";
-        case AssetKind::AUDIO:
-            return "audio";
-        case AssetKind::FONT:
-            return "font";
-        default:
-            return "unknown";
+    switch (status) {
+        case AssetStatus::Ready:
+            return "ready";
+        case AssetStatus::Dirty:
+            return "dirty";
+        case AssetStatus::MissingSource:
+            return "no source";
+        case AssetStatus::Compiling:
+            return "compiling";
+        case AssetStatus::Error:
+            return "error";
     }
+    return "";
 }
 
-bool asset_kind_can_import( AssetKind kind )
+StringView asset_origin_name( AssetOrigin origin )
 {
-    switch (kind) {
-        case AssetKind::IMAGE:
-        case AssetKind::CUBEMAP:
-        case AssetKind::MATERIAL_SHADER:
-        case AssetKind::SHADER:
-        case AssetKind::AUDIO:
-        case AssetKind::FONT:
-            return true;
-        default:
-            return false;
+    switch (origin) {
+        case AssetOrigin::File:
+            return "file";
+        case AssetOrigin::Procedural:
+            return "procedural";
     }
+    return "";
 }
 
-bool asset_path_matches( StringView path, const char* filter )
+//------------------------------------------------------------------------------
+// ImportManifest
+//------------------------------------------------------------------------------
+
+void ImportManifest::clear()
 {
-    if (!filter || !filter[0])
-        return true;
-
-    const size_t needle_len = std::strlen( filter );
-    if (path.size() < needle_len)
-        return false;
-
-    auto lower = []( char c ) { return static_cast<char>( std::tolower( static_cast<unsigned char>( c ) ) ); };
-
-    for (size_t i = 0; i + needle_len <= path.size(); ++i) {
-        size_t j = 0;
-        for (; j < needle_len; ++j) {
-            if (lower( path[i + j] ) != lower( filter[j] ))
-                break;
-        }
-        if (j == needle_len)
-            return true;
-    }
-    return false;
+    records.clear();
+    ctx.clear();
+    valid_header = false;
 }
 
-void AssetIndex::scan( StringView p_asset_root )
+void ImportManifest::load( StringView path )
 {
-    assets.clear();
-    asset_root = String( p_asset_root.data(), p_asset_root.size() );
-    is_scanned = true;
+    clear();
 
-    std::error_code ec;
-    const std::filesystem::path root( std::string( asset_root.data(), asset_root.size() ) );
-    if (!std::filesystem::exists( root, ec ))
+    std::ifstream in( std::string( path.data(), path.size() ), std::ios::binary );
+    if (!in.is_open())
         return;
 
-    for (auto it = std::filesystem::recursive_directory_iterator( root, ec );
-         it != std::filesystem::recursive_directory_iterator(); it.increment( ec )) {
-        if (ec)
-            break;
-        if (!it->is_regular_file( ec ) || it->path().extension() != ".bin")
+    std::string line;
+    if (!std::getline( in, line ) || line != "v1")
+        return; // missing/unknown version => caller treats it as empty
+
+    valid_header = true;
+
+    while (std::getline( in, line )) {
+        if (line.empty())
             continue;
 
-        auto rel = std::filesystem::relative( it->path(), root, ec );
-        if (ec)
+        if (line[0] == '#') {
+            if (line.rfind( "# ctx=", 0 ) == 0)
+                ctx = String( line.c_str() + 6 );
+            continue;
+        }
+
+        const auto t1 = line.find( '\t' );
+        if (t1 == std::string::npos)
+            continue;
+        const auto t2 = line.find( '\t', t1 + 1 );
+        if (t2 == std::string::npos)
+            continue;
+        const auto t3 = line.find( '\t', t2 + 1 );
+        if (t3 == std::string::npos)
             continue;
 
-        std::string rel_str = rel.string();
-        rel_str.resize( rel_str.size() - 4 );
-        std::replace( rel_str.begin(), rel_str.end(), '\\', '/' );
+        ManifestRecord record;
+        record.source_mtime = std::strtoll( line.c_str() + t1 + 1, nullptr, 10 );
+        record.source_size  = std::strtoull( line.c_str() + t2 + 1, nullptr, 10 );
+        record.source_hash  = std::strtoull( line.c_str() + t3 + 1, nullptr, 16 );
 
-        AssetEntry entry;
-        entry.path = String( rel_str.c_str(), rel_str.size() );
+        records[String( line.c_str(), t1 )] = record;
+    }
+}
 
-        uint32_t format_id = 0;
-        entry.kind      = read_format_id( it->path(), format_id ) ? kind_from_format( format_id ) : AssetKind::UNKNOWN;
-        entry.SizeBytes = it->file_size( ec );
-        entry.Mtime     = it->last_write_time( ec ).time_since_epoch().count();
+bool ImportManifest::save( StringView path ) const
+{
+    const std::string path_str( path.data(), path.size() );
+    const std::filesystem::path manifest_path( path_str );
+    const std::string tmp = path_str + ".tmp";
 
-        assets.push_back( std::move( entry ) );
+    std::error_code ec;
+    if (manifest_path.has_parent_path())
+        std::filesystem::create_directories( manifest_path.parent_path(), ec );
+
+    // Deterministic order so the file stays diffable across identical runs.
+    DynamicArray<String> keys;
+    keys.reserve( records.size() );
+    for (const auto& entry : records)
+        keys.push_back( entry.first );
+    std::sort( keys.begin(), keys.end() );
+
+    {
+        std::ofstream out( tmp, std::ios::trunc );
+        if (!out.is_open())
+            return false;
+
+        out << "v1\n";
+        out << "# ctx=" << ctx.c_str() << '\n';
+        for (const auto& key : keys) {
+            const ManifestRecord& record = records.at( key );
+            char hash[17];
+            std::snprintf( hash, sizeof( hash ), "%016llx", static_cast<unsigned long long>( record.source_hash ) );
+            out << key.c_str() << '\t' << record.source_mtime << '\t' << record.source_size << '\t' << hash << '\n';
+        }
     }
 
+    std::filesystem::remove( path_str, ec );
+    ec.clear();
+    std::filesystem::rename( tmp, path_str, ec );
+    return !ec;
+}
+
+//------------------------------------------------------------------------------
+// AssetDatabase
+//------------------------------------------------------------------------------
+
+void AssetDatabase::configure( AssetPaths p_paths )
+{
+    paths = std::move( p_paths );
+}
+
+void AssetDatabase::rebuild_index()
+{
     std::sort( assets.begin(), assets.end(), []( const AssetEntry& a, const AssetEntry& b ) {
         return a.path < b.path;
     } );
-
-    NC_LOG_INFO_C( log::IO, "AssetIndex: {} assets under '{}'", assets.size(), root.string() );
+    by_path.clear();
+    for (size_t i = 0; i < assets.size(); ++i)
+        by_path.emplace( assets[i].path, static_cast<uint32_t>( i ) );
 }
 
-void AssetIndex::release_gpu( RenderService& renderer )
+void AssetDatabase::scan( ResourceLoader& loader, AssetImporter& importer )
 {
-    for (auto& [path, rid] : texture_by_path) {
-        ( void ) path;
-        if (rid)
-            renderer.destroy_rid( rid );
+    assets.clear();
+    by_path.clear();
+    is_scanned = true;
+
+    const std::filesystem::path root( paths.asset_root.c_str() );
+
+    manifest.load( paths.manifest_path );
+    const String ctx           = manifest_ctx( paths );
+    const bool manifest_usable = manifest.valid_header && manifest.ctx == ctx;
+
+    HashMap<String, ManifestRecord> next;
+    HashSet<String> present;
+    DynamicArray<String> need_hash;
+
+    std::error_code ec;
+    if (std::filesystem::exists( root, ec )) {
+        for (auto it = std::filesystem::recursive_directory_iterator( root, ec );
+             it != std::filesystem::recursive_directory_iterator(); it.increment( ec )) {
+            if (ec)
+                break;
+            if (!it->is_regular_file( ec ) || it->path().extension() != ".bin")
+                continue;
+
+            auto rel = std::filesystem::relative( it->path(), root, ec );
+            if (ec)
+                continue;
+
+            std::string rel_str = rel.string();
+            rel_str.resize( rel_str.size() - 4 ); // strip ".bin"
+            std::replace( rel_str.begin(), rel_str.end(), '\\', '/' );
+
+            AssetEntry entry;
+            entry.path = String( rel_str.c_str(), rel_str.size() );
+
+            uint32_t format_id = 0;
+            entry.kind = read_format_id( it->path(), format_id ) ? kind_from_format( format_id ) : AssetKind::UNKNOWN;
+            entry.compiled_size  = it->file_size( ec );
+            entry.compiled_mtime = it->last_write_time( ec ).time_since_epoch().count();
+
+            if (!find_source( entry.path, paths, entry.source_path )) {
+                entry.status = AssetStatus::MissingSource;
+            } else {
+                ec.clear();
+                entry.source_mtime =
+                    std::filesystem::last_write_time( entry.source_path.c_str(), ec ).time_since_epoch().count();
+                ec.clear();
+                entry.source_size = std::filesystem::file_size( entry.source_path.c_str(), ec );
+
+                const ManifestRecord* known = nullptr;
+                if (manifest_usable) {
+                    const auto known_it = manifest.records.find( entry.path );
+                    if (known_it != manifest.records.end())
+                        known = &known_it->second;
+                }
+
+                const bool reuse_hash = known && !kind_has_includes( entry.kind ) &&
+                                        known->source_mtime == entry.source_mtime &&
+                                        known->source_size == entry.source_size;
+
+                if (reuse_hash) {
+                    entry.source_hash = known->source_hash;
+                    entry.status      = AssetStatus::Ready;
+                    next.emplace( entry.path, *known );
+                } else {
+                    // Needs a (re)hash, which runs on the import worker. Keep the
+                    // previous record so mark_scanned can compare against it.
+                    entry.source_hash = known ? known->source_hash : 0;
+                    entry.status      = AssetStatus::Compiling;
+                    if (known)
+                        next.emplace( entry.path, *known );
+                    need_hash.push_back( entry.path );
+                }
+            }
+
+            present.insert( entry.path );
+            assets.push_back( std::move( entry ) );
+        }
     }
-    texture_by_path.clear();
-    path_by_texture.clear();
+
+    // Procedural assets bound as virtual paths on the loader (discovered, so
+    // they have no editor-side generator and are not regenerable from here).
+    for (const auto& path : loader.get_virtual_paths()) {
+        if (present.contains( path ))
+            continue;
+
+        AssetEntry entry;
+        entry.path   = path;
+        entry.origin = AssetOrigin::Procedural;
+        entry.status = AssetStatus::Ready;
+
+        const RID rid = loader.find( path );
+        if (auto res = loader.get( rid ))
+            entry.kind = kind_from_format( res->get_format_id().id );
+
+        present.insert( path );
+        assets.push_back( std::move( entry ) );
+    }
+
+    // Procedural assets explicitly registered with a generator.
+    for (const auto& [path, rec] : generators) {
+        bool found = false;
+        for (auto& entry : assets) {
+            if (entry.path != path)
+                continue;
+            found = true;
+            if (entry.origin == AssetOrigin::File)
+                break; // a file asset wins over a colliding generator path
+            entry.kind = rec.kind;
+            break;
+        }
+        if (found)
+            continue;
+
+        AssetEntry entry;
+        entry.path   = path;
+        entry.origin = AssetOrigin::Procedural;
+        entry.kind   = rec.kind;
+        entry.status = AssetStatus::Ready;
+
+        present.insert( path );
+        assets.push_back( std::move( entry ) );
+    }
+
+    rebuild_index();
+
+    if (!manifest.valid_header || manifest.ctx != ctx || !records_equal( manifest.records, next )) {
+        manifest.records      = std::move( next );
+        manifest.ctx          = ctx;
+        manifest.valid_header = true;
+        manifest.save( paths.manifest_path );
+    }
+
+    // Queue the expensive hashes on the worker so the main thread stays idle.
+    for (const auto& path : need_hash)
+        importer.enqueue_hash( path );
+
+    NC_LOG_INFO_C( log::IO, "AssetDatabase: {} assets under '{}'", assets.size(), paths.asset_root.c_str() );
 }
 
-const AssetEntry* AssetIndex::find( StringView path ) const
+AssetEntry* AssetDatabase::find_mut( StringView path )
 {
-    for (const auto& entry : assets) {
-        if (StringView( entry.path ) == path)
-            return &entry;
-    }
-    return nullptr;
+    const auto it = by_path.find( String( path.data(), path.size() ) );
+    if (it == by_path.end())
+        return nullptr;
+    return &assets[it->second];
 }
 
-RID AssetIndex::texture_for( const String& path, ResourceLoader& loader, RenderService& renderer, bool reload )
+const AssetEntry* AssetDatabase::find( StringView path ) const
 {
-    if (!reload) {
-        if (auto it = texture_by_path.find( path ); it != texture_by_path.end())
-            return it->second;
+    const auto it = by_path.find( String( path.data(), path.size() ) );
+    if (it == by_path.end())
+        return nullptr;
+    return &assets[it->second];
+}
+
+AssetEntry* AssetDatabase::ensure_procedural_entry( StringView path )
+{
+    if (auto* existing = find_mut( path ))
+        return existing;
+
+    AssetEntry entry;
+    entry.path   = String( path.data(), path.size() );
+    entry.origin = AssetOrigin::Procedural;
+    assets.push_back( std::move( entry ) );
+    rebuild_index();
+    return find_mut( path );
+}
+
+bool AssetDatabase::register_procedural( StringView path, AssetKind kind, AssetGenerateFn generator )
+{
+    const String key( path.data(), path.size() );
+
+    if (const AssetEntry* existing = find( key ); existing && existing->origin == AssetOrigin::File)
+        return false;
+
+    generators[key] = ProceduralRecord{ kind, std::move( generator ) };
+
+    if (is_scanned) {
+        auto* entry   = ensure_procedural_entry( key );
+        entry->kind   = kind;
+        entry->origin = AssetOrigin::Procedural;
+    }
+    return true;
+}
+
+void AssetDatabase::unregister_procedural( StringView path )
+{
+    const String key( path.data(), path.size() );
+    generators.erase( key );
+
+    if (!is_scanned)
+        return;
+
+    for (auto it = assets.begin(); it != assets.end(); ++it) {
+        if (it->path == key && it->origin == AssetOrigin::Procedural) {
+            assets.erase( it );
+            rebuild_index();
+            break;
+        }
+    }
+}
+
+void AssetDatabase::mark_dirty( StringView path )
+{
+    if (auto* entry = find_mut( path ))
+        entry->status = AssetStatus::Dirty;
+}
+
+bool AssetDatabase::has_generator( StringView path ) const
+{
+    return generators.find( String( path.data(), path.size() ) ) != generators.end();
+}
+
+void AssetDatabase::mark_compiling( StringView path )
+{
+    if (auto* entry = find_mut( path ))
+        entry->status = AssetStatus::Compiling;
+}
+
+void AssetDatabase::mark_imported( StringView path, uint64_t source_hash, int64_t source_mtime, uint64_t source_size )
+{
+    auto* entry = find_mut( path );
+    if (!entry)
+        return;
+
+    find_source( entry->path, paths, entry->source_path ); // refresh source path (for display)
+
+    std::error_code ec;
+    entry->source_mtime = source_mtime;
+    entry->source_size  = source_size;
+    entry->source_hash  = source_hash;
+
+    const auto compiled =
+        std::filesystem::path( paths.asset_root.c_str() ) / ( std::string( entry->path.c_str() ) + ".bin" );
+    entry->compiled_mtime = std::filesystem::last_write_time( compiled, ec ).time_since_epoch().count();
+    ec.clear();
+    entry->compiled_size = std::filesystem::file_size( compiled, ec );
+    entry->status        = AssetStatus::Ready;
+    entry->last_error.clear();
+
+    if (!manifest.valid_header)
+        manifest.load( paths.manifest_path );
+
+    manifest.ctx                  = manifest_ctx( paths );
+    manifest.valid_header         = true;
+    manifest.records[entry->path] = ManifestRecord{ source_mtime, source_size, source_hash };
+    manifest_dirty                = true;
+}
+
+void AssetDatabase::mark_scanned( StringView path, uint64_t source_hash, int64_t source_mtime, uint64_t source_size )
+{
+    auto* entry = find_mut( path );
+    if (!entry || entry->origin != AssetOrigin::File)
+        return;
+
+    entry->source_hash  = source_hash;
+    entry->source_mtime = source_mtime;
+    entry->source_size  = source_size;
+
+    if (!manifest.valid_header)
+        manifest.load( paths.manifest_path );
+
+    const auto known_it = manifest.records.find( entry->path );
+    const bool known    = known_it != manifest.records.end();
+    const bool matches  = known && known_it->second.source_hash == source_hash;
+
+    if (known && matches) {
+        entry->status = AssetStatus::Ready;
+    } else if (known) {
+        entry->status = AssetStatus::Dirty;
+        manifest.records.erase( known_it ); // stale: re-blessed on its next import
+        manifest_dirty = true;
+    } else {
+        // New to the manifest: bless it once via the mtime fallback.
+        entry->status = source_mtime > entry->compiled_mtime ? AssetStatus::Dirty : AssetStatus::Ready;
+        if (entry->status == AssetStatus::Ready) {
+            manifest.records[entry->path] = ManifestRecord{ source_mtime, source_size, source_hash };
+            manifest_dirty                = true;
+        }
     }
 
-    auto image = loader.get<Image>( loader.load( path, reload ) );
-    if (!image)
+    manifest.ctx          = manifest_ctx( paths );
+    manifest.valid_header = true;
+}
+
+void AssetDatabase::flush_manifest()
+{
+    if (!manifest_dirty)
+        return;
+    manifest_dirty = false;
+    manifest.save( paths.manifest_path );
+}
+
+void AssetDatabase::mark_failed( StringView path, StringView error )
+{
+    if (auto* entry = find_mut( path )) {
+        entry->status     = AssetStatus::Error;
+        entry->last_error = String( error.data(), error.size() );
+    }
+}
+
+RID AssetDatabase::load_or_generate( StringView path, ResourceLoader& loader, RenderService& renderer, bool force )
+{
+    const AssetEntry* entry = find( path );
+    if (!entry)
         return RID();
 
-    RID texture = renderer.texture_2d_create( *image );
-    if (!texture)
-        return RID();
+    if (entry->origin == AssetOrigin::File)
+        return loader.load( String( path.data(), path.size() ), force );
 
-    texture_by_path[path]          = texture;
-    path_by_texture[texture.value] = path;
-    return RID( texture.value );
-}
+    const String key( path.data(), path.size() );
+    const auto it = generators.find( key );
+    if (it == generators.end() || !it->second.generate)
+        return loader.find( path ); // discovered procedural, not regenerable
 
-StringView AssetIndex::path_for_texture( RID texture ) const
-{
-    auto it = path_by_texture.find( texture.value );
-    if (it == path_by_texture.end())
-        return StringView();
-    return StringView( it->second );
+    if (force || entry->status == AssetStatus::Dirty) {
+        const RID rid = it->second.generate( loader, renderer );
+        if (auto* e = find_mut( path )) {
+            if (rid) {
+                e->status = AssetStatus::Ready;
+                e->last_error.clear();
+            } else {
+                e->status     = AssetStatus::Error;
+                e->last_error = "generation failed";
+            }
+        }
+        return rid;
+    }
+
+    return loader.find( path );
 }
 
 } // namespace nc::editor

@@ -68,79 +68,74 @@ void ViewportPanel::release_gpu( RenderService& renderer )
     release_targets( renderer );
 }
 
-void ViewportPanel::update_target( EditorContext& ctx, ImVec2 size )
+void ViewportPanel::update_target( EditorFrame& ctx, ImVec2 size, RenderService& renderer )
 {
     const int width  = static_cast<int>( size.x );
     const int height = static_cast<int>( size.y );
-    if (width < 1 || height < 1 || !ctx.renderer)
+    if (width < 1 || height < 1)
         return;
 
     if (width == static_cast<int>( target_size.x ) && height == static_cast<int>( target_size.y ))
         return;
 
-    release_targets( *ctx.renderer );
+    release_targets( renderer );
 
     const Vec2i target( width, height );
-    color_rt    = ctx.renderer->texture_render_create( target, color_format );
-    depth_rt    = ctx.renderer->texture_render_create( target, depth_format );
+    color_rt    = renderer.texture_render_create( target, color_format );
+    depth_rt    = renderer.texture_render_create( target, depth_format );
     target_size = Vec2f( size.x, size.y );
 }
 
-void ViewportPanel::bind_camera( EditorContext& p_ctx )
+void ViewportPanel::bind_camera( EditorFrame& p_ctx, bool open )
 {
-    if (!p_ctx.ecs_world)
-        return;
+    auto& ecs_world = p_ctx.scene->get_ecs();
 
-    camera_entity = resolve_camera_entity( *p_ctx.ecs_world, source );
+    camera_entity = resolve_camera_entity( ecs_world, source );
 
-    auto* camera_c = static_cast<CameraComponent*>(
-        p_ctx.ecs_world->get_component_ptr( camera_entity, rtti::TypeRegistry::find<CameraComponent>() )
+    auto* cam_cmp = static_cast<CameraComponent*>(
+        ecs_world.get_component_ptr( camera_entity, rtti::TypeRegistry::find<CameraComponent>() )
     );
-    if (!camera_c) {
+    if (!cam_cmp) {
         camera = 0;
         return;
     }
 
-    camera = camera_c->source;
+    camera = cam_cmp->source;
 
-    camera_c->render_to_screen = false;
-    camera_c->draw_canvas      = false;
+    cam_cmp->render_to_screen = false;
+    cam_cmp->draw_canvas      = false;
 
-    if (is_open && color_rt) {
-        camera_c->render_texture = color_rt;
-        camera_c->depth_texture  = depth_rt;
-        camera_c->display_rect   = Rect2i( 0, 0, static_cast<int>( target_size.x ), static_cast<int>( target_size.y ) );
+    if (open && color_rt) {
+        cam_cmp->render_texture = color_rt;
+        cam_cmp->depth_texture  = depth_rt;
+        cam_cmp->display_rect   = Rect2i( 0, 0, static_cast<int>( target_size.x ), static_cast<int>( target_size.y ) );
     } else {
-        // Clearing the target skips the camera's render pass entirely.
-        camera_c->render_texture = 0;
-        camera_c->depth_texture  = 0;
+        // clearing the target skips the camera's render pass entirely.
+        cam_cmp->render_texture = 0;
+        cam_cmp->depth_texture  = 0;
     }
 }
 
-void ViewportPanel::draw( EditorContext& p_ctx )
+void ViewportPanel::draw_contents( EditorFrame& p_ctx )
 {
-    ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 0, 0 ) );
-    ImGui::PushStyleVar( ImGuiStyleVar_ChildBorderSize, 0.0f );
+    auto renderer = p_ctx.scene->get_app_ctx()->services.resolve<RenderService>();
+    auto time     = p_ctx.scene->get_ecs().get_singleton<TimeComponent>();
+    if (!renderer || !time)
+        return;
 
-    is_open = ImGui::Begin(
-        title.c_str(), is_closable ? &is_visible : nullptr,
-        ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse
-    );
-
-    is_hovered = is_open && ImGui::IsWindowHovered();
+    is_hovered = ImGui::IsWindowHovered();
     is_focused = ImGui::IsWindowFocused( ImGuiFocusedFlags_RootAndChildWindows );
 
     screen_pos = ImGui::GetCursorScreenPos();
     content    = ImGui::GetContentRegionAvail();
 
-    if (is_open)
-        update_target( p_ctx, content );
+    update_target( p_ctx, content, *renderer );
 
-    bind_camera( p_ctx );
+    bind_camera( p_ctx, true );
 
     bool drew_image = false;
 
-    if (is_open && color_rt && content.x > 0.0f && content.y > 0.0f) {
+    if (color_rt && content.x > 0.0f && content.y > 0.0f) {
         ImVec2 draw_size = content;
 
         if (preserve_aspect && target_size.y > 0.0f) {
@@ -160,8 +155,8 @@ void ViewportPanel::draw( EditorContext& p_ctx )
         ImGui::Image( reinterpret_cast<ImTextureID>( static_cast<uintptr_t>( color_rt.value ) ), draw_size );
 
         ViewportFrame frame;
-        frame.ctx          = &p_ctx;
-        frame.renderer     = p_ctx.renderer;
+        frame.renderer     = renderer;
+        frame.time         = time;
         frame.camera       = camera;
         frame.screen_pos   = screen_pos;
         frame.content_size = draw_size;
@@ -175,23 +170,49 @@ void ViewportPanel::draw( EditorContext& p_ctx )
         drew_image = true;
     }
 
-    ImGui::End();
-    ImGui::PopStyleVar( 2 );
-
     p_ctx.any_viewport_hovered = p_ctx.any_viewport_hovered || ( drew_image && is_hovered );
     p_ctx.any_viewport_focused = p_ctx.any_viewport_focused || is_focused;
+}
+
+ImGuiWindowFlags ViewportPanel::window_flags() const
+{
+    return ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+}
+
+void ViewportPanel::pre_begin( EditorFrame& )
+{
+    ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 0, 0 ) );
+    ImGui::PushStyleVar( ImGuiStyleVar_ChildBorderSize, 0.0f );
+}
+
+void ViewportPanel::post_end( EditorFrame& )
+{
+    ImGui::PopStyleVar( 2 );
+}
+
+void ViewportPanel::on_collapsed( EditorFrame& p_ctx )
+{
+    is_hovered = false;
+    is_focused = false;
+
+    // Keep the camera from rendering to screen while the viewport is closed.
+    bind_camera( p_ctx, false );
 }
 
 //------------------------------------------------------------------------------
 // Overlays
 //------------------------------------------------------------------------------
 
+GizmoOverlay::GizmoOverlay( Scene& p_scene, EditorSelection& p_selection, EditorSettings& p_settings ) :
+    scene( p_scene ), selection( p_selection ), settings( p_settings )
+{}
+
 void GizmoOverlay::draw( ViewportFrame& p_frame )
 {
-    if (!p_frame.ctx || !p_frame.renderer || !p_frame.camera || !p_frame.ctx->scene)
+    if (!p_frame.renderer || !p_frame.camera)
         return;
 
-    Node* selected = p_frame.ctx->scene->node_from_entity( p_frame.ctx->selected_eid );
+    Node* selected = scene.get_node_from_entity( selection.get_selected_eid() );
     if (!selected || !selected->has_component<Transform3DComponent>())
         return;
 
@@ -210,8 +231,8 @@ void GizmoOverlay::draw( ViewportFrame& p_frame )
     Mat4 contrib       = xform->parent_contrib( parent_global );
 
     Mat4 world     = xform->global;
-    auto mode      = p_frame.ctx->global_xform_gizmo ? ImGuizmo::WORLD : ImGuizmo::LOCAL;
-    auto operation = static_cast<ImGuizmo::OPERATION>( p_frame.ctx->xform_gizmo_operation );
+    auto mode      = settings.global_xform_gizmo ? ImGuizmo::WORLD : ImGuizmo::LOCAL;
+    auto operation = static_cast<ImGuizmo::OPERATION>( settings.xform_gizmo_operation );
 
     if (ImGuizmo::Manipulate( view_mat.data(), projection_mat.data(), operation, mode, world.data() ))
         xform->from_matrix( contrib.affine_inverse() * world );
@@ -219,19 +240,18 @@ void GizmoOverlay::draw( ViewportFrame& p_frame )
 
 void StatsOverlay::draw( ViewportFrame& p_frame )
 {
-    if (!p_frame.ctx || !p_frame.renderer || !p_frame.ctx->time)
+    if (!p_frame.renderer || !p_frame.time)
         return;
 
-    const auto* time  = p_frame.ctx->time;
+    const auto* time  = p_frame.time;
     const ImVec2 pos  = p_frame.screen_pos;
     const ImVec2 size = p_frame.content_size;
 
-    ImGui::SetNextWindowBgAlpha( 0.35f );
     ImGui::PushStyleVar( ImGuiStyleVar_WindowBorderSize, 0.0f );
 
     constexpr ImGuiWindowFlags FLAGS = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
                                        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
-                                       ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
+                                       ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground;
 
     constexpr float PAD = 10.0f;
     ImGui::SetNextWindowPos( ImVec2( pos.x + size.x - PAD, pos.y + PAD ), ImGuiCond_Always, ImVec2( 1.0f, 0.0f ) );

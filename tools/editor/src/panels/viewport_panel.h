@@ -11,8 +11,8 @@ namespace nc::editor {
  * @brief Everything an overlay needs to draw on top of a viewport image.
  */
 struct ViewportFrame {
-    EditorContext* ctx      = nullptr;
     RenderService* renderer = nullptr;
+    TimeComponent* time     = nullptr;
     RID camera              = 0;
     ImVec2 screen_pos       = ImVec2( 0, 0 );
     ImVec2 content_size     = ImVec2( 0, 0 );
@@ -45,7 +45,12 @@ public:
 
     ~ViewportPanel() override;
 
-    void draw( EditorContext& ctx ) override;
+    void draw_contents( EditorFrame& ctx ) override;
+
+    ImGuiWindowFlags window_flags() const override;
+    void pre_begin( EditorFrame& ) override;
+    void on_collapsed( EditorFrame& ) override;
+    void post_end( EditorFrame& ) override;
 
     void release_gpu( RenderService& renderer ) override;
 
@@ -62,8 +67,8 @@ public:
     }
 
 private:
-    void update_target( EditorContext& ctx, ImVec2 size );
-    void bind_camera( EditorContext& ctx );
+    void update_target( EditorFrame& ctx, ImVec2 size, RenderService& renderer );
+    void bind_camera( EditorFrame& ctx, bool open );
     void release_targets( RenderService& renderer );
 
     CameraSource source = CameraSource::EditorCamera;
@@ -80,7 +85,6 @@ private:
     ImVec2 screen_pos = ImVec2( 0, 0 );
     ImVec2 content    = ImVec2( 0, 0 );
 
-    bool is_open         = false;
     bool is_hovered      = false;
     bool is_focused      = false;
     bool preserve_aspect = true;
@@ -93,7 +97,17 @@ private:
  */
 class GizmoOverlay final : public ViewportOverlay {
 public:
+    GizmoOverlay(
+        Scene& scene [[clang::lifetimebound]], EditorSelection& selection [[clang::lifetimebound]],
+        EditorSettings& settings [[clang::lifetimebound]]
+    );
+
     void draw( ViewportFrame& frame ) override;
+
+private:
+    Scene& scene;
+    EditorSelection& selection;
+    EditorSettings& settings;
 };
 
 /**

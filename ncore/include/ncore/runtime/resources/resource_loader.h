@@ -45,6 +45,12 @@ public:
      */
     StringView path_of( RID p_rid ) const [[clang::lifetimebound]];
 
+    /**
+     * @brief Resolve a path to its cached RID without emitting a LoadEvent.
+     * @return The cached handle (disk or virtual), or an empty RID if absent.
+     */
+    RID find( StringView p_path ) const;
+
     void unload_resource( RID p_rid );
     void unload_all();
 
@@ -57,13 +63,29 @@ public:
     Ref<IResource> get( RID p_rid );
 
     /**
-     * @brief Insert a procedurally generated resource to storage.
+     * @brief Insert a procedurally generated resource to storage under a logical path.
      * It can then have access to the whole resource system.
      * A LoadEvent will be generated.
      *
+     * Binds `p_path` so `load(p_path)` and `path_of(rid)` round-trip exactly
+     * like a disk asset, with no `.bin` file on disk. Re-registering an existing
+     * path publishes a new handle; the previous resource stays in storage so
+     * live references keep working until observers rebind via the LoadEvent.
+     *
      * @return Its newly-assigned RID handle or existing one.
      */
-    RID add( Ref<IResource> p_res );
+    RID add( Ref<IResource> p_res, StringView p_path );
+
+    /**
+     * @brief The logical paths registered through add(res, path), in order.
+     *
+     * These are procedural assets: they have no `.bin` on disk, only a live
+     * resource in storage. The editor indexes them from here.
+     */
+    Span<const String> get_virtual_paths() const
+    {
+        return Span<const String>( virtual_paths.data(), virtual_paths.size() );
+    }
 
     /**
      * @brief Loads a resource format from disk at given path and
@@ -120,6 +142,7 @@ public:
 private:
     HashMap<String, RID> path_map;
     HashMap<uint64_t, String> rid_paths;
+    DynamicArray<String> virtual_paths; // logical paths bound via add(res, path)
     RIDPool<Ref<IResource>> storage;
     RingBuffer<Event> events;
     String asset_root;

@@ -9,9 +9,12 @@ namespace nc::editor {
  */
 class LogsPanel final : public EditorPanel {
 public:
-    explicit LogsPanel( bool visible );
+    LogsPanel( LogStore& logs [[clang::lifetimebound]], bool visible );
 
-    void draw( EditorContext& ctx ) override;
+    void draw_contents( EditorFrame& ctx ) override;
+
+private:
+    LogStore& logs_;
 };
 
 } // namespace nc::editor

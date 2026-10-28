@@ -125,7 +125,7 @@ public:
     /**
 	 * @brief Get the Node associated with an entity ID, or nullptr if the entity is invalid or has no Node.
      */
-    Node* node_from_entity( EcsEntity p_entity );
+    Node* get_node_from_entity( EcsEntity p_entity );
 
     /**
      * @brief Safely defer the deletion of a Node at the next frame.

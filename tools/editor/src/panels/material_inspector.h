@@ -11,17 +11,19 @@ namespace nc::editor {
  */
 class MaterialInspectorHandler final : public InspectorHandler {
 public:
-    MaterialInspectorHandler();
+    explicit MaterialInspectorHandler( Scene& scene [[clang::lifetimebound]] );
 
-    bool can_handle( const rtti::TypeInfo* type, void* component ) const override;
+    bool can_handle( const rtti::TypeInfo* p_type, void* p_component ) const override;
 
-    void draw( EditorContext& ctx, Node& node, const rtti::TypeInfo* type, void* component ) override;
+    void draw( EditorFrame& p_ctx, Node& p_node, const rtti::TypeInfo* p_type, void* p_component ) override;
 
 private:
     /**
      * @brief Draw the shader's BINDING_SET_MATERIAL uniforms.
      */
-    bool draw_uniforms( MaterialComponent& mat, const MaterialShader& shader );
+    bool draw_uniforms( MaterialComponent& p_mat, const MaterialShader& p_shader );
+
+    Scene& scene;
 };
 
 } // namespace nc::editor

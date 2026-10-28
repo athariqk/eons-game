@@ -119,6 +119,29 @@ public:
     void destroy_children();
 
     /**
+     * @brief Create and add a component to this Node.
+     * @param type The runtime type of the component.
+     * @param data Initial data.
+     */
+    void add_component( const rtti::TypeInfo* type, const void* data = nullptr );
+
+    /**
+     * @brief Create and add a component to this Node.
+     * @param args Optional value to set to the component using copy-semantics.
+     */
+    template<class T, class... Args>
+    void add_component( Args&&... args )
+    {
+        auto type = rtti::TypeRegistry::find<T>();
+        if constexpr (sizeof...( Args ) != 0) {
+            T val( std::forward<Args>( args )... );
+            add_component( type, &val );
+        } else {
+            add_component( type );
+        }
+    }
+
+    /**
      * @brief Get immutable pointer to component instance, no staging.
      */
     const void* get_component_const( const rtti::TypeInfo* type ) const;
@@ -153,38 +176,13 @@ public:
     Span<Component> get_components();
 
     /**
-     * @brief Create in-place (default-constructs) a component owned by this Node.
-     * @param type RTTI type of the component.
-     * @param data Initial data.
-     * @return Mutable pointer to constructed component instance, or existing one.
-     */
-    void* add_component( const rtti::TypeInfo* type, const void* data = nullptr );
-
-    /**
-     * @brief Create and set a component owned by this Node.
-     * @param args Optional value to set to the component using copy-semantics.
-     * @return The new mutable pointer to component instance, or the existing one.
-     */
-    template<class T, class... Args>
-    T* add_component( Args&&... args )
-    {
-        auto type = rtti::TypeRegistry::find<T>();
-        if constexpr (sizeof...( Args ) != 0) {
-            T val( std::forward<Args>( args )... );
-            return static_cast<T*>( add_component( type, &val ) );
-        } else {
-            return static_cast<T*>( add_component( type ) );
-        }
-    }
-
-    /**
      * @brief Return true if this Node has component of given RTTI type.
      */
     bool has_component( const rtti::TypeInfo* type ) const;
     /**
      * @brief Remove component owned by this node by type.
      */
-    void remove_component( const rtti::TypeInfo* type );
+    bool remove_component( const rtti::TypeInfo* type );
 
     template<class T>
     bool has_component() const
@@ -193,7 +191,7 @@ public:
     }
 
     template<class T>
-    void remove_component()
+    bool remove_component()
     {
         return remove_component_impl( rtti::TypeRegistry::find<T>() );
     }
@@ -251,7 +249,7 @@ private:
 
     void track_ecs_component( const rtti::TypeInfo* type, EcsComponent id );
     bool has_component_impl( const rtti::TypeInfo* type ) const;
-    void remove_component_impl( const rtti::TypeInfo* type );
+    bool remove_component_impl( const rtti::TypeInfo* type );
     void emit_event_impl( const rtti::TypeInfo* type, EcsEntity target, const void* data ) const;
 
     bool active           = true;

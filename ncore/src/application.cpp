@@ -178,7 +178,7 @@ void Application::register_services()
     window   = context.services.provide<WindowService>();
     renderer = context.services.provide<RenderService>();
     context.services.provide<AudioService>();
-    context.services.provide<AssetService>();
+    context.services.provide<AssetService>(); // TODO: opt out of this
 }
 
 void Application::unregister_services()

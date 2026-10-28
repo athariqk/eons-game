@@ -73,8 +73,7 @@ public:
     /**
      * @brief Return a mutable pointer to a component owned by the given entity.
      *
-     * Editor/debug tooling helper; returns nullptr when the entity does not own
-     * the component or is not alive.
+     * @return The pointer or nullptr when the entity does not own the component or is not alive.
      */
     void* get_component_ptr( EcsEntity p_entity, const rtti::TypeInfo* p_type ) const;
     void destroy_entity( EcsEntity p_entity );
@@ -91,9 +90,9 @@ public:
      * @brief Registers and/or resolves a component type to/from world
      * via NCORE's RTTI system.
      *
-     * @return Its entity ID (each component type is its own dedicated entity).
+     * @return The resolved component ID.
      */
-    EcsEntity register_component_type( const rtti::TypeInfo* p_type ) const;
+    EcsComponent register_component_type( const rtti::TypeInfo* p_type ) const;
 
     /**
      * @return True if EcsWorld has a singleton component of given ID.
@@ -105,7 +104,7 @@ public:
     }
 
     template<class T>
-    EcsEntity resolve_component() const
+    EcsComponent resolve_component() const
     {
         auto type = rtti::TypeRegistry::find<T>();
         return register_component_type( type );
@@ -125,48 +124,32 @@ public:
      * @param p_eid The entity with the component to remove.
      */
     template<class T>
-    void remove_component( EcsEntity p_eid )
+    bool remove_component( EcsEntity p_eid )
     {
         const rtti::TypeInfo* type = rtti::TypeRegistry::find<T>();
         return remove_component_impl( p_eid, type );
     }
 
     /**
-     * @brief Create in-place a singleton component owned by EcsWorld.
+     * @brief Create and add a singleton component to the world.
      *
-     * NOTE: On world teardown, ON_REMOVE observers are removed before singleton
+     * NOTE: on world teardown, ON_REMOVE observers were removed before any singleton
      * components. As such, cleanup logic depending on such observers WON'T fire.
-     * Created singletons MUST be removed manually via remove_singleton() before
+     * All existing singletons MUST be removed manually via remove_singleton() before
      * world destruction.
      *
-     * @return The typed pointer to the constructed singleton component.
+     * @param p_args Optional constructor arguments or empty for default construction.
      */
-    template<class T>
-    T* add_singleton()
+    template<class T, class... Args>
+    void add_singleton( Args&&... p_args )
     {
         auto type = rtti::TypeRegistry::find<T>();
-        return reinterpret_cast<T*>( add_component_( INVALID_ENTITY_ID, type ) );
-    }
-
-    /**
-     * @brief Create/set a singleton component from the given value using
-     * copy semantics.
-     *
-     * This is not for setting a component value for a particular entity,
-     * for that use entity() builder.
-     *
-     * NOTE: On world teardown, ON_REMOVE observers are removed before singleton
-     * components. As such, cleanup logic depending on such observers WON'T fire.
-     * Created singletons MUST be removed manually via remove_singleton() before
-     * world destruction.
-     *
-     * @return The handle to the EcsWorld-owned singleton component.
-     */
-    template<class T>
-    EcsComponent set_singleton( const T& p_value )
-    {
-        auto type = rtti::TypeRegistry::find<T>();
-        return set_component_( INVALID_ENTITY_ID, type, &p_value );
+        if constexpr (sizeof...( p_args ) == 0) {
+            set_component_impl( INVALID_ENTITY_ID, type, nullptr );
+        } else {
+            T temp{ std::forward<Args>( p_args )... };
+            set_component_impl( INVALID_ENTITY_ID, type, &temp );
+        }
     }
 
     /**
@@ -175,12 +158,12 @@ public:
     template<class T>
     const T* get_singleton() const
     {
-        auto result = get_component_const_( INVALID_ENTITY_ID, rtti::TypeRegistry::find<T>() );
+        auto result = get_component_const( INVALID_ENTITY_ID, rtti::TypeRegistry::find<T>() );
         return static_cast<const T*>( result );
     }
 
     /**
-     * @brief Return a read-write singleton component of type T owned by EcsWorld.
+     * @brief Return a read-write singleton component of given type owned by EcsWorld.
      */
     template<class T>
     T* get_singleton()
@@ -244,21 +227,19 @@ private:
     friend class QueryContext;
     friend class Node; // FIXME: kinda hacky, lets remove later
 
-    EcsEntity create_entity_impl_( const String& name ) const;
-    EcsComponent set_component_( EcsEntity eid, const rtti::TypeInfo* type, const void* data );
-    void* add_component_( EcsEntity eid, const rtti::TypeInfo* type, const void* data = nullptr );
-    void* get_component_impl( EcsEntity cid, const rtti::TypeInfo* type ) const; // returns mutable ptr
-    const void*
-    get_component_const_( EcsEntity cid, const rtti::TypeInfo* type ) const;     // returns const ptr, no staging
+    EcsEntity create_entity_impl( const String& name ) const;
+    void set_component_impl( EcsEntity eid, const rtti::TypeInfo* type, const void* data = nullptr );
+    void* get_component_impl( EcsEntity cid, const rtti::TypeInfo* type ) const;        // returns mutable ptr
+    const void* get_component_const( EcsEntity cid, const rtti::TypeInfo* type ) const; // returns const ptr, no staging
     bool has_component_impl( EcsEntity cid, const rtti::TypeInfo* type ) const;
-    void remove_component_impl( EcsEntity cid, const rtti::TypeInfo* type ) const;
+    bool remove_component_impl( EcsEntity cid, const rtti::TypeInfo* type ) const;
     EcsQuery create_query_impl( const String& name, void* data ) [[clang::lifetimebound]];
     void emit_event_impl( const rtti::TypeInfo* type, EcsEntity target, const void* data ) const;
 
     struct Impl;
-    std::unique_ptr<Impl> pImpl;
+    Ptr<Impl> pImpl;
 
-    String unnamed = "Unnamed Entity";
+    String unnamed_ent = "Unnamed entity";
 };
 
 } // namespace nc

@@ -1,3 +1,5 @@
+#include <mutex>
+
 #include <ncore/utils/log.h>
 #include <utils/logger/logger.h>
 
@@ -80,6 +82,12 @@ void log_message( const LogMsg& msg )
 {
     if (msg.level < g_MinLogLevel.load())
         return;
+
+    // Serialize sink writes and listener dispatch. The editor's reimport worker
+    // logs from a background thread and must not interleave with the main thread.
+    static std::mutex g_log_mutex;
+    const std::lock_guard<std::mutex> lock( g_log_mutex );
+
     log::Logger::get_instance().channel( msg.channel )->write( msg );
 }
 

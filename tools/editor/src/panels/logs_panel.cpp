@@ -2,20 +2,13 @@
 
 namespace nc::editor {
 
-LogsPanel::LogsPanel( bool p_visible ) : EditorPanel( "Logs", DockSlot::Bottom, 1, p_visible ) {}
+LogsPanel::LogsPanel( LogStore& logs, bool p_visible ) :
+    EditorPanel( "Logs", DockSlot::Bottom, 1, p_visible ), logs_( logs )
+{}
 
-void LogsPanel::draw( EditorContext& p_ctx )
+void LogsPanel::draw_contents( EditorFrame& )
 {
-    auto* log = p_ctx.log_store;
-    if (!log)
-        return;
-
-    auto& state = *log;
-
-    if (!ImGui::Begin( title.c_str(), &is_visible )) {
-        ImGui::End();
-        return;
-    }
+    auto& state = logs_;
 
     if (ImGui::SmallButton( "Clear" ))
         state.clear();
@@ -126,8 +119,6 @@ void LogsPanel::draw( EditorContext& p_ctx )
         ImGui::SetScrollHereY( 1.0f );
 
     ImGui::EndChild();
-
-    ImGui::End();
 }
 
 } // namespace nc::editor

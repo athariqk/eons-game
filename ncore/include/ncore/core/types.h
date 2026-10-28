@@ -365,7 +365,32 @@ constexpr Qualifier field_qualifier() noexcept
 
 //------------------------------------------------------------------------------
 
-struct NCAPI TypeInfo {
+/**
+ * @brief IValueOps defines the interface for value-semantics operations on a reflected type.
+ */
+struct IValueOps {
+    virtual ~IValueOps() = default;
+    /**
+     * @brief Construct an instance at the given memory location.
+     * @param instance The memory location to construct the instance on.
+     * @param data If non-null, copy-construct from it; otherwise zero-initialize.
+     */
+    virtual void construct( void* instance, const void* data = nullptr ) const = 0;
+    /**
+     * @brief Destroy the instance (calls destructors for non-trivial types).
+     */
+    virtual void destruct( void* instance ) const = 0;
+    /**
+     * @brief Copy-construct from src into dst.
+     */
+    virtual void clone( const void* src, void* dst ) const = 0;
+    /**
+     * @brief Copy-assign from src into dst (dst must already be constructed).
+     */
+    virtual void replace( const void* src, void* dst ) const = 0;
+};
+
+struct NCAPI TypeInfo : public IValueOps {
     const char* name;
     TypeId id;
     size_t size;
@@ -376,32 +401,13 @@ struct NCAPI TypeInfo {
     TypeInfo() : name( nullptr ), id( TypeId::null() ), size( 0 ), alignment( 0 ) {}
     TypeInfo( const char* n, TypeId i, size_t sz, size_t align ) : name( n ), id( i ), size( sz ), alignment( align ) {}
 
-    virtual ~TypeInfo() = default;
-
     TypeInfo( const TypeInfo& )            = delete;
     TypeInfo& operator=( const TypeInfo& ) = delete;
 
-    /**
-     * @brief Construct an instance at the given memory location.
-     * @param instance The memory location to construct the instance on.
-     * @param data If non-null, copy-construct from it; otherwise zero-initialize.
-     */
-    virtual void construct( void* instance, const void* data = nullptr ) const;
-
-    /**
-     * @brief Destroy the instance (calls destructors for non-trivial types).
-     */
-    virtual void destruct( void* instance ) const;
-
-    /**
-     * @brief Copy-construct from src into dst.
-     */
-    virtual void clone( const void* src, void* dst ) const;
-
-    /**
-     * @brief Copy-assign from src into dst (dst must already be constructed).
-     */
-    virtual void replace( const void* src, void* dst ) const;
+    void construct( void* instance, const void* data = nullptr ) const override;
+    void destruct( void* instance ) const override;
+    void clone( const void* src, void* dst ) const override;
+    void replace( const void* src, void* dst ) const override;
 
     /**
      * @brief Returns true if this type is a composite data structure (class, structs, etc).
@@ -1195,7 +1201,7 @@ constexpr const char* get_enum_name( const T* value ) noexcept
  * generator warning instead of a C++ error.
  */
 #if __has_cpp_attribute( clang::annotate )
-#define REFLECT __attribute__( ( annotate( "Reflect" ) ) )
+#define REFLECT             __attribute__( ( annotate( "Reflect" ) ) )
 #define REFLECT_HINT( ... ) __attribute__( ( annotate( "Reflect " #__VA_ARGS__ ) ) )
 #else
 #define REFLECT

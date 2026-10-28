@@ -2,10 +2,7 @@
 
 #include <flecs.h>
 
-#include <ncore/application.h>
-#include <ncore/runtime/components/config.h>
 #include <ncore/runtime/components/transform.h>
-#include <ncore/runtime/ecs/ecs_events.h>
 #include <ncore/runtime/node.h>
 #include <ncore/runtime/scene.h>
 #include <utils/profiler.h>
@@ -16,10 +13,11 @@ namespace nc {
 
 void Scene::on_enter()
 {
-    ecs_world.set_singleton<AppDesc>( app_ctx->app_desc );
+    ecs_world.add_singleton<AppDesc>();
+    ecs_world.add_singleton<ConfFile>();
 
-    auto* config   = ecs_world.add_singleton<ConfigComponent>();
-    config->config = &app_ctx->config;
+    *ecs_world.get_singleton<AppDesc>()  = app_ctx->app_desc;
+    *ecs_world.get_singleton<ConfFile>() = app_ctx->config;
 
     ecs_world.system( "Scene_NodeActivenessUpdater" )
         .with<NodeRefComponent>()
@@ -125,7 +123,7 @@ bool Scene::is_node_valid( Node* p_node )
     return p_node && node_pool.is_valid( p_node ) && !pending_node_deletions.contains( p_node );
 }
 
-Node* Scene::node_from_entity( EcsEntity p_entity )
+Node* Scene::get_node_from_entity( EcsEntity p_entity )
 {
     auto world = reinterpret_cast<ecs_world_t*>( ecs_world.get_native_handle() );
     if (p_entity == INVALID_ENTITY_ID || !ecs_is_alive( world, p_entity ))

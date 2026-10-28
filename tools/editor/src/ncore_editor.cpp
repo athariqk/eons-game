@@ -15,35 +15,21 @@
 
 #include "editor.h"
 #include "editor_components.h"
-#include "plugins/editor_plugins.h"
 #include "plugins/gui_plugin.h"
 
 namespace nc::editor {
 
-namespace {
-
-Editor* g_editor = nullptr;
-
-} // namespace
-
 void NCAPI_EDITOR register_editor_plugin( Scene& scene )
 {
-    if (g_editor) {
-        NC_LOG_WARN_C( log::GUI, "register_editor_plugin: editor already registered" );
-        return;
-    }
+    auto& world = scene.get_ecs();
+    NC_FAIL_MSG_RET( !world.get_singleton<EditorPlugin>(), "Editor plugin is already registered." );
 
     register_editor_component_types( scene );
 
     register_gui_plugin( scene );
 
-    g_editor = new Editor( scene );
-
-    g_editor->add_plugin( std::make_unique<ToolbarPlugin>() );
-    g_editor->add_plugin( std::make_unique<ViewportPlugin>() );
-    g_editor->add_plugin( std::make_unique<ScenePanelPlugin>() );
-    g_editor->add_plugin( std::make_unique<AssetsPlugin>() );
-    g_editor->add_plugin( std::make_unique<LogsPlugin>() );
+    world.add_singleton<EditorPlugin>();
+    world.get_singleton<EditorPlugin>()->editor = std::make_unique<Editor>( scene );
 
     // The editor camera only consumes input while a 3D viewport is hovered or
     // focused; without that gate the camera flies while the user drags panels.
@@ -53,12 +39,13 @@ void NCAPI_EDITOR register_editor_plugin( Scene& scene )
         .in( EcsSystemPhase::UPDATE )
         .each( []( EcsIterState& it ) {
             auto io    = it.world().get_singleton<IOServices>();
+            auto edp   = it.world().get_singleton<EditorPlugin>();
             auto xform = it.get_component<Transform3DComponent>();
             auto input = it.get_component<InputComponent>();
 
             const bool ui_owns_keyboard = io && io->inputs && io->inputs->is_ui_keyboard_captured();
             const bool viewport_active =
-                g_editor->get_ctx().any_viewport_hovered || g_editor->get_ctx().any_viewport_focused;
+                edp->editor->get_frame().any_viewport_hovered || edp->editor->get_frame().any_viewport_focused;
             if (!viewport_active || ui_owns_keyboard) {
                 input->direction.zero();
                 input->angular_delta.zero();
@@ -123,33 +110,42 @@ void NCAPI_EDITOR register_editor_plugin( Scene& scene )
     // dockspace node has to exist before the first Begin() of the frame.
     scene.get_ecs()
         .system( "EditorDockspace" )
-        .with<GuiStateComponent>()
+        .with<GuiStateComponent, EditorPlugin>()
         .in( EcsSystemPhase::PRE_UPDATE )
         .order( -950 )
-        .run( []( EcsIterState& ) { g_editor->draw_dockspace(); } );
+        .run( []( EcsIterState& it ) { it.get_component<EditorPlugin>()->editor->draw_dockspace(); } );
 
     // After NewFrame (-1000) and ImGuizmo::BeginFrame (-900), before the
     // engine's camera update (0) so render targets are bound in time.
-    scene.get_ecs().system( "EditorUi" ).in( EcsSystemPhase::UPDATE ).order( -30 ).run( []( EcsIterState& ) {
-        g_editor->begin_frame();
-        g_editor->draw();
-    } );
+    scene.get_ecs()
+        .system( "EditorUi" )
+        .with<EditorPlugin>()
+        .in( EcsSystemPhase::UPDATE )
+        .order( -30 )
+        .run( []( EcsIterState& it ) {
+            auto edp = it.get_component<EditorPlugin>();
+            edp->editor->begin_frame();
+            edp->editor->draw();
+        } );
 
     // ImGui resolves hover/capture state by the end of the frame.
-    scene.get_ecs().system( "EditorUiCapture" ).in( EcsSystemPhase::POST_UPDATE ).run( []( EcsIterState& ) {
-        g_editor->publish_ui_capture();
-    } );
+    scene.get_ecs()
+        .system( "EditorUiCapture" )
+        .with<EditorPlugin>()
+        .in( EcsSystemPhase::POST_UPDATE )
+        .run( []( EcsIterState& it ) { it.get_component<EditorPlugin>()->editor->publish_ui_capture(); } );
 
     scene.get_ecs()
         .system( "EditorCanvasPass" )
         .with<VideoServices>()
         .in( EcsSystemPhase::POST_FRAME )
         .order( 15 )
-        .run( []( EcsIterState& it ) {
-            auto vid = it.get_component<VideoServices>();
+        .run( [editor_cam]( EcsIterState& it ) {
+            auto vid       = it.get_component<VideoServices>();
+            RID cam_source = editor_cam->get_component<CameraComponent>()->source;
 
             RenderService::RenderTargetDesc desc;
-            desc.camera       = g_editor->get_editor_camera();
+            desc.camera       = cam_source;
             desc.draw_spatial = false;
             desc.draw_canvas  = true;
             desc.to_screen    = true;
@@ -159,21 +155,19 @@ void NCAPI_EDITOR register_editor_plugin( Scene& scene )
 
 void NCAPI_EDITOR unregister_editor_plugin( Scene& scene )
 {
-    if (!g_editor)
-        return;
+    auto& world = scene.get_ecs();
+    auto edp    = world.get_singleton<EditorPlugin>();
+    NC_FAIL_MSG_RET( edp, "Editor plugin is already unregistered" );
 
     // Persist what the user changed before the panels go away.
-    auto& settings                 = g_editor->get_settings();
-    settings.global_xform_gizmo    = g_editor->get_ctx().global_xform_gizmo;
-    settings.xform_gizmo_operation = g_editor->get_ctx().xform_gizmo_operation;
-    settings.draw_wireframe        = g_editor->get_ctx().draw_wireframe;
-    for (const auto& panel : g_editor->get_panels())
+    auto& settings = edp->editor->get_settings();
+    for (const auto& panel : edp->editor->get_panels())
         settings.panel_visible[panel->get_title()] = panel->get_visible();
-    settings.save( "editor.ini" );
+    settings.save( "edp.ini" );
 
-    g_editor->release_gpu();
-    delete g_editor;
-    g_editor = nullptr;
+    edp->editor->release_gpu();
+
+    world.remove_singleton<EditorPlugin>();
 
     unregister_gui_plugin( scene );
 }

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <filesystem>
 
 #include <ncore/resources/resource.h>
@@ -22,9 +23,26 @@ const char* ResourceLoader::get_asset_root() const
 RID ResourceLoader::load( const String& p_path, bool p_skip_cache )
 {
     NC_ZONE_COLOR( "ResourceLoader::load", NC_COLOR_RESOURCE )
+
+    // Cache check first: disk-loaded and virtual (procedural) resources both
+    // live in path_map, so a virtual path resolves without any file on disk.
+    auto cached           = path_map.find( p_path );
+    const bool has_cached = cached != path_map.end();
+    if (!p_skip_cache && has_cached) {
+        NC_LOG_DEBUG_C( log::IO, "load: cache HIT, RID={} filepath={}", cached->second.value, cached->first );
+        auto ref = storage.get( cached->second );
+        NC_VERIFY( ref );
+        LoadEvent e;
+        e.handle    = cached->second;
+        e.format_id = ( *ref )->get_format_id();
+        events.push( e );
+        return cached->second;
+    }
+
     // Compiled resources live next to their source files as "<path>.bin".
     // Callers keep asking for the source path; raw originals are never staged
     // into the runtime tree, so every asset — fonts included — loads from here.
+    // A skip_cache load of a virtual path is expected to miss (there is no file).
     auto fs_path = std::filesystem::path( get_asset_root() ) / ( p_path + ".bin" );
 
     std::error_code ec;
@@ -35,19 +53,6 @@ RID ResourceLoader::load( const String& p_path, bool p_skip_cache )
             NC_LOG_ERROR_C( log::IO, "Requested resource does not exist on path: {}", fs_path.string() );
         }
         return RID();
-    }
-
-    auto cached     = path_map.find( p_path );
-    bool has_cached = cached != path_map.end();
-    if (!p_skip_cache && has_cached) {
-        NC_LOG_DEBUG_C( log::IO, "load: cache HIT, RID={} filepath={}", cached->second.value, cached->first );
-        auto ref = storage.get( cached->second );
-        NC_VERIFY( ref );
-        LoadEvent e;
-        e.handle    = cached->second;
-        e.format_id = ( *ref )->get_format_id();
-        events.push( e );
-        return cached->second;
     }
 
     // Force-reload: remember the handle being replaced so observers can rebind.
@@ -93,6 +98,12 @@ StringView ResourceLoader::path_of( RID p_rid ) const
     return StringView( it->second );
 }
 
+RID ResourceLoader::find( StringView p_path ) const
+{
+    const auto it = path_map.find( String( p_path.data(), p_path.size() ) );
+    return it == path_map.end() ? RID() : it->second;
+}
+
 void ResourceLoader::unload_resource( RID p_rid )
 {
     if (!p_rid.is_valid())
@@ -102,9 +113,11 @@ void ResourceLoader::unload_resource( RID p_rid )
     if (!entry)
         return;
 
-    if (!( *entry )->filepath.empty())
-        path_map.erase( ( *entry )->filepath );
+    const String filepath = ( *entry )->filepath;
+    if (!filepath.empty())
+        path_map.erase( filepath );
     rid_paths.erase( p_rid.value );
+    virtual_paths.erase( std::remove( virtual_paths.begin(), virtual_paths.end(), filepath ), virtual_paths.end() );
 
     storage.release( p_rid );
 }
@@ -114,23 +127,43 @@ void ResourceLoader::unload_all()
     storage.release_all();
     path_map.clear();
     rid_paths.clear();
+    virtual_paths.clear();
 }
 
-RID ResourceLoader::add( Ref<IResource> p_res )
+RID ResourceLoader::add( Ref<IResource> p_res, StringView p_path )
 {
+    const String path( p_path.data(), p_path.size() );
+
+    const RID replaced = [&]() -> RID {
+        const auto it = path_map.find( path );
+        return it == path_map.end() ? RID() : it->second;
+    }();
+
+    RID handle;
     if (storage.contains( p_res->rid )) {
         // already added.
-        return p_res->rid;
+        handle = p_res->rid;
+    } else {
+        handle     = storage.acquire();
+        auto entry = storage.get( handle );
+        *entry     = p_res;
+        p_res->rid = handle;
     }
 
-    auto handle = storage.acquire();
-    auto entry  = storage.get( handle );
-    *entry      = p_res;
-    p_res->rid  = handle;
+    p_res->filepath         = path;
+    path_map[path]          = handle;
+    rid_paths[handle.value] = path;
+    if (replaced && replaced.value != handle.value)
+        rid_paths.erase( replaced.value );
+
+    const auto it = std::find( virtual_paths.begin(), virtual_paths.end(), path );
+    if (it == virtual_paths.end())
+        virtual_paths.push_back( path );
 
     LoadEvent e;
     e.handle    = handle;
     e.format_id = p_res->get_format_id();
+    e.replaced  = replaced;
     events.push( e );
 
     return handle;

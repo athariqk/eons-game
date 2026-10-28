@@ -470,7 +470,7 @@ private:
     }
 
     struct Impl;
-    std::unique_ptr<Impl> pImpl;
+    Ptr<Impl> pImpl;
 };
 
 } // namespace nc
