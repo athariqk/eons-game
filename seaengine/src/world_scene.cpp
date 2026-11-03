@@ -1,23 +1,22 @@
+// Copyright (C) 2026 Ahmad Ghalib Athariq <alib.athariq@gmail.com>
+// This file is subject to the license terms in the LICENSE file
+// found in the top-level directory of this distribution.
+// File: world_scene.cpp
+
 #include "world_scene.h"
 
 #if defined( DEBUG )
 #include <editor/ncore_editor.h>
 #endif
 
-#include <ncore/application.h>
-#include <ncore/resources/resource.h>
-#include <ncore/runtime/components/camera.h>
-#include <ncore/runtime/components/input.h>
-#include <ncore/runtime/components/material.h>
-#include <ncore/runtime/components/mesh.h>
-#include <ncore/runtime/components/resource.h>
-#include <ncore/runtime/components/services.h>
-#include <ncore/runtime/components/transform.h>
-#include <ncore/runtime/ecs/ecs_events.h>
+#include <ncore/app_context.h>
+#include <ncore/runtime/components.h>
 #include <ncore/runtime/ecs/ecs_system.h>
-#include <ncore/runtime/resources/resource_loader.h>
+#include <ncore/runtime/io/resource_loader.h>
+#include <ncore/runtime/resources/material.h>
+#include <ncore/runtime/resources/mesh.h>
+#include <ncore/runtime/resources/shader.h>
 #include <ncore/services/io/input_service.h>
-#include <ncore/services/service_registry.h>
 #include <ncore/services/video/render_service.h>
 #include <ncore/utils/config.h>
 
@@ -36,7 +35,7 @@ void WorldScene::on_ready()
     editor::register_editor_plugin( *this );
 
     get_ecs().system( "HotReload" ).in( EcsSystemPhase::UPDATE ).run( []( EcsIterState& it ) {
-        auto io = it.world().get_singleton<IOServices>();
+        auto io = it.world().get_singleton<IoServices>();
 
         if (io->inputs->is_key_pressed( Key::F5 )) {
             log::print( "Hot-reloading" );
@@ -118,7 +117,15 @@ void WorldScene::on_exit()
 void WorldScene::create_environment()
 {
     auto& res = get_resource_loader();
-    auto rd   = get_app_ctx()->services.resolve<RenderService>();
+
+    skybox_cubemap = res.load<CubeMap>( "images/skybox.equirect" );
+    NC_FAIL_MSG_RET( skybox_cubemap, "Failed to load skybox cubemap" );
+    skybox_cubemap->prepare( *this );
+
+    auto shader   = res.load<MaterialShader>( "shaders/materials/skybox.slang" );
+    auto material = Ref<Material>::create();
+    material->set_shader( shader );
+    material->set_param( "cubemap", skybox_cubemap );
 
     constexpr Array<Vertex3D, 8> box_verts    = { Vertex3D{ -1.0f, -1.0f, -1.0f }, Vertex3D{ -1.0f, 1.0f, -1.0f },
                                                   Vertex3D{ 1.0f, 1.0f, -1.0f },   Vertex3D{ 1.0f, -1.0f, -1.0f },
@@ -139,52 +146,29 @@ void WorldScene::create_environment()
         0, 3, 4, 3, 7, 4
     };
 
-    auto skybox_mesh = Ref<Mesh>::create(
+    auto mesh = Ref<Mesh>::create(
         MeshDesc{
             .vertices = DynamicArray<std::byte>(
                 reinterpret_cast<std::byte const*>( box_verts.data() ),
                 reinterpret_cast<std::byte const*>( box_verts.data() + box_verts.size() )
             ),
             .indices       = DynamicArray<uint32_t>( box_indices.data(), box_indices.data() + box_indices.size() ),
-            .vertex_stride = sizeof( Vertex3D )
+            .vertex_stride = sizeof( Vertex3D ),
+            .material      = material
         }
     );
-    auto skybox_mesh_rid = res.add( skybox_mesh, "procedural/meshes/skybox" );
-
-    auto cubemap = res.load<CubeMap>( "images/skybox.equirect" );
-    skybox_tex   = rd->texture_cube_create( *cubemap );
-
-    MaterialComponent skybox_mat;
-    skybox_mat.shader = res.load( "shaders/materials/skybox.slang" );
-    skybox_mat.add_texture( skybox_tex );
 
     auto skybox = root()->create_child( "Skybox" );
     skybox->add_component<Transform3DComponent>(
         Transform3DComponent{ .translation = Vec3f(), .rotation = Quaternion::identity(), .scale = Vec3f( 80, 80, 80 ) }
     );
-    skybox->add_component<HasResourceTag>();
-    skybox->add_component<MeshComponent>( MeshComponent{ .source = skybox_mesh_rid } );
-    skybox->add_component<MeshRenderComponent>();
-    skybox->add_component<MaterialComponent>( skybox_mat );
-    skybox->add_component<MaterialRenderComponent>();
+    skybox->add_component<MeshInstanceComponent>( MeshInstanceComponent{ .mesh = mesh } );
 }
-
-static void apply_cascade_params( const WaterSimComponent& sim, MaterialComponent& mat )
-{
-    MapScale scales[8] = {};
-    for (int i = 0; i < sim.cascade_count; ++i) {
-        const auto& c                = sim.cascades[i];
-        scales[i].tile_length        = Vec2f( 1.0f / c.scale.tile_length.x, 1.0f / c.scale.tile_length.y );
-        scales[i].displacement_scale = c.scale.displacement_scale;
-        scales[i].normal_scale       = c.scale.normal_scale;
-    }
-    mat.set_params( "numCascades", sim.cascade_count );
-    mat.set_params( "mapScales", scales );
-};
 
 void WorldScene::create_water( Node* camera )
 {
     NC_VERIFY( camera );
+    NC_FAIL_MSG_RET( skybox_cubemap, "Skybox cubemap must be created before water" );
 
     auto cam_component = camera->get_component<CameraComponent>();
 
@@ -211,6 +195,26 @@ void WorldScene::create_water( Node* camera )
     const float horizon_fade_threshold = app_cfg.get_float( "Water.horizon_fade_scale", 0.3f );
     const float morph_width            = app_cfg.get_float( "Water.morph_transition_width", 0.1f );
 
+    auto shader   = res.load<MaterialShader>( "shaders/materials/water.slang" );
+    auto material = Ref<Material>::create();
+    material->set_shader( shader );
+    material->set_param( "displacementMap", waves.get_displacement_map() );
+    material->set_param( "normalMap", waves.get_normal_map() );
+    material->set_param( "envMap", skybox_cubemap );
+    material->set_param( "waterColor", water_color.normalize() );
+    material->set_param( "foamColor", foam_color.normalize() );
+    material->set_param( "roughness", roughness );
+    material->set_param( "normalStrength", normal_strength );
+    material->set_param( "envStrength", env_strength );
+    material->set_param( "mapSize", static_cast<float>( waves.get_map_size() ) );
+    material->set_param( "absorption", absorption );
+    material->set_param( "horizonDistance", cam_component->z_far * horizon_fade_threshold );
+    material->set_param( "morphTransitionWidth", morph_width );
+
+    auto* sim            = water_sim->get_component<WaterSimComponent>();
+    sim->material        = material;
+    water_sim->notify_changed<WaterSimComponent>();
+
     auto water_mesh = create_water_clipmap(
         WaterMeshDesc{
             .cells        = cells,
@@ -235,41 +239,10 @@ void WorldScene::create_water( Node* camera )
         .lock_position_y = true,
         .lock_position_z = false,
     } );
-    plane->add_component<HasResourceTag>();
-    plane->add_component<MeshComponent>( MeshComponent{ .source = res.add( water_mesh, "procedural/ocean/water_mesh" ) } );
-    plane->add_component<MeshRenderComponent>();
-
-    MaterialComponent water_mat;
-    water_mat.shader = res.load( "shaders/materials/water.slang" );
-    water_mat.add_texture( waves.get_displacement_map() );
-    water_mat.add_texture( waves.get_normal_map() );
-    water_mat.add_texture( skybox_tex );
-    water_mat.set_params( "waterColor", water_color.normalize() );
-    water_mat.set_params( "foamColor", foam_color.normalize() );
-    water_mat.set_params( "roughness", roughness );
-    water_mat.set_params( "normalStrength", normal_strength );
-    water_mat.set_params( "envStrength", env_strength );
-    water_mat.set_params( "mapSize", static_cast<float>( waves.get_map_size() ) );
-    water_mat.set_params( "absorption", absorption );
-    water_mat.set_params( "horizonDistance", cam_component->z_far * horizon_fade_threshold );
-    water_mat.set_params( "morphTransitionWidth", morph_width );
-    apply_cascade_params( *water_sim->get_component<WaterSimComponent>(), water_mat );
-    plane->add_component<MaterialComponent>( water_mat );
-    plane->add_component<MaterialRenderComponent>();
-
-    get_ecs()
-        .observer( "WaterSim_Material_Setter" )
-        .event( ecs::ON_SET )
-        .with<WaterSimComponent>()
-        .up()
-        .with<MaterialComponent>()
-        .filter()
-        .each( []( EcsIterState& it ) {
-            auto sim = it.get_component<WaterSimComponent>();
-            auto mat = it.get_entity_component<MaterialComponent>();
-            apply_cascade_params( *sim, *mat );
-            it.notify_changed<MaterialComponent>();
-        } );
+    plane->add_component<MeshInstanceComponent>( MeshInstanceComponent{ .mesh = water_mesh } );
+    plane->add_component<MaterialOverrideComponent>(
+        MaterialOverrideComponent{ .material = material, .override_mesh_material = true }
+    );
 }
 
 } // namespace sea

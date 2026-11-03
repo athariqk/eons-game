@@ -3,7 +3,8 @@
 #include <imgui.h>
 
 #include <editor.h>
-#include <ncore/core/rid.h>
+#include <ncore/services/video/gfx_types.h>
+#include <ncore/structs/rid.h>
 
 namespace nc::editor {
 
@@ -98,8 +99,8 @@ private:
 class GizmoOverlay final : public ViewportOverlay {
 public:
     GizmoOverlay(
-        Scene& scene [[clang::lifetimebound]], EditorSelection& selection [[clang::lifetimebound]],
-        EditorSettings& settings [[clang::lifetimebound]]
+        Scene& scene NC_LIFETIME_BOUND, EditorSelection& selection NC_LIFETIME_BOUND,
+        EditorSettings& settings NC_LIFETIME_BOUND
     );
 
     void draw( ViewportFrame& frame ) override;

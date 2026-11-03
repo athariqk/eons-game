@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include <ncore/core/reference.h>
+#include <ncore/object/reference.h>
 
 namespace nc {
 class Mesh;

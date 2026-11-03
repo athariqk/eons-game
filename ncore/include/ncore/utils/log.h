@@ -13,18 +13,18 @@
 namespace nc::log {
 
 enum class Level : uint8_t {
-    LTRACE = 0, // Log level Trace
-    LDEBUG,     // Log level Debug
-    LINFO,      // Log level Info
-    LWARN,      // Log level Warn
-    LERROR,     // Log level Error
-    LFATAL,     // Log level Fatal
-    LOFF        // Log level Off
+    Trace = 0, // Log level Trace
+    Debug,     // Log level Debug
+    Info,      // Log level Info
+    Warn,      // Log level Warn
+    Error,     // Log level Error
+    Fatal,     // Log level Fatal
+    Off        // Log level Off
 };
 
-NCAPI StringView level_triplet( Level l );
-NCAPI StringView level_name( Level l );
-NCAPI StringView level_color( Level l );
+NCAPI StringView level_triplet( Level p_level );
+NCAPI StringView level_name( Level p_level );
+NCAPI StringView level_color( Level p_level );
 
 struct NCAPI SourceLoc {
     const char* file = nullptr;
@@ -38,25 +38,25 @@ struct NCAPI SourceLoc {
 
 struct NCAPI LogMsg {
     StringView channel;
-    Level level = Level::LOFF;
+    Level level = Level::Off;
     SourceLoc loc;
     String payload;
 };
 
-NCAPI void set_min_level( Level level );
+NCAPI void set_min_level( Level p_level );
 NCAPI Level get_min_level();
 
 inline void silence()
 {
-    set_min_level( Level::LOFF );
+    set_min_level( Level::Off );
 }
 inline void unsilence()
 {
-    set_min_level( Level::LTRACE );
+    set_min_level( Level::Trace );
 }
 
 // Engine modules
-inline constexpr const char* DEFAULT  = "NCE";
+inline constexpr const char* DEFAULT  = NC_LOG_CHANNEL_NAME;
 inline constexpr const char* AUDIO    = "SFX";
 inline constexpr const char* ECS      = "ECS";
 inline constexpr const char* GRAPHICS = "GFX";
@@ -110,12 +110,12 @@ NCAPI ListenerToken add_listener( const LogMsgCallback& callback );
         }                                                                                                              \
     } while (0)
 
-#define NC_LOG_TRACE_C( cat, ... ) NC_LOG( cat, nc::log::Level::LTRACE, __FILE__, __func__, __LINE__, __VA_ARGS__ )
-#define NC_LOG_DEBUG_C( cat, ... ) NC_LOG( cat, nc::log::Level::LDEBUG, nullptr, nullptr, 0, __VA_ARGS__ )
-#define NC_LOG_INFO_C( cat, ... )  NC_LOG( cat, nc::log::Level::LINFO, nullptr, nullptr, 0, __VA_ARGS__ )
-#define NC_LOG_WARN_C( cat, ... )  NC_LOG( cat, nc::log::Level::LWARN, nullptr, nullptr, 0, __VA_ARGS__ )
-#define NC_LOG_ERROR_C( cat, ... ) NC_LOG( cat, nc::log::Level::LERROR, __FILE__, __func__, __LINE__, __VA_ARGS__ )
-#define NC_LOG_FATAL_C( cat, ... ) NC_LOG( cat, nc::log::Level::LFATAL, __FILE__, __func__, __LINE__, __VA_ARGS__ )
+#define NC_LOG_TRACE_C( cat, ... ) NC_LOG( cat, nc::log::Level::Trace, __FILE__, __func__, __LINE__, __VA_ARGS__ )
+#define NC_LOG_DEBUG_C( cat, ... ) NC_LOG( cat, nc::log::Level::Debug, nullptr, nullptr, 0, __VA_ARGS__ )
+#define NC_LOG_INFO_C( cat, ... )  NC_LOG( cat, nc::log::Level::Info, nullptr, nullptr, 0, __VA_ARGS__ )
+#define NC_LOG_WARN_C( cat, ... )  NC_LOG( cat, nc::log::Level::Warn, nullptr, nullptr, 0, __VA_ARGS__ )
+#define NC_LOG_ERROR_C( cat, ... ) NC_LOG( cat, nc::log::Level::Error, __FILE__, __func__, __LINE__, __VA_ARGS__ )
+#define NC_LOG_FATAL_C( cat, ... ) NC_LOG( cat, nc::log::Level::Fatal, __FILE__, __func__, __LINE__, __VA_ARGS__ )
 
 #define NC_LOG_TRACE( ... ) NC_LOG_TRACE_C( NC_LOG_CHANNEL_NAME, __VA_ARGS__ )
 #define NC_LOG_DEBUG( ... ) NC_LOG_DEBUG_C( NC_LOG_CHANNEL_NAME, __VA_ARGS__ )

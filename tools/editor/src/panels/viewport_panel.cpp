@@ -1,8 +1,6 @@
 #include <editor_components.h>
 
-#include <ncore/runtime/components/camera.h>
-#include <ncore/runtime/components/time.h>
-#include <ncore/runtime/components/transform.h>
+#include <ncore/runtime/components.h>
 #include <ncore/runtime/ecs/ecs_query.h>
 #include <ncore/runtime/node.h>
 #include <ncore/runtime/scene.h>
@@ -93,7 +91,7 @@ void ViewportPanel::bind_camera( EditorFrame& p_ctx, bool open )
     camera_entity = resolve_camera_entity( ecs_world, source );
 
     auto* cam_cmp = static_cast<CameraComponent*>(
-        ecs_world.get_component_ptr( camera_entity, rtti::TypeRegistry::find<CameraComponent>() )
+        ecs_world.get_component_ptr( camera_entity, TypeDB::find<CameraComponent>() )
     );
     if (!cam_cmp) {
         camera = 0;

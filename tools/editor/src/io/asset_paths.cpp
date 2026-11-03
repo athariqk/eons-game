@@ -10,14 +10,14 @@
 #include <vector>
 
 #include <ncore/application.h>
-#include <ncore/resources/resource.h>
-#include <ncore/runtime/resources/resource_loader.h>
+#include <ncore/runtime/io/resource.h>
+#include <ncore/runtime/io/resource_loader.h>
 
 namespace nc::editor {
 
 namespace {
 
-constexpr int kMaxRootProbe = 8;
+constexpr int MAX_ROOT_PROBE = 8;
 
 String path_string( const std::filesystem::path& p )
 {
@@ -33,7 +33,7 @@ DynamicArray<String> discover_source_dirs()
     if (ec)
         return {};
 
-    for (int i = 0; i <= kMaxRootProbe; ++i) {
+    for (int i = 0; i <= MAX_ROOT_PROBE; ++i) {
         if (std::filesystem::exists( dir / "ncore" / "assets", ec )) {
             DynamicArray<String> dirs;
             for (const char* name : { "ncore", "eons-game", "seaengine" }) {
@@ -142,8 +142,8 @@ bool find_source( StringView asset_path, const AssetPaths& paths, String& out )
 }
 
 bool resolve_include(
-    StringView include, const std::filesystem::path& includer_dir, const AssetPaths& paths,
-    std::filesystem::path& out )
+    StringView include, const std::filesystem::path& includer_dir, const AssetPaths& paths, std::filesystem::path& out
+)
 {
     std::error_code ec;
     const std::filesystem::path rel( std::string( include.data(), include.size() ) );
@@ -205,7 +205,7 @@ uint64_t hash_source_tree( const std::filesystem::path& source, const AssetPaths
         pending.pop_back();
 
         std::error_code ec;
-        const auto path = std::filesystem::path( current );
+        const auto path      = std::filesystem::path( current );
         const auto canonical = std::filesystem::weakly_canonical( path, ec ).string();
         if (!visited.insert( canonical ).second)
             continue;
@@ -218,7 +218,7 @@ uint64_t hash_source_tree( const std::filesystem::path& source, const AssetPaths
         hash = fnv1a( text, hash );
 
         size_t pos = 0;
-        while (( pos = text.find( "#include", pos )) != std::string::npos) {
+        while (( pos = text.find( "#include", pos ) ) != std::string::npos) {
             pos += 8;
             while (pos < text.size() && ( text[pos] == ' ' || text[pos] == '\t' ))
                 ++pos;

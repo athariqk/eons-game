@@ -2,7 +2,7 @@
 
 #include <flecs.h>
 
-#include <ncore/runtime/components/transform.h>
+#include <ncore/runtime/components.h>
 #include <ncore/runtime/node.h>
 #include <ncore/runtime/scene.h>
 #include <utils/profiler.h>
@@ -10,6 +10,8 @@
 #include "scene_plugins.h"
 
 namespace nc {
+
+Scene::Scene() : res_loader( *this ) {}
 
 void Scene::on_enter()
 {
@@ -80,7 +82,6 @@ void Scene::on_enter()
     register_video_plugin( *this );
     register_inputs_plugin( *this );
     // register_gui_plugin( *this );
-    register_resources_plugin( *this );
     register_debug_plugin( *this );
     ecs_world.finalize_ordering();
 

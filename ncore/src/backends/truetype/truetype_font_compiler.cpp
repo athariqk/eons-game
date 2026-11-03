@@ -2,7 +2,8 @@
 
 #include <fstream>
 
-#include <ncore/resources/resource_archive.h>
+#include <ncore/runtime/io/resource_archive.h>
+#include <ncore/runtime/resources/font.h>
 #include <ncore/utils/log.h>
 
 namespace nc {

@@ -1,10 +1,8 @@
 #pragma once
 
-#include <span>
-
 #include <ncore/core/collection.h>
-#include <ncore/core/rid.h>
 #include <ncore/services/service.h>
+#include <ncore/structs/rid.h>
 
 #include "input_event.h"
 

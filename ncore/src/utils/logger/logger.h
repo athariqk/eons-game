@@ -59,7 +59,7 @@ public:
 private:
     Logger();
 
-    Level global_level = Level::LTRACE;
+    Level global_level = Level::Trace;
     DynamicArray<Ref<Sink>> global_sinks{};
     HashMap<String, Ref<LogChannel>> channels{};
     DynamicArray<std::weak_ptr<LogMsgCallback>> callbacks;

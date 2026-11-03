@@ -13,7 +13,7 @@
 
 #include <ncore/core/collection.h>
 #include <ncore/core/memory.h>
-#include <ncore/core/types.h>
+#include <ncore/types/typedb.h>
 #include <ncore/utils/log.h>
 
 #include "editor_selection.h"
@@ -55,7 +55,7 @@ struct LogStore {
     ImVector<int32_t> channel;
     DynamicArray<String> channels;
 
-    bool is_level_enabled[6] = { true, true, true, true, true, true };
+    bool is_level_enabled[6] = { false, false, false, true, true, true };
     int channel_filter       = -1;
     bool is_autoscroll       = true;
 
@@ -100,9 +100,9 @@ class InspectorHandler {
 public:
     virtual ~InspectorHandler() = default;
 
-    virtual bool can_handle( const rtti::TypeInfo* type, void* component ) const = 0;
+    virtual bool can_handle( const types::TypeInfo* type, void* component ) const = 0;
 
-    virtual void draw( EditorFrame& ctx, Node& node, const rtti::TypeInfo* type, void* component ) = 0;
+    virtual void draw( EditorFrame& ctx, Node& node, const types::TypeInfo* type, void* component ) = 0;
 
     /** @brief Skip the generic property sheet for components this handler owns. */
     virtual bool replaces_default() const
@@ -117,12 +117,12 @@ public:
  * Return true when the widget owned the row; false falls back to the default.
  */
 using PropertyWidgetFn = std::function<bool(
-    EditorFrame& ctx, const rtti::RecordInfo* owner, StringView field, const rtti::TypeInfo* type, void* value,
+    EditorFrame& ctx, const types::RecordInfo* owner, StringView field, const types::TypeInfo* type, void* value,
     bool& out_changed
 )>;
 
 struct PropertyWidget {
-    const rtti::TypeInfo* Type = nullptr;
+    const types::TypeInfo* Type = nullptr;
     PropertyWidgetFn Draw;
 };
 
@@ -273,7 +273,7 @@ class Editor : public Object {
     NCLASS( Editor, Object )
 
 public:
-    Editor( Scene& scene [[clang::lifetimebound]] );
+    Editor( Scene& scene NC_LIFETIME_BOUND );
     ~Editor() override;
 
     Editor( const Editor& )            = delete;
@@ -358,9 +358,9 @@ public:
     }
 
     // Panel / contribution registration.
-    EditorPanel* register_panel( DockSlot slot, int order, Ptr<EditorPanel> panel ) [[clang::lifetimebound]];
+    EditorPanel* register_panel( DockSlot slot, int order, Ptr<EditorPanel> panel ) NC_LIFETIME_BOUND;
     void register_inspector_handler( Ptr<InspectorHandler> handler );
-    void register_property_widget( const rtti::TypeInfo* type, PropertyWidgetFn widget );
+    void register_property_widget( const types::TypeInfo* type, PropertyWidgetFn widget );
 
 private:
     void create_panels();

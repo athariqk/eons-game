@@ -117,7 +117,7 @@ void Node::destroy_children()
     }
 }
 
-void Node::add_component( const rtti::TypeInfo* type, const void* data )
+void Node::add_component( const types::TypeInfo* type, const void* data )
 {
     if (has_component_impl( type ))
         return;
@@ -126,12 +126,12 @@ void Node::add_component( const rtti::TypeInfo* type, const void* data )
     track_ecs_component( type, ecs.register_component_type( type ) );
 }
 
-const void* Node::get_component_const( const rtti::TypeInfo* type ) const
+const void* Node::get_component_const( const types::TypeInfo* type ) const
 {
     return scene->get_ecs().get_component_const( internal_id, type );
 }
 
-void* Node::get_component( const rtti::TypeInfo* type ) const
+void* Node::get_component( const types::TypeInfo* type ) const
 {
     return scene->get_ecs().get_component_impl( internal_id, type );
 }
@@ -164,18 +164,18 @@ bool* Node::get_active()
 
 //------------------------------------------------------------------------------
 
-void Node::track_ecs_component( const rtti::TypeInfo* type, EcsComponent id )
+void Node::track_ecs_component( const types::TypeInfo* type, EcsComponent id )
 {
     auto world                    = reinterpret_cast<ecs_world_t*>( scene->get_ecs().get_native_handle() );
     components[component_count++] = Component{ id, true, ecs_has_id( world, id, EcsCanToggle ) };
 }
 
-bool Node::has_component_impl( const rtti::TypeInfo* type ) const
+bool Node::has_component_impl( const types::TypeInfo* type ) const
 {
     return scene->get_ecs().has_component_impl( internal_id, type );
 }
 
-bool Node::remove_component_impl( const rtti::TypeInfo* type )
+bool Node::remove_component_impl( const types::TypeInfo* type )
 {
     bool result  = scene->get_ecs().remove_component_impl( internal_id, type );
     auto comp_id = scene->get_ecs().register_component_type( type );
@@ -189,38 +189,38 @@ bool Node::remove_component_impl( const rtti::TypeInfo* type )
     return result;
 }
 
-bool Node::has_component( const rtti::TypeInfo* type ) const
+bool Node::has_component( const types::TypeInfo* type ) const
 {
     return has_component_impl( type );
 }
 
-bool Node::remove_component( const rtti::TypeInfo* type )
+bool Node::remove_component( const types::TypeInfo* type )
 {
     return remove_component_impl( type );
 }
 
-void Node::set_component_enabled( const rtti::TypeInfo* type, bool enabled )
+void Node::set_component_enabled( const types::TypeInfo* type, bool enabled )
 {
     auto comp_id = scene->get_ecs().register_component_type( type );
     auto world   = reinterpret_cast<ecs_world_t*>( scene->get_ecs().get_native_handle() );
     ecs_enable_id( world, internal_id, comp_id, enabled );
 }
 
-bool Node::is_component_enabled( const rtti::TypeInfo* type ) const
+bool Node::is_component_enabled( const types::TypeInfo* type ) const
 {
     auto comp_id = scene->get_ecs().register_component_type( type );
     auto world   = reinterpret_cast<ecs_world_t*>( scene->get_ecs().get_native_handle() );
     return ecs_is_enabled_id( world, internal_id, comp_id );
 }
 
-void Node::notify_changed( const rtti::TypeInfo* type ) const
+void Node::notify_changed( const types::TypeInfo* type ) const
 {
     auto comp_id = scene->get_ecs().register_component_type( type );
     auto world   = reinterpret_cast<ecs_world_t*>( scene->get_ecs().get_native_handle() );
     ecs_modified_id( world, internal_id, comp_id );
 }
 
-void Node::emit_event_impl( const rtti::TypeInfo* type, EcsEntity target, const void* data ) const
+void Node::emit_event_impl( const types::TypeInfo* type, EcsEntity target, const void* data ) const
 {
     scene->get_ecs().emit_event_impl( type, target, data );
 }

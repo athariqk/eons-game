@@ -1,8 +1,8 @@
 #pragma once
 
-#include <ncore/core/collection.h>
-#include <ncore/core/vector.h>
 #include <ncore/runtime/ecs/ecs_component.h>
+#include <ncore/runtime/resources/material.h>
+#include <ncore/structs/vector.h>
 
 namespace sea {
 
@@ -40,6 +40,11 @@ NC_COMPONENT( WaterSimComponent )
 
     REFLECT int cascade_count = 0;
     REFLECT WaveCascadeParams cascades[MAX_CASCADES];
+
+    // Runtime-only (not reflected/serialized): the material whose cascade uniforms
+    // mirror this component. The scene assigns it once the sim exists; from then on
+    // the ON_SET observer re-applies the cascade parameters whenever they change.
+    Ref<Material> material;
 };
 
 struct alignas( 16 ) SpectrumComputeCB {

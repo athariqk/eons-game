@@ -3,7 +3,7 @@
 #include <fstream>
 #include <mutex>
 
-#include <ncore/core/reference.h>
+#include <ncore/object/object_info.h>
 #include <ncore/utils/log.h>
 
 namespace nc::log {
@@ -36,7 +36,7 @@ protected:
     String current_time();
 
 private:
-    Level level = Level::LTRACE;
+    Level level = Level::Trace;
 };
 
 class ConsoleSink : public Sink {

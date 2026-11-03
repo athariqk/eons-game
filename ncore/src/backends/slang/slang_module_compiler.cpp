@@ -4,8 +4,8 @@
 #include <sstream>
 #include <vector>
 
-#include <ncore/resources/resource.h>
-#include <ncore/resources/resource_archive.h>
+#include <ncore/runtime/io/resource_archive.h>
+#include <ncore/runtime/resources/shader.h>
 #include <ncore/services/video/gfx_types.h>
 #include <ncore/utils/log.h>
 
@@ -269,9 +269,9 @@ Error SlangModuleCompiler::compile( StringView p_input, StringView p_output, Ass
         return Error::ERR_INVALID_PARAMETER;
     }
 
-    set_search_paths_( ctx.search_paths );
+    set_search_paths( ctx.search_paths );
 
-    if (!ensure_session_( ctx.skip_cache ))
+    if (!ensure_session( ctx.skip_cache ))
         return Error::FAIL;
 
     auto fs_path      = std::filesystem::path( p_input.data() );
@@ -296,7 +296,7 @@ Error SlangModuleCompiler::compile( StringView p_input, StringView p_output, Ass
     // See also https://docs.shader-slang.org/en/latest/compilation-api.html#get-target-kernel-code
 
     MaterialShaderDesc mat_shader_desc;
-    reflect_material_attributes_( module, mat_shader_desc );
+    reflect_material_attributes( module, mat_shader_desc );
 
     std::vector<Slang::ComPtr<slang::IEntryPoint>> entry_points;
 
@@ -314,7 +314,7 @@ Error SlangModuleCompiler::compile( StringView p_input, StringView p_output, Ass
         return Error::OK;
     }
 
-    DynamicArray<ShaderDesc> programs;
+    DynamicArray<ShaderModuleDesc> programs;
 
     for (auto& entry_point : entry_points) {
         slang::IEntryPoint* ep = entry_point.get();
@@ -406,7 +406,7 @@ Error SlangModuleCompiler::compile( StringView p_input, StringView p_output, Ass
                                             : "?",
             spirv_code->getBufferSize()
         );
-        ShaderDesc entry_out;
+        ShaderModuleDesc entry_out;
         entry_out.entrypoint = ep->getFunctionReflection()->getName();
 
         //-----------------------------
@@ -444,8 +444,8 @@ Error SlangModuleCompiler::compile( StringView p_input, StringView p_output, Ass
             );
         }
 
-        reflect_module_params_( prog_layout, entry_out );
-        reflect_entry_point_params_( linked_ep_layout, entry_out.stage, entry_out.params, entry_out.vert_layout );
+        reflect_module_params( prog_layout, entry_out );
+        reflect_entry_point_params( linked_ep_layout, entry_out.stage, entry_out.params, entry_out.vert_layout );
 
         programs.push_back( std::move( entry_out ) );
     }
@@ -460,14 +460,13 @@ Error SlangModuleCompiler::compile( StringView p_input, StringView p_output, Ass
     if (mat_shader_desc.is_material) {
         auto ms               = Ref<MaterialShader>::create( programs );
         ms->cull_mode         = mat_shader_desc.cull_mode;
-        ms->fill_mode         = mat_shader_desc.fill_mode;
         ms->depth_test        = mat_shader_desc.depth_test;
         ms->depth_write       = mat_shader_desc.depth_write;
         ms->blend             = mat_shader_desc.blend;
         ms->multisample_state = mat_shader_desc.multisample_state;
 
-        // material_type drives get_pso_key_'s vertex layout selection. It is inferred
-        // from the material interface in reflect_material_attributes_.
+        // material_type drives get_pso_key's vertex layout selection. It is inferred
+        // from the material interface in reflect_material_attributes.
         ms->material_type = mat_shader_desc.material_kind;
 
         resource = ms;
@@ -486,7 +485,7 @@ Error SlangModuleCompiler::compile( StringView p_input, StringView p_output, Ass
 
 // ---------------------------------------------------------------------------
 
-bool SlangModuleCompiler::ensure_session_( bool p_recreate_session )
+bool SlangModuleCompiler::ensure_session( bool p_recreate_session )
 {
     if (session_created && !p_recreate_session)
         return true;
@@ -517,7 +516,7 @@ bool SlangModuleCompiler::ensure_session_( bool p_recreate_session )
 
 // ---------------------------------------------------------------------------
 
-void SlangModuleCompiler::set_search_paths_( const DynamicArray<String>& p_paths )
+void SlangModuleCompiler::set_search_paths( const DynamicArray<String>& p_paths )
 {
     if (p_paths.empty() || p_paths == search_path_storage_)
         return;
@@ -531,7 +530,7 @@ void SlangModuleCompiler::set_search_paths_( const DynamicArray<String>& p_paths
         paths += "\n - " + path;
     }
 
-    // The old session still references the previous pointers; ensure_session_()
+    // The old session still references the previous pointers; ensure_session()
     // releases it via writeRef() before creating the replacement.
     session_created = false;
 
@@ -543,7 +542,7 @@ void SlangModuleCompiler::set_search_paths_( const DynamicArray<String>& p_paths
 // Reads editor presentation hints ([Color], [Range(min,max)], [Header("...")]) off a
 // uniform variable into the reflected field. No session needed: user attributes are
 // enumerated directly on the VariableReflection.
-static void read_field_ui_attrs_( slang::VariableReflection* var, ShaderParamField& out )
+static void read_field_ui_attrs( slang::VariableReflection* var, ShaderParamField& out )
 {
     if (!var)
         return;
@@ -575,7 +574,7 @@ static void read_field_ui_attrs_( slang::VariableReflection* var, ShaderParamFie
     }
 }
 
-void SlangModuleCompiler::reflect_fields_(
+void SlangModuleCompiler::reflect_fields(
     slang::TypeLayoutReflection* type_layout, uint32_t base_offset, const String& name_prefix, uint32_t binding_space,
     gfx::ShaderStage stage, DynamicArray<ShaderParamField>& out_fields, DynamicArray<ShaderParamDesc>& out_params
 )
@@ -592,9 +591,8 @@ void SlangModuleCompiler::reflect_fields_(
         if (!field_type)
             continue;
 
-        const char* raw_name = field->getName();
-        String field_name    = name_prefix.empty() ? String( raw_name ? raw_name : "" )
-                                                   : name_prefix + "." + String( raw_name ? raw_name : "" );
+        String raw_name   = field->getName() ? String( field->getName() ) : String();
+        String field_name = name_prefix.empty() ? raw_name : name_prefix + "." + raw_name;
 
         auto field_kind = field_type->getKind();
 
@@ -609,7 +607,7 @@ void SlangModuleCompiler::reflect_fields_(
 
         // nested uniform struct -> recurse, keep accumulating byte offset
         if (field_kind == slang::TypeReflection::Kind::Struct) {
-            reflect_fields_(
+            reflect_fields(
                 element_type_layout, base_offset + static_cast<uint32_t>( field->getOffset() ), field_name,
                 binding_space, stage, out_fields, out_params
             );
@@ -621,14 +619,15 @@ void SlangModuleCompiler::reflect_fields_(
         if (field_kind == slang::TypeReflection::Kind::Resource ||
             field_kind == slang::TypeReflection::Kind::SamplerState) {
             ShaderParamDesc info;
-            info.name          = field_name;
-            info.binding_space = static_cast<gfx::BindingSet>( binding_space );
-            info.binding_idx   = field->getBindingIndex();
-            info.stage_mask    = stage;
-            info.resource_type = field_kind == slang::TypeReflection::Kind::SamplerState
-                                     ? gfx::ResourceType::SAMPLER
-                                     : classify_resource_type( element_type_layout->getType() );
-            info.param_type    = translate_slang_type( element_type_layout->getType() );
+            info.qualified_name = field_name;
+            info.base_name      = raw_name;
+            info.binding_space  = static_cast<gfx::BindingSet>( binding_space );
+            info.binding_idx    = field->getBindingIndex();
+            info.stage_mask     = stage;
+            info.resource_type  = field_kind == slang::TypeReflection::Kind::SamplerState
+                                      ? gfx::ResourceType::SAMPLER
+                                      : classify_resource_type( element_type_layout->getType() );
+            info.param_type     = translate_slang_type( element_type_layout->getType() );
             if (field_kind != slang::TypeReflection::Kind::SamplerState) {
                 auto access     = element_type_layout->getType()->getResourceAccess();
                 info.cpu_access = ( access == SLANG_RESOURCE_ACCESS_READ_WRITE )
@@ -636,8 +635,8 @@ void SlangModuleCompiler::reflect_fields_(
                                       : gfx::ResourceCpuAccessFlags::READ;
             }
             NC_LOG_DEBUG_C(
-                log::IO, "param='{}' type='{}' space={} idx={}", info.name, rtti::get_enum_name( &info.resource_type ),
-                info.binding_space, info.binding_idx
+                log::IO, "param='{}' type='{}' space={} idx={}", info.qualified_name,
+                TypeDB::get_enum_name( &info.resource_type ), info.binding_space, info.binding_idx
             );
             out_params.push_back( std::move( info ) );
             continue;
@@ -645,25 +644,26 @@ void SlangModuleCompiler::reflect_fields_(
 
         // plain uniform data: scalar/vector/matrix, possibly arrayed
         ShaderParamField out;
-        out.name       = field_name;
-        out.offset     = base_offset + static_cast<uint32_t>( field->getOffset() );
-        out.size       = static_cast<uint32_t>( field_type->getSize() );
-        out.stride     = field_type->getStride();
-        out.type       = translate_slang_type( field_type->getType() );
-        out.array_size = array_size;
-        read_field_ui_attrs_( field->getVariable(), out );
+        out.qualified_name = field_name;
+        out.base_name      = raw_name;
+        out.offset         = base_offset + static_cast<uint32_t>( field->getOffset() );
+        out.size           = static_cast<uint32_t>( field_type->getSize() );
+        out.stride         = field_type->getStride();
+        out.type           = translate_slang_type( field_type->getType() );
+        out.array_size     = array_size;
+        read_field_ui_attrs( field->getVariable(), out );
         out_fields.push_back( out );
 
         NC_LOG_DEBUG_C(
             log::IO,
             "  field '{}' type='{}' offset={} size={} stride={} array_size={} widget={} range=[{},{}] header='{}'",
-            out.name, rtti::get_enum_name( &out.type ), out.offset, out.size, out.stride, out.array_size,
-            rtti::get_enum_name( &out.widget ), out.range_min, out.range_max, out.header.c_str()
+            out.qualified_name, TypeDB::get_enum_name( &out.type ), out.offset, out.size, out.stride, out.array_size,
+            TypeDB::get_enum_name( &out.widget ), out.range_min, out.range_max, out.header.c_str()
         );
     }
 }
 
-void SlangModuleCompiler::reflect_module_params_( slang::ProgramLayout* p_module_layout, ShaderDesc& p_module )
+void SlangModuleCompiler::reflect_module_params( slang::ProgramLayout* p_module_layout, ShaderModuleDesc& p_module )
 {
     for (unsigned j = 0; j < p_module_layout->getParameterCount(); j++) {
         auto param = p_module_layout->getParameterByIndex( j );
@@ -688,7 +688,8 @@ void SlangModuleCompiler::reflect_module_params_( slang::ProgramLayout* p_module
         );
 
         ShaderParamDesc info;
-        info.name             = param->getName() ? param->getName() : ""; // avoid std::string ctor(nullptr_t) crash
+        info.qualified_name   = param->getName() ? param->getName() : ""; // avoid std::string ctor(nullptr_t) crash
+        info.base_name        = info.qualified_name;
         info.total_size_bytes = type_layout->getSize();
         info.stage_mask       = p_module.stage;
         info.binding_space    = static_cast<gfx::BindingSet>( param->getBindingSpace() );
@@ -707,7 +708,7 @@ void SlangModuleCompiler::reflect_module_params_( slang::ProgramLayout* p_module
                 // ParameterBlock<T> is its own descriptor set, distinct from a
                 // plain ConstantBuffer<T>. It may contain a mix of uniform data
                 // and resources/samplers — those are pulled out into their own
-                // ShaderParamDesc entries by reflect_fields_ below rather than
+                // ShaderParamDesc entries by reflect_fields below rather than
                 // living in `fields`.
                 info.resource_type = gfx::ResourceType::CONSTANT_BUFFER;
 
@@ -746,21 +747,23 @@ void SlangModuleCompiler::reflect_module_params_( slang::ProgramLayout* p_module
         // consulting SPIR-V.
 
         NC_LOG_DEBUG_C(
-            log::IO, "  binding '{}' -> set={} idx={}", info.name, static_cast<uint32_t>( info.binding_space ),
-            info.binding_idx
+            log::IO, "  binding '{}' -> set={} idx={}", info.qualified_name,
+            static_cast<uint32_t>( info.binding_space ), info.binding_idx
         );
 
         // Recursively reflect fields for anything struct-shaped (plain struct,
         // ConstantBuffer<T>, or ParameterBlock<T>). Resource/sampler params
         // themselves have no fields to walk (getFieldCount() == 0), so this is
         // a no-op for those and safe to call unconditionally.
-        reflect_fields_( type_layout, 0, info.name, info.binding_space, p_module.stage, info.fields, p_module.params );
+        reflect_fields(
+            type_layout, 0, info.qualified_name, info.binding_space, p_module.stage, info.fields, p_module.params
+        );
 
         p_module.params.push_back( std::move( info ) );
     }
 }
 
-void SlangModuleCompiler::reflect_entry_point_params_(
+void SlangModuleCompiler::reflect_entry_point_params(
     slang::EntryPointLayout* ep_layout, gfx::ShaderStage stage, DynamicArray<ShaderParamDesc>& out_params,
     gfx::VertexLayout& out_vert_layout
 )
@@ -824,13 +827,14 @@ void SlangModuleCompiler::reflect_entry_point_params_(
                         continue;
 
                     ShaderParamDesc info;
-                    info.name          = field->getName() ? field->getName() : "";
-                    info.semantic_name = sem ? sem : "";
-                    info.resource_type = gfx::ResourceType::VARYING_INPUT;
-                    info.param_type    = translate_slang_type( field_type->getType() );
-                    info.location      = static_cast<uint32_t>( field->getBindingIndex() );
-                    info.offset        = running_offset;
-                    info.binding_idx   = 0;
+                    info.qualified_name = field->getName() ? field->getName() : "";
+                    info.base_name      = info.qualified_name;
+                    info.semantic_name  = sem ? sem : "";
+                    info.resource_type  = gfx::ResourceType::VARYING_INPUT;
+                    info.param_type     = translate_slang_type( field_type->getType() );
+                    info.location       = static_cast<uint32_t>( field->getBindingIndex() );
+                    info.offset         = running_offset;
+                    info.binding_idx    = 0;
                     varying_inputs.push_back( std::move( info ) );
 
                     running_offset += static_cast<uint32_t>( field_type->getSize() );
@@ -846,7 +850,8 @@ void SlangModuleCompiler::reflect_entry_point_params_(
                     continue;
 
                 ShaderParamDesc info;
-                info.name           = param->getName() ? param->getName() : "";
+                info.qualified_name = param->getName() ? param->getName() : "";
+                info.base_name      = info.qualified_name;
                 info.semantic_name  = sem ? sem : "";
                 info.resource_type  = gfx::ResourceType::VARYING_INPUT;
                 info.param_type     = translate_slang_type( type_layout->getType() );
@@ -870,8 +875,9 @@ void SlangModuleCompiler::reflect_entry_point_params_(
             }
 
             ShaderParamDesc info;
-            info.name       = param->getName() ? param->getName() : "";
-            info.stage_mask = stage;
+            info.qualified_name = param->getName() ? param->getName() : "";
+            info.base_name      = info.qualified_name;
+            info.stage_mask     = stage;
 
             if (has_push_constant) {
                 info.resource_type = gfx::ResourceType::CONSTANT_BUFFER;
@@ -888,12 +894,12 @@ void SlangModuleCompiler::reflect_entry_point_params_(
             }
 
             NC_LOG_DEBUG_C(
-                log::IO, "EP param '{}' category='{}' push={} flags={}", info.name,
+                log::IO, "EP param '{}' category='{}' push={} flags={}", info.qualified_name,
                 has_push_constant ? "PushConstant" : "ConstantBuffer", has_push_constant,
                 static_cast<uint32_t>( info.flags )
             );
 
-            reflect_fields_( type_layout, 0, info.name, info.binding_space, stage, info.fields, out_params );
+            reflect_fields( type_layout, 0, info.qualified_name, info.binding_space, stage, info.fields, out_params );
 
             out_params.push_back( std::move( info ) );
             continue;
@@ -902,10 +908,11 @@ void SlangModuleCompiler::reflect_entry_point_params_(
         // --- Resources / samplers nested in the EP scope ---
         if (has_resource_or_sampler) {
             ShaderParamDesc info;
-            info.name          = param->getName() ? param->getName() : "";
-            info.binding_space = static_cast<gfx::BindingSet>( param->getBindingSpace() );
-            info.binding_idx   = param->getBindingIndex();
-            info.stage_mask    = stage;
+            info.qualified_name = param->getName() ? param->getName() : "";
+            info.base_name      = info.qualified_name;
+            info.binding_space  = static_cast<gfx::BindingSet>( param->getBindingSpace() );
+            info.binding_idx    = param->getBindingIndex();
+            info.stage_mask     = stage;
 
             auto kind = type_layout->getKind();
             if (kind == slang::TypeReflection::Kind::Resource) {
@@ -922,8 +929,8 @@ void SlangModuleCompiler::reflect_entry_point_params_(
             }
 
             NC_LOG_DEBUG_C(
-                log::IO, "EP resource '{}' type='{}' space={} idx={}", info.name,
-                rtti::get_enum_name( &info.resource_type ), info.binding_space, info.binding_idx
+                log::IO, "EP resource '{}' type='{}' space={} idx={}", info.qualified_name,
+                TypeDB::get_enum_name( &info.resource_type ), info.binding_space, info.binding_idx
             );
 
             out_params.push_back( std::move( info ) );
@@ -954,7 +961,7 @@ void SlangModuleCompiler::reflect_entry_point_params_(
     for (auto& ve : out_vert_layout) {
         NC_LOG_DEBUG_C(
             log::IO, "   slot={} loc={} type={} rel_offset={} stride={} semantic='{}'", ve.buffer_slot, ve.location,
-            rtti::get_enum_name( &ve.type ), ve.relative_offset, ve.stride,
+            TypeDB::get_enum_name( &ve.type ), ve.relative_offset, ve.stride,
             ve.hlsl_semantic.data() ? ve.hlsl_semantic : "N/A"
         );
     }
@@ -967,7 +974,7 @@ void SlangModuleCompiler::reflect_entry_point_params_(
 // Material attribute reflection
 // ---------------------------------------------------------------------------
 
-static int get_int_attr_( slang::TypeReflection* type, const char* name, int fallback = 0 )
+static int get_int_attr( slang::TypeReflection* type, const char* name, int fallback = 0 )
 {
     auto* attr = type->findUserAttributeByName( name );
     if (!attr)
@@ -978,7 +985,7 @@ static int get_int_attr_( slang::TypeReflection* type, const char* name, int fal
     return val;
 }
 
-void SlangModuleCompiler::reflect_material_attributes_( slang::IModule* p_module, MaterialShaderDesc& out_desc )
+void SlangModuleCompiler::reflect_material_attributes( slang::IModule* p_module, MaterialShaderDesc& out_desc )
 {
     if (!p_module || !compile_session)
         return;
@@ -1005,16 +1012,14 @@ void SlangModuleCompiler::reflect_material_attributes_( slang::IModule* p_module
 
         out_desc.is_material   = true;
         out_desc.material_type = type;
-        out_desc.cull_mode     = static_cast<gfx::CullMode>( get_int_attr_( type, "CullMode", 0 ) );
-        out_desc.fill_mode     = static_cast<gfx::FillMode>( get_int_attr_( type, "FillMode", 0 ) );
-        out_desc.depth_test    = get_int_attr_( type, "DepthTest", 0 ) != 0;
-        out_desc.depth_write   = get_int_attr_( type, "DepthWrite", 0 ) != 0;
-        out_desc.blend         = static_cast<gfx::BlendPreset>( get_int_attr_( type, "Blend", 1 ) );
+        out_desc.cull_mode     = static_cast<gfx::CullMode>( get_int_attr( type, "CullMode", 0 ) );
+        out_desc.depth_test    = get_int_attr( type, "DepthTest", 0 ) != 0;
+        out_desc.depth_write   = get_int_attr( type, "DepthWrite", 0 ) != 0;
+        out_desc.blend         = static_cast<gfx::BlendPreset>( get_int_attr( type, "Blend", 1 ) );
 
-        // Infer Spatial vs Canvas from the material interface: ISpatialMaterial's
-        // fragment() returns SurfaceOutput (a struct), ICanvasMaterial's returns float4
-        // (a vector).
-        out_desc.material_kind = MaterialShaderType::Spatial;
+        // ISpatialMaterial's fragment() returns SurfaceOutput (a struct),
+        // ICanvasMaterial's returns float4 (a vector).
+        out_desc.material_kind = RenderType::SPATIAL;
         for (unsigned c = 0; c < child->getChildrenCount(); ++c) {
             auto* member = child->getChild( c );
             if (!member || member->getKind() != slang::DeclReflection::Kind::Func)
@@ -1024,16 +1029,14 @@ void SlangModuleCompiler::reflect_material_attributes_( slang::IModule* p_module
                 continue;
             auto* ret = fn->getReturnType();
             if (ret && ret->getKind() == slang::TypeReflection::Kind::Vector)
-                out_desc.material_kind = MaterialShaderType::Canvas;
+                out_desc.material_kind = RenderType::CANVAS;
             break;
         }
 
         NC_LOG_DEBUG_C(
-            log::IO,
-            "reflect_material_attributes: struct '{}' cull={} fill={} depth_test={} depth_write={} blend={} kind={}",
-            child->getName(), static_cast<int>( out_desc.cull_mode ), static_cast<int>( out_desc.fill_mode ),
-            out_desc.depth_test, out_desc.depth_write, static_cast<int>( out_desc.blend ),
-            static_cast<int>( out_desc.material_kind )
+            log::IO, "reflect_material_attributes: struct '{}' cull={} depth_test={} depth_write={} blend={} kind={}",
+            child->getName(), static_cast<int>( out_desc.cull_mode ), out_desc.depth_test, out_desc.depth_write,
+            static_cast<int>( out_desc.blend ), static_cast<int>( out_desc.material_kind )
         );
         break; // take the first material struct found
     }

@@ -1,3 +1,7 @@
+// Copyright (C) 2026 Ahmad Ghalib Athariq <alib.athariq@gmail.com>
+// This file is subject to the license terms in the LICENSE file
+// found in the top-level directory of this distribution.
+
 #include <cctype>
 #include <filesystem>
 #include <fstream>
@@ -66,22 +70,36 @@ std::string compute_output_path( const std::string& input, const std::string& ou
     return ( fs::path( output_dir ) / sub_dir / filename ).lexically_normal().string();
 }
 
+constexpr size_t fnv1a( const char* s, size_t n ) noexcept
+{
+    size_t h = 14695981039346656037ULL;
+    for (size_t i = 0; i < n; ++i)
+        h = ( h ^ static_cast<uint8_t>( s[i] ) ) * 1099511628211ULL;
+    return h ? h : 1;
+}
+
 std::string make_guard_macro( const std::string& out_path )
 {
-    std::string guard;
-    guard.reserve( out_path.size() + 20 );
-    guard = "NC_REFLECTION_GEN_";
+    namespace fs = std::filesystem;
+    fs::path p( out_path );
 
-    bool last_was_underscore = false;
-    for (unsigned char c : out_path) {
+    std::string filename = p.filename().string();
+
+    size_t path_hash = fnv1a( out_path.data(), out_path.size() );
+
+    std::string guard = "NC_REFLECTION_GEN_";
+    for (unsigned char c : filename) {
         if (std::isalnum( c )) {
             guard += static_cast<char>( std::toupper( c ) );
-            last_was_underscore = false;
-        } else if (!last_was_underscore) {
+        } else {
             guard += '_';
-            last_was_underscore = true;
         }
     }
+
+    std::ostringstream oss;
+    oss << "_" << std::hex << std::uppercase << ( path_hash & 0xFFFFFFFF );
+    guard += oss.str();
+
     return guard;
 }
 

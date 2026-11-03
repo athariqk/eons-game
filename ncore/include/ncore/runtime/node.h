@@ -1,7 +1,7 @@
 #pragma once
 
 #include <ncore/core/collection.h>
-#include <ncore/core/object.h>
+#include <ncore/object/object_info.h>
 #include <ncore/runtime/ecs/ecs_entity.h>
 #include <ncore/runtime/ecs/ecs_query.h>
 
@@ -37,7 +37,7 @@ public:
     inline static const uint32_t MAX_TRACKED_COMPONENTS = 16;
 
     Node() = default;
-    Node( const String& p_name, Scene* p_scene [[clang::lifetimebound]], Node* p_parent [[clang::lifetimebound]] );
+    Node( const String& p_name, Scene* p_scene NC_LIFETIME_BOUND, Node* p_parent NC_LIFETIME_BOUND );
     ~Node() override;
 
     Node( const Node& )            = delete;
@@ -57,7 +57,7 @@ public:
             using reference         = Node&;
 
             reference operator*();
-            Iterator& operator++() [[clang::lifetimebound]];
+            Iterator& operator++() NC_LIFETIME_BOUND;
             bool operator!=( const Iterator& o ) const;
             bool operator!=( std::nullptr_t ) const
             {
@@ -66,7 +66,7 @@ public:
 
         private:
             friend class ChildRange;
-            Iterator( EcsTableIterator iter, Scene* scene [[clang::lifetimebound]], bool end );
+            Iterator( EcsTableIterator iter, Scene* scene NC_LIFETIME_BOUND, bool end );
 
             EcsTableIterator iter_;
             Scene* scene_  = nullptr;
@@ -75,7 +75,7 @@ public:
             bool done_     = true;
         };
 
-        ChildRange( EcsQuery& query, Scene* scene [[clang::lifetimebound]] );
+        ChildRange( EcsQuery& query, Scene* scene NC_LIFETIME_BOUND );
         ~ChildRange() = default;
 
         ChildRange( const ChildRange& )            = delete;
@@ -123,7 +123,7 @@ public:
      * @param type The runtime type of the component.
      * @param data Initial data.
      */
-    void add_component( const rtti::TypeInfo* type, const void* data = nullptr );
+    void add_component( const types::TypeInfo* type, const void* data = nullptr );
 
     /**
      * @brief Create and add a component to this Node.
@@ -132,7 +132,7 @@ public:
     template<class T, class... Args>
     void add_component( Args&&... args )
     {
-        auto type = rtti::TypeRegistry::find<T>();
+        auto type = TypeDB::find<T>();
         if constexpr (sizeof...( Args ) != 0) {
             T val( std::forward<Args>( args )... );
             add_component( type, &val );
@@ -144,12 +144,12 @@ public:
     /**
      * @brief Get immutable pointer to component instance, no staging.
      */
-    const void* get_component_const( const rtti::TypeInfo* type ) const;
+    const void* get_component_const( const types::TypeInfo* type ) const;
     /**
      * @brief Get mutable pointer to component instance.
      * @return The matching component owned by this node.
      */
-    void* get_component( const rtti::TypeInfo* type ) const;
+    void* get_component( const types::TypeInfo* type ) const;
 
     /**
      * @brief Get read-only pointer to component instance of type T.
@@ -158,7 +158,7 @@ public:
     template<class T>
     const T* get_component() const
     {
-        auto result = get_component_const( rtti::TypeRegistry::find<T>() );
+        auto result = get_component_const( TypeDB::find<T>() );
         return static_cast<const T*>( result );
     }
 
@@ -169,7 +169,7 @@ public:
     template<class T>
     T* get_component()
     {
-        auto result = get_component( rtti::TypeRegistry::find<T>() );
+        auto result = get_component( TypeDB::find<T>() );
         return static_cast<T*>( result );
     }
 
@@ -178,66 +178,66 @@ public:
     /**
      * @brief Return true if this Node has component of given RTTI type.
      */
-    bool has_component( const rtti::TypeInfo* type ) const;
+    bool has_component( const types::TypeInfo* type ) const;
     /**
      * @brief Remove component owned by this node by type.
      */
-    bool remove_component( const rtti::TypeInfo* type );
+    bool remove_component( const types::TypeInfo* type );
 
     template<class T>
     bool has_component() const
     {
-        return has_component_impl( rtti::TypeRegistry::find<T>() );
+        return has_component_impl( TypeDB::find<T>() );
     }
 
     template<class T>
     bool remove_component()
     {
-        return remove_component_impl( rtti::TypeRegistry::find<T>() );
+        return remove_component_impl( TypeDB::find<T>() );
     }
 
     template<class T>
     void emit_event( const T& data, EcsEntity target ) const
     {
-        emit_event_impl( rtti::TypeRegistry::find<T>(), target, &data );
+        emit_event_impl( TypeDB::find<T>(), target, &data );
     }
 
     template<class T>
     void emit_event( EcsEntity target ) const
     {
-        emit_event_impl( rtti::TypeRegistry::find<T>(), target, nullptr );
+        emit_event_impl( TypeDB::find<T>(), target, nullptr );
     }
 
-    void set_component_enabled( const rtti::TypeInfo* type, bool enabled );
-    bool is_component_enabled( const rtti::TypeInfo* type ) const;
+    void set_component_enabled( const types::TypeInfo* type, bool enabled );
+    bool is_component_enabled( const types::TypeInfo* type ) const;
 
     template<class T>
     void set_component_enabled( bool enabled )
     {
-        set_component_enabled( rtti::TypeRegistry::find<T>(), enabled );
+        set_component_enabled( TypeDB::find<T>(), enabled );
     }
 
     template<class T>
     bool is_component_enabled() const
     {
-        return is_component_enabled( rtti::TypeRegistry::find<T>() );
+        return is_component_enabled( TypeDB::find<T>() );
     }
 
     /**
      * @brief Signal that a component has been modified.
      */
-    void notify_changed( const rtti::TypeInfo* type ) const;
+    void notify_changed( const types::TypeInfo* type ) const;
     template<class T>
     void notify_changed()
     {
-        notify_changed( rtti::TypeRegistry::find<T>() );
+        notify_changed( TypeDB::find<T>() );
     }
 
     StringView get_name() const;
     void set_name( StringView name );
     uint64_t get_id() const;
 
-    bool* get_active() [[clang::lifetimebound]];
+    bool* get_active() NC_LIFETIME_BOUND;
 
     inline Scene* get_scene() const
     {
@@ -247,10 +247,10 @@ public:
 private:
     friend class Scene;
 
-    void track_ecs_component( const rtti::TypeInfo* type, EcsComponent id );
-    bool has_component_impl( const rtti::TypeInfo* type ) const;
-    bool remove_component_impl( const rtti::TypeInfo* type );
-    void emit_event_impl( const rtti::TypeInfo* type, EcsEntity target, const void* data ) const;
+    void track_ecs_component( const types::TypeInfo* type, EcsComponent id );
+    bool has_component_impl( const types::TypeInfo* type ) const;
+    bool remove_component_impl( const types::TypeInfo* type );
+    void emit_event_impl( const types::TypeInfo* type, EcsEntity target, const void* data ) const;
 
     bool active           = true;
     Scene* scene          = nullptr;

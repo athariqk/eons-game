@@ -4,10 +4,10 @@
 
 #pragma once
 
-#include <ncore/core/types.h>
+#include <ncore/types/typedb.h>
 #include <ncore/utils/config.h>
 
-#include "services/service_registry.h"
+#include "services/servicedb.h"
 
 namespace nc {
 
@@ -36,7 +36,7 @@ struct REFLECT NCAPI AppDesc {
 struct NCAPI AppContext {
     AppDesc app_desc;          // Descriptor used to init this application.
     ConfFile config;           // Parsed application config (loaded once in Application::init).
-    ServiceRegistry services;  // Registry of all registered engine services.
+    ServiceDB services;  // Registry of all registered engine services.
     bool is_running   = false; // Whether game loop is still looping.
     uint64_t ticks    = 0;     // Ticks since first run() frame.
     double delta_time = 0.0;

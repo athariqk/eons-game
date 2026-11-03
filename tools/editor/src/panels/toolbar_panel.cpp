@@ -1,6 +1,7 @@
 #include <ncore/application.h>
-#include <ncore/runtime/components/material.h>
+#include <ncore/runtime/components.h>
 #include <ncore/runtime/ecs/ecs_world.h>
+#include <ncore/runtime/resources/material.h>
 
 #include <panels/toolbar_panel.h>
 
@@ -58,11 +59,18 @@ void ToolbarPanel::draw_contents( EditorFrame& ctx )
     ImGui::SeparatorEx( ImGuiSeparatorFlags_Vertical );
     ImGui::SameLine();
     if (ImGui::Checkbox( "Wireframe", &settings.draw_wireframe )) {
-        auto query = ecs_world.query( "MaterialComponentOwners" ).with<MaterialComponent>().build();
+        // Draw mode lives on the Material resource, which is shared; edit the
+        // resolved instance so every entity referencing it picks the change up.
+        auto query = ecs_world.query( "MaterialComponentOwners" ).with<MaterialOverrideComponent>().build();
         for (auto entity : query.entities()) {
-            auto* material      = entity.get_component<MaterialComponent>();
-            material->draw_mode = settings.draw_wireframe ? gfx::FillMode::WIREFRAME : gfx::FillMode::SOLID;
-            entity.notify_changed<MaterialComponent>();
+            auto* override = entity.get_component<MaterialOverrideComponent>();
+            if (!override->material)
+                continue;
+
+            override->material->set_draw_mode(
+                settings.draw_wireframe ? gfx::FillMode::WIREFRAME : gfx::FillMode::SOLID
+            );
+            entity.notify_changed<MaterialOverrideComponent>();
         }
     }
 }

@@ -1,3 +1,7 @@
+// Copyright (C) 2026 Ahmad Ghalib Athariq <alib.athariq@gmail.com>
+// This file is subject to the license terms in the LICENSE file
+// found in the top-level directory of this distribution.
+
 #pragma once
 
 #include <cstdint>
@@ -28,8 +32,10 @@ struct ReflectedRecord {
     std::string qualified_name;
     std::string parent_name;
     bool is_class;
-    bool is_ecs_component; // inherits nc::detail::EcsComponentBase<T>
+    bool is_ecs_component; // inherits nc::EcsComponentBase<T>
     bool has_nstruct_v;    // has get_class_info() from NSTRUCT_V
+                           // instantiation of a REFLECT class template (qualified_name is the full printed type)
+    bool is_template_spec = false;
     size_t record_size;
     size_t record_alignment;
     std::vector<ReflectedField> fields;

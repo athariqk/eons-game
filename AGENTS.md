@@ -14,7 +14,7 @@ Guidance for AI coding agents working in this repository.
 8. `ncore/include/ncore/runtime/ecs/ecs_entity.h` — EcsEntity: the 64-bit entity ID type
 9. `ncore/include/ncore/core/types.h` — RTTI: TypeInfo, RecordInfo, FieldInfo, NSTRUCT_V
 10. `ncore/include/ncore/services/service.h` — IService base + NullService
-11. `ncore/include/ncore/services/service_registry.h` — ServiceRegistry (service locator)
+11. `ncore/include/ncore/services/servicedb.h` — ServiceDB (service locator)
 12. `CMakeLists.txt` (root + ncore/)
 13. `eons-game/main.cpp` — game entry point
 
@@ -110,7 +110,7 @@ ncore/                          Engine library (shared, ncore_d.dll)
       ecs/                      EcsWorld, EcsTableIterator, EcsSystemBuilder, EcsQueryBuilder.
       components/               Component structs (Transform, Camera, Mesh, Sprite, etc.).
       scene.h / node.h          Scene graph layered over ECS.
-    services/                   Engine services (IService + ServiceRegistry).
+    services/                   Engine services (IService + ServiceDB).
       audio/, events/, input/, io/, physics/, video/.
     utils/                      Assert, log, config.
   src/
@@ -127,7 +127,7 @@ eons-game/                      Game project (executable, eons-game_d.exe).
 
 ### Key abstractions
 
-**ServiceRegistry** — service locator for engine subsystems (WindowService, RenderService,
+**ServiceDB** — service locator for engine subsystems (WindowService, RenderService,
 InputService, etc.). All inherit `IService`. Registered in `Application::register_services()`
 via `services.provide<T>()`.
 
@@ -194,7 +194,7 @@ registration. `FieldInfo` has no category — derive it from
 `field.get_type()->kind` + `field.qualifier`. `ADD_PROPERTY` lambda-based
 decomposes `T* m` / `T[N] m` / `char* m` into the qualifier (pointer_count,
 array_length, is_cstring) and stores the pointee/element type id.
-Primitives registered in `TypeRegistry::initialize()` in `ncore/src/core/types.cpp`.
+Primitives registered in `TypeDB::initialize()` in `ncore/src/core/types.cpp`.
 
 ## Code Boundaries
 
@@ -241,13 +241,13 @@ Primitives registered in `TypeRegistry::initialize()` in `ncore/src/core/types.c
 
 - **RID registration**: `rid.h` is transitively included before the `NSTRUCT_V`
   macro is defined in `types.h`. RID is therefore registered manually in
-  `TypeRegistry::initialize()` via `TRecordInfo<RID>`.
+  `TypeDB::initialize()` via `TRecordInfo<RID>`.
 
 ## Component / RTTI Conventions
 
 - All component structs should have `NSTRUCT_V(T)` + `NC_PROPS_BEGIN(T)` / `ADD_PROPERTY(m)` / `NC_PROPS_END(T)`.
-- `NSTRUCT_V` auto-registers at static init via `TypeRegistry::register_type<TRecordInfo<T>, T>(#T)`.
-- Primitives are registered in `TypeRegistry::initialize()` in `ncore/src/core/types.cpp`.
+- `NSTRUCT_V` auto-registers at static init via `TypeDB::register_type<TRecordInfo<T>, T>(#T)`.
+- Primitives are registered in `TypeDB::initialize()` in `ncore/src/core/types.cpp`.
 - If a header is transitively included by `types.h` before the `NSTRUCT_V` macro
   definition (line ~732), use manual registration in `initialize()` instead.
 
@@ -256,3 +256,13 @@ Primitives registered in `TypeRegistry::initialize()` in `ncore/src/core/types.c
 No automated test suite at root. Build success + runtime smoke check (main menu
 visible, scene tree populated, inspector shows component data, camera/stats
 windows toggle correctly) is the verification step.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as markdown files under `.scratch/` in this repo. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context layout: one `GLOSSARY.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.

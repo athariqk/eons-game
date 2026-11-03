@@ -5,10 +5,9 @@
 #include <backends/sdl/sdl_type_helpers.h>
 
 #include <ncore/core/collection.h>
-#include <ncore/core/reference.h>
-#include <ncore/core/vector.h>
-#include <ncore/resources/resource.h>
+#include <ncore/object/reference.h>
 #include <ncore/services/video/window_service.h>
+#include <ncore/structs/vector.h>
 #include <ncore/utils/config.h>
 #include <ncore/utils/log.h>
 #include <utils/profiler.h>
@@ -74,9 +73,10 @@ void WindowService::shutdown()
     pImpl->mouse_cursors.clear();
 }
 
-void WindowService::set_default_icon( const Ref<Image>& image )
+void WindowService::set_default_icon( const IconDesc& p_icon )
 {
-    default_app_icon = image;
+    default_icon_size = Vec2i( p_icon.width, p_icon.height );
+    default_icon_rgba.assign( p_icon.rgba.begin(), p_icon.rgba.end() );
 }
 
 uint32_t WindowService::window_create( WindowFlag flags )
@@ -104,8 +104,10 @@ uint32_t WindowService::window_create( WindowFlag flags )
     pImpl->window_ids.push_back( id );
 
     // default icon
-    if (default_app_icon)
-        window_set_icon( id, *default_app_icon );
+    if (!default_icon_rgba.empty())
+        window_set_icon(
+            id, IconDesc{ .width = default_icon_size.x, .height = default_icon_size.y, .rgba = default_icon_rgba }
+        );
 
     return static_cast<uint32_t>( id );
 }
@@ -168,16 +170,13 @@ void WindowService::window_set_resolution( uint32_t window_id, Vec2i resolution 
     }
 }
 
-void WindowService::window_set_icon( uint32_t window_id, const Image& image ) const
+void WindowService::window_set_icon( uint32_t window_id, const IconDesc& p_icon ) const
 {
-    auto window = pImpl->get_sdl_window( window_id );
-    auto size   = image.get_size_bytes();
-    auto src    = image.get_pixels();
-    auto dst    = memalloc( size );
-    std::memcpy( dst, src.data(), size );
-    auto surf = SDL_CreateSurfaceFrom(
-        image.get_width(), image.get_height(), SDL_PIXELFORMAT_RGBA32, dst, image.get_width() * 4
-    );
+    auto window     = pImpl->get_sdl_window( window_id );
+    const auto size = p_icon.rgba.size();
+    auto dst        = memalloc( size );
+    std::memcpy( dst, p_icon.rgba.data(), size );
+    auto surf = SDL_CreateSurfaceFrom( p_icon.width, p_icon.height, SDL_PIXELFORMAT_RGBA32, dst, p_icon.width * 4 );
     if (!SDL_SetWindowIcon( window, surf )) {
         NC_LOG_ERROR_C( log::GRAPHICS, "FAIL to set icon for window {}: {}", window_id, SDL_GetError() );
     }

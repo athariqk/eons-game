@@ -3,9 +3,9 @@
 #include <string>
 #include <vector>
 
-#include <ncore/resources/resource.h>
-#include <ncore/runtime/components/material.h>
+#include <ncore/runtime/components.h>
 #include <ncore/runtime/node.h>
+#include <ncore/runtime/resources/material.h>
 #include <ncore/runtime/scene.h>
 #include <ncore/services/video/gfx_types.h>
 
@@ -14,43 +14,37 @@
 
 namespace nc::editor {
 
-MaterialInspectorHandler::MaterialInspectorHandler( Scene& p_scene ) : scene( p_scene ) {}
+MaterialInspectorHandler::MaterialInspectorHandler() {}
 
-bool MaterialInspectorHandler::can_handle( const rtti::TypeInfo* p_type, void* p_component ) const
+bool MaterialInspectorHandler::can_handle( const types::TypeInfo* p_type, void* p_component ) const
 {
     ( void ) p_component;
-    return p_type == rtti::TypeRegistry::find<MaterialComponent>();
+    return p_type == TypeDB::find<MaterialOverrideComponent>();
 }
 
 void MaterialInspectorHandler::draw(
-    EditorFrame& p_ctx, Node& p_node, const rtti::TypeInfo* p_type, void* p_component
+    EditorFrame& p_ctx, Node& p_node, const types::TypeInfo* p_type, void* p_component
 )
 {
     if (!can_handle( p_type, p_component ))
         return;
 
-    auto& mat = *static_cast<MaterialComponent*>( p_component );
+    auto& override = *static_cast<MaterialOverrideComponent*>( p_component );
 
-    // Derived field: keep the bound texture count in sync with the array.
-    int count = 0;
-    for (int i = 0; i < MaterialComponent::MAX_TEXTURE; ++i) {
-        if (mat.textures[i])
-            count = i + 1;
-    }
-    if (mat.texture_count != count) {
-        mat.texture_count = count;
-        p_node.notify_changed<MaterialComponent>();
+    if (!override.material) {
+        ImGui::TextDisabled( "No material assigned" );
+        return;
     }
 
-    auto shader = scene.get_resource_loader().get<MaterialShader>( mat.shader );
+    auto shader = override.material->get_shader();
     if (!shader) {
         ImGui::TextDisabled( "Shader not loaded" );
         return;
     }
 
-    if (draw_uniforms( mat, *shader )) {
-        p_node.notify_changed<MaterialComponent>();
-    }
+    // Uniform writes go into the material's CPU staging block, so the resource
+    // is edited in place; every entity referencing it sees the change.
+    draw_uniforms( *override.material );
 }
 //------------------------------------------------------------------------------
 // Material shader uniforms
@@ -71,29 +65,29 @@ int uniform_component_count( gfx::ParameterType p_type )
 }
 
 // Draws one uniform element (scalar or vector). `ptr` points at its bytes.
-bool draw_uniform_element( const ShaderParamField& field, uint8_t* ptr )
+bool draw_uniform_element( const MaterialParam& p_param, uint8_t* ptr )
 {
-    const uint32_t type = static_cast<uint32_t>( field.type );
+    const uint32_t type = static_cast<uint32_t>( p_param.type );
     const bool is_float = ( type & static_cast<uint32_t>( gfx::ParameterType::FLOAT_32 ) ) != 0;
     const bool is_unsig = ( type & static_cast<uint32_t>( gfx::ParameterType::UNSIGNED ) ) != 0;
-    const int comps     = uniform_component_count( field.type );
+    const int comps     = uniform_component_count( p_param.type );
 
-    if (field.widget == gfx::ParamWidget::COLOR && is_float && comps >= 3) {
+    if (p_param.widget == gfx::ParamWidget::COLOR && is_float && comps >= 3) {
         auto* f = reinterpret_cast<float*>( ptr );
         return comps == 4 ? ImGui::ColorEdit4( "##v", f, ImGuiColorEditFlags_Float )
                           : ImGui::ColorEdit3( "##v", f, ImGuiColorEditFlags_Float );
     }
 
-    if (field.widget == gfx::ParamWidget::SLIDER) {
+    if (p_param.widget == gfx::ParamWidget::SLIDER) {
         bool changed = false;
         if (comps == 1) {
             if (is_float)
                 changed |=
-                    ImGui::SliderFloat( "##v", reinterpret_cast<float*>( ptr ), field.range_min, field.range_max );
+                    ImGui::SliderFloat( "##v", reinterpret_cast<float*>( ptr ), p_param.range_min, p_param.range_max );
             else
                 changed |= ImGui::SliderInt(
-                    "##v", reinterpret_cast<int*>( ptr ), static_cast<int>( field.range_min ),
-                    static_cast<int>( field.range_max )
+                    "##v", reinterpret_cast<int*>( ptr ), static_cast<int>( p_param.range_min ),
+                    static_cast<int>( p_param.range_max )
                 );
             return changed;
         }
@@ -107,7 +101,7 @@ bool draw_uniform_element( const ShaderParamField& field, uint8_t* ptr )
                     ImGui::SameLine( 0.0f, spacing );
                 ImGui::PushID( i );
                 ImGui::SetNextItemWidth( cell );
-                changed |= ImGui::SliderFloat( "##c", &f[i], field.range_min, field.range_max );
+                changed |= ImGui::SliderFloat( "##c", &f[i], p_param.range_min, p_param.range_max );
                 ImGui::PopID();
             }
         }
@@ -132,28 +126,18 @@ bool draw_uniform_element( const ShaderParamField& field, uint8_t* ptr )
     return ImGui::DragInt( "##v", reinterpret_cast<int*>( ptr ), 1.0f );
 }
 
-const MaterialComponent::Param* find_material_param( const MaterialComponent& p_mat, StringView p_leaf )
-{
-    for (const auto& p : p_mat.params) {
-        if (std::string_view( p.name.data(), p.name.size() ) == p_leaf)
-            return &p;
-    }
-    return nullptr;
-}
-
 } // namespace
 
-bool MaterialInspectorHandler::draw_uniforms( MaterialComponent& p_mat, const MaterialShader& p_shader )
+bool MaterialInspectorHandler::draw_uniforms( Material& p_mat )
 {
-    // BINDING_SET_MATERIAL == 1 (the g_Material parameter block).
-    const auto params = p_shader.get_param_set( static_cast<gfx::BindingSet>( 1 ) );
+    const auto params = p_mat.get_params();
     if (params.empty())
         return false;
 
-    constexpr ImGuiTableFlags kFlags =
+    constexpr ImGuiTableFlags FLAGS =
         ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoPadOuterX | ImGuiTableFlags_NoSavedSettings;
 
-    if (!ImGui::BeginTable( "##matparams", 2, kFlags ))
+    if (!ImGui::BeginTable( "##matparams", 2, FLAGS ))
         return false;
     ImGui::TableSetupColumn( "Property", ImGuiTableColumnFlags_WidthFixed, InspectorPanel::LABEL_WIDTH );
     ImGui::TableSetupColumn( "Value", ImGuiTableColumnFlags_WidthStretch );
@@ -162,72 +146,73 @@ bool MaterialInspectorHandler::draw_uniforms( MaterialComponent& p_mat, const Ma
     std::string current_header;
 
     for (const auto& param : params) {
-        if (param.resource_type != gfx::ResourceType::CONSTANT_BUFFER)
-            continue; // textures/samplers are already shown via MaterialComponent::Textures
+        if (param.is_texture())
+            continue; // textures/samplers are already shown via MaterialOverrideComponent::Textures
+        if (!param.element_type)
+            continue; // reflected type has no NCORE counterpart
 
-        for (const auto& field : param.fields) {
-            const std::string header( field.header.data(), field.header.size() );
-            if (!header.empty() && header != current_header) {
-                current_header = header;
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex( 0 );
-                ImGui::SeparatorText( header.c_str() );
-            }
+        const std::string full( param.name.data(), param.name.size() );
+        const auto dot         = full.rfind( '.' );
+        const std::string leaf = ( dot == std::string::npos ) ? full : full.substr( dot + 1 );
 
-            const std::string full( field.name.data(), field.name.size() );
-            const auto dot         = full.rfind( '.' );
-            const std::string leaf = ( dot == std::string::npos ) ? full : full.substr( dot + 1 );
+        const std::string header( param.header.data(), param.header.size() );
+        if (!header.empty() && header != current_header) {
+            current_header = header;
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex( 0 );
+            ImGui::SeparatorText( header.c_str() );
+        }
 
-            const uint32_t array_size = field.array_size > 0 ? field.array_size : 1;
-            const size_t element_size = array_size > 0 ? ( field.size / array_size ) : field.size;
+        const uint32_t array_size = param.array_size > 0 ? param.array_size : 1;
 
-            std::vector<uint8_t> bytes( field.size, 0 );
-            if (const auto* p = find_material_param( p_mat, leaf )) {
-                const size_t n = std::min<size_t>( p->data.size(), bytes.size() );
-                std::memcpy( bytes.data(), p->data.data(), n );
-            }
+        // Edit a packed copy; the material re-coerces and re-strides on upload.
+        TypedVar edited = param.value;
+        if (edited.count() != array_size)
+            edited = TypedVar::array_of( param.element_type, array_size );
 
-            bool field_changed = false;
+        bool field_changed = false;
 
-            ImGui::PushID( full.c_str() );
+        ImGui::PushID( full.c_str() );
 
-            if (array_size <= 1) {
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex( 0 );
-                ImGui::AlignTextToFramePadding();
-                ImGui::TextUnformatted( leaf.c_str() );
-                ImGui::TableSetColumnIndex( 1 );
-                ImGui::SetNextItemWidth( -FLT_MIN );
-                field_changed |= draw_uniform_element( field, bytes.data() );
-            } else {
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex( 0 );
-                bool open = ImGui::TreeNodeEx(
-                    leaf.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_NoTreePushOnOpen |
-                                      ImGuiTreeNodeFlags_DefaultOpen
-                );
-                ImGui::TableSetColumnIndex( 1 );
-                ImGui::TextDisabled( "%u elements", array_size );
-                if (open) {
-                    for (uint32_t i = 0; i < array_size; ++i) {
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex( 0 );
-                        ImGui::Text( "[%u]", i );
-                        ImGui::TableSetColumnIndex( 1 );
-                        ImGui::SetNextItemWidth( -FLT_MIN );
-                        ImGui::PushID( static_cast<int>( i ) );
-                        field_changed |= draw_uniform_element( field, bytes.data() + i * element_size );
-                        ImGui::PopID();
-                    }
+        if (array_size <= 1) {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex( 0 );
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextUnformatted( leaf.c_str() );
+            ImGui::TableSetColumnIndex( 1 );
+            ImGui::SetNextItemWidth( -FLT_MIN );
+            field_changed |=
+                draw_uniform_element( param, static_cast<uint8_t*>( edited.element_ptr( 0 ) ) );
+        } else {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex( 0 );
+            bool open = ImGui::TreeNodeEx(
+                leaf.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_NoTreePushOnOpen |
+                                  ImGuiTreeNodeFlags_DefaultOpen
+            );
+            ImGui::TableSetColumnIndex( 1 );
+            ImGui::TextDisabled( "%u elements", array_size );
+            if (open) {
+                for (uint32_t i = 0; i < array_size; ++i) {
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex( 0 );
+                    ImGui::Text( "[%u]", i );
+                    ImGui::TableSetColumnIndex( 1 );
+                    ImGui::SetNextItemWidth( -FLT_MIN );
+                    ImGui::PushID( static_cast<int>( i ) );
+                    field_changed |= draw_uniform_element(
+                        param, static_cast<uint8_t*>( edited.element_ptr( i ) )
+                    );
+                    ImGui::PopID();
                 }
             }
+        }
 
-            ImGui::PopID();
+        ImGui::PopID();
 
-            if (field_changed) {
-                p_mat.set_param( StringView( leaf ), bytes.data(), bytes.size() );
-                changed = true;
-            }
+        if (field_changed) {
+            p_mat.set_param( StringView( full ), edited );
+            changed = true;
         }
     }
 

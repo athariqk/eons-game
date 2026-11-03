@@ -5,7 +5,7 @@
 #pragma once
 
 #include <ncore/core/collection.h>
-#include <ncore/core/object.h>
+#include <ncore/object/object_info.h>
 #include <ncore/services/service.h>
 
 #include "asset_compiler.h"

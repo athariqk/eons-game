@@ -1,7 +1,7 @@
 #pragma once
 
 #include <ncore/core/errors.h>
-#include <ncore/core/object.h>
+#include <ncore/object/object_info.h>
 
 namespace nc {
 

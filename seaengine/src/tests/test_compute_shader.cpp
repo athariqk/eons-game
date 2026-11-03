@@ -1,23 +1,24 @@
 #include "test_compute_shader.h"
 
 #include <ncore/application.h>
-#include <ncore/resources/resource.h>
-#include <ncore/runtime/resources/resource_loader.h>
+#include <ncore/runtime/io/resource_loader.h>
+#include <ncore/runtime/resources/shader.h>
 #include <ncore/runtime/scene.h>
-#include <ncore/services/service_registry.h>
+#include <ncore/services/servicedb.h>
 #include <ncore/services/video/gfx_types.h>
 #include <ncore/services/video/render_service.h>
 
-namespace sea {
-
 using namespace nc;
+
+namespace sea {
 
 void hello_world_compute_shader( nc::Scene& scene )
 {
     auto& resources = scene.get_resource_loader();
     auto renderer   = scene.get_app_ctx()->services.resolve<RenderService>();
 
-    auto hello_world_shd = resources.load<Shader>( "shaders/compute/hello_world.slang" );
+    auto hello_world_shd      = resources.load<Shader>( "shaders/compute/hello_world.slang" );
+    const RID hello_world_rid = hello_world_shd ? hello_world_shd->prepare( scene ) : RID();
 
     float x_floats[16] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
     float y_floats[16] = { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32 };
@@ -74,8 +75,8 @@ void hello_world_compute_shader( nc::Scene& scene )
         { "buffer1", gfx::ResourceType::BUFFER_SRV, buffer1 },
         { "result", gfx::ResourceType::BUFFER_UAV, result },
     };
-    auto set         = renderer->resource_set_create( *hello_world_shd, 0, shader_resource_entries );
-    auto compute_pso = renderer->compute_pipeline_create( *hello_world_shd, { &set, 1 } );
+    auto set         = renderer->resource_set_create( hello_world_rid, 0, shader_resource_entries );
+    auto compute_pso = renderer->compute_pipeline_create( hello_world_rid, { &set, 1 } );
 
     renderer->compute_pipeline_bind( compute_pso );
     renderer->resource_set_bind( set );

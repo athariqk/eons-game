@@ -3,8 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include <ncore/resources/resource.h>
-#include <ncore/runtime/resources/resource_loader.h>
+#include <ncore/runtime/resources/shader.h>
 #include <ncore/services/video/gfx_interface.h>
 #include <ncore/utils/assert.h>
 #include <ncore/utils/log.h>
@@ -25,9 +24,7 @@ float WaveGenerator::jonswap_peak_angular_frequency( float wind_speed, float fet
     return 22.0f * std::pow( ( GRAVITY * GRAVITY ) / ( wind_speed * fetch_meters ), 1.0f / 3.0f );
 }
 
-void WaveGenerator::init_gpu(
-    RenderService& p_renderer, ResourceLoader& p_resources, uint32_t p_map_size, uint32_t p_num_cascades
-)
+void WaveGenerator::init_gpu( RenderService& p_renderer, Scene& p_scene, uint32_t p_map_size, uint32_t p_num_cascades )
 {
     NC_ASSERT( math::is_power_of_two( p_map_size ) && p_map_size >= 128 && p_map_size <= 1024 );
     NC_ASSERT( p_num_cascades >= 1 );
@@ -41,7 +38,7 @@ void WaveGenerator::init_gpu(
     num_fft_stages = math::log2_floor( map_size );
 
     create_resources( p_renderer );
-    create_pipelines( p_renderer, p_resources );
+    create_pipelines( p_renderer, p_scene );
 
     auto* gfx = p_renderer.get_graphics_api();
     gfx->set_queue( GpuQueue::COMPUTE );
@@ -102,7 +99,6 @@ void WaveGenerator::update( RenderService& p_renderer, float p_delta, Span<WaveC
     gfx->timestamp_begin( WAVE_GEN_TS_SLOT );
     flush( p_renderer );
     gfx->timestamp_end( WAVE_GEN_TS_SLOT );
-    ;
 }
 
 void WaveGenerator::flush( RenderService& p_renderer )
@@ -169,22 +165,27 @@ void WaveGenerator::create_resources( RenderService& p_renderer )
     cb_fft_unpack        = make_cb( "cb_fft_unpack", sizeof( FftUnpackCB ) );
 }
 
-void WaveGenerator::create_pipelines( RenderService& p_renderer, ResourceLoader& p_resources )
+void WaveGenerator::create_pipelines( RenderService& p_renderer, Scene& p_scene )
 {
-    auto sh_spectrum  = p_resources.load<Shader>( "shaders/compute/spectrum_compute.slang" );
-    auto sh_modulate  = p_resources.load<Shader>( "shaders/compute/spectrum_modulate.slang" );
-    auto sh_fft       = p_resources.load<Shader>( "shaders/compute/fft_compute.slang" );
-    auto sh_transpose = p_resources.load<Shader>( "shaders/compute/transpose.slang" );
-    auto sh_unpack    = p_resources.load<Shader>( "shaders/compute/fft_unpack.slang" );
+    auto load_shader = [&]( const char* p_path ) -> RID {
+        auto res = p_scene.get_resource_loader().load<Shader>( p_path );
+        return res ? res->prepare( p_scene ) : RID();
+    };
+
+    const RID sh_spectrum  = load_shader( "shaders/compute/spectrum_compute.slang" );
+    const RID sh_modulate  = load_shader( "shaders/compute/spectrum_modulate.slang" );
+    const RID sh_fft       = load_shader( "shaders/compute/fft_compute.slang" );
+    const RID sh_transpose = load_shader( "shaders/compute/transpose.slang" );
+    const RID sh_unpack    = load_shader( "shaders/compute/fft_unpack.slang" );
 
     {
         gfx::ResourceMappingEntry entries[] = {
             { "spectrum", gfx::ResourceType::TEXTURE_UAV, spectrum },
             { "SpectrumComputeCB", gfx::ResourceType::CONSTANT_BUFFER, cb_spectrum_compute },
         };
-        set_spectrum_compute = p_renderer.resource_set_create( *sh_spectrum, 0, entries );
+        set_spectrum_compute = p_renderer.resource_set_create( sh_spectrum, 0, entries );
         pso_spectrum_compute =
-            p_renderer.compute_pipeline_create( *sh_spectrum, Span<const RID>{ &set_spectrum_compute, 1 } );
+            p_renderer.compute_pipeline_create( sh_spectrum, Span<const RID>{ &set_spectrum_compute, 1 } );
     }
 
     {
@@ -193,9 +194,9 @@ void WaveGenerator::create_pipelines( RenderService& p_renderer, ResourceLoader&
             { "fft_buffer", gfx::ResourceType::BUFFER_UAV, fft_buffer },
             { "SpectrumModulateCB", gfx::ResourceType::CONSTANT_BUFFER, cb_spectrum_modulate },
         };
-        set_spectrum_modulate = p_renderer.resource_set_create( *sh_modulate, 0, entries );
+        set_spectrum_modulate = p_renderer.resource_set_create( sh_modulate, 0, entries );
         pso_spectrum_modulate =
-            p_renderer.compute_pipeline_create( *sh_modulate, Span<const RID>{ &set_spectrum_modulate, 1 } );
+            p_renderer.compute_pipeline_create( sh_modulate, Span<const RID>{ &set_spectrum_modulate, 1 } );
     }
 
     {
@@ -203,8 +204,8 @@ void WaveGenerator::create_pipelines( RenderService& p_renderer, ResourceLoader&
             { "fft_buffer", gfx::ResourceType::BUFFER_UAV, fft_buffer },
             { "CascadeIndexCB", gfx::ResourceType::CONSTANT_BUFFER, cb_cascade_index },
         };
-        set_fft_compute = p_renderer.resource_set_create( *sh_fft, 0, entries );
-        pso_fft_compute = p_renderer.compute_pipeline_create( *sh_fft, Span<const RID>{ &set_fft_compute, 1 } );
+        set_fft_compute = p_renderer.resource_set_create( sh_fft, 0, entries );
+        pso_fft_compute = p_renderer.compute_pipeline_create( sh_fft, Span<const RID>{ &set_fft_compute, 1 } );
     }
 
     {
@@ -212,8 +213,8 @@ void WaveGenerator::create_pipelines( RenderService& p_renderer, ResourceLoader&
             { "fft_buffer", gfx::ResourceType::BUFFER_UAV, fft_buffer },
             { "CascadeIndexCB", gfx::ResourceType::CONSTANT_BUFFER, cb_cascade_index },
         };
-        set_transpose = p_renderer.resource_set_create( *sh_transpose, 0, entries );
-        pso_transpose = p_renderer.compute_pipeline_create( *sh_transpose, Span<const RID>{ &set_transpose, 1 } );
+        set_transpose = p_renderer.resource_set_create( sh_transpose, 0, entries );
+        pso_transpose = p_renderer.compute_pipeline_create( sh_transpose, Span<const RID>{ &set_transpose, 1 } );
     }
 
     {
@@ -223,8 +224,8 @@ void WaveGenerator::create_pipelines( RenderService& p_renderer, ResourceLoader&
             { "fft_buffer", gfx::ResourceType::BUFFER_UAV, fft_buffer },
             { "FftUnpackCB", gfx::ResourceType::CONSTANT_BUFFER, cb_fft_unpack },
         };
-        set_fft_unpack = p_renderer.resource_set_create( *sh_unpack, 0, entries );
-        pso_fft_unpack = p_renderer.compute_pipeline_create( *sh_unpack, Span<const RID>{ &set_fft_unpack, 1 } );
+        set_fft_unpack = p_renderer.resource_set_create( sh_unpack, 0, entries );
+        pso_fft_unpack = p_renderer.compute_pipeline_create( sh_unpack, Span<const RID>{ &set_fft_unpack, 1 } );
     }
 }
 

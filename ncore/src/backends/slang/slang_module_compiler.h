@@ -3,6 +3,8 @@
 #include <slang.h>
 
 #include <ncore/services/io/asset_compiler.h>
+#include <ncore/services/video/renderer/render_type.h>
+#include <ncore/services/video/renderer/shader_program_desc.h>
 
 #include <slang-com-ptr.h>
 
@@ -22,11 +24,12 @@ struct ShaderCompileDesc {
 };
 
 struct MaterialShaderDesc {
-    // Spatial vs Canvas, inferred from which interface the material struct implements
-    // (ISpatialMaterial -> Spatial, ICanvasMaterial -> Canvas).
-    MaterialShaderType material_kind            = MaterialShaderType::Spatial;
+    /**
+     * @brief Material kind inferred from which interface the material struct implements
+     * (ISpatialMaterial -> Spatial, ICanvasMaterial -> Canvas).
+     */
+    RenderType material_kind                    = RenderType::SPATIAL;
     gfx::CullMode cull_mode                     = gfx::CullMode::NONE;
-    gfx::FillMode fill_mode                     = gfx::FillMode::SOLID;
     bool depth_test                             = false;
     bool depth_write                            = false;
     gfx::BlendPreset blend                      = gfx::BlendPreset::ALPHA_BLEND;
@@ -53,26 +56,26 @@ public:
     Error compile( StringView p_input, StringView p_output, AssetImportContext p_ctx ) override;
 
 private:
-    bool ensure_session_( bool recreate_session = false );
+    bool ensure_session( bool recreate_session = false );
 
     /// Swap the `#include` search roots. No-op when unchanged; otherwise invalidates
-    /// the cached compile session so the next ensure_session_() rebuilds it.
-    void set_search_paths_( const DynamicArray<String>& p_paths );
+    /// the cached compile session so the next ensure_session() rebuilds it.
+    void set_search_paths( const DynamicArray<String>& p_paths );
 
-    void reflect_fields_(
+    void reflect_fields(
         slang::TypeLayoutReflection* type_layout, uint32_t base_offset, const String& name_prefix,
         uint32_t binding_space, gfx::ShaderStage stage, DynamicArray<ShaderParamField>& out_fields,
         DynamicArray<ShaderParamDesc>& out_params
     );
-    void reflect_module_params_( slang::ProgramLayout* p_module_layout, ShaderDesc& p_module );
+    void reflect_module_params( slang::ProgramLayout* p_module_layout, ShaderModuleDesc& p_module );
 
-    void reflect_material_attributes_( slang::IModule* p_module, MaterialShaderDesc& out_desc );
+    void reflect_material_attributes( slang::IModule* p_module, MaterialShaderDesc& out_desc );
 
     /**
      * @brief Reflects all entry - point parameters : varying inputs( vertex attributes ),
      * uniform/push-constant data, and resources/samplers.
      */
-    void reflect_entry_point_params_(
+    void reflect_entry_point_params(
         slang::EntryPointLayout* ep_layout, gfx::ShaderStage stage, DynamicArray<ShaderParamDesc>& out_params,
         gfx::VertexLayout& out_vert_layout
     );

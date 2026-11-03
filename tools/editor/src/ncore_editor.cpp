@@ -1,12 +1,5 @@
-// clang-format off
-#include <imgui_internal.h>
-#include <ImGuizmo.h> // must come after imgui includes
-// clang-format on
-
 #include <editor/ncore_editor.h>
-#include <ncore/runtime/components/camera.h>
-#include <ncore/runtime/components/input.h>
-#include <ncore/runtime/components/services.h>
+#include <ncore/runtime/components.h>
 #include <ncore/runtime/ecs/ecs_world.h>
 #include <ncore/runtime/scene.h>
 #include <ncore/services/io/input_service.h>
@@ -38,8 +31,8 @@ void NCAPI_EDITOR register_editor_plugin( Scene& scene )
         .with<EditorCameraTag, Transform3DComponent, CameraComponent, InputComponent>()
         .in( EcsSystemPhase::UPDATE )
         .each( []( EcsIterState& it ) {
-            auto io    = it.world().get_singleton<IOServices>();
-            auto edp   = it.world().get_singleton<EditorPlugin>();
+            auto io    = it.world().get_singleton_const<IoServices>();
+            auto edp   = it.world().get_singleton_const<EditorPlugin>();
             auto xform = it.get_component<Transform3DComponent>();
             auto input = it.get_component<InputComponent>();
 
@@ -156,7 +149,7 @@ void NCAPI_EDITOR register_editor_plugin( Scene& scene )
 void NCAPI_EDITOR unregister_editor_plugin( Scene& scene )
 {
     auto& world = scene.get_ecs();
-    auto edp    = world.get_singleton<EditorPlugin>();
+    auto edp    = world.get_singleton_const<EditorPlugin>();
     NC_FAIL_MSG_RET( edp, "Editor plugin is already unregistered" );
 
     // Persist what the user changed before the panels go away.

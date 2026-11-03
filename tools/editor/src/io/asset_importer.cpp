@@ -1,13 +1,12 @@
 #include "asset_importer.h"
 
-#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <string>
 
 #include <ncore/application.h>
 #include <ncore/core/errors.h>
-#include <ncore/runtime/resources/resource_loader.h>
+#include <ncore/runtime/io/resource_loader.h>
 #include <ncore/services/io/asset_service.h>
 #include <ncore/utils/log.h>
 
@@ -160,7 +159,7 @@ AssetImportResult AssetImporter::compile_file( StringView p_asset_path )
         result.path    = key;
         result.ok      = p_ok;
         result.message = std::move( p_message );
-        result.ms = std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - start ).count();
+        result.ms      = std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - start ).count();
         return result;
     };
 
@@ -198,7 +197,7 @@ AssetImportResult AssetImporter::compile_file( StringView p_asset_path )
 void AssetImporter::compute_source_info( const String& source, AssetImportResult& result )
 {
     const bool has_includes = source.ends_with( ".slang" );
-    result.source_hash = has_includes ? hash_source_tree( source.c_str(), paths ) : hash_file( source.c_str() );
+    result.source_hash      = has_includes ? hash_source_tree( source.c_str(), paths ) : hash_file( source.c_str() );
 
     std::error_code ec;
     result.source_mtime = std::filesystem::last_write_time( source.c_str(), ec ).time_since_epoch().count();
@@ -213,10 +212,10 @@ AssetImportResult AssetImporter::hash_source( StringView p_asset_path )
 
     auto finish = [&]( bool p_ok, String p_message ) {
         AssetImportResult result;
-        result.path      = key;
-        result.ok        = p_ok;
-        result.message   = std::move( p_message );
-        result.ms        = std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - start ).count();
+        result.path    = key;
+        result.ok      = p_ok;
+        result.message = std::move( p_message );
+        result.ms      = std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - start ).count();
         result.hash_only = true;
         return result;
     };

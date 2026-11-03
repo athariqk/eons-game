@@ -1,9 +1,9 @@
 #pragma once
 
 #include <ncore/core/collection.h>
-#include <ncore/core/rid.h>
-#include <ncore/core/types.h>
-#include <ncore/core/vector.h>
+#include <ncore/structs/rid.h>
+#include <ncore/structs/vector.h>
+#include <ncore/types/typedb.h>
 #include <ncore/utils/enum.h>
 
 #pragma push_macro( "NONE" )
@@ -118,19 +118,19 @@ NENUM(
 )
 
 enum class TextureFormat {
+    UNKNOWN = 0, // Can also mean no texture.
     RGBA8_UNORM,
     RGBA8_UNORM_SRGB,
     R32_FLOAT,
     RG32_FLOAT,
     RGBA32_FLOAT,
     D32_FLOAT, // Depth format single-float.
-    UNKNOWN,   // Can also mean no texture.
 };
 NENUM(
-    TextureFormat, NENUM_ELEMENT( TextureFormat, RGBA8_UNORM ), NENUM_ELEMENT( TextureFormat, RGBA8_UNORM_SRGB ),
-    NENUM_ELEMENT( TextureFormat, R32_FLOAT ), NENUM_ELEMENT( TextureFormat, RG32_FLOAT ),
-    NENUM_ELEMENT( TextureFormat, RGBA32_FLOAT ), NENUM_ELEMENT( TextureFormat, D32_FLOAT ),
-    NENUM_ELEMENT( TextureFormat, UNKNOWN )
+    TextureFormat, NENUM_ELEMENT( TextureFormat, UNKNOWN ), NENUM_ELEMENT( TextureFormat, RGBA8_UNORM ),
+    NENUM_ELEMENT( TextureFormat, RGBA8_UNORM_SRGB ), NENUM_ELEMENT( TextureFormat, R32_FLOAT ),
+    NENUM_ELEMENT( TextureFormat, RG32_FLOAT ), NENUM_ELEMENT( TextureFormat, RGBA32_FLOAT ),
+    NENUM_ELEMENT( TextureFormat, D32_FLOAT )
 )
 
 enum class ResourceDimension {
@@ -619,7 +619,7 @@ struct ShaderCreateDesc {
 struct RenderPipelineDesc {
     String debug_name;
     TextureFormat render_target_format   = TextureFormat::RGBA8_UNORM_SRGB;
-    TextureFormat depth_stencil_format   = TextureFormat::D32_FLOAT;
+    TextureFormat depth_stencil_format   = TextureFormat::UNKNOWN;
     PrimitiveTopology primitive_topology = PrimitiveTopology::TRIANGLE_LIST;
     RID vertex_shader;
     RID pixel_shader;

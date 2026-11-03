@@ -13,11 +13,11 @@ namespace nc::editor {
 class InspectorPanel final : public EditorPanel {
 public:
     InspectorPanel(
-        Scene& scene [[clang::lifetimebound]], EditorSelection& selection [[clang::lifetimebound]],
-        AssetDatabase& assets [[clang::lifetimebound]], AssetImporter& importer [[clang::lifetimebound]],
-        ThumbnailCache& thumbnails [[clang::lifetimebound]], ResourceLoader& loader [[clang::lifetimebound]],
-        const DynamicArray<Ptr<InspectorHandler>>& handlers [[clang::lifetimebound]],
-        const DynamicArray<PropertyWidget>& widgets [[clang::lifetimebound]]
+        Scene& scene NC_LIFETIME_BOUND, EditorSelection& selection NC_LIFETIME_BOUND,
+        AssetDatabase& assets NC_LIFETIME_BOUND, AssetImporter& importer NC_LIFETIME_BOUND,
+        ThumbnailCache& thumbnails NC_LIFETIME_BOUND, ResourceLoader& loader NC_LIFETIME_BOUND,
+        const DynamicArray<Ptr<InspectorHandler>>& handlers NC_LIFETIME_BOUND,
+        const DynamicArray<PropertyWidget>& widgets NC_LIFETIME_BOUND
     );
 
     void draw_contents( EditorFrame& ctx ) override;
@@ -36,7 +36,7 @@ private:
     /**
      * @brief Draw every reflected field of a component.
      */
-    bool draw_property( const rtti::TypeInfo* type, void* data );
+    bool draw_property( const types::TypeInfo* type, void* data );
 
     Scene& scene;
     EditorSelection& selection;
@@ -54,7 +54,7 @@ private:
      */
     EditorFrame* active_ctx = nullptr;
 
-    BumpAllocator<const rtti::TypeInfo*> to_remove;
+    BumpAllocator<const types::TypeInfo*> to_remove;
 };
 
 } // namespace nc::editor

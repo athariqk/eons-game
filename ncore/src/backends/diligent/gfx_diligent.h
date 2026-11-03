@@ -154,7 +154,7 @@ private:
     RIDPool<Diligent::RefCntAutoPtr<Diligent::IDeviceContext>> ctx_tx_defer;
     RIDPool<Diligent::RefCntAutoPtr<Diligent::ISwapChain>> swapchains;
     RIDPool<Diligent::RefCntAutoPtr<Diligent::IShader>> shaders;
-    // shader_create is called once per material from get_pso_key_ with the same
+    // shader_create is called once per material from get_pso_key with the same
     // precompiled bytecode — dedup so materials (and their texture variants) share
     // IShader objects, which in turn lets pso_cache share whole PSOs.
     struct ShaderBcKey {

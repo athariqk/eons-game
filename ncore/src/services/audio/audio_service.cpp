@@ -1,5 +1,4 @@
 #include <ncore/core/collection.h>
-#include <ncore/resources/resource.h>
 #include <ncore/services/audio/audio_service.h>
 #include <utils/profiler.h>
 
@@ -25,11 +24,11 @@ Error AudioService::init( ConfFile& cfg_file )
 
 void AudioService::shutdown() {}
 
-RID AudioService::create_stream( const AudioClip& p_clip )
+RID AudioService::create_stream( const AudioStreamDesc& p_desc )
 {
     RID handle = pImpl->sounds.acquire();
 
-    SDL_AudioSpec spec{ .format = SDL_AUDIO_F32, .channels = p_clip.get_channels(), .freq = p_clip.get_frequency() };
+    SDL_AudioSpec spec{ .format = SDL_AUDIO_F32, .channels = p_desc.channels, .freq = p_desc.frequency };
     SDL_AudioStream* stream = SDL_OpenAudioDeviceStream( SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr );
     if (!stream) {
         NC_LOG_ERROR_C( log::AUDIO, "Failed to open audio sound: {}", SDL_GetError() );
@@ -38,8 +37,8 @@ RID AudioService::create_stream( const AudioClip& p_clip )
 
     auto entry = pImpl->sounds.get( handle );
     if (entry) {
-        entry->data   = p_clip.get_data();
-        entry->length = p_clip.get_length();
+        entry->data   = p_desc.data;
+        entry->length = static_cast<int>( p_desc.data.size() );
         entry->stream = stream;
     }
 

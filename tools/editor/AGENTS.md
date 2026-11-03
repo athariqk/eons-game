@@ -38,15 +38,22 @@ panels: EditorPanel::draw_window() owns the ImGui Begin/End; a concrete panel
   on_collapsed() / post_end(). draw_contents() runs only while the window is open.
 
 asset pipeline:
-  AssetDatabase (data + manifest + procedural registry; scan only enqueues hashes)
+  AssetDatabase (data + manifest; scan only enqueues hashes)
   ImportService (worker: compile + hash; main pump(): reload + commit + flush manifest)
-  ThumbnailCache (GPU textures, main thread)
+  ThumbnailCache (handles to Image-owned textures, main thread)
   AssetPaths (path resolution + hashing helpers)
 ```
 
 Panels take **stable dependencies in their constructor** and read only
 **per-frame state** from `EditorFrame`. `EditorFrame` contains exactly:
 `ecs_world`, `renderer`, `inputs`, `time`, and the viewport hover/focus flags.
+
+Resources are referenced from components by `Ref<T>` — an intrusive ref-counted
+handle (see `ncore/types/classinfo.h`, `RefClass`). Archives persist a tagged
+identity for each `Ref<T>` field: the asset path when the resource has one,
+otherwise a loader-RID fallback for in-memory resources. Editors that point at
+a resource assign `loader.load<T>( path )` into the field (the `asset_picker`
+widget) and let `IResource::prepare()` materialize it.
 
 ## File map
 
@@ -61,16 +68,16 @@ src/editor_components.h          ECS components: EditorCameraTag, SelectedTag,
 src/ncore_editor.cpp             register/unregister, the ECS systems, free cam
 src/plugins/gui_plugin.h/.cpp    ImGui backend (GuiStateComponent, init/teardown)
 src/io/asset_paths.h/.cpp        AssetKind, AssetPaths, path resolution + hashing
-src/io/editor_assets.h/.cpp      AssetOrigin/Status/Entry, ImportManifest,
-                                 ProceduralRecord, AssetDatabase
+src/io/editor_assets.h/.cpp      AssetKind/Status/Entry, ImportManifest,
+                                 AssetDatabase
 src/io/asset_importer.h/.cpp     ImportService (worker: compile + scan hash), results
-src/io/thumbnail_cache.h/.cpp    ThumbnailCache (GPU thumbnail LRU)
+src/io/thumbnail_cache.h/.cpp    ThumbnailCache (cached Image-owned texture handles)
 src/panels/toolbar_panel.*       gizmo mode / world-local / wireframe
 src/panels/viewport_panel.*      offscreen viewport + Gizmo/Stats overlays
 src/panels/scene_tree_panel.*    hierarchy, selection, reparent, spawn/rename
 src/panels/inspector_panel.*     RTTI property sheet + handler/widget dispatch
 src/panels/assets_panel.*        asset browser (list/grid)
-src/panels/asset_picker.*        RID property widget (AssetPicker/RidHint)
+src/panels/asset_picker.*        asset picker (loads a path into a Ref<T> field)
 src/panels/logs_panel.*          console view over LogStore
 src/panels/material_inspector.*  material uniform inspector (InspectorHandler)
 src/backends/imgui/              ImGui style + helpers
@@ -97,7 +104,7 @@ src/backends/imgui/              ImGui style + helpers
    only.** A panel's dependencies are visible in its constructor. Do not re-add
    services to `EditorFrame`. The shell owns `ImGui::Begin`/`End`; panels must
    not call them.
-5. **Stored-reference constructor params need `[[clang::lifetimebound]]`**
+5. **Stored-reference constructor params need `NC_LIFETIME_BOUND`**
    (`-Werror -Wlifetime-safety-cross-tu-constructor-suggestions`).
 6. **No `NCAPI` on template classes** (`Ref`, `PagedPool`, `RIDPool`,
    `RingBuffer`, `VectorClass`, etc.) — game code instantiates them and link
@@ -128,7 +135,7 @@ Select-String -Path logs\engine.log -Pattern "AssetDatabase:" | Select-Object -L
 ```
 
 Pass = process alive, no assertion/ASan in stderr, and
-`AssetDatabase: 18 assets` (16 file + 2 procedural) in the log. The log is
+`AssetDatabase: 16 assets` in the log. The log is
 `logs/engine.log` (not `eons.log`); `ImportService: 3 source dirs, 6 shader
 search paths` confirms the importer initialized.
 
@@ -156,5 +163,5 @@ search paths` confirms the importer initialized.
 - Parameters prefixed `p_`; members `snake_case` with no trailing underscore.
 - Accessors use `get_`; where a private member would collide with an API verb it
   takes an `_impl` suffix.
-- Pointer/reference-returning members are `[[clang::lifetimebound]]`.
+- Pointer/reference-returning members are `NC_LIFETIME_BOUND`.
 - New editor features arrive as panels registered in `Editor::create_panels()`.

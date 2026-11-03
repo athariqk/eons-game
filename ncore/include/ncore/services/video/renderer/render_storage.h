@@ -2,16 +2,18 @@
 
 #include <cstdint>
 
-#include <ncore/core/matrix.h>
-#include <ncore/core/reference.h>
-#include <ncore/resources/resource.h>
+#include <ncore/core/collection.h>
+#include <ncore/structs/matrix.h>
+#include <ncore/structs/rid.h>
 
 #include "../gfx_types.h"
+#include "material_desc.h"
+#include "mesh_desc.h"
+#include "shader_program_desc.h"
 
 namespace nc {
 
 class GfxInterface;
-class Mesh;
 
 /**
  * @brief RenderStorage is responsible for managing RenderService
@@ -71,6 +73,10 @@ public:
     static constexpr gfx::BindingSet BINDING_SET_MATERIAL      = 1;
     static constexpr gfx::BindingSet BINDING_SET_INSTANCE      = 2;
 
+    static constexpr const char* SCENE_CBUFFER_NAME    = "g_Scene";
+    static constexpr const char* LIGHTING_CBUFFER_NAME = "g_LightEnv";
+    static constexpr const char* MATERIAL_CBUFFER_NAME = "g_Material";
+
     /**
      * @brief Size of the spatial [[vk::push_constant]] block, in 4-byte constants.
      *
@@ -91,11 +97,18 @@ public:
     static constexpr uint32_t CANVAS_PUSH_CONSTANT_UINTS = 16; // 64 bytes
 
     /**
-     * @brief Create binding and mapping of resources on the given binding set for a shader.
+     * @brief Create the GPU shader program described by `p_desc`.
+     *
+     * The returned RID owns one RHI shader object per stage.
+     *
+     * Destroy it with destroy_rid() when the program is no longer used.
      */
-    RID resource_set_create(
-        const Shader& p_shader, gfx::BindingSet p_set, Span<const gfx::ResourceMappingEntry> p_resources
-    );
+    RID shader_program_create( const ShaderProgramDesc& p_desc );
+
+    /**
+     * @brief Create binding and mapping of resources on the given binding set for a shader program.
+     */
+    RID resource_set_create( RID p_shader, gfx::BindingSet p_set, Span<const gfx::ResourceMappingEntry> p_resources );
     /**
      * @brief Get the resource signature RID for a given resource set.
      *
@@ -112,6 +125,10 @@ public:
      * @brief Create-or-get a cached compute pipeline.
      */
     RID get_compute_pipeline_or_create( const PSOKey& key );
+    /**
+     * @brief Create-or-get a compute pipeline for a shader program and its resource sets.
+     */
+    RID compute_pipeline_create( RID p_shader, Span<const RID> p_resource_sets );
 
     struct SceneData {
         uint32_t render_width;
@@ -137,13 +154,19 @@ public:
     void scene_data_update( const SceneData& p_scene_data );
 
     /**
-     * @brief Create GPU-side material instance from Material resource.
+     * @brief Create a GPU-side material instance from a descriptor object.
      *
-     * A material has its own shader resources.
+     * A material owns its parameter buffer and its BINDING_SET_MATERIAL resource set.
      */
-    RID material_create( const Ref<MaterialShader>& p_shader );
-    void material_set_param( RID p_material, const String& p_param, const void* p_data, size_t p_data_size );
-    void material_set_texture( RID p_material, RID p_texture, uint32_t p_slot );
+    RID material_create( const MaterialCreateDesc& p_desc );
+    /**
+     * @brief Write raw bytes into the material parameter block at given offset.
+     */
+    void material_set_data( RID p_material, uint32_t p_offset, const void* p_data, size_t p_data_size );
+    /**
+     * @brief Bind a texture to a named parameter of the material's resource set.
+     */
+    void material_set_texture( RID p_material, StringView p_param_name, RID p_texture );
     void material_set_draw_mode( RID p_material, gfx::FillMode p_mode );
     /**
      * @brief Whether a material's shader declares a non-opaque blend preset.
@@ -163,12 +186,12 @@ public:
     bool material_bind( RID p_material, bool p_pass_has_depth );
 
     /**
-     * @brief Creates vertex/index buffer objects from Mesh resource.
+     * @brief Creates vertex/index buffer objects from a mesh upload description.
      *
      * Currently the access mode for the buffers is immutable, so we
      * can't update GPU-side meshes dynamically.
      */
-    RID mesh_create( const Mesh& mesh );
+    RID mesh_create( const MeshUploadDesc& p_desc );
     /**
      * @brief Bind GPU mesh to the current render pipeline.
      */
@@ -195,6 +218,23 @@ public:
      */
     void set_graphics_api( GfxInterface* p_gfx_api );
 
+    /**
+     * @brief Monotonic counter of the graphics device generation.
+     *
+     * Bumped on every device (re)creation and on shutdown. Resources compare the
+     * value they prepared against to decide whether their handles are still
+     * valid on the current device.
+     */
+    uint32_t get_device_revision() const
+    {
+        return device_revision;
+    }
+
+    /**
+     * @brief Flush deferred destroys and verify every pool was drained.
+     */
+    void shutdown();
+
 private:
     friend class RenderService;
 
@@ -202,15 +242,35 @@ private:
     // skips SetPipelineState + SRB commits while these match the request. Keyed
     // on the material handle, not just the PSO: get_render_pipeline_or_create()
     // shares PSO RIDs between materials that only differ in their resource set.
-    RID bound_material_;
-    RID bound_pso_;
-    bool bound_valid_ = false;
+    RID last_bound_material;
+    RID last_bound_pso;
+    bool is_bound_valid = false;
+
+    /**
+     * @brief GPU-side data of a shader program.
+     */
+    struct ShaderProgramData {
+        RID vs;
+        RID ps;
+        RID cs;
+        String debug_name;
+        gfx::ShaderStage stage_mask = gfx::ShaderStage::NONE;
+        gfx::VertexLayout vertex_layout;
+        RenderType render_type = RenderType::SPATIAL;
+        ShaderParamLayout params;
+        HashMap<StringView, size_t> material_param_to_index;
+    };
 
     /**
      * @brief GPU-side data of a Material.
      */
     struct MaterialData {
-        Ref<MaterialShader> shader; // kept for runtime reflection (set_param, set_texture)
+        RID shader; // ShaderProgramData handle
+        RenderType render_type = RenderType::SPATIAL;
+        MaterialStateDesc state;
+        bool transparent           = false;
+        uint32_t param_buffer_size = 0;
+
         RID pso;
         PSOKey pso_key;
         // Same permutation but declaring no depth attachment (DSVFormat = UNKNOWN). A material may be
@@ -224,17 +284,20 @@ private:
         // set-0 globals signature and material_bind commits the globals SRB.
         bool has_globals = false;
         RID param_buffer; // Per-material constant buffer
+
+        // parameter block shadow, uploaded on the next material_bind.
+        // TODO: remove, replace with a view or something
         DynamicArray<uint8_t> param_staging;
-        // Upload the staging on the next material_bind (creation zero-fill or a change).
         bool param_dirty = false;
-        struct TextureSlot {
-            gfx::ParameterType type;
-            RID texture_rid;
-        };
-        HashMap<String, TextureSlot> texture_slots;
-        DynamicArray<String> texture_slot_names; // ordered: slot index → name
+
+        // Last texture bound to each named parameter, so repeated binds of the same
+        // resource can skip the descriptor update.
+        // HashMap<String, RID> texture_bindings;
     };
 
+    /**
+     * @brief A shader's resource (uniform) set.
+     */
     struct ResourceSet {
         RID signature;
         RID mapping;
@@ -244,7 +307,7 @@ private:
     };
 
     struct ResSignatureKey {
-        const Shader* shader;
+        RID shader_rid;
         uint16_t set;
 
         bool operator==( const ResSignatureKey& o ) const;
@@ -268,21 +331,25 @@ private:
 
 private:
     /**
-     * @brief Bake a Material resource into PSO key.
+     * @brief Bake a shader program + fixed-function state into a PSO key.
      */
-    PSOKey get_pso_key_( const Ref<MaterialShader>& p_shader );
+    PSOKey get_pso_key( RID p_shader, const MaterialStateDesc& p_state );
 
-    GfxInterface* gfx_api;
+    GfxInterface* gfx_api    = nullptr;
+    uint32_t device_revision = 1;
+
     HashMap<PSOKey, RID, PSOKeyHasher> pso_cache;
     HashMap<ResSignatureKey, RID, ResSignatureKeyHasher> res_signature_cache;
     RIDPool<ResourceSet> resource_sets;
+    RIDPool<ShaderProgramData> shader_programs;
     RIDPool<MaterialData> materials;
     RIDPool<GPUMesh> meshes;
     HashSet<RID> pending_destroys;
 
-    // destroy-path helpers (flush_pending_destroys / evict_texture_variants_for_)
-    void release_material_gpu_( MaterialData& p_material );
-    void release_resource_set_( RID p_resource_set );
+    // destroy-path helpers (flush_pending_destroys)
+    void release_material_gpu( MaterialData& p_material );
+    void release_shader_program( ShaderProgramData& p_program );
+    void release_resource_set( RID p_resource_set );
 
 private:
     // Combined set-0 "globals" resource set: g_LightEnv (PIXEL CB) and g_Scene
@@ -292,34 +359,34 @@ private:
     RID light_env_ubo;
     RID global_uniforms_res_set;
     // shadow of the last upload so scene_data_update can skip no-op rewrites
-    SceneData last_scene_data_{};
-    bool scene_data_valid_ = false;
-    DynamicArray<uint8_t> light_env_data_;
+    SceneData last_scene_data{};
+    bool is_scene_data_valid = false;
+    DynamicArray<uint8_t> light_env_data;
     // The engine has no light system yet, so a single default "sun" is kept in
     // a staging block — a zero-filled block makes every surface black.
     // 1x1 D32 fallback bound to `g_SceneDepth` until a real scene depth is provided.
     RID scene_depth_fallback;
     RID scene_depth_texture;
-    void ensure_global_uniforms_();
+    void ensure_global_uniforms();
 
     RID spatial_push_sig;
     RID spatial_push_binding;
     RID canvas_push_sig;
     RID canvas_push_binding;
-    void ensure_push_constant_signatures_();
+    void ensure_push_constant_signatures();
 
     RID white_texture_2d;
     RID white_texture_2d_array;
     RID white_texture_cube;
-    RID get_fallback_texture_( gfx::ParameterType type );
+    RID get_fallback_texture( gfx::ParameterType type );
 
     // material signatures also contain SamplerState slots, which nothing else in
     // the engine binds — every material gets this one until a real sampler is set
     RID default_sampler;
-    RID ensure_default_sampler_();
-    void ensure_fallback_textures_();
+    RID ensure_default_sampler();
+    void ensure_fallback_textures();
 
-    uint32_t align_up_( uint32_t p_value, uint32_t p_alignment );
+    uint32_t align_up( uint32_t p_value, uint32_t p_alignment );
 };
 
 } // namespace nc

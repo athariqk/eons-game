@@ -1,26 +1,29 @@
+// Copyright (C) 2026 Ahmad Ghalib Athariq <alib.athariq@gmail.com>
+// This file is subject to the license terms in the LICENSE file
+// found in the top-level directory of this distribution.
+// File: scene_plugins.cpp
+
 #include "scene_plugins.h"
 
+#include <utility>
+
 #include <ncore/application.h>
-#include <ncore/resources/resource.h>
-#include <ncore/runtime/components/camera.h>
-#include <ncore/runtime/components/input.h>
-#include <ncore/runtime/components/material.h>
-#include <ncore/runtime/components/mesh.h>
-#include <ncore/runtime/components/resource.h>
-#include <ncore/runtime/components/services.h>
-#include <ncore/runtime/components/sprite.h>
-#include <ncore/runtime/components/time.h>
-#include <ncore/runtime/components/transform.h>
-#include <ncore/runtime/components/window.h>
+#include <ncore/core/collection.h>
+#include <ncore/runtime/components.h>
 #include <ncore/runtime/ecs/ecs_events.h>
 #include <ncore/runtime/ecs/ecs_system.h>
 #include <ncore/runtime/ecs/ecs_world.h>
+#include <ncore/runtime/io/resource_loader.h>
+#include <ncore/runtime/resources/image.h>
+#include <ncore/runtime/resources/material.h>
+#include <ncore/runtime/resources/mesh.h>
 #include <ncore/runtime/scene.h>
 #include <ncore/services/io/input_event.h>
 #include <ncore/services/io/input_service.h>
 #include <ncore/services/video/render_service.h>
 #include <ncore/services/video/window/window_event.h>
 #include <ncore/services/video/window_service.h>
+#include <ncore/utils/log.h>
 #include <utils/profiler.h>
 
 namespace nc {
@@ -46,8 +49,8 @@ void NCAPI register_core_plugin( Scene& scene )
             NC_PLOT( "FPS", time->fps );
         } );
 
-    scene.get_ecs().add_singleton<IOServices>();
-    auto io       = scene.get_ecs().get_singleton<IOServices>();
+    scene.get_ecs().add_singleton<IoServices>();
+    auto io       = scene.get_ecs().get_singleton<IoServices>();
     io->resources = &scene.get_resource_loader();
     io->inputs    = scene.get_app_ctx()->services.resolve<InputService>();
 
@@ -59,9 +62,17 @@ void NCAPI register_core_plugin( Scene& scene )
 
 void register_video_plugin( Scene& scene )
 {
-    auto window_svc   = scene.get_app_ctx()->services.resolve<WindowService>();
-    auto default_icon = scene.get_resource_loader().load<Image>( "images/window.png" );
-    window_svc->set_default_icon( default_icon );
+    auto window_svc = scene.get_app_ctx()->services.resolve<WindowService>();
+
+    if (auto icon = scene.get_resource_loader().load<Image>( "images/window.png" )) {
+        window_svc->set_default_icon(
+            IconDesc{
+                .width  = static_cast<int>( icon->get_width() ),
+                .height = static_cast<int>( icon->get_height() ),
+                .rgba   = icon->get_pixels()
+            }
+        );
+    }
 
     scene.get_ecs()
         .observer( "SceneVideoPlugin_Window_Init" )
@@ -139,133 +150,64 @@ void register_video_plugin( Scene& scene )
         } );
 
     scene.get_ecs()
-        .observer( "SceneVideoPlugin_Material_Init" )
-        .with<MaterialComponent>()
-        .with<MaterialRenderComponent>()
-        .event<ResourceLoadedComponent>()
-        .each( []( EcsIterState& it ) {
-            auto vid    = it.world().get_singleton<VideoServices>();
-            auto io     = it.world().get_singleton<IOServices>();
-            auto mat    = it.get_component<MaterialComponent>();
-            auto handle = it.get_component<MaterialRenderComponent>();
-            auto loaded = it.event_payload<ResourceLoadedComponent>();
-
-            if (mat->shader != loaded->resource_id && mat->shader != loaded->replaced)
-                return;
-            mat->shader = loaded->resource_id;
-
-            auto source = io->resources->get<MaterialShader>( loaded->resource_id );
-            if (!source)
-                return;
-
-            if (handle->handle)
-                vid->renderer->destroy_rid( handle->handle );
-
-            handle->handle = vid->renderer->material_create( source );
-
-            for (int i = 0; i < mat->texture_count; ++i)
-                vid->renderer->material_set_texture( handle->handle, mat->textures[i], i );
-
-            vid->renderer->material_set_draw_mode( handle->handle, mat->draw_mode );
-
-            for (const auto& p : mat->params)
-                vid->renderer->material_set_param( handle->handle, p.name, p.data.data(), p.data.size() );
-        } );
-
-    scene.get_ecs()
-        .observer( "SceneVideoPlugin_MaterialComponent_Update" )
-        .on<MaterialComponent>( ecs::ON_SET )
-        .with<MaterialRenderComponent>()
-        .each( []( EcsIterState& it ) {
-            auto vid    = it.world().get_singleton<VideoServices>();
-            auto mat    = it.get_component<MaterialComponent>();
-            auto handle = it.get_component<MaterialRenderComponent>();
-            if (!handle->handle)
-                return;
-            vid->renderer->material_set_draw_mode( handle->handle, mat->draw_mode );
-            for (int i = 0; i < mat->texture_count; ++i)
-                vid->renderer->material_set_texture( handle->handle, mat->textures[i], i );
-            for (const auto& p : mat->params)
-                vid->renderer->material_set_param( handle->handle, p.name, p.data.data(), p.data.size() );
-        } );
-
-    scene.get_ecs()
-        .observer( "SceneVideoPlugin_MaterialRender_Cleanup" )
-        .on<MaterialRenderComponent>( ecs::ON_REMOVE )
-        .each( []( EcsIterState& it ) {
-            auto handle = it.get_component<MaterialRenderComponent>();
-            auto vid    = it.world().get_singleton<VideoServices>();
-            if (!handle->handle)
-                return;
-            vid->renderer->destroy_rid( handle->handle );
-            handle->handle = 0;
-        } );
-
-    scene.get_ecs()
         .observer( "SceneVideoPlugin_Mesh_Init" )
-        .with<MeshComponent>()
-        .with<MeshRenderComponent>()
-        .event<ResourceLoadedComponent>()
-        .each( []( EcsIterState& it ) {
-            auto vid    = it.world().get_singleton<VideoServices>();
-            auto io     = it.world().get_singleton<IOServices>();
-            auto mesh   = it.get_component<MeshComponent>();
-            auto render = it.get_component<MeshRenderComponent>();
-            auto loaded = it.event_payload<ResourceLoadedComponent>();
+        .on<MeshInstanceComponent>( ecs::ON_SET )
+        .each( [&scene]( EcsIterState& it ) {
+            auto vid      = it.world().get_singleton_const<VideoServices>();
+            auto instance = it.get_component<MeshInstanceComponent>();
 
-            if (mesh->source != loaded->resource_id && mesh->source != loaded->replaced)
-                return;
-            mesh->source = loaded->resource_id;
+            if (!instance->internal_handle)
+                instance->internal_handle = vid->renderer->spatial_item_create();
 
-            // Re-init (resource reload): release the old item AND its GPU mesh;
-            // items never own their mesh implicitly.
-            if (render->item) {
-                auto old_gpu_mesh = vid->renderer->spatial_item_get_mesh( render->item );
-                vid->renderer->destroy_rid( render->item );
-                if (old_gpu_mesh)
-                    vid->renderer->destroy_rid( old_gpu_mesh );
-                render->item = 0;
+            if (instance->mesh) {
+                if (RID rid = instance->mesh->prepare( scene ))
+                    vid->renderer->spatial_item_set_mesh( instance->internal_handle, rid );
             }
-
-            auto source   = io->resources->get<Mesh>( loaded->resource_id );
-            auto gpu_mesh = vid->renderer->mesh_create( *source );
-
-            render->item = vid->renderer->spatial_item_create();
-            vid->renderer->spatial_item_set_mesh( render->item, gpu_mesh );
         } );
 
     scene.get_ecs()
-        .observer( "SceneVideoPlugin_MeshRenderer_Cleanup" )
-        .on<MeshRenderComponent>( ecs::ON_REMOVE )
-        .each( []( EcsIterState& it ) {
-            auto render = it.get_component<MeshRenderComponent>();
-            auto vid    = it.world().get_singleton<VideoServices>();
-            if (!render->item)
-                return;
-            auto gpu_mesh = vid->renderer->spatial_item_get_mesh( render->item );
-            vid->renderer->destroy_rid( render->item );
-            if (gpu_mesh)
-                vid->renderer->destroy_rid( gpu_mesh );
-            render->item = 0;
-        } );
-
-    scene.get_ecs()
-        .system( "SceneVideoPlugin_MeshRenderer_Draw" )
-        .with<MeshRenderComponent>()
-        .with<MaterialRenderComponent>()
+        .system( "SceneVideoPlugin_Mesh_Draw" )
+        .with<MeshInstanceComponent>()
         .with<Transform3DComponent>()
         .in( EcsSystemPhase::UPDATE )
-        .each( []( EcsIterState& it ) {
-            auto mesh     = it.get_component<MeshRenderComponent>();
-            auto material = it.get_component<MaterialRenderComponent>();
+        .each( [&scene]( EcsIterState& it ) {
+            auto instance = it.get_component<MeshInstanceComponent>();
             auto xform    = it.get_component<Transform3DComponent>();
             auto vid      = it.world().get_singleton<VideoServices>();
 
-            if (mesh->item && material->handle) {
-                vid->renderer->spatial_item_set_transform( mesh->item, xform->global );
-                vid->renderer->spatial_item_set_material( mesh->item, material->handle );
-                vid->renderer->spatial_item_draw( mesh->item, mesh->layer_index, mesh->instance_count );
+            if (!instance->internal_handle)
+                return;
+
+            if (!instance->mesh || !instance->mesh->prepare( scene ))
+                return;
+
+            // an entity may opt into overriding a mesh's material.
+            Ref<Material> material = instance->mesh->get_material();
+            if (auto* override_mat = it.get_entity_component<MaterialOverrideComponent>();
+                override_mat && override_mat->override_mesh_material) {
+                material = override_mat->material;
             }
+
+            RID material_rid = material ? material->prepare( scene ) : RID();
+
+            // TODO: we need to disambiguate 3d and 2d mesh, currently
+            // just assume the mesh is 3d (spatial).
+            vid->renderer->spatial_item_set_transform( instance->internal_handle, xform->global );
+            vid->renderer->spatial_item_set_material( instance->internal_handle, material_rid );
+            vid->renderer->spatial_item_draw(
+                instance->internal_handle, instance->layer_index, instance->instance_count
+            );
+        } );
+
+    scene.get_ecs()
+        .observer( "SceneVideoPlugin_Mesh_Cleanup" )
+        .on<MeshInstanceComponent>( ecs::ON_REMOVE )
+        .each( []( EcsIterState& it ) {
+            auto vid      = it.world().get_singleton_const<VideoServices>();
+            auto instance = it.get_component<MeshInstanceComponent>();
+
+            if (instance->internal_handle)
+                vid->renderer->destroy_rid( instance->internal_handle );
         } );
 
     // TODO: disabled. canvas_draw_quad() no longer exists — this needs a rewrite on top of
@@ -276,7 +218,6 @@ void register_video_plugin( Scene& scene )
     scene.get_ecs()
         .system( "SceneVideoPlugin_SpriteRenderer_Draw" )
         .with<Transform2DComponent>()
-        .with<MaterialComponent>()
         .with<SpriteComponent>()
         .in( EcsSystemPhase::UPDATE )
         .each( []( EcsIterState& it ) {
@@ -487,10 +428,10 @@ void register_inputs_plugin( Scene& scene )
 
     scene.get_ecs()
         .system( "SceneInputPlugin_Update" )
-        .with<IOServices>()
+        .with<IoServices>()
         .in( EcsSystemPhase::PRE_UPDATE )
         .run( []( EcsIterState& it ) {
-            auto io = it.get_component<IOServices>();
+            auto io = it.get_component<IoServices>();
             io->inputs->update();
         } );
 
@@ -499,7 +440,7 @@ void register_inputs_plugin( Scene& scene )
         .with<InputComponent>()
         .in( EcsSystemPhase::PRE_UPDATE )
         .each( []( EcsIterState& it ) {
-            auto io    = it.world().get_singleton<IOServices>();
+            auto io    = it.world().get_singleton_const<IoServices>();
             auto input = it.get_component<InputComponent>();
 
             input->direction.zero();
@@ -525,8 +466,8 @@ void register_inputs_plugin( Scene& scene )
         .with<InputComponent>()
         .in( EcsSystemPhase::PRE_UPDATE )
         .each( []( EcsIterState& it ) {
-            auto io    = it.world().get_singleton<IOServices>();
-            auto vid   = it.world().get_singleton<VideoServices>();
+            auto io    = it.world().get_singleton_const<IoServices>();
+            auto vid   = it.world().get_singleton_const<VideoServices>();
             auto input = it.get_component<InputComponent>();
 
             auto win_id = vid->window->get_main_window_id();
@@ -555,9 +496,9 @@ void register_inputs_plugin( Scene& scene )
         .with<CameraComponent>()
         .in( EcsSystemPhase::UPDATE )
         .each( []( EcsIterState& it ) {
+            auto vid = it.world().get_singleton_const<VideoServices>();
+            auto io  = it.world().get_singleton_const<IoServices>();
             auto cam = it.get_component<CameraComponent>();
-            auto vid = it.world().get_singleton<VideoServices>();
-            auto io  = it.world().get_singleton<IOServices>();
 
             auto win_id = vid->window->get_main_window_id();
 
@@ -575,70 +516,6 @@ void register_inputs_plugin( Scene& scene )
                 vid->window->window_set_mouse_position(
                     win_id, Vec2f( static_cast<float>( win_res.x ), static_cast<float>( win_res.y ) ) / 2
                 );
-            }
-        } );
-}
-
-void NCAPI register_resources_plugin( Scene& scene )
-{
-    scene.get_ecs().add_singleton<ResourceWatchState>();
-
-    scene.get_ecs()
-        .system( "Scene_ResourceWatcher_Poll" )
-        .in( EcsSystemPhase::POST_UPDATE )
-        .run( []( EcsIterState& it ) {
-            auto io    = it.world().get_singleton<IOServices>();
-            auto state = it.world().get_singleton<ResourceWatchState>();
-
-            state->pending_events.clear();
-            ResourceLoader::Event e;
-            while (io->resources->poll_event( &e )) { // has any resource event occurred?
-                state->pending_events.push_back( e );
-            }
-        } );
-
-    // Resource events are dispatched only to entities that actually reference
-    // the loaded resource (MeshComponent.Source / MaterialComponent.Shader).
-    // Broadcasting every event to every HasResourceTag entity made frame-1
-    // cost O(entities x pending events), which blows up with many entities
-    // sharing a resource (per-chunk water meshes).
-    // NOTE: any new resource-backed component type must be added here.
-    auto mesh_entities = scene.get_ecs()
-                             .query( "Scene_ResourceWatcher_MeshEntities" )
-                             .with<MeshComponent>()
-                             .with<HasResourceTag>()
-                             .build();
-
-    auto material_entities = scene.get_ecs()
-                                 .query( "Scene_ResourceWatcher_MaterialEntities" )
-                                 .with<MaterialComponent>()
-                                 .with<HasResourceTag>()
-                                 .build();
-
-    scene.get_ecs()
-        .system( "Scene_ResourceWatcher_Emit" )
-        .in( EcsSystemPhase::POST_UPDATE )
-        .run( [mesh_entities, material_entities]( EcsIterState& it ) mutable {
-            auto state  = it.world().get_singleton<ResourceWatchState>();
-            auto& world = it.world();
-
-            for (auto& entry : state->pending_events) {
-                auto loaded = std::get_if<ResourceLoader::LoadEvent>( &entry ); // resource loaded event
-                if (!loaded)
-                    continue;
-
-                ResourceLoadedComponent payload{
-                    .resource_id = loaded->handle, .format_id = loaded->format_id, .replaced = loaded->replaced
-                };
-
-                for (auto ctx : mesh_entities.entities()) {
-                    if (ctx.get_component<MeshComponent>()->source == loaded->handle)
-                        world.emit_event<ResourceLoadedComponent>( payload, ctx.entity() );
-                }
-                for (auto ctx : material_entities.entities()) {
-                    if (ctx.get_component<MaterialComponent>()->shader == loaded->handle)
-                        world.emit_event<ResourceLoadedComponent>( payload, ctx.entity() );
-                }
             }
         } );
 }

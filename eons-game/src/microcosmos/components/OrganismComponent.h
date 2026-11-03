@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ncore/core/types.h>
+#include <ncore/types/types.h>
 #include <ncore/runtime/ecs/ecs_component.h>
 
 #include <microcosmos/Genes.h>

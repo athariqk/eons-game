@@ -2,10 +2,10 @@
 
 #include <stdint.h>
 
-#include <ncore/core/color.h>
+#include <ncore/structs/color.h>
 #include <ncore/core/random.h>
-#include <ncore/core/types.h>
-#include <ncore/core/vector.h>
+#include <ncore/types/types.h>
+#include <ncore/structs/vector.h>
 
 struct Genes {
 public:

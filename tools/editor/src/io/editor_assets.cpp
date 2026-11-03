@@ -7,7 +7,7 @@
 #include <fstream>
 #include <string>
 
-#include <ncore/runtime/resources/resource_loader.h>
+#include <ncore/runtime/io/resource_loader.h>
 #include <ncore/utils/log.h>
 
 #include "asset_importer.h"
@@ -46,27 +46,16 @@ bool records_equal( const HashMap<String, ManifestRecord>& a, const HashMap<Stri
 StringView asset_status_name( AssetStatus status )
 {
     switch (status) {
-        case AssetStatus::Ready:
+        case AssetStatus::READY:
             return "ready";
-        case AssetStatus::Dirty:
+        case AssetStatus::DIRTY:
             return "dirty";
-        case AssetStatus::MissingSource:
+        case AssetStatus::MISSING_SOURCE:
             return "no source";
-        case AssetStatus::Compiling:
+        case AssetStatus::COMPILING:
             return "compiling";
-        case AssetStatus::Error:
+        case AssetStatus::ERROR:
             return "error";
-    }
-    return "";
-}
-
-StringView asset_origin_name( AssetOrigin origin )
-{
-    switch (origin) {
-        case AssetOrigin::File:
-            return "file";
-        case AssetOrigin::Procedural:
-            return "procedural";
     }
     return "";
 }
@@ -224,7 +213,7 @@ void AssetDatabase::scan( ResourceLoader& loader, AssetImporter& importer )
             entry.compiled_mtime = it->last_write_time( ec ).time_since_epoch().count();
 
             if (!find_source( entry.path, paths, entry.source_path )) {
-                entry.status = AssetStatus::MissingSource;
+                entry.status = AssetStatus::MISSING_SOURCE;
             } else {
                 ec.clear();
                 entry.source_mtime =
@@ -245,13 +234,13 @@ void AssetDatabase::scan( ResourceLoader& loader, AssetImporter& importer )
 
                 if (reuse_hash) {
                     entry.source_hash = known->source_hash;
-                    entry.status      = AssetStatus::Ready;
+                    entry.status      = AssetStatus::READY;
                     next.emplace( entry.path, *known );
                 } else {
                     // Needs a (re)hash, which runs on the import worker. Keep the
                     // previous record so mark_scanned can compare against it.
                     entry.source_hash = known ? known->source_hash : 0;
-                    entry.status      = AssetStatus::Compiling;
+                    entry.status      = AssetStatus::COMPILING;
                     if (known)
                         next.emplace( entry.path, *known );
                     need_hash.push_back( entry.path );
@@ -261,50 +250,6 @@ void AssetDatabase::scan( ResourceLoader& loader, AssetImporter& importer )
             present.insert( entry.path );
             assets.push_back( std::move( entry ) );
         }
-    }
-
-    // Procedural assets bound as virtual paths on the loader (discovered, so
-    // they have no editor-side generator and are not regenerable from here).
-    for (const auto& path : loader.get_virtual_paths()) {
-        if (present.contains( path ))
-            continue;
-
-        AssetEntry entry;
-        entry.path   = path;
-        entry.origin = AssetOrigin::Procedural;
-        entry.status = AssetStatus::Ready;
-
-        const RID rid = loader.find( path );
-        if (auto res = loader.get( rid ))
-            entry.kind = kind_from_format( res->get_format_id().id );
-
-        present.insert( path );
-        assets.push_back( std::move( entry ) );
-    }
-
-    // Procedural assets explicitly registered with a generator.
-    for (const auto& [path, rec] : generators) {
-        bool found = false;
-        for (auto& entry : assets) {
-            if (entry.path != path)
-                continue;
-            found = true;
-            if (entry.origin == AssetOrigin::File)
-                break; // a file asset wins over a colliding generator path
-            entry.kind = rec.kind;
-            break;
-        }
-        if (found)
-            continue;
-
-        AssetEntry entry;
-        entry.path   = path;
-        entry.origin = AssetOrigin::Procedural;
-        entry.kind   = rec.kind;
-        entry.status = AssetStatus::Ready;
-
-        present.insert( path );
-        assets.push_back( std::move( entry ) );
     }
 
     rebuild_index();
@@ -339,68 +284,16 @@ const AssetEntry* AssetDatabase::find( StringView path ) const
     return &assets[it->second];
 }
 
-AssetEntry* AssetDatabase::ensure_procedural_entry( StringView path )
-{
-    if (auto* existing = find_mut( path ))
-        return existing;
-
-    AssetEntry entry;
-    entry.path   = String( path.data(), path.size() );
-    entry.origin = AssetOrigin::Procedural;
-    assets.push_back( std::move( entry ) );
-    rebuild_index();
-    return find_mut( path );
-}
-
-bool AssetDatabase::register_procedural( StringView path, AssetKind kind, AssetGenerateFn generator )
-{
-    const String key( path.data(), path.size() );
-
-    if (const AssetEntry* existing = find( key ); existing && existing->origin == AssetOrigin::File)
-        return false;
-
-    generators[key] = ProceduralRecord{ kind, std::move( generator ) };
-
-    if (is_scanned) {
-        auto* entry   = ensure_procedural_entry( key );
-        entry->kind   = kind;
-        entry->origin = AssetOrigin::Procedural;
-    }
-    return true;
-}
-
-void AssetDatabase::unregister_procedural( StringView path )
-{
-    const String key( path.data(), path.size() );
-    generators.erase( key );
-
-    if (!is_scanned)
-        return;
-
-    for (auto it = assets.begin(); it != assets.end(); ++it) {
-        if (it->path == key && it->origin == AssetOrigin::Procedural) {
-            assets.erase( it );
-            rebuild_index();
-            break;
-        }
-    }
-}
-
 void AssetDatabase::mark_dirty( StringView path )
 {
     if (auto* entry = find_mut( path ))
-        entry->status = AssetStatus::Dirty;
-}
-
-bool AssetDatabase::has_generator( StringView path ) const
-{
-    return generators.find( String( path.data(), path.size() ) ) != generators.end();
+        entry->status = AssetStatus::DIRTY;
 }
 
 void AssetDatabase::mark_compiling( StringView path )
 {
     if (auto* entry = find_mut( path ))
-        entry->status = AssetStatus::Compiling;
+        entry->status = AssetStatus::COMPILING;
 }
 
 void AssetDatabase::mark_imported( StringView path, uint64_t source_hash, int64_t source_mtime, uint64_t source_size )
@@ -421,7 +314,7 @@ void AssetDatabase::mark_imported( StringView path, uint64_t source_hash, int64_
     entry->compiled_mtime = std::filesystem::last_write_time( compiled, ec ).time_since_epoch().count();
     ec.clear();
     entry->compiled_size = std::filesystem::file_size( compiled, ec );
-    entry->status        = AssetStatus::Ready;
+    entry->status        = AssetStatus::READY;
     entry->last_error.clear();
 
     if (!manifest.valid_header)
@@ -436,7 +329,7 @@ void AssetDatabase::mark_imported( StringView path, uint64_t source_hash, int64_
 void AssetDatabase::mark_scanned( StringView path, uint64_t source_hash, int64_t source_mtime, uint64_t source_size )
 {
     auto* entry = find_mut( path );
-    if (!entry || entry->origin != AssetOrigin::File)
+    if (!entry)
         return;
 
     entry->source_hash  = source_hash;
@@ -451,15 +344,15 @@ void AssetDatabase::mark_scanned( StringView path, uint64_t source_hash, int64_t
     const bool matches  = known && known_it->second.source_hash == source_hash;
 
     if (known && matches) {
-        entry->status = AssetStatus::Ready;
+        entry->status = AssetStatus::READY;
     } else if (known) {
-        entry->status = AssetStatus::Dirty;
+        entry->status = AssetStatus::DIRTY;
         manifest.records.erase( known_it ); // stale: re-blessed on its next import
         manifest_dirty = true;
     } else {
         // New to the manifest: bless it once via the mtime fallback.
-        entry->status = source_mtime > entry->compiled_mtime ? AssetStatus::Dirty : AssetStatus::Ready;
-        if (entry->status == AssetStatus::Ready) {
+        entry->status = source_mtime > entry->compiled_mtime ? AssetStatus::DIRTY : AssetStatus::READY;
+        if (entry->status == AssetStatus::READY) {
             manifest.records[entry->path] = ManifestRecord{ source_mtime, source_size, source_hash };
             manifest_dirty                = true;
         }
@@ -480,40 +373,14 @@ void AssetDatabase::flush_manifest()
 void AssetDatabase::mark_failed( StringView path, StringView error )
 {
     if (auto* entry = find_mut( path )) {
-        entry->status     = AssetStatus::Error;
+        entry->status     = AssetStatus::ERROR;
         entry->last_error = String( error.data(), error.size() );
     }
 }
 
-RID AssetDatabase::load_or_generate( StringView path, ResourceLoader& loader, RenderService& renderer, bool force )
+RID AssetDatabase::ensure( StringView path, ResourceLoader& loader, bool force )
 {
-    const AssetEntry* entry = find( path );
-    if (!entry)
-        return RID();
-
-    if (entry->origin == AssetOrigin::File)
-        return loader.load( String( path.data(), path.size() ), force );
-
-    const String key( path.data(), path.size() );
-    const auto it = generators.find( key );
-    if (it == generators.end() || !it->second.generate)
-        return loader.find( path ); // discovered procedural, not regenerable
-
-    if (force || entry->status == AssetStatus::Dirty) {
-        const RID rid = it->second.generate( loader, renderer );
-        if (auto* e = find_mut( path )) {
-            if (rid) {
-                e->status = AssetStatus::Ready;
-                e->last_error.clear();
-            } else {
-                e->status     = AssetStatus::Error;
-                e->last_error = "generation failed";
-            }
-        }
-        return rid;
-    }
-
-    return loader.find( path );
+    return loader.load( String( path.data(), path.size() ), force );
 }
 
 } // namespace nc::editor

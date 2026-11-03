@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ncore/core/reference.h>
+#include <ncore/object/object_info.h>
 
 namespace nc {
 

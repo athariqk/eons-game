@@ -1,8 +1,8 @@
 #pragma once
 
-#include <ncore/core/rid.h>
-#include <ncore/core/vector.h>
 #include <ncore/services/service.h>
+#include <ncore/structs/rid.h>
+#include <ncore/structs/vector.h>
 
 #include "debug_draw.h"
 #include "physics_body.h"

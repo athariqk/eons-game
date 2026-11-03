@@ -5,11 +5,10 @@
 #include <backends/imgui/imgui_style.h>
 #include <backends/imgui/imgui_utils.h>
 
-#include <ncore/resources/resource.h>
-#include <ncore/runtime/components/services.h>
-#include <ncore/runtime/components/window.h>
+#include <ncore/runtime/components.h>
 #include <ncore/runtime/ecs/ecs_events.h>
-#include <ncore/runtime/resources/resource_loader.h>
+#include <ncore/runtime/io/resource_loader.h>
+#include <ncore/runtime/resources/font.h>
 #include <ncore/runtime/scene.h>
 #include <ncore/services/io/input_service.h>
 #include <ncore/services/video/render_service.h>
@@ -26,8 +25,8 @@ void register_gui_plugin( Scene& scene )
         .with<GuiStateComponent>()
         .in( EcsSystemPhase::INIT )
         .order( 10 )
-        .run( []( EcsIterState& it ) {
-            auto io    = it.world().get_singleton<IOServices>();
+        .run( [&scene]( EcsIterState& it ) {
+            auto io    = it.world().get_singleton<IoServices>();
             auto vid   = it.world().get_singleton<VideoServices>();
             auto state = it.get_component<GuiStateComponent>();
 
@@ -62,9 +61,9 @@ void register_gui_plugin( Scene& scene )
                 imgui_io.FontDefault = imgui_io.Fonts->AddFontDefault();
 
             for (int i = 0; i < ImGuiMouseCursor_COUNT; i++) {
-                auto imgui_cursor              = static_cast<ImGuiMouseCursor>( i );
-                auto cursor_type               = cursor_type_to_imgui_cursor( imgui_cursor );
-                state->CursorMap[imgui_cursor] = cursor_type;
+                auto imgui_cursor               = static_cast<ImGuiMouseCursor>( i );
+                auto cursor_type                = cursor_type_to_imgui_cursor( imgui_cursor );
+                state->cursor_map[imgui_cursor] = cursor_type;
             }
 
             ImGui::SetCurrentContext( state->imgui_ctx );
@@ -87,10 +86,14 @@ void register_gui_plugin( Scene& scene )
                 col.z       = col.z <= 0.04045f ? col.z / 12.92f : pow( ( col.z + 0.055f ) / 1.055f, 2.4f );
             }
 
-            auto shader       = io->resources->load<MaterialShader>( "shaders/materials/standard_canvas.slang" );
-            auto mat          = vid->renderer->material_create( shader );
-            state->CanvasItem = vid->renderer->canvas_item_create();
-            vid->renderer->canvas_item_set_material( state->CanvasItem, mat );
+            auto shader        = io->resources->load<MaterialShader>( "shaders/materials/standard_canvas.slang" );
+            state->canvas_item = vid->renderer->canvas_item_create();
+            if (shader) {
+                // The material owns its GPU instance; the component keeps it alive.
+                state->canvas_material = Ref<Material>::create();
+                state->canvas_material->set_shader( shader );
+                vid->renderer->canvas_item_set_material( state->canvas_item, state->canvas_material->prepare( scene ) );
+            }
         } );
 
     scene.get_ecs()
@@ -119,8 +122,10 @@ void register_gui_plugin( Scene& scene )
                 tex->SetStatus( ImTextureStatus_Destroyed );
             }
 
-            if (state->CanvasItem)
-                vid->renderer->destroy_rid( state->CanvasItem );
+            if (state->canvas_item)
+                vid->renderer->destroy_rid( state->canvas_item );
+
+            state->canvas_material = nullptr;
 
             auto fonts = ImGui::GetIO().Fonts;
             NC_LOG_DEBUG_C( log::GUI, "Destroying font atlas TexID={}", fonts->TexID.GetTexID() );
@@ -135,7 +140,7 @@ void register_gui_plugin( Scene& scene )
         .in( EcsSystemPhase::PRE_FRAME )
         .with<GuiStateComponent>()
         .run( []( EcsIterState& it ) {
-            auto io  = it.world().get_singleton<IOServices>();
+            auto io  = it.world().get_singleton<IoServices>();
             auto vid = it.world().get_singleton<VideoServices>();
 
             ImGuiIO& gui_io  = ImGui::GetIO();
@@ -235,11 +240,11 @@ void register_gui_plugin( Scene& scene )
 
             ImGui::Render();
 
-            auto wanted_cursor = state->CursorMap.at( ImGui::GetMouseCursor() );
+            auto wanted_cursor = state->cursor_map.at( ImGui::GetMouseCursor() );
             vid->window->set_cursor_type( wanted_cursor );
 
             ImDrawData* dd = ImGui::GetDrawData();
-            if (!dd || dd->DisplaySize.x <= 0 || dd->DisplaySize.y <= 0 || !state->CanvasItem) {
+            if (!dd || dd->DisplaySize.x <= 0 || dd->DisplaySize.y <= 0 || !state->canvas_item) {
                 NC_LOG_TRACE_C(
                     log::GRAPHICS, "GuiPlugin_EndFrame: skip (dd={} disp={:.0f}x{:.0f}", static_cast<void*>( dd ),
                     dd ? dd->DisplaySize.x : 0, dd ? dd->DisplaySize.y : 0
@@ -255,8 +260,21 @@ void register_gui_plugin( Scene& scene )
                 switch (tex->Status) {
                     case ImTextureStatus_WantCreate: {
                         NC_ASSERT_MSG( tex->Format == ImTextureFormat_RGBA32, "ImGui Alpha8 textures are unsupported" );
-                        Image image( tex->Width, tex->Height, tex->GetPixels() );
-                        RID rid = vid->renderer->texture_2d_create( image, true );
+
+                        const auto width  = static_cast<uint32_t>( tex->Width );
+                        const auto height = static_cast<uint32_t>( tex->Height );
+                        Texture2DDesc desc{};
+                        desc.width  = width;
+                        desc.height = height;
+                        desc.format = gfx::TextureFormat::RGBA8_UNORM_SRGB;
+                        desc.data   = Span<const std::byte>(
+                            reinterpret_cast<const std::byte*>( tex->GetPixels() ),
+                            static_cast<size_t>( width ) * height * 4
+                        );
+                        desc.updatable  = true;
+                        desc.debug_name = "imgui_texture";
+
+                        RID rid = vid->renderer->texture_2d_create( desc );
                         tex->SetTexID( reinterpret_cast<ImTextureID>( static_cast<uintptr_t>( rid.value ) ) );
                         tex->BackendUserData = reinterpret_cast<void*>( static_cast<uintptr_t>( rid.value ) );
                         tex->SetStatus( ImTextureStatus_OK );
@@ -347,8 +365,8 @@ void register_gui_plugin( Scene& scene )
                     // Push a new draw of canvas primitive with its own texture override. The
                     // incrementing z-order preserves ImGui's back-to-front draw order.
                     vid->renderer->canvas_item_draw(
-                        state->CanvasItem, { vtx, vert_count }, { reinterpret_cast<const uint32_t*>( idx ), idx_count },
-                        tex_id, clip_rect, z_order++
+                        state->canvas_item, { vtx, vert_count },
+                        { reinterpret_cast<const uint32_t*>( idx ), idx_count }, tex_id, clip_rect, z_order++
                     );
                 }
             }

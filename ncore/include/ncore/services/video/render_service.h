@@ -3,23 +3,23 @@
 #include <memory>
 
 #include <ncore/core/collection.h>
-#include <ncore/core/color.h>
-#include <ncore/core/matrix.h>
-#include <ncore/core/rid.h>
-#include <ncore/core/vector.h>
-#include <ncore/resources/resource.h>
 #include <ncore/services/service.h>
+#include <ncore/structs/color.h>
+#include <ncore/structs/matrix.h>
+#include <ncore/structs/rid.h>
+#include <ncore/structs/vector.h>
 
 #include "gfx_interface.h"
+#include "renderer/material_desc.h"
+#include "renderer/mesh_desc.h"
 #include "renderer/render_context.h"
 #include "renderer/render_storage.h"
+#include "renderer/render_type.h"
+#include "renderer/shader_program_desc.h"
+#include "renderer/texture_desc.h"
 #include "renderer/vertex_format.h"
 
 namespace nc {
-
-class Image;
-class Shader;
-class Mesh;
 
 /**
  * @brief RenderService keeps all funtionalities for rendering stuff on-screen and off-screen.
@@ -32,7 +32,7 @@ public:
         REFLECT bool vsync = true;
     };
 
-    const RenderSettings& get_settings() const [[clang::lifetimebound]]
+    const RenderSettings& get_settings() const NC_LIFETIME_BOUND
     {
         return settings;
     }
@@ -58,15 +58,20 @@ public:
     RID swapchain_get_primary() const;
     void swapchain_destroy( RID swapchain );
 
-    RID texture_2d_create( const Image& image, bool updatable = false );
+    /**
+     * @brief Create a GPU shader program from a description object.
+     */
+    RID shader_program_create( const ShaderProgramDesc& p_desc );
+
+    RID texture_2d_create( const Texture2DDesc& p_desc, bool p_updatable = false );
     void texture_data_update(
         RID texture, uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint32_t row_pitch_bytes,
         const void* p_data
     );
     /**
-     * @brief Create a cube mapped texture from 6 separate images (faces).
+     * @brief Create a cube-mapped texture from a description object.
      */
-    RID texture_cube_create( const CubeMap& cubemap );
+    RID texture_cube_create( const TextureCubeDesc& p_desc );
     /**
      * @brief Create a new renderable texture, sampleable by shaders.
      * @return render_texture RID.
@@ -101,29 +106,39 @@ public:
      */
     void buffer_blit( RID p_src_buffer, RID p_dst_buffer );
 
-    RID resource_set_create( const Shader& shader, uint8_t set_idx, Span<const gfx::ResourceMappingEntry> p_resources );
+    RID resource_set_create( RID p_shader, gfx::BindingSet p_set, Span<const gfx::ResourceMappingEntry> p_resources );
     /**
      * @brief Commit resources in the set to the device context.
      */
     void resource_set_bind( RID p_resource_set );
 
     /**
-     * @brief Create GPU-side material instance from Material resource.
+     * @brief Create a GPU material instance from a description object.
      *
-     * A material has its own shader resources.
+     * A material owns its parameter buffer and its material resource set.
      */
-    RID material_create( const Ref<MaterialShader>& p_shader );
-    void material_set_param( RID p_material, const String& p_name, const void* p_data, size_t p_data_size );
-    void material_set_texture( RID material, RID texture, uint32_t slot );
-    void material_set_draw_mode( RID material, gfx::FillMode mode );
+    RID material_create( const MaterialCreateDesc& p_desc );
+    /**
+     * @brief Write raw bytes into the material parameter block at given offset.
+     */
+    void material_set_data( RID p_material, uint32_t p_offset, const void* p_data, size_t p_data_size );
+    /**
+     * @brief Bind a texture to a reflected material parameter by name.
+     */
+    void material_set_texture( RID p_material, StringView p_param_name, RID p_texture );
+    void material_set_draw_mode( RID p_material, gfx::FillMode p_mode );
+    /**
+     * @brief Whether a material's shader declares a non-opaque blend preset.
+     */
+    bool material_is_transparent( RID p_material );
 
     /**
-     * @brief Uploads a CPU Mesh resource into the current GPU device.
+     * @brief Upload CPU mesh data into the current GPU device.
      * @return A new RID handle to the mesh buffer object.
      */
-    RID mesh_create( const Mesh& mesh );
+    RID mesh_create( const MeshUploadDesc& p_desc );
 
-    RID compute_pipeline_create( const Shader& shader, Span<const RID> p_resource_sets );
+    RID compute_pipeline_create( RID p_shader, Span<const RID> p_resource_sets );
     void compute_pipeline_bind( RID pipeline );
     /**
      * @brief Executes a dispatch compute command.
@@ -136,8 +151,8 @@ public:
     struct CameraAttribs {
         Mat4 transform = Mat4::identity();
         float fov      = 1.5708f; // a.k.a angle-of-view (in radians).
-        float z_near    = 0.1f;    // Near clipping plane.
-        float z_far     = 100.0f;  // Far clipping plane.
+        float z_near   = 0.1f;    // Near clipping plane.
+        float z_far    = 100.0f;  // Far clipping plane.
         Vec2i display_size;
 
         // cached perspective projection.
@@ -229,9 +244,20 @@ public:
     bool destroy_rid( RID rid );
 
     /**
+     * @brief Monotonic counter of the graphics device generation.
+     *
+     * Resources compare the value they prepared against to decide whether their
+     * handles are still valid on the current device.
+     */
+    uint32_t get_device_revision() const
+    {
+        return storage.get_device_revision();
+    }
+
+    /**
      * @brief Return the internal render hardware interface for advanced use.
      */
-    GfxInterface* get_graphics_api() [[clang::lifetimebound]]
+    GfxInterface* get_graphics_api() NC_LIFETIME_BOUND
     {
         return gfx_api.get();
     }
@@ -239,7 +265,7 @@ public:
     /**
      * @brief Return the internal render context for advanced use.
      */
-    RenderContext* get_context() [[clang::lifetimebound]]
+    RenderContext* get_context() NC_LIFETIME_BOUND
     {
         return &ctx;
     }

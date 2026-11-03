@@ -1,29 +1,30 @@
 #pragma once
 
 #include <editor.h>
-#include <ncore/resources/resource.h>
-#include <ncore/runtime/components/material.h>
+#include <ncore/runtime/resources/material.h>
+
+namespace nc {
+struct MaterialOverrideComponent;
+} // namespace nc
 
 namespace nc::editor {
 
 /**
- * @brief Material component inspector for shader uniforms, texture count, etc.
+ * @brief Material component inspector for shader uniforms.
  */
 class MaterialInspectorHandler final : public InspectorHandler {
 public:
-    explicit MaterialInspectorHandler( Scene& scene [[clang::lifetimebound]] );
+    explicit MaterialInspectorHandler();
 
-    bool can_handle( const rtti::TypeInfo* p_type, void* p_component ) const override;
+    bool can_handle( const types::TypeInfo* p_type, void* p_component ) const override;
 
-    void draw( EditorFrame& p_ctx, Node& p_node, const rtti::TypeInfo* p_type, void* p_component ) override;
+    void draw( EditorFrame& p_ctx, Node& p_node, const types::TypeInfo* p_type, void* p_component ) override;
 
 private:
     /**
      * @brief Draw the shader's BINDING_SET_MATERIAL uniforms.
      */
-    bool draw_uniforms( MaterialComponent& p_mat, const MaterialShader& p_shader );
-
-    Scene& scene;
+    bool draw_uniforms( Material& p_mat );
 };
 
 } // namespace nc::editor

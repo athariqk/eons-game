@@ -1,7 +1,6 @@
 #include <editor/ncore_editor.h>
 #include <ncore.hpp>
-#include <ncore/runtime/components/camera.h>
-#include <ncore/runtime/components/input.h>
+#include <ncore/runtime/components.h>
 
 #include <microcosmos/MicrocosmModule.h>
 
@@ -86,6 +85,14 @@ public:
 		};
         // clang-format on
 
+        auto material_shader = res_svc.load<nc::MaterialShader>( "shaders/materials/standard_spatial.slang" );
+
+        // Material uniforms are zero-initialized on the GPU; without a white albedo the
+        // albedoTexture * albedoColor * vertex-color product is black.
+        auto cube_material = nc::Ref<nc::Material>::create();
+        cube_material->set_shader( material_shader );
+        cube_material->set_param( "albedoColor", nc::Vec4f( 1, 1, 1, 1 ) );
+
         auto mesh = nc::Ref<nc::Mesh>::create(
             nc::MeshDesc{
                 .vertices = nc::DynamicArray<std::byte>(
@@ -94,9 +101,13 @@ public:
                 ),
                 .indices       = nc::DynamicArray<uint32_t>( cube_indices.data(), cube_indices.data() + 36 ),
                 .vertex_stride = sizeof( nc::Vertex3D ),
+                .material      = cube_material,
             }
         );
-        auto mesh_rid = res_svc.add( mesh, "procedural/meshes/cube" );
+
+        auto plane_material = nc::Ref<nc::Material>::create();
+        plane_material->set_shader( material_shader );
+        plane_material->set_param( "albedoColor", nc::Vec4f( 1, 1, 1, 1 ) );
 
         auto pmesh = nc::Ref<nc::Mesh>::create(
             nc::MeshDesc{
@@ -106,9 +117,9 @@ public:
                 ),
                 .indices       = nc::DynamicArray<uint32_t>( plane_indices.data(), plane_indices.data() + 6 ),
                 .vertex_stride = sizeof( nc::Vertex3D ),
+                .material      = plane_material,
             }
         );
-        auto pmesh_rid = res_svc.add( pmesh, "procedural/meshes/plane" );
 
         auto test_model = root()->create_child( "TestModel3D" );
         test_model->add_component<nc::Transform3DComponent>( nc::Transform3DComponent{
@@ -119,28 +130,14 @@ public:
         test_model->add_component<TestSpin>();
 
         auto cube_mesh = test_model->create_child( "CubeMesh" );
-        cube_mesh->add_component<nc::MeshComponent>( nc::MeshComponent{ .source = mesh_rid } );
-        cube_mesh->add_component<nc::MeshRenderComponent>();
-        cube_mesh->add_component<nc::HasResourceTag>();
-        nc::MaterialComponent cube_material{ .shader = res_svc.load( "shaders/materials/standard_spatial.slang" ) };
-        // Material uniforms are zero-initialized on the GPU; without a white albedo the
-        // albedoTexture * albedoColor * vertex-color product is black.
-        cube_material.set_params<nc::Vec4f>( "albedoColor", nc::Vec4f( 1, 1, 1, 1 ) );
-        cube_mesh->add_component<nc::MaterialComponent>( cube_material );
-        cube_mesh->add_component<nc::MaterialRenderComponent>();
+        cube_mesh->add_component<nc::MeshInstanceComponent>( nc::MeshInstanceComponent{ .mesh = mesh } );
 
         auto plane = root()->create_child( "Plane" );
         plane->add_component<nc::Transform3DComponent>( nc::Transform3DComponent{
             .translation = nc::Vec3f( 0, -5, 0 ), .rotation = nc::Quaternion::identity(), .scale = nc::Vec3f( 5, 1, 5 )
         } );
         auto plane_mesh = plane->create_child( "PlaneMesh" );
-        plane_mesh->add_component<nc::MeshComponent>( nc::MeshComponent{ .source = pmesh_rid } );
-        plane_mesh->add_component<nc::MeshRenderComponent>();
-        plane_mesh->add_component<nc::HasResourceTag>();
-        nc::MaterialComponent plane_material{ .shader = res_svc.load( "shaders/materials/standard_spatial.slang" ) };
-        plane_material.set_params<nc::Vec4f>( "albedoColor", nc::Vec4f( 1, 1, 1, 1 ) );
-        plane_mesh->add_component<nc::MaterialComponent>( plane_material );
-        plane_mesh->add_component<nc::MaterialRenderComponent>();
+        plane_mesh->add_component<nc::MeshInstanceComponent>( nc::MeshInstanceComponent{ .mesh = pmesh } );
 
         auto main_camera = root()->create_child( "MainCamera" );
         main_camera->add_component<nc::ActiveCameraTag>();

@@ -38,7 +38,7 @@ public:
 
 private:
     String name;
-    Level level = Level::LTRACE;
+    Level level = Level::Trace;
     DynamicArray<Ref<Sink>> sinks{};
     void ( *callback )( const LogMsg& );
 };

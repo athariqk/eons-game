@@ -48,7 +48,7 @@ public:
     {
         size_t index = next_subscription_id++;
         auto wrapper = [callback]( BaseEvent& event ) { callback( static_cast<T&>( event ) ); };
-        subscribers[rtti::TypeRegistry::get_type_id<T>()].emplace_back( index, wrapper );
+        subscribers[TypeDB::get_type_id<T>()].emplace_back( index, wrapper );
         return index;
     }
 
@@ -98,13 +98,13 @@ public:
     void flush();
 
     size_t get_queue_size() const;
-    using SubscriberDebugInfo = std::vector<std::pair<rtti::TypeId, size_t>>;
+    using SubscriberDebugInfo = std::vector<std::pair<types::TypeId, size_t>>;
     SubscriberDebugInfo get_subscriber_debug_info() const;
 
 private:
     using CallbackType   = std::function<void( BaseEvent& )>;
     using SubscriberList = std::vector<std::pair<size_t, CallbackType>>;
-    std::unordered_map<rtti::TypeId, SubscriberList> subscribers;
+    std::unordered_map<types::TypeId, SubscriberList> subscribers;
 
     DynamicArray<Ref<BaseEvent>> event_queue;
 

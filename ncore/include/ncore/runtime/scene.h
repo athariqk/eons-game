@@ -6,14 +6,14 @@
 #include <ncore/game_world.h>
 #include <ncore/runtime/ecs/ecs_component.h>
 #include <ncore/runtime/ecs/ecs_world.h>
-#include <ncore/runtime/resources/resource_loader.h>
+#include <ncore/runtime/io/resource_loader.h>
 
 #include "node.h"
 
 namespace nc {
 
 struct AppDesc;
-class ServiceRegistry;
+class ServiceDB;
 
 /**
  * @brief ECS tag to mark the Scene's root node.
@@ -48,7 +48,7 @@ class NCAPI Scene : public IGameWorld {
     NCLASS( Scene, IGameWorld )
 
 public:
-    Scene() = default;
+    Scene();
 
     Scene( const Scene& )            = delete;
     Scene& operator=( const Scene& ) = delete;
@@ -97,7 +97,7 @@ public:
     /**
      * @brief This may be used for low-level access to the ECS runtime.
      */
-    EcsWorld& get_ecs() [[clang::lifetimebound]]
+    EcsWorld& get_ecs() NC_LIFETIME_BOUND
     {
         return ecs_world;
     }
@@ -105,9 +105,9 @@ public:
     /**
      * @brief Access the per-scene resource loader.
      */
-    ResourceLoader& get_resource_loader() [[clang::lifetimebound]]
+    ResourceLoader& get_resource_loader() NC_LIFETIME_BOUND
     {
-        return resource_loader;
+        return res_loader;
     }
 
     /**
@@ -153,7 +153,7 @@ private:
     void process_pending_node_deletions_();
 
     EcsWorld ecs_world;
-    ResourceLoader resource_loader;
+    ResourceLoader res_loader;
     Node::NodePool node_pool;
     Node* root_node            = nullptr;
     size_t system_counter      = 0;

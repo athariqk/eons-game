@@ -1,9 +1,9 @@
 #pragma once
 
-#include <ncore/core/color.h>
-#include <ncore/core/object.h>
-#include <ncore/core/rect.h>
-#include <ncore/core/rid.h>
+#include <ncore/object/object_info.h>
+#include <ncore/structs/color.h>
+#include <ncore/structs/rect.h>
+#include <ncore/structs/rid.h>
 
 #include "gfx_types.h"
 
@@ -153,7 +153,7 @@ public:
     virtual RID buffer_create( const gfx::BufferDesc& desc )              = 0;
     virtual void* buffer_view_get( RID buffer, gfx::BufferViewType view ) = 0;
     /**
-     * @brief Change what's inside an existing buffer.
+     * @brief Change what is inside an existing buffer.
      * @param p_buffer The existing GPU buffer.
      * @param p_src Source data to copy into the buffer.
      * @param p_src_size Size in bytes of the source data.

@@ -20,8 +20,8 @@ struct FlecsQueryBuilder {
     DynamicArray<ecs_term_t> terms;
     bool built = false;
 
-    FlecsQueryBuilder( EcsWorld& w [[clang::lifetimebound]], String n ) : world( w ), name( std::move( n ) ) {}
-    FlecsQueryBuilder( EcsEntity e, EcsWorld& w [[clang::lifetimebound]], String n ) :
+    FlecsQueryBuilder( EcsWorld& w NC_LIFETIME_BOUND, String n ) : world( w ), name( std::move( n ) ) {}
+    FlecsQueryBuilder( EcsEntity e, EcsWorld& w NC_LIFETIME_BOUND, String n ) :
         assoc_entity( e ), world( w ), name( n )
     {}
 

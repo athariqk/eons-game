@@ -4,10 +4,10 @@
 #include <span>
 
 #include <ncore/core/collection.h>
-#include <ncore/core/rect.h>
-#include <ncore/core/reference.h>
-#include <ncore/core/vector.h>
+#include <ncore/object/reference.h>
 #include <ncore/services/service.h>
+#include <ncore/structs/rect.h>
+#include <ncore/structs/vector.h>
 
 #include "window/window_event.h"
 #include "window/window_types.h"
@@ -15,7 +15,17 @@
 namespace nc {
 
 class IWindow;
-class Image;
+
+/**
+ * @brief Pixel data for a window icon.
+ *
+ * `rgba` is borrowed for the duration of the call.
+ */
+struct NCAPI IconDesc {
+    int width  = 0;
+    int height = 0;
+    Span<const std::byte> rgba;
+};
 
 /**
  * @brief WindowService defines an interface for OS window/display management.
@@ -46,12 +56,12 @@ public:
     Error init( ConfFile& cfg_file ) override;
     void shutdown() override;
 
-    const WindowSettings& get_settings() const [[clang::lifetimebound]]
+    const WindowSettings& get_settings() const NC_LIFETIME_BOUND
     {
         return settings;
     }
 
-    void set_default_icon( const Ref<Image>& image );
+    void set_default_icon( const IconDesc& p_icon );
 
     uint32_t window_create( WindowFlag flags = DEFAULT_WINDOW_FLAGS );
     void window_set_parent( uint32_t window_id, uint32_t parent ) const;
@@ -78,7 +88,7 @@ public:
      * effect.
      */
     void window_set_resolution( uint32_t window_id, Vec2i resolution );
-    void window_set_icon( uint32_t window_id, const Image& image ) const;
+    void window_set_icon( uint32_t window_id, const IconDesc& p_icon ) const;
     void window_set_title( uint32_t window_id, StringView title ) const;
     void window_set_fullscreen( uint32_t window_id, bool fullscreen );
 
@@ -173,7 +183,9 @@ private:
     struct Impl;
     Ptr<Impl> pImpl;
     DynamicArray<WindowEvent> event_queue;
-    Ref<Image> default_app_icon;
+    // Owned copy of the default window icon; IconDesc borrows from here.
+    DynamicArray<std::byte> default_icon_rgba;
+    Vec2i default_icon_size;
 };
 
 } // namespace nc

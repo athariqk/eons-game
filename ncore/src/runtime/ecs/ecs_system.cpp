@@ -85,7 +85,7 @@ EcsEntity EcsSystemBuilder::create_system_( void* callback, void* ctx, void ( *c
 
     if (order_ != 0) {
         int32_t order_val = order_;
-        auto* order_type  = rtti::TypeRegistry::find<SystemOrder>();
+        auto* order_type  = TypeDB::find<SystemOrder>();
         if (order_type) {
             auto comp_id = world_.register_component_type( order_type );
             if (comp_id)
@@ -138,7 +138,7 @@ EcsEntity EcsObserverBuilder::create_observer_( void* callback, void* ctx, void 
     return ecs_observer_init( world, &desc );
 }
 
-void EcsObserverBuilder::add_event_( const rtti::TypeInfo* type )
+void EcsObserverBuilder::add_event_( const types::TypeInfo* type )
 {
     events.push_back( world_.register_component_type( type ) );
 }

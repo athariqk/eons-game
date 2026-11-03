@@ -7,15 +7,15 @@
 #include <memory>
 #include <unordered_map>
 
-#include <ncore/core/types.h>
 #include <ncore/runtime/ecs/ecs_entity.h>
+#include <ncore/types/typedb.h>
 
 namespace nc {
 
 class EcsWorld;
 class EcsQueryBuilder;
 class EcsEntityView;
-class ServiceRegistry;
+class ServiceDB;
 
 //------------------------------------------------------------------------------
 
@@ -36,27 +36,27 @@ public:
     /**
      * @brief Wraps an implementation detail iterator object (Flecs' ecs_iter_t).
      */
-    EcsTableIterator( void* internal [[clang::lifetimebound]] ) noexcept;
+    EcsTableIterator( void* internal NC_LIFETIME_BOUND ) noexcept;
 
     EcsTableIterator( EcsTableIterator&& ) noexcept;
     EcsTableIterator& operator=( EcsTableIterator&& ) noexcept;
     EcsTableIterator( const EcsTableIterator& )            = delete;
     EcsTableIterator& operator=( const EcsTableIterator& ) = delete;
 
-    reference operator*() noexcept [[clang::lifetimebound]]
+    reference operator*() noexcept NC_LIFETIME_BOUND
     {
         return *this;
     }
-    const EcsTableIterator& operator*() const noexcept [[clang::lifetimebound]]
+    const EcsTableIterator& operator*() const noexcept NC_LIFETIME_BOUND
     {
         return *this;
     }
 
-    pointer operator->() noexcept [[clang::lifetimebound]]
+    pointer operator->() noexcept NC_LIFETIME_BOUND
     {
         return this;
     }
-    const EcsTableIterator* operator->() const noexcept [[clang::lifetimebound]]
+    const EcsTableIterator* operator->() const noexcept NC_LIFETIME_BOUND
     {
         return this;
     }
@@ -70,7 +70,7 @@ public:
         return done_ != o.done_;
     }
 
-    EcsTableIterator& operator++() [[clang::lifetimebound]];
+    EcsTableIterator& operator++() NC_LIFETIME_BOUND;
 
     bool is_done() const noexcept
     {
@@ -98,7 +98,7 @@ private:
         Query
     };
 
-    EcsTableIterator( EcsWorld* world_ref, void* world [[clang::lifetimebound]], void* query [[clang::lifetimebound]] );
+    EcsTableIterator( EcsWorld* world_ref, void* world NC_LIFETIME_BOUND, void* query NC_LIFETIME_BOUND );
 
     void* world_ = nullptr;
     void* query  = nullptr;
@@ -133,9 +133,9 @@ public:
      *
      * Yields a EcsIterState for every matched entity, across all tables.
      */
-    EcsEntityView entities() [[clang::lifetimebound]];
+    EcsEntityView entities() NC_LIFETIME_BOUND;
 
-    StringView get_name() [[clang::lifetimebound]]
+    StringView get_name() NC_LIFETIME_BOUND
     {
         return name;
     }
@@ -151,8 +151,8 @@ private:
     friend class EcsSystemBuilder;
 
     EcsQuery(
-        const String& name, EcsWorld* world_ref [[clang::lifetimebound]], void* world_handle [[clang::lifetimebound]],
-        void* query_handle [[clang::lifetimebound]]
+        const String& name, EcsWorld* world_ref NC_LIFETIME_BOUND, void* world_handle NC_LIFETIME_BOUND,
+        void* query_handle NC_LIFETIME_BOUND
     );
 
     String name;
@@ -172,7 +172,7 @@ private:
 class NCAPI EcsIterState {
 public:
     EcsIterState() = default;
-    explicit EcsIterState( [[clang::lifetimebound]] void* iter );
+    explicit EcsIterState( NC_LIFETIME_BOUND void* iter );
 
     double delta_time() const;             // The global delta time.
     float delta_time_internal() const;     // This iter's own delta time.
@@ -204,7 +204,7 @@ public:
     template<typename T>
     T* get_component()
     {
-        static const auto& info = rtti::TypeRegistry::get<T>();
+        static const auto& info = TypeDB::get<T>();
         int32_t idx             = resolve_term_index_impl( info );
         NC_ASSERT_MSG( idx >= 0, "Component not found in query terms" );
         return static_cast<T*>( get_component_impl( idx, info.size, info.alignment ) );
@@ -216,21 +216,19 @@ public:
     template<typename T>
     T* get_component( uint8_t column )
     {
-        static const auto& info = rtti::TypeRegistry::get<T>();
+        static const auto& info = TypeDB::get<T>();
         return static_cast<T*>( get_component_impl( column, info.size, info.alignment ) );
     }
 
     /**
      * @brief Retrieve a component by entity, bypassing term fields.
      *
-     * Escape hatch for `.filter()` terms, which have no data field.
-     *
      * WARNING: may be invisible to the scheduler, mutating T races with systems using it.
      */
     template<typename T>
     T* get_entity_component()
     {
-        static const auto* info = rtti::TypeRegistry::find<T>();
+        static const auto* info = TypeDB::find<T>();
         return static_cast<T*>( get_entity_component_impl( info ) );
     }
 
@@ -240,7 +238,7 @@ public:
     template<typename T>
     void notify_changed( EcsEntity p_entity )
     {
-        static const auto& info = rtti::TypeRegistry::get<T>();
+        static const auto& info = TypeDB::get<T>();
         notify_changed_impl( p_entity, &info );
     }
 
@@ -256,8 +254,8 @@ public:
     template<typename First, typename Second>
     First* get_pair()
     {
-        static const auto& first_info  = rtti::TypeRegistry::get<First>();
-        static const auto& second_info = rtti::TypeRegistry::get<Second>();
+        static const auto& first_info  = TypeDB::get<First>();
+        static const auto& second_info = TypeDB::get<Second>();
         int32_t idx                    = resolve_pair_index_impl( first_info, second_info );
         NC_ASSERT_MSG( idx >= 0, "Pair component not found in query terms" );
         return static_cast<First*>( get_component_impl( idx, first_info.size, first_info.alignment ) );
@@ -269,15 +267,15 @@ private:
     friend class EcsQuery;
 
     void* get_component_impl( int32_t column, size_t size, size_t alignment ) const;
-    void* get_entity_component_impl( const rtti::TypeInfo* p_type ) const;
-    void notify_changed_impl( EcsEntity p_entity, const rtti::TypeInfo* type ) const;
-    int32_t resolve_term_index_impl( const rtti::TypeInfo& info ) const;
-    int32_t resolve_pair_index_impl( const rtti::TypeInfo& first, const rtti::TypeInfo& second ) const;
+    void* get_entity_component_impl( const types::TypeInfo* p_type ) const;
+    void notify_changed_impl( EcsEntity p_entity, const types::TypeInfo* type ) const;
+    int32_t resolve_term_index_impl( const types::TypeInfo& info ) const;
+    int32_t resolve_pair_index_impl( const types::TypeInfo& first, const types::TypeInfo& second ) const;
     void* it_            = nullptr;
     int32_t current_row_ = 0;
 
-    mutable std::unordered_map<const rtti::TypeInfo*, int32_t> term_cache_;
-    mutable std::map<std::pair<const rtti::TypeInfo*, const rtti::TypeInfo*>, int32_t> pair_cache_;
+    mutable std::unordered_map<const types::TypeInfo*, int32_t> term_cache_;
+    mutable std::map<std::pair<const types::TypeInfo*, const types::TypeInfo*>, int32_t> pair_cache_;
 };
 
 //------------------------------------------------------------------------------
@@ -306,12 +304,12 @@ public:
         return ctx_;
     }
 
-    const EcsIterState* operator->() const [[clang::lifetimebound]]
+    const EcsIterState* operator->() const NC_LIFETIME_BOUND
     {
         return &ctx_;
     }
 
-    EcsEntityIterator& operator++() [[clang::lifetimebound]];
+    EcsEntityIterator& operator++() NC_LIFETIME_BOUND;
 
     bool operator==( const EcsEntityIterator& o ) const noexcept
     {
@@ -334,7 +332,7 @@ private:
  */
 class NCAPI EcsEntityView {
 public:
-    explicit EcsEntityView( [[clang::lifetimebound]] EcsQuery& query );
+    explicit EcsEntityView( NC_LIFETIME_BOUND EcsQuery& query );
 
     EcsEntityIterator begin();
     EcsEntityIterator end();
@@ -357,37 +355,37 @@ public:
      * @brief Add component to query term.
      */
     template<typename... Comps>
-    EcsQueryBuilder& with() [[clang::lifetimebound]]
+    EcsQueryBuilder& with() NC_LIFETIME_BOUND
     {
         ( add_term_<Comps>( 0 ), ... );
         return *this;
     }
 
     template<typename First, typename Second>
-    EcsQueryBuilder& with_pair() [[clang::lifetimebound]]
+    EcsQueryBuilder& with_pair() NC_LIFETIME_BOUND
     {
-        add_term_pair_impl( rtti::TypeRegistry::find<First>(), rtti::TypeRegistry::find<Second>(), 0 );
+        add_term_pair_impl( TypeDB::find<First>(), TypeDB::find<Second>(), 0 );
         return *this;
     }
 
-    EcsQueryBuilder& with_pair( EcsEntity first, EcsEntity second ) [[clang::lifetimebound]];
+    EcsQueryBuilder& with_pair( EcsEntity first, EcsEntity second ) NC_LIFETIME_BOUND;
 
     template<typename... Comps>
-    EcsQueryBuilder& without() [[clang::lifetimebound]]
+    EcsQueryBuilder& without() NC_LIFETIME_BOUND
     {
         ( add_term_without_<Comps>(), ... );
         return *this;
     }
 
     template<typename First, typename Second>
-    EcsQueryBuilder& without_pair() [[clang::lifetimebound]]
+    EcsQueryBuilder& without_pair() NC_LIFETIME_BOUND
     {
-        add_term_pair_without_impl( rtti::TypeRegistry::find<First>(), rtti::TypeRegistry::find<Second>() );
+        add_term_pair_without_impl( TypeDB::find<First>(), TypeDB::find<Second>() );
         return *this;
     }
 
     template<typename... Comps>
-    EcsQueryBuilder& read() [[clang::lifetimebound]]
+    EcsQueryBuilder& read() NC_LIFETIME_BOUND
     {
         ( add_term_<Comps>( 1 ), ... );
         return *this;
@@ -396,12 +394,12 @@ public:
     /**
      * @brief Match on all components with read/write.
      */
-    EcsQueryBuilder& all() [[clang::lifetimebound]];
+    EcsQueryBuilder& all() NC_LIFETIME_BOUND;
 
     /**
      * @brief Match on all components with read-only.
      */
-    EcsQueryBuilder& all_read() [[clang::lifetimebound]];
+    EcsQueryBuilder& all_read() NC_LIFETIME_BOUND;
 
     /**
      * @brief Traverse relationship bottom-up.
@@ -409,38 +407,38 @@ public:
      * Set up traversal on the last added term (default: ChildOf).
      * TODO: allow custom relationship traversal
      */
-    EcsQueryBuilder& up() [[clang::lifetimebound]];
+    EcsQueryBuilder& up() NC_LIFETIME_BOUND;
 
     /**
      * @brief Match the last term on self (default, explicit for clarity).
      */
-    EcsQueryBuilder& self() [[clang::lifetimebound]];
+    EcsQueryBuilder& self() NC_LIFETIME_BOUND;
 
     /**
      * @brief Exclude self from the last term's match (walk parent only, used with up()).
      */
-    EcsQueryBuilder& skip_self() [[clang::lifetimebound]];
+    EcsQueryBuilder& skip_self() NC_LIFETIME_BOUND;
 
     /**
      * @brief Traverse relationship top-down.
      *
      * Order results breadth-first through the ChildOf hierarchy (cascade).
      */
-    EcsQueryBuilder& cascade() [[clang::lifetimebound]];
+    EcsQueryBuilder& cascade() NC_LIFETIME_BOUND;
 
-    EcsQueryBuilder& filter() [[clang::lifetimebound]];
+    EcsQueryBuilder& filter() NC_LIFETIME_BOUND;
 
     /**
      * @brief Set the optional query DSL expression.
      */
-    EcsQueryBuilder& expr( StringView dsl ) [[clang::lifetimebound]];
+    EcsQueryBuilder& expr( StringView dsl ) NC_LIFETIME_BOUND;
 
-    EcsQueryBuilder& src( EcsEntity id ) [[clang::lifetimebound]];
+    EcsQueryBuilder& src( EcsEntity id ) NC_LIFETIME_BOUND;
 
     /**
      * @brief Returns the query name.
      */
-    const String& name() const [[clang::lifetimebound]];
+    const String& name() const NC_LIFETIME_BOUND;
 
     /**
      * @brief Finalise and build the query.
@@ -451,22 +449,22 @@ private:
     friend class EcsSystemBuilder;
     friend class EcsObserverBuilder;
 
-    void add_term_impl( const rtti::TypeInfo* type, uint8_t inout );
-    void add_term_pair_impl( const rtti::TypeInfo* first_type, const rtti::TypeInfo* sec_type, uint8_t inout );
+    void add_term_impl( const types::TypeInfo* type, uint8_t inout );
+    void add_term_pair_impl( const types::TypeInfo* first_type, const types::TypeInfo* sec_type, uint8_t inout );
 
-    void add_term_without_impl( const rtti::TypeInfo* type );
-    void add_term_pair_without_impl( const rtti::TypeInfo* first, const rtti::TypeInfo* second );
+    void add_term_without_impl( const types::TypeInfo* type );
+    void add_term_pair_without_impl( const types::TypeInfo* first, const types::TypeInfo* second );
 
     template<typename T>
     void add_term_( uint8_t inout )
     {
-        add_term_impl( rtti::TypeRegistry::find<T>(), inout );
+        add_term_impl( TypeDB::find<T>(), inout );
     }
 
     template<typename T>
     void add_term_without_()
     {
-        add_term_without_impl( rtti::TypeRegistry::find<T>() );
+        add_term_without_impl( TypeDB::find<T>() );
     }
 
     struct Impl;

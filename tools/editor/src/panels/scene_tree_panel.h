@@ -11,8 +11,8 @@ namespace nc::editor {
 class SceneTreePanel final : public EditorPanel {
 public:
     SceneTreePanel(
-        Scene& p_scene [[clang::lifetimebound]], EditorSelection& p_selection [[clang::lifetimebound]],
-        AssetDatabase& p_assets [[clang::lifetimebound]], ResourceLoader& p_loader [[clang::lifetimebound]]
+        Scene& p_scene NC_LIFETIME_BOUND, EditorSelection& p_selection NC_LIFETIME_BOUND,
+        AssetDatabase& p_assets NC_LIFETIME_BOUND
     );
 
     void draw_contents( EditorFrame& ctx ) override;
@@ -27,7 +27,6 @@ private:
     Scene& scene;
     EditorSelection& selection;
     AssetDatabase& assets;
-    ResourceLoader& loader;
 
     EcsEntity rename_entity = INVALID_ENTITY_ID;
     char rename_buf[256]    = {};

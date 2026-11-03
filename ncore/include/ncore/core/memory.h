@@ -1,3 +1,8 @@
+// Copyright (C) 2026 Ahmad Ghalib Athariq <alib.athariq@gmail.com>
+// This file is subject to the license terms in the LICENSE file
+// found in the top-level directory of this distribution.
+// File: The most important file and innermost core header of the engine.
+
 #pragma once
 
 #include <bit>
@@ -6,6 +11,7 @@
 #include <vector>
 
 #include <ncore.h>
+#include <ncore/core/typedefs.h>
 
 // AddressSanitizer builds bypass mimalloc so every engine allocation is
 // tracked by the sanitizer (redzones, use-after-free, leak reports).

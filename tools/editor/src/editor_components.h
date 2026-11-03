@@ -31,7 +31,7 @@ NC_COMPONENT( SelectedTag ){};
  */
 void register_editor_component_types( Scene& scene );
 
-bool is_internal_component( const rtti::TypeInfo* type );
+bool is_internal_component( const types::TypeInfo* type );
 
 bool is_editor_internal_node( Node& node );
 

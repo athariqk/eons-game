@@ -21,13 +21,13 @@ EcsEntityBuilder::~EcsEntityBuilder()
 
 //------------------------------------------------------------------------------
 
-void EcsEntityBuilder::add_component_( const rtti::TypeInfo* type, DynamicArray<uint8_t>&& data )
+void EcsEntityBuilder::add_component_( const types::TypeInfo* type, DynamicArray<uint8_t>&& data )
 {
     components.push_back( { type, std::move( data ) } );
 }
 
 void EcsEntityBuilder::add_pair_data_(
-    const rtti::TypeInfo* first, const rtti::TypeInfo* second, DynamicArray<uint8_t>&& data
+    const types::TypeInfo* first, const types::TypeInfo* second, DynamicArray<uint8_t>&& data
 )
 {
     EcsComponent f_id = world.register_component_type( first );
@@ -35,7 +35,7 @@ void EcsEntityBuilder::add_pair_data_(
     pairs.push_back( { f_id, s_id, first, std::move( data ) } );
 }
 
-void EcsEntityBuilder::add_pair_tag_( const rtti::TypeInfo* first, const rtti::TypeInfo* second )
+void EcsEntityBuilder::add_pair_tag_( const types::TypeInfo* first, const types::TypeInfo* second )
 {
     EcsComponent f_id = world.register_component_type( first );
     EcsComponent s_id = world.register_component_type( second );

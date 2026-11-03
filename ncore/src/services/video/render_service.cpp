@@ -8,12 +8,11 @@
 
 #include <backends/diligent/gfx_diligent.h>
 
-#include <ncore/core/matrix.h>
-#include <ncore/core/rect.h>
-#include <ncore/core/vector.h>
-#include <ncore/resources/resource.h>
 #include <ncore/services/video/render_service.h>
 #include <ncore/services/video/renderer/vertex_format.h>
+#include <ncore/structs/matrix.h>
+#include <ncore/structs/rect.h>
+#include <ncore/structs/vector.h>
 #include <ncore/utils/config.h>
 #include <ncore/utils/log.h>
 #include <utils/profiler.h>
@@ -40,14 +39,25 @@ void RenderService::shutdown()
         gfx_api->swapchain_destroy( sc );
     }
     swapchains.clear();
+    primary_swapchain = RID::INVALID;
 
     if (canvas_vbo.is_valid())
         gfx_api->destroy_rid( canvas_vbo );
     if (canvas_ibo.is_valid())
         gfx_api->destroy_rid( canvas_ibo );
+    canvas_vbo      = RID::INVALID;
+    canvas_ibo      = RID::INVALID;
+    canvas_vbo_size = 0;
+    canvas_ibo_size = 0;
 
+    // Drain anything a resource still asked to destroy, then drop every pool.
+    // Whatever survives has outlived the device; shutdown() reports it.
     storage.flush_pending_destroys();
+    storage.shutdown();
     gfx_api->save_pso_cache();
+
+    cameras.release_all();
+    ctx.clear();
 
     gfx_api.reset();
 }
@@ -71,7 +81,7 @@ RID RenderService::swapchain_create(
         primary_swapchain = rid;
     NC_LOG_DEBUG_C(
         log::GRAPHICS, "Created swapchain RID={} size={}x{} color_format={} depth_format={}", rid.value, size.x, size.y,
-        rtti::get_enum_name( &color_format ), rtti::get_enum_name( &depth_format )
+        TypeDB::get_enum_name( &color_format ), TypeDB::get_enum_name( &depth_format )
     );
     return rid;
 }
@@ -101,17 +111,27 @@ void RenderService::swapchain_destroy( RID swapchain )
 
 // ---------------------------------------------------------------------------
 
-RID RenderService::texture_2d_create( const Image& image, bool updatable )
+RID RenderService::shader_program_create( const ShaderProgramDesc& p_desc )
 {
+    return storage.shader_program_create( p_desc );
+}
+
+// ---------------------------------------------------------------------------
+
+RID RenderService::texture_2d_create( const Texture2DDesc& p_desc, bool p_updatable )
+{
+    const bool updatable = p_updatable || p_desc.updatable;
+
     gfx::TextureDesc desc{};
-    desc.debug_name      = image.filepath;
-    desc.format          = gfx::TextureFormat::RGBA8_UNORM_SRGB;
+    desc.debug_name      = String( p_desc.debug_name );
+    desc.format          = p_desc.format;
     desc.dimension       = gfx::ResourceDimension::DIM_2D;
     desc.usage           = updatable ? gfx::ResourceUsage::DEFAULT : gfx::ResourceUsage::IMMUTABLE;
     desc.cpu_access_mask = updatable ? gfx::ResourceCpuAccessFlags::WRITE : gfx::ResourceCpuAccessFlags::NONE;
-    desc.width           = image.get_width();
-    desc.height          = image.get_height();
-    desc.subresources.emplace_back( image.get_pixels().data() );
+    desc.width           = p_desc.width;
+    desc.height          = p_desc.height;
+    if (!p_desc.data.empty())
+        desc.subresources.emplace_back( p_desc.data.data() );
     return gfx_api->texture_create( desc );
 }
 
@@ -122,19 +142,23 @@ void RenderService::texture_data_update(
     gfx_api->texture_data_update( texture, x, y, width, height, row_pitch_bytes, p_data );
 }
 
-RID RenderService::texture_cube_create( const CubeMap& cubemap )
+RID RenderService::texture_cube_create( const TextureCubeDesc& p_desc )
 {
-    gfx::TextureDesc desc;
-    auto name       = std::format( "CubeTexture_{}_{}", cubemap.rid.value, cubemap.filepath );
-    desc.debug_name = name;
-    desc.format     = gfx::TextureFormat::RGBA8_UNORM_SRGB;
+    gfx::TextureDesc desc{};
+    desc.debug_name = String( p_desc.debug_name );
+    desc.format     = p_desc.format;
     desc.dimension  = gfx::ResourceDimension::DIM_CUBE;
     desc.usage      = gfx::ResourceUsage::IMMUTABLE;
-    desc.width      = cubemap.get_face_size();
-    desc.height     = cubemap.get_face_size();
+    desc.width      = p_desc.face_size;
+    desc.height     = p_desc.face_size;
     desc.array_size = 6;
+
+    const size_t face_bytes = static_cast<size_t>( p_desc.face_size ) * p_desc.face_size * 4;
     for (uint32_t face = 0; face < 6; ++face) {
-        desc.subresources.emplace_back( cubemap.get_face_data( face ).data() );
+        if (p_desc.faces.size() >= face_bytes * 6)
+            desc.subresources.emplace_back( p_desc.faces.data() + face * face_bytes );
+        else
+            desc.subresources.emplace_back( nullptr );
     }
     return gfx_api->texture_create( desc );
 }
@@ -200,10 +224,10 @@ void RenderService::buffer_blit( RID p_src_buffer, RID p_dst_buffer )
 }
 
 RID RenderService::resource_set_create(
-    const Shader& p_shader, uint8_t p_set_idx, Span<const gfx::ResourceMappingEntry> p_resources
+    RID p_shader, gfx::BindingSet p_set, Span<const gfx::ResourceMappingEntry> p_resources
 )
 {
-    return storage.resource_set_create( p_shader, p_set_idx, p_resources );
+    return storage.resource_set_create( p_shader, p_set, p_resources );
 }
 
 void RenderService::resource_set_bind( RID p_resource_set )
@@ -213,19 +237,19 @@ void RenderService::resource_set_bind( RID p_resource_set )
 
 //------------------------------------------------------------------------------
 
-RID RenderService::material_create( const Ref<MaterialShader>& p_shader )
+RID RenderService::material_create( const MaterialCreateDesc& p_desc )
 {
-    return storage.material_create( p_shader );
+    return storage.material_create( p_desc );
 }
 
-void RenderService::material_set_param( RID p_material, const String& p_name, const void* p_data, size_t p_data_size )
+void RenderService::material_set_data( RID p_material, uint32_t p_offset, const void* p_data, size_t p_data_size )
 {
-    storage.material_set_param( p_material, p_name, p_data, p_data_size );
+    storage.material_set_data( p_material, p_offset, p_data, p_data_size );
 }
 
-void RenderService::material_set_texture( RID material, RID texture, uint32_t slot )
+void RenderService::material_set_texture( RID p_material, StringView p_param_name, RID p_texture )
 {
-    storage.material_set_texture( material, texture, slot );
+    storage.material_set_texture( p_material, p_param_name, p_texture );
 }
 
 void RenderService::material_set_draw_mode( RID material, gfx::FillMode mode )
@@ -233,31 +257,23 @@ void RenderService::material_set_draw_mode( RID material, gfx::FillMode mode )
     storage.material_set_draw_mode( material, mode );
 }
 
-//------------------------------------------------------------------------------
-
-RID RenderService::mesh_create( const Mesh& mesh )
+bool RenderService::material_is_transparent( RID p_material )
 {
-    return storage.mesh_create( mesh );
+    return storage.material_is_transparent( p_material );
 }
 
 //------------------------------------------------------------------------------
 
-RID RenderService::compute_pipeline_create( const Shader& p_shader, Span<const RID> p_resource_sets )
+RID RenderService::mesh_create( const MeshUploadDesc& p_desc )
 {
-    RenderStorage::PSOKey key;
-    key.debug_name = "ComputePSO_" + p_shader.filepath;
-    key.cs         = gfx_api->shader_create(
-        gfx::ShaderCreateDesc{
-            .name     = "ComputeShader_" + p_shader.filepath,
-            .stage    = gfx::ShaderStage::COMPUTE,
-            .bytecode = p_shader.get_bytecode( gfx::ShaderStage::COMPUTE )
-        }
-    );
-    for (auto& e : p_resource_sets) {
-        auto set = storage.resource_sets.get_or_fail( e );
-        key.res_signatures.push_back( set->signature );
-    }
-    return storage.get_compute_pipeline_or_create( key );
+    return storage.mesh_create( p_desc );
+}
+
+//------------------------------------------------------------------------------
+
+RID RenderService::compute_pipeline_create( RID p_shader, Span<const RID> p_resource_sets )
+{
+    return storage.compute_pipeline_create( p_shader, p_resource_sets );
 }
 
 void RenderService::compute_pipeline_bind( RID pipeline )
@@ -682,7 +698,7 @@ void RenderService::render_target( const RenderTargetDesc& p_desc )
 
                 RID material = cmd->item->material;
                 if (cmd->texture_override)
-                    storage.material_set_texture( material, cmd->texture_override, 0 );
+                    storage.material_set_texture( material, "texture", cmd->texture_override );
 
                 const bool pso_rebound = storage.material_bind( material, ctx.pass_has_depth );
                 if (pso_rebound)

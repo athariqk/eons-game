@@ -16,9 +16,9 @@ namespace nc::editor {
 class AssetsPanel final : public EditorPanel {
 public:
     AssetsPanel(
-        AssetDatabase& p_assets [[clang::lifetimebound]], AssetImporter& p_importer [[clang::lifetimebound]],
-        ThumbnailCache& p_thumbnails [[clang::lifetimebound]], ResourceLoader& p_loader [[clang::lifetimebound]],
-        EditorSelection& p_selection [[clang::lifetimebound]]
+        AssetDatabase& p_assets NC_LIFETIME_BOUND, AssetImporter& p_importer NC_LIFETIME_BOUND,
+        ThumbnailCache& p_thumbnails NC_LIFETIME_BOUND, ResourceLoader& p_loader NC_LIFETIME_BOUND,
+        EditorSelection& p_selection NC_LIFETIME_BOUND
     );
 
     void draw_contents( EditorFrame& ctx ) override;

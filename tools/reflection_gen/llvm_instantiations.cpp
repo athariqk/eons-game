@@ -1,3 +1,7 @@
+// Copyright (C) 2026 Ahmad Ghalib Athariq <alib.athariq@gmail.com>
+// This file is subject to the license terms in the LICENSE file
+// found in the top-level directory of this distribution.
+
 // Provide explicit instantiations for LLVM template classes that are missing
 // from the static library builds. The extern template declarations in headers
 // suppress implicit instantiation but the explicit instantiation definitions

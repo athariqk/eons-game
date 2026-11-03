@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ncore/runtime/node.h>
+#include <ncore/runtime/resources/cubemap.h>
 #include <ncore/runtime/scene.h>
 
 namespace sea {
@@ -14,7 +14,7 @@ private:
     void create_environment();
     void create_water( nc::Node* camera );
 
-    nc::RID skybox_tex;
+    nc::Ref<nc::CubeMap> skybox_cubemap;
 };
 
 } // namespace sea

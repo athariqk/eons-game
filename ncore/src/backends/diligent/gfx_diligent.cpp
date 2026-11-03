@@ -23,16 +23,16 @@ static void DILIGENT_CALL_TYPE OutputMessageCallbackDiligent(
 {
     switch (Severity) {
         case Diligent::DEBUG_MESSAGE_SEVERITY_INFO:
-            NC_LOG( log::GRAPHICS, log::Level::LINFO, File, Function, Line, "{}", Message );
+            NC_LOG( log::GRAPHICS, log::Level::Info, File, Function, Line, "{}", Message );
             break;
         case Diligent::DEBUG_MESSAGE_SEVERITY_WARNING:
-            NC_LOG( log::GRAPHICS, log::Level::LWARN, File, Function, Line, "{}", Message );
+            NC_LOG( log::GRAPHICS, log::Level::Warn, File, Function, Line, "{}", Message );
             break;
         case Diligent::DEBUG_MESSAGE_SEVERITY_ERROR:
-            NC_LOG( log::GRAPHICS, log::Level::LERROR, File, Function, Line, "{}", Message );
+            NC_LOG( log::GRAPHICS, log::Level::Error, File, Function, Line, "{}", Message );
             break;
         case Diligent::DEBUG_MESSAGE_SEVERITY_FATAL_ERROR:
-            NC_LOG( log::GRAPHICS, log::Level::LFATAL, File, Function, Line, "{}", Message );
+            NC_LOG( log::GRAPHICS, log::Level::Fatal, File, Function, Line, "{}", Message );
             break;
     }
 }
@@ -260,7 +260,7 @@ void DiligentGfxImpl::set_context_state( bool deferred, RID deferred_id )
 
 void DiligentGfxImpl::set_queue( GpuQueue queue )
 {
-    // NC_LOG_DEBUG_C( log::GRAPHICS, "Setting GPU queue to {}", rtti::get_enum_name( &queue ) );
+    // NC_LOG_DEBUG_C( log::GRAPHICS, "Setting GPU queue to {}", TypeDB::get_enum_name( &queue ) );
     active_queue = queue;
 }
 
@@ -518,7 +518,7 @@ RID DiligentGfxImpl::render_pipeline_create( const gfx::RenderPipelineDesc& desc
             }
             NC_LOG_INFO_C(
                 log::GRAPHICS, "PSO '{}' created OK. Layout=[{}] sigs={} RTV='{}'", desc.debug_name, layout_summary,
-                desc.resource_signatures.size(), rtti::get_enum_name( &desc.render_target_format )
+                desc.resource_signatures.size(), TypeDB::get_enum_name( &desc.render_target_format )
             );
         } else {
             NC_LOG_ERROR_C( log::GRAPHICS, "FAILED to create render PSO '{}'", desc.debug_name );
@@ -748,10 +748,10 @@ RID DiligentGfxImpl::texture_create( const gfx::TextureDesc& desc )
         log::GRAPHICS,
         "NEW texture object name={} rid={} dim={} size={}x{} array={} mip={} sample={} format={} usage={} bind={} "
         "cpu_access_mask={}",
-        desc.debug_name, handle.value, rtti::get_enum_name( &desc.dimension ), ddesc.Width, ddesc.Height,
-        ddesc.ArraySize, ddesc.MipLevels, ddesc.SampleCount, rtti::get_enum_name( &desc.format ),
-        rtti::get_enum_name( &desc.usage ), rtti::get_enum_name( &desc.bind_mask ),
-        rtti::get_enum_name( &desc.cpu_access_mask )
+        desc.debug_name, handle.value, TypeDB::get_enum_name( &desc.dimension ), ddesc.Width, ddesc.Height,
+        ddesc.ArraySize, ddesc.MipLevels, ddesc.SampleCount, TypeDB::get_enum_name( &desc.format ),
+        TypeDB::get_enum_name( &desc.usage ), TypeDB::get_enum_name( &desc.bind_mask ),
+        TypeDB::get_enum_name( &desc.cpu_access_mask )
     );
 
     return handle;
@@ -779,7 +779,7 @@ void* DiligentGfxImpl::texture_view_get( RID texture, gfx::TextureViewType view 
     if (!result) {
         NC_LOG_ERROR_C(
             log::GRAPHICS, "Texture '{}' GetDefaultView returned null. RID={} view={}", ( *entry )->GetDesc().Name,
-            texture.value, rtti::get_enum_name( &view )
+            texture.value, TypeDB::get_enum_name( &view )
         );
     }
     return result;
@@ -816,7 +816,7 @@ void DiligentGfxImpl::texture_binding_update(
     if (!var) {
         NC_LOG_ERROR_C(
             log::GRAPHICS, "texture_binding_update: var '{}' NOT FOUND in {} stage", p_name,
-            rtti::get_enum_name( &p_shader_type )
+            TypeDB::get_enum_name( &p_shader_type )
         );
     }
     NC_VERIFY( var );
@@ -939,8 +939,8 @@ RID DiligentGfxImpl::buffer_create( const gfx::BufferDesc& p_desc )
 
     NC_LOG_DEBUG_C(
         log::GRAPHICS, "NEW buffer object RID={} name='{}' size={} usage='{}' bind='{}' cpu_access='{}'", handle.value,
-        p_desc.debug_name, p_desc.size, rtti::get_enum_name( &p_desc.usage ), rtti::get_enum_name( &p_desc.bind_mask ),
-        rtti::get_enum_name( &p_desc.cpu_access_mask )
+        p_desc.debug_name, p_desc.size, TypeDB::get_enum_name( &p_desc.usage ), TypeDB::get_enum_name( &p_desc.bind_mask ),
+        TypeDB::get_enum_name( &p_desc.cpu_access_mask )
     );
 
     return handle;
@@ -964,7 +964,7 @@ void* DiligentGfxImpl::buffer_view_get( RID buffer, gfx::BufferViewType view )
     if (!result) {
         NC_LOG_ERROR_C(
             log::GRAPHICS, "Buffer '{}' GetDefaultView returned null. RID={} view={}", ( *entry )->GetDesc().Name,
-            buffer.value, rtti::get_enum_name( &view )
+            buffer.value, TypeDB::get_enum_name( &view )
         );
     }
     return result;
@@ -1048,7 +1048,7 @@ void DiligentGfxImpl::buffer_binding_update(
     if (!var) {
         NC_LOG_ERROR_C(
             log::GRAPHICS, "buffer_binding_update: var='{}' NOT FOUND in {} stage", p_name,
-            rtti::get_enum_name( &p_shader_type )
+            TypeDB::get_enum_name( &p_shader_type )
         );
     }
     NC_VERIFY( var );
@@ -1129,8 +1129,8 @@ RID DiligentGfxImpl::resource_signature_create( const gfx::ResourceSignatureDesc
         resources.size()
     );
     for (auto& res : p_desc.resources) {
-        StringView res_type_name = rtti::get_enum_name( &res.resource_type );
-        StringView stage_name    = rtti::get_enum_name( &res.stage );
+        StringView res_type_name = TypeDB::get_enum_name( &res.resource_type );
+        StringView stage_name    = TypeDB::get_enum_name( &res.stage );
         NC_LOG_DEBUG_C( log::GRAPHICS, "  -> resource='{}' type={} stage={}", res.name, res_type_name, stage_name );
     }
 

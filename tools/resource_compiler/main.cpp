@@ -1,7 +1,8 @@
 #include <filesystem>
 
-#include <ncore/core/types.h>
+#include <ncore/runtime/register_base_types.h>
 #include <ncore/services/io/asset_service.h>
+#include <ncore/types/typedb.h>
 #include <ncore/utils/command_line_parser.h>
 #include <ncore/utils/config.h>
 #include <ncore/utils/log.h>
@@ -34,7 +35,8 @@ int main( int argc, char* argv[] )
     // static-init registers records, so without this every primitive field
     // TypeId lookup misses and serialize emits an empty body (or crashes in
     // VectorClass::visit on a null element TypeInfo).
-    nc::rtti::TypeRegistry::initialize();
+    nc::register_base_types();
+    nc::TypeDB::initialize();
 
     nc::CommandLineParser cmd_line_parser;
     cmd_line_parser.add_required_string( "input", "raw asset input path (absolute, or relative to assets/)" );

@@ -2,14 +2,11 @@
 #include <editor_components.h>
 #include <filesystem>
 
-#include <ncore/core/vector.h>
-#include <ncore/runtime/components/material.h>
-#include <ncore/runtime/components/mesh.h>
-#include <ncore/runtime/components/resource.h>
-#include <ncore/runtime/components/transform.h>
+#include <ncore/runtime/components.h>
+#include <ncore/runtime/io/resource_loader.h>
 #include <ncore/runtime/node.h>
-#include <ncore/runtime/resources/resource_loader.h>
 #include <ncore/runtime/scene.h>
+#include <ncore/structs/vector.h>
 
 #include <io/editor_assets.h>
 #include <panels/scene_tree_panel.h>
@@ -20,34 +17,25 @@ namespace {
 
 // Spawn a node rendering a mesh asset (drag-drop from the asset list). Queued
 // through Scene: entity creation cannot happen while the ECS runs.
-bool spawn_mesh_from_asset( Scene& scene, Node& parent, StringView path, ResourceLoader& loader )
+bool spawn_mesh_from_asset( Scene& scene, Node& parent, StringView path )
 {
     const EcsEntity parent_id = parent.get_id();
     const String asset_path( path.data(), path.size() );
 
-    scene.queue_task( [&scene, parent_id, asset_path, &loader]() {
+    scene.queue_task( [&scene, parent_id, asset_path]() {
         auto* parent_node = scene.get_node_from_entity( parent_id );
         if (!parent_node)
             return;
 
-        const RID mesh = loader.load( asset_path );
-        if (!mesh)
-            return;
-
         const std::string stem = std::filesystem::path( asset_path.c_str() ).stem().string();
 
+        // The mesh resource owns its geometry and material; the entity only
+        // stores the reference (resolved lazily by the render systems).
         auto node = parent_node->create_child( String( stem.c_str() ) );
         node->add_component<Transform3DComponent>();
-        node->add_component<HasResourceTag>();
-        node->add_component<MeshComponent>( MeshComponent{ .source = mesh } );
-
-        MaterialComponent material;
-        material.shader = loader.load( "shaders/materials/standard_spatial.slang" );
-        material.set_params<Vec4f>( "albedoColor", Vec4f( 1, 1, 1, 1 ) );
-        node->add_component<MaterialComponent>( material );
-
-        node->add_component<MeshRenderComponent>();
-        node->add_component<MaterialRenderComponent>();
+        node->add_component<MeshInstanceComponent>(
+            MeshInstanceComponent{ .mesh = scene.get_resource_loader().load<Mesh>( asset_path ) }
+        );
     } );
 
     return true;
@@ -55,11 +43,8 @@ bool spawn_mesh_from_asset( Scene& scene, Node& parent, StringView path, Resourc
 
 } // namespace
 
-SceneTreePanel::SceneTreePanel(
-    Scene& p_scene, EditorSelection& p_selection, AssetDatabase& p_assets, ResourceLoader& p_loader
-) :
-    EditorPanel( "Scene Tree", DockSlot::LeftUpper ), scene( p_scene ), selection( p_selection ), assets( p_assets ),
-    loader( p_loader )
+SceneTreePanel::SceneTreePanel( Scene& p_scene, EditorSelection& p_selection, AssetDatabase& p_assets ) :
+    EditorPanel( "Scene Tree", DockSlot::LeftUpper ), scene( p_scene ), selection( p_selection ), assets( p_assets )
 {}
 
 void SceneTreePanel::draw_contents( EditorFrame& ctx )
@@ -81,7 +66,7 @@ void SceneTreePanel::draw_contents( EditorFrame& ctx )
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( "ASSET_PATH" )) {
             const AssetEntry* entry = assets.find( static_cast<const char*>( payload->Data ) );
             if (entry && entry->kind == AssetKind::MESH && root)
-                spawn_mesh_from_asset( scene, *root, StringView( entry->path ), loader );
+                spawn_mesh_from_asset( scene, *root, StringView( entry->path ) );
         }
         ImGui::EndDragDropTarget();
     }
@@ -190,7 +175,7 @@ void SceneTreePanel::draw_node( Node& node, EditorFrame& ctx )
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( "ASSET_PATH" )) {
             const AssetEntry* entry = assets.find( static_cast<const char*>( payload->Data ) );
             if (entry && entry->kind == AssetKind::MESH)
-                spawn_mesh_from_asset( scene, node, StringView( entry->path ), loader );
+                spawn_mesh_from_asset( scene, node, StringView( entry->path ) );
         }
         ImGui::EndDragDropTarget();
     }

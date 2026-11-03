@@ -2,16 +2,9 @@
 #include <filesystem>
 #include <string>
 
-#include <ncore/core/vector.h>
-#include <ncore/resources/resource.h>
-#include <ncore/runtime/components/material.h>
-#include <ncore/runtime/components/mesh.h>
-#include <ncore/runtime/components/resource.h>
-#include <ncore/runtime/components/transform.h>
-#include <ncore/runtime/node.h>
-#include <ncore/runtime/resources/resource_loader.h>
+#include <ncore/runtime/components.h>
+#include <ncore/runtime/io/resource_loader.h>
 #include <ncore/runtime/scene.h>
-#include <ncore/services/video/render_service.h>
 
 #include <fs/utils.h>
 #include <io/asset_importer.h>
@@ -33,13 +26,13 @@ StringView kind_label( int filter )
 ImVec4 status_color( AssetStatus status )
 {
     switch (status) {
-        case AssetStatus::Dirty:
+        case AssetStatus::DIRTY:
             return ImVec4( 1.0f, 0.72f, 0.25f, 1.0f ); // orange
-        case AssetStatus::MissingSource:
+        case AssetStatus::MISSING_SOURCE:
             return ImVec4( 1.0f, 0.60f, 0.20f, 1.0f ); // darker orange
-        case AssetStatus::Compiling:
+        case AssetStatus::COMPILING:
             return ImVec4( 0.45f, 0.75f, 1.0f, 1.0f ); // blue
-        case AssetStatus::Error:
+        case AssetStatus::ERROR:
             return ImVec4( 1.0f, 0.35f, 0.30f, 1.0f ); // red
         default:
             return ImVec4( 0.6f, 0.6f, 0.6f, 1.0f );
@@ -49,13 +42,13 @@ ImVec4 status_color( AssetStatus status )
 const char* status_glyph( AssetStatus status )
 {
     switch (status) {
-        case AssetStatus::Dirty:
+        case AssetStatus::DIRTY:
             return "*";
-        case AssetStatus::MissingSource:
+        case AssetStatus::MISSING_SOURCE:
             return "?";
-        case AssetStatus::Compiling:
+        case AssetStatus::COMPILING:
             return "...";
-        case AssetStatus::Error:
+        case AssetStatus::ERROR:
             return "!";
         default:
             return "";
@@ -76,28 +69,23 @@ void select_asset( EditorSelection& selection, EcsWorld& world, StringView path 
 }
 
 void asset_context_menu(
-    AssetDatabase& index, ThumbnailCache& thumbnails, ResourceLoader& loader, RenderService& renderer,
-    AssetImporter& importer, EditorSelection& selection, EcsWorld& world, const AssetEntry& entry
+    ThumbnailCache& thumbnails, ResourceLoader& loader, Scene& p_scene, AssetImporter& importer,
+    EditorSelection& selection, EcsWorld& world, const AssetEntry& entry
 )
 {
     if (!ImGui::BeginPopupContextItem( "##asset_ctx" ))
         return;
 
-    const bool reimportable =
-        entry.origin == AssetOrigin::File ? asset_kind_can_import( entry.kind ) : index.has_generator( entry.path );
+    const bool reimportable = asset_kind_can_import( entry.kind );
 
     ImGui::BeginDisabled( !importer.ready() || !reimportable );
-    if (ImGui::MenuItem( "Reimport" )) {
-        if (entry.origin == AssetOrigin::Procedural)
-            index.load_or_generate( entry.path, loader, renderer, true );
-        else
-            importer.enqueue( entry.path );
-    }
+    if (ImGui::MenuItem( "Reimport" ))
+        importer.enqueue( entry.path );
     ImGui::EndDisabled();
 
     if (ImGui::MenuItem( "Reload" )) {
         if (entry.kind == AssetKind::IMAGE)
-            thumbnails.texture_for( entry.path, loader, renderer, true );
+            thumbnails.texture_for( entry.path, p_scene, true );
         else
             loader.load( entry.path, true );
     }
@@ -117,9 +105,8 @@ void asset_context_menu(
 }
 
 void draw_asset_grid(
-    AssetDatabase& index, ThumbnailCache& thumbnails, ResourceLoader& loader, RenderService& renderer,
-    EditorSelection& selection, EcsWorld& world, AssetImporter& importer,
-    const DynamicArray<const AssetEntry*>& visible, float tile = 88.0f
+    ThumbnailCache& thumbnails, ResourceLoader& loader, Scene& p_scene, EditorSelection& selection, EcsWorld& world,
+    AssetImporter& importer, const DynamicArray<const AssetEntry*>& visible, float tile = 88.0f
 )
 {
     if (visible.empty())
@@ -167,7 +154,7 @@ void draw_asset_grid(
                     ( ImGui::IsItemClicked( ImGuiMouseButton_Right ) && !selected ))
                     select_asset( selection, world, entry.path );
 
-                asset_context_menu( index, thumbnails, loader, renderer, importer, selection, world, entry );
+                asset_context_menu( thumbnails, loader, p_scene, importer, selection, world, entry );
 
                 if (ImGui::BeginDragDropSource( ImGuiDragDropFlags_None )) {
                     ImGui::SetDragDropPayload( "ASSET_PATH", entry.path.c_str(), entry.path.size() + 1 );
@@ -193,7 +180,7 @@ void draw_asset_grid(
 
                 bool drew_thumb = false;
                 if (entry.kind == AssetKind::IMAGE) {
-                    if (const RID thumb = thumbnails.texture_for( entry.path, loader, renderer ); thumb) {
+                    if (const RID thumb = thumbnails.texture_for( entry.path, p_scene ); thumb) {
                         // TODO: if the cache exposes texture size, letterbox here instead of stretching.
                         dl->AddImage( reinterpret_cast<ImTextureID>( static_cast<uintptr_t>( thumb.value ) ), t0, t1 );
                         drew_thumb = true;
@@ -212,7 +199,7 @@ void draw_asset_grid(
                 }
 
                 // badges overlaid on the thumbnail (no layout shift in the name row)
-                if (entry.status != AssetStatus::Ready) {
+                if (entry.status != AssetStatus::READY) {
                     const char* g   = status_glyph( entry.status );
                     const ImVec2 gs = ImGui::CalcTextSize( g );
                     const ImVec2 bp( t0.x + 3.0f, t0.y + 2.0f );
@@ -221,15 +208,6 @@ void draw_asset_grid(
                         IM_COL32( 0, 0, 0, 170 ), 3.0f
                     );
                     dl->AddText( bp, ImGui::ColorConvertFloat4ToU32( status_color( entry.status ) ), g );
-                }
-                if (entry.origin == AssetOrigin::Procedural) {
-                    const ImVec2 ps = ImGui::CalcTextSize( "P" );
-                    const ImVec2 bp( t1.x - ps.x - 5.0f, t0.y + 2.0f );
-                    dl->AddRectFilled(
-                        ImVec2( bp.x - 2, bp.y - 1 ), ImVec2( bp.x + ps.x + 2, bp.y + ps.y + 1 ),
-                        IM_COL32( 0, 0, 0, 170 ), 3.0f
-                    );
-                    dl->AddText( bp, IM_COL32( 140, 217, 255, 255 ), "P" );
                 }
 
                 // name, clipped to the tile, centered if it fits
@@ -256,9 +234,9 @@ void draw_status_bar( const AssetDatabase& index )
     int dirty_count  = 0;
     int failed_count = 0;
     for (const auto& entry : index.get_entries()) {
-        if (entry.status != AssetStatus::Ready)
+        if (entry.status != AssetStatus::READY)
             ++dirty_count;
-        if (entry.status == AssetStatus::Error)
+        if (entry.status == AssetStatus::ERROR)
             ++failed_count;
     }
 
@@ -273,22 +251,18 @@ AssetsPanel::AssetsPanel(
     AssetDatabase& p_assets, AssetImporter& p_importer, ThumbnailCache& p_thumbnails, ResourceLoader& p_loader,
     EditorSelection& p_selection
 ) :
-    EditorPanel( "Assets", DockSlot::Bottom ), assets( p_assets ), importer( p_importer ), thumbnails( p_thumbnails ),
-    loader( p_loader ), selection( p_selection )
+    EditorPanel( "Assets", DockSlot::LeftLower ), assets( p_assets ), importer( p_importer ),
+    thumbnails( p_thumbnails ), loader( p_loader ), selection( p_selection )
 {}
 
 void AssetsPanel::draw_contents( EditorFrame& p_ctx )
 {
-    auto renderer = p_ctx.scene->get_app_ctx()->services.resolve<RenderService>();
-    if (!renderer)
-        return;
-
     const auto matches = [&]( const AssetEntry& entry ) {
         if (kind_filter != 0 && static_cast<int>( entry.kind ) + 1 != kind_filter)
             return false;
         if (!asset_path_matches( entry.path, search_str ))
             return false;
-        if (stale_only && entry.status == AssetStatus::Ready)
+        if (stale_only && entry.status == AssetStatus::READY)
             return false;
         return true;
     };
@@ -305,13 +279,11 @@ void AssetsPanel::draw_contents( EditorFrame& p_ctx )
     ImGui::BeginDisabled( !importer.ready() );
     if (ImGui::SmallButton( "Reimport dirty" )) {
         for (const auto& entry : assets.get_entries()) {
-            if (entry.status != AssetStatus::Dirty && entry.status != AssetStatus::Error &&
-                entry.status != AssetStatus::MissingSource)
+            if (entry.status != AssetStatus::DIRTY && entry.status != AssetStatus::ERROR &&
+                entry.status != AssetStatus::MISSING_SOURCE)
                 continue;
 
-            if (entry.origin == AssetOrigin::Procedural)
-                assets.load_or_generate( entry.path, loader, *renderer, true );
-            else if (asset_kind_can_import( entry.kind ))
+            if (asset_kind_can_import( entry.kind ))
                 importer.enqueue( entry.path );
         }
     }
@@ -328,7 +300,7 @@ void AssetsPanel::draw_contents( EditorFrame& p_ctx )
                 continue;
 
             if (entry.kind == AssetKind::IMAGE)
-                thumbnails.texture_for( entry.path, loader, *renderer, true );
+                thumbnails.texture_for( entry.path, *p_ctx.scene, true );
             else
                 loader.load( entry.path, true );
         }
@@ -356,7 +328,7 @@ void AssetsPanel::draw_contents( EditorFrame& p_ctx )
     ImGui::InputTextWithHint( "##assetsearch", "Search assets...", search_str, sizeof( search_str ) );
 
     ImGui::SameLine();
-    ImGui::Checkbox( "Dirty only", &stale_only );
+    ImGui::Checkbox( "DIRTY only", &stale_only );
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip( "Show only assets whose source no longer matches the compiled .bin" );
 
@@ -402,7 +374,7 @@ void AssetsPanel::draw_contents( EditorFrame& p_ctx )
 
     if (grid_view) {
         sort_visible();
-        draw_asset_grid( assets, thumbnails, loader, *renderer, selection, p_ctx.scene->get_ecs(), importer, visible );
+        draw_asset_grid( thumbnails, loader, *p_ctx.scene, selection, p_ctx.scene->get_ecs(), importer, visible );
         ImGui::EndChild();
         draw_status_bar( assets );
         return;
@@ -433,10 +405,10 @@ void AssetsPanel::draw_contents( EditorFrame& p_ctx )
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex( 0 );
 
-            if (entry.status != AssetStatus::Ready) {
+            if (entry.status != AssetStatus::READY) {
                 ImGui::TextColored( status_color( entry.status ), "%s", status_glyph( entry.status ) );
                 if (ImGui::IsItemHovered()) {
-                    if (entry.status == AssetStatus::Error && !entry.last_error.empty())
+                    if (entry.status == AssetStatus::ERROR && !entry.last_error.empty())
                         ImGui::SetTooltip(
                             "%s: %s", asset_status_name( entry.status ).data(), entry.last_error.c_str()
                         );
@@ -446,15 +418,8 @@ void AssetsPanel::draw_contents( EditorFrame& p_ctx )
                 ImGui::SameLine();
             }
 
-            if (entry.origin == AssetOrigin::Procedural) {
-                ImGui::TextColored( ImVec4( 0.55f, 0.85f, 1.0f, 1.0f ), "[P]" );
-                if (ImGui::IsItemHovered())
-                    ImGui::SetTooltip( "procedural asset" );
-                ImGui::SameLine();
-            }
-
             if (entry.kind == AssetKind::IMAGE) {
-                const RID thumb = thumbnails.texture_for( entry.path, loader, *renderer );
+                const RID thumb = thumbnails.texture_for( entry.path, *p_ctx.scene );
                 if (thumb) {
                     ImGui::Image(
                         reinterpret_cast<ImTextureID>( static_cast<uintptr_t>( thumb.value ) ), ImVec2( 18, 18 )
@@ -469,9 +434,7 @@ void AssetsPanel::draw_contents( EditorFrame& p_ctx )
                 select_asset( selection, p_ctx.scene->get_ecs(), entry.path );
 
             ImGui::PushID( entry.path.c_str() );
-            asset_context_menu(
-                assets, thumbnails, loader, *renderer, importer, selection, p_ctx.scene->get_ecs(), entry
-            );
+            asset_context_menu( thumbnails, loader, *p_ctx.scene, importer, selection, p_ctx.scene->get_ecs(), entry );
             ImGui::PopID();
 
             if (ImGui::BeginDragDropSource( ImGuiDragDropFlags_None )) {

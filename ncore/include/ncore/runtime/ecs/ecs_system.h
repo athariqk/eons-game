@@ -4,9 +4,9 @@
 #include <memory>
 #include <string>
 
-#include <ncore/core/types.h>
 #include <ncore/runtime/ecs/ecs_component.h>
 #include <ncore/runtime/ecs/ecs_query.h>
+#include <ncore/types/typedb.h>
 
 namespace nc {
 
@@ -63,14 +63,14 @@ struct SystemDelegate {
 
 class NCAPI EcsSystemBuilder {
 public:
-    EcsSystemBuilder( EcsWorld& p_world [[clang::lifetimebound]], const String& p_name );
+    EcsSystemBuilder( EcsWorld& p_world NC_LIFETIME_BOUND, const String& p_name );
     ~EcsSystemBuilder();
 
     EcsSystemBuilder( const EcsSystemBuilder& )            = delete;
     EcsSystemBuilder& operator=( const EcsSystemBuilder& ) = delete;
 
     template<typename... Comps>
-    EcsSystemBuilder& with() [[clang::lifetimebound]]
+    EcsSystemBuilder& with() NC_LIFETIME_BOUND
     {
         qb_.with<Comps...>();
         return *this;
@@ -84,31 +84,31 @@ public:
     }
 
     template<typename... Comps>
-    EcsSystemBuilder& without() [[clang::lifetimebound]]
+    EcsSystemBuilder& without() NC_LIFETIME_BOUND
     {
         qb_.without<Comps...>();
         return *this;
     }
 
-    EcsSystemBuilder& up() [[clang::lifetimebound]]
+    EcsSystemBuilder& up() NC_LIFETIME_BOUND
     {
         qb_.up();
         return *this;
     }
 
-    EcsSystemBuilder& self() [[clang::lifetimebound]]
+    EcsSystemBuilder& self() NC_LIFETIME_BOUND
     {
         qb_.self();
         return *this;
     }
 
-    EcsSystemBuilder& skip_self() [[clang::lifetimebound]]
+    EcsSystemBuilder& skip_self() NC_LIFETIME_BOUND
     {
         qb_.skip_self();
         return *this;
     }
 
-    EcsSystemBuilder& cascade() [[clang::lifetimebound]]
+    EcsSystemBuilder& cascade() NC_LIFETIME_BOUND
     {
         qb_.cascade();
         return *this;
@@ -121,27 +121,27 @@ public:
         return *this;
     }
 
-    EcsSystemBuilder& all() [[clang::lifetimebound]]
+    EcsSystemBuilder& all() NC_LIFETIME_BOUND
     {
         qb_.all();
         return *this;
     }
 
-    EcsSystemBuilder& all_read() [[clang::lifetimebound]]
+    EcsSystemBuilder& all_read() NC_LIFETIME_BOUND
     {
         qb_.all_read();
         return *this;
     }
 
-    EcsSystemBuilder& src( EcsEntity id ) [[clang::lifetimebound]]
+    EcsSystemBuilder& src( EcsEntity id ) NC_LIFETIME_BOUND
     {
         qb_.src( id );
         return *this;
     }
 
-    EcsSystemBuilder& in( EcsSystemPhase phase ) [[clang::lifetimebound]];
+    EcsSystemBuilder& in( EcsSystemPhase phase ) NC_LIFETIME_BOUND;
 
-    EcsSystemBuilder& order( int32_t priority ) [[clang::lifetimebound]];
+    EcsSystemBuilder& order( int32_t priority ) NC_LIFETIME_BOUND;
 
     EcsEntity run( void ( *callback )( EcsIterState& ) );
     EcsEntity each( void ( *callback )( EcsIterState& ) );
@@ -177,44 +177,44 @@ private:
 
 class NCAPI EcsObserverBuilder {
 public:
-    EcsObserverBuilder( EcsWorld& world [[clang::lifetimebound]], const String& name );
+    EcsObserverBuilder( EcsWorld& world NC_LIFETIME_BOUND, const String& name );
     ~EcsObserverBuilder();
 
     EcsObserverBuilder( const EcsObserverBuilder& )            = delete;
     EcsObserverBuilder& operator=( const EcsObserverBuilder& ) = delete;
 
     template<class... Comps>
-    EcsObserverBuilder& on( EcsEntity evt ) [[clang::lifetimebound]]
+    EcsObserverBuilder& on( EcsEntity p_event_id ) NC_LIFETIME_BOUND
     {
         qb_.with<Comps...>();
-        events.push_back( evt );
+        events.push_back( p_event_id );
         return *this;
     }
 
     template<typename... Comps>
-    EcsObserverBuilder& with() [[clang::lifetimebound]]
+    EcsObserverBuilder& with() NC_LIFETIME_BOUND
     {
         qb_.with<Comps...>();
         return *this;
     }
 
     template<typename... Comps>
-    EcsObserverBuilder& without() [[clang::lifetimebound]]
+    EcsObserverBuilder& without() NC_LIFETIME_BOUND
     {
         qb_.without<Comps...>();
         return *this;
     }
 
-    EcsObserverBuilder& event( EcsEntity evt ) [[clang::lifetimebound]]
+    EcsObserverBuilder& event( EcsEntity p_event_id ) NC_LIFETIME_BOUND
     {
-        events.push_back( evt );
+        events.push_back( p_event_id );
         return *this;
     }
 
     template<class T>
-    EcsObserverBuilder& event() [[clang::lifetimebound]]
+    EcsObserverBuilder& event() NC_LIFETIME_BOUND
     {
-        auto type = rtti::TypeRegistry::find<T>();
+        auto type = TypeDB::find<T>();
         add_event_( type );
         return *this;
     }
@@ -222,19 +222,19 @@ public:
     /**
      * @brief Traverse relationship bottom-up.
      */
-    EcsObserverBuilder& up() [[clang::lifetimebound]]
+    EcsObserverBuilder& up() NC_LIFETIME_BOUND
     {
         qb_.up();
         return *this;
     }
 
-    EcsObserverBuilder& self() [[clang::lifetimebound]]
+    EcsObserverBuilder& self() NC_LIFETIME_BOUND
     {
         qb_.self();
         return *this;
     }
 
-    EcsObserverBuilder& skip_self() [[clang::lifetimebound]]
+    EcsObserverBuilder& skip_self() NC_LIFETIME_BOUND
     {
         qb_.skip_self();
         return *this;
@@ -243,13 +243,13 @@ public:
     /**
      * @brief Traverse relationship top-down.
      */
-    EcsObserverBuilder& cascade() [[clang::lifetimebound]]
+    EcsObserverBuilder& cascade() NC_LIFETIME_BOUND
     {
         qb_.cascade();
         return *this;
     }
 
-    EcsObserverBuilder& filter() [[clang::lifetimebound]]
+    EcsObserverBuilder& filter() NC_LIFETIME_BOUND
     {
         qb_.filter();
         return *this;
@@ -281,7 +281,7 @@ private:
     EcsQueryBuilder qb_;
 
     EcsEntity create_observer_( void* callback, void* ctx, void ( *ctx_free )( void* ) );
-    void add_event_( const rtti::TypeInfo* type );
+    void add_event_( const types::TypeInfo* type );
 };
 
 } // namespace nc

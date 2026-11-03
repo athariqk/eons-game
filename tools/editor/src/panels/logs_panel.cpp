@@ -3,7 +3,7 @@
 namespace nc::editor {
 
 LogsPanel::LogsPanel( LogStore& logs, bool p_visible ) :
-    EditorPanel( "Logs", DockSlot::Bottom, 1, p_visible ), logs_( logs )
+    EditorPanel( "Logs", DockSlot::Bottom, 0, p_visible ), logs_( logs )
 {}
 
 void LogsPanel::draw_contents( EditorFrame& )
@@ -25,7 +25,7 @@ void LogsPanel::draw_contents( EditorFrame& )
     state.filter.Draw( "##logfilter", 180.0f );
 
     static const char* LEVEL_LABELS[]   = { "T", "D", "I", "W", "E", "F" };
-    static const char* LEVEL_TOOLTIPS[] = { "Trace", "Debug", "Info", "Warn", "Error", "Fatal" };
+    static const char* LEVEL_TOOLTIPS[] = { "Trace", "Debug", "Info", "Warn", "ERROR", "Fatal" };
     for (int i = 0; i < 6; ++i) {
         ImGui::SameLine();
         ImGui::PushStyleColor( ImGuiCol_Text, LogStore::level_color( i ) );

@@ -2,8 +2,8 @@
 
 #include <memory>
 
-#include <ncore/core/object.h>
-#include <ncore/core/types.h>
+#include <ncore/object/object_info.h>
+#include <ncore/types/typedb.h>
 
 #include "ecs_entity.h"
 #include "ecs_query.h"
@@ -47,13 +47,13 @@ public:
      * @param p_name New/existing entity name.
      * @return A fluent builder for registering named entity.
      */
-    EcsEntityBuilder entity( const String& p_name = String() ) [[clang::lifetimebound]];
+    EcsEntityBuilder entity( const String& p_name = String() ) NC_LIFETIME_BOUND;
     /**
      * @brief Create a new entity OR edit an existing one.
      * @param p_entity New/existing entity ID.
      * @return A fluent builder for registering entity.
      */
-    EcsEntityBuilder entity( EcsEntity p_entity ) [[clang::lifetimebound]];
+    EcsEntityBuilder entity( EcsEntity p_entity ) NC_LIFETIME_BOUND;
     /**
      * @brief Lookup entity info by its name.
      * @param p_entity_name The name of the entity to look up.
@@ -63,7 +63,7 @@ public:
     /**
      * @brief Lookup entity name by its ID.
      */
-    StringView lookup( EcsEntity p_entity ) const [[clang::lifetimebound]];
+    StringView lookup( EcsEntity p_entity ) const NC_LIFETIME_BOUND;
     /**
      * @brief Return all alive entities.
      */
@@ -75,7 +75,7 @@ public:
      *
      * @return The pointer or nullptr when the entity does not own the component or is not alive.
      */
-    void* get_component_ptr( EcsEntity p_entity, const rtti::TypeInfo* p_type ) const;
+    void* get_component_ptr( EcsEntity p_entity, const types::TypeInfo* p_type ) const;
     void destroy_entity( EcsEntity p_entity );
 
     void add_pair( EcsEntity p_entity, EcsComponent p_first, EcsComponent p_second );
@@ -92,7 +92,7 @@ public:
      *
      * @return The resolved component ID.
      */
-    EcsComponent register_component_type( const rtti::TypeInfo* p_type ) const;
+    EcsComponent register_component_type( const types::TypeInfo* p_type ) const;
 
     /**
      * @return True if EcsWorld has a singleton component of given ID.
@@ -100,24 +100,24 @@ public:
     template<class T>
     bool has_component( EcsComponent p_id ) const
     {
-        return has_component_impl( p_id, rtti::TypeRegistry::find<T>() );
+        return has_component_impl( p_id, TypeDB::find<T>() );
     }
 
     template<class T>
     EcsComponent resolve_component() const
     {
-        auto type = rtti::TypeRegistry::find<T>();
+        auto type = TypeDB::find<T>();
         return register_component_type( type );
     }
 
-    const rtti::TypeInfo* resolve_component( EcsComponent p_id ) const;
+    const types::TypeInfo* resolve_component( EcsComponent p_id ) const;
 
     /**
      * @brief Get all component types previously registered via register_component_type().
      *
      * @return Non-owning list of component TypeInfo.
      */
-    Span<const rtti::TypeInfo*> get_component_types() const [[clang::lifetimebound]];
+    Span<const types::TypeInfo*> get_component_types() const NC_LIFETIME_BOUND;
 
     /**
      * @brief Remove a component from entity.
@@ -126,7 +126,7 @@ public:
     template<class T>
     bool remove_component( EcsEntity p_eid )
     {
-        const rtti::TypeInfo* type = rtti::TypeRegistry::find<T>();
+        const types::TypeInfo* type = TypeDB::find<T>();
         return remove_component_impl( p_eid, type );
     }
 
@@ -143,7 +143,7 @@ public:
     template<class T, class... Args>
     void add_singleton( Args&&... p_args )
     {
-        auto type = rtti::TypeRegistry::find<T>();
+        auto type = TypeDB::find<T>();
         if constexpr (sizeof...( p_args ) == 0) {
             set_component_impl( INVALID_ENTITY_ID, type, nullptr );
         } else {
@@ -153,36 +153,44 @@ public:
     }
 
     /**
-     * @brief Return a read-only singleton component of type T owned by EcsWorld.
+     * @brief Return a read-only singleton component of the given type owned by EcsWorld.
+     */
+    template<class T>
+    const T* get_singleton_const() const
+    {
+        auto result = get_component_const( INVALID_ENTITY_ID, TypeDB::find<T>() );
+        return static_cast<const T*>( result );
+    }
+    /**
+     * @brief Return a read-only singleton component of the given type owned by EcsWorld.
      */
     template<class T>
     const T* get_singleton() const
     {
-        auto result = get_component_const( INVALID_ENTITY_ID, rtti::TypeRegistry::find<T>() );
+        auto result = get_component_const( INVALID_ENTITY_ID, TypeDB::find<T>() );
         return static_cast<const T*>( result );
     }
-
     /**
-     * @brief Return a read-write singleton component of given type owned by EcsWorld.
+     * @brief Return a read-write singleton component of the given type owned by EcsWorld.
      */
     template<class T>
     T* get_singleton()
     {
-        auto result = get_component_impl( INVALID_ENTITY_ID, rtti::TypeRegistry::find<T>() );
+        auto result = get_component_impl( INVALID_ENTITY_ID, TypeDB::find<T>() );
         return static_cast<T*>( result );
     }
 
     template<class T>
     void remove_singleton()
     {
-        auto type = rtti::TypeRegistry::find<T>();
+        auto type = TypeDB::find<T>();
         remove_component_impl( INVALID_ENTITY_ID, type );
     }
 
     template<class T>
     void emit_event( const T& data, EcsEntity target ) const
     {
-        auto type = rtti::TypeRegistry::find<T>();
+        auto type = TypeDB::find<T>();
         emit_event_impl( type, target, &data );
     }
 
@@ -192,7 +200,7 @@ public:
      * @brief Create a new system.
      * @return A fluent builder for registering a stateless system.
      */
-    EcsSystemBuilder system( StringView p_name ) [[clang::lifetimebound]];
+    EcsSystemBuilder system( StringView p_name ) NC_LIFETIME_BOUND;
 
     /**
      * @brief Create a new query.
@@ -206,7 +214,7 @@ public:
      * @brief Create a new event observer.
      * @return A fluent builder for registering an event observer.
      */
-    EcsObserverBuilder observer( StringView p_name ) [[clang::lifetimebound]];
+    EcsObserverBuilder observer( StringView p_name ) NC_LIFETIME_BOUND;
 
     /**
      * @brief Sorts systems within each pipeline phase by their order() value
@@ -228,13 +236,13 @@ private:
     friend class Node; // FIXME: kinda hacky, lets remove later
 
     EcsEntity create_entity_impl( const String& name ) const;
-    void set_component_impl( EcsEntity eid, const rtti::TypeInfo* type, const void* data = nullptr );
-    void* get_component_impl( EcsEntity cid, const rtti::TypeInfo* type ) const;        // returns mutable ptr
-    const void* get_component_const( EcsEntity cid, const rtti::TypeInfo* type ) const; // returns const ptr, no staging
-    bool has_component_impl( EcsEntity cid, const rtti::TypeInfo* type ) const;
-    bool remove_component_impl( EcsEntity cid, const rtti::TypeInfo* type ) const;
-    EcsQuery create_query_impl( const String& name, void* data ) [[clang::lifetimebound]];
-    void emit_event_impl( const rtti::TypeInfo* type, EcsEntity target, const void* data ) const;
+    void set_component_impl( EcsEntity eid, const types::TypeInfo* type, const void* data = nullptr );
+    void* get_component_impl( EcsEntity cid, const types::TypeInfo* type ) const;        // returns mutable ptr
+    const void* get_component_const( EcsEntity cid, const types::TypeInfo* type ) const; // returns const ptr, no staging
+    bool has_component_impl( EcsEntity cid, const types::TypeInfo* type ) const;
+    bool remove_component_impl( EcsEntity cid, const types::TypeInfo* type ) const;
+    EcsQuery create_query_impl( const String& name, void* data ) NC_LIFETIME_BOUND;
+    void emit_event_impl( const types::TypeInfo* type, EcsEntity target, const void* data ) const;
 
     struct Impl;
     Ptr<Impl> pImpl;

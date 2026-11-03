@@ -2,7 +2,7 @@
 
 #include <ncore/core/random.h>
 #include <ncore/runtime/ecs/ecs_world.h>
-#include <ncore/services/service_registry.h>
+#include <ncore/services/servicedb.h>
 #include <ncore/services/video/render_service.h>
 
 #include <microcosmos/SpeciesRegistry.h>

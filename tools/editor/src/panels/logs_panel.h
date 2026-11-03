@@ -9,7 +9,7 @@ namespace nc::editor {
  */
 class LogsPanel final : public EditorPanel {
 public:
-    LogsPanel( LogStore& logs [[clang::lifetimebound]], bool visible );
+    LogsPanel( LogStore& logs NC_LIFETIME_BOUND, bool visible );
 
     void draw_contents( EditorFrame& ctx ) override;
 

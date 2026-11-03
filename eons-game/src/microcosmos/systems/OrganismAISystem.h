@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ncore/core/vector.h>
+#include <ncore/structs/vector.h>
 #include <ncore/runtime/ecs/ecs_system.h>
 
 #include <microcosmos/components/OrganismAIComponent.h>

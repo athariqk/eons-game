@@ -1,12 +1,13 @@
 #pragma once
 
-#include <ncore/core/rid.h>
+#include <ncore/runtime/scene.h>
 #include <ncore/services/video/render_service.h>
+#include <ncore/structs/rid.h>
 
 #include "wave_cascade_params.h"
 
 namespace nc {
-class ResourceLoader;
+struct ResourceContext;
 }
 
 namespace sea {
@@ -41,9 +42,7 @@ public:
     WaveGenerator( const WaveGenerator& )            = delete;
     WaveGenerator& operator=( const WaveGenerator& ) = delete;
 
-    void init_gpu(
-        nc::RenderService& p_renderer, nc::ResourceLoader& p_resources, uint32_t p_map_size, uint32_t p_num_cascades
-    );
+    void init_gpu( nc::RenderService& p_renderer, nc::Scene& p_scene, uint32_t p_map_size, uint32_t p_num_cascades );
     void shutdown( nc::RenderService& p_renderer );
     void update( nc::RenderService& p_renderer, float p_delta, nc::Span<WaveCascadeParams> p_cascades );
     void flush( nc::RenderService& p_renderer );
@@ -75,7 +74,7 @@ public:
 
 private:
     void create_resources( nc::RenderService& renderer );
-    void create_pipelines( nc::RenderService& renderer, nc::ResourceLoader& resources );
+    void create_pipelines( nc::RenderService& renderer, nc::Scene& p_scene );
     void destroy_resources( nc::RenderService& renderer );
     void dispatch_cascade( nc::RenderService& renderer, uint32_t cascade_index, nc::Span<WaveCascadeParams> cascades );
     void write_cb( nc::RenderService& renderer, nc::RID buffer, const void* data, size_t size );

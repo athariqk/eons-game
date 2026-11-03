@@ -2,7 +2,8 @@
 
 #include <stb_image.h>
 
-#include <ncore/resources/resource_archive.h>
+#include <ncore/runtime/io/resource_archive.h>
+#include <ncore/runtime/resources/image.h>
 #include <ncore/utils/log.h>
 
 namespace nc {

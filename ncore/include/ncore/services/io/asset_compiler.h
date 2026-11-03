@@ -7,9 +7,9 @@
 #include <functional>
 
 #include <ncore/core/errors.h>
-#include <ncore/core/object.h>
-#include <ncore/core/reference.h>
-#include <ncore/resources/resource.h>
+#include <ncore/object/object_info.h>
+#include <ncore/object/reference.h>
+#include <ncore/runtime/io/resource.h>
 
 namespace nc {
 

@@ -1,9 +1,9 @@
 #pragma once
 
 #include <ncore/core/collection.h>
-#include <ncore/core/matrix.h>
-#include <ncore/core/rect.h>
-#include <ncore/core/rid.h>
+#include <ncore/structs/matrix.h>
+#include <ncore/structs/rect.h>
+#include <ncore/structs/rid.h>
 
 #include "vertex_format.h"
 

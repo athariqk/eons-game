@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ncore/core/object.h>
+#include <ncore/object/object_info.h>
 
 #include "app_context.h"
 

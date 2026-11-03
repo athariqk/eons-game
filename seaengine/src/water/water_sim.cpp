@@ -3,10 +3,10 @@
 #include <format>
 
 #include <ncore/application.h>
-#include <ncore/runtime/components/services.h>
+#include <ncore/runtime/components.h>
 #include <ncore/runtime/ecs/ecs_events.h>
 #include <ncore/runtime/scene.h>
-#include <ncore/services/service_registry.h>
+#include <ncore/services/servicedb.h>
 #include <ncore/services/video/render_service.h>
 #include <ncore/utils/config.h>
 
@@ -71,11 +71,47 @@ static void load_cascade_config_( const nc::ConfFile& cfg, WaterSimComponent* wa
     }
 }
 
+/**
+ * @brief Mirror the cascade parameters onto the water material's uniforms.
+ *
+ * Driven by the WaterSimComponent ON_SET observer, so both the initial setup and
+ * later editor edits (the inspector calls Node::notify_changed) reach the GPU.
+ */
+static void apply_cascade_params( const WaterSimComponent& p_sim, nc::Ref<nc::Material> p_material )
+{
+    // GPU-side layout is float4 per cascade: tile_length.xy, displacement, normal.
+    nc::Vec4f scales[WaterSimComponent::MAX_CASCADES] = {};
+    for (int i = 0; i < p_sim.cascade_count; ++i) {
+        const auto& c = p_sim.cascades[i];
+        scales[i]     = nc::Vec4f(
+            1.0f / c.scale.tile_length.x, 1.0f / c.scale.tile_length.y, c.scale.displacement_scale,
+            c.scale.normal_scale
+        );
+    }
+    p_material->set_param( "numCascades", static_cast<unsigned int>( p_sim.cascade_count ) );
+    p_material->set_param( "mapScales", nc::TypedVar::from_array( scales ) );
+}
+
 nc::Node* register_water_sim( nc::Scene* p_scene )
 {
     auto* app = p_scene->get_app_ctx();
     auto* rd  = app->services.resolve<nc::RenderService>();
-    auto& res = p_scene->get_resource_loader();
+
+    // Registered before the component exists: observers only see events emitted after
+    // creation, so a later registration would miss the component's initial ON_SET.
+    // Also mirrors cascade parameters onto the material once the scene assigns one.
+    p_scene->get_ecs()
+        .observer( "WaterSim_OnSet" )
+        .on<WaterSimComponent>( nc::ecs::ON_SET )
+        .each( []( nc::EcsIterState& it ) {
+            auto sim = it.get_component<WaterSimComponent>();
+            for (int i = 0; i < sim->cascade_count; i++) {
+                sim->cascades[i].should_generate_spectrum = true;
+            }
+
+            if (sim->material)
+                apply_cascade_params( *sim, sim->material );
+        } );
 
     auto result = p_scene->root()->create_child( "WaterSim" );
     result->add_component<WaterSimComponent>();
@@ -86,22 +122,16 @@ nc::Node* register_water_sim( nc::Scene* p_scene )
     load_cascade_config_( app_cfg, ws_cmp );
 
     // map_size must match MAX_MAP_SIZE in fft_compute/transpose/fft_unpack.slang.
-    g_waves.init_gpu( *rd, res, WaveGenerator::DEFAULT_MAP_SIZE, ws_cmp->cascade_count );
+    g_waves.init_gpu( *rd, *p_scene, WaveGenerator::DEFAULT_MAP_SIZE, ws_cmp->cascade_count );
 
     NC_LOG_INFO(
         "Water sim registered ({}x{}, {} cascades)", g_waves.get_map_size(), g_waves.get_map_size(),
         g_waves.get_num_cascades()
     );
 
-    p_scene->get_ecs()
-        .observer( "WaterSim_OnSet" )
-        .on<WaterSimComponent>( ecs::ON_SET )
-        .each( []( nc::EcsIterState& it ) {
-            auto sim = it.get_component<WaterSimComponent>();
-            for (int i = 0; i < sim->cascade_count; i++) {
-                sim->cascades[i].should_generate_spectrum = true;
-            }
-        } );
+    // The component was populated after it was added, so the add-time ON_SET only saw
+    // the defaults. Fire it once more now that the cascade configuration is loaded.
+    result->notify_changed<WaterSimComponent>();
 
     p_scene->get_ecs()
         .system( "WaterSim_Updater" )

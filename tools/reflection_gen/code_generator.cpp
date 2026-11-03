@@ -1,8 +1,11 @@
+// Copyright (C) 2026 Ahmad Ghalib Athariq <alib.athariq@gmail.com>
+// This file is subject to the license terms in the LICENSE file
+// found in the top-level directory of this distribution.
+
 #include "code_generator.h"
 
 #include <algorithm>
 #include <filesystem>
-#include <set>
 #include <sstream>
 
 namespace {
@@ -60,11 +63,11 @@ std::string generate_dep_type_registrations( const std::vector<ReflectedDepType>
 
 std::string property_flags_expr( const ReflectedField& f )
 {
-    std::string flags = "::nc::rtti::PropertyFlags::SERIALIZABLE | ::nc::rtti::PropertyFlags::EDITABLE";
+    std::string flags = "::nc::types::PropertyFlags::SERIALIZABLE | ::nc::types::PropertyFlags::EDITABLE";
     if (f.hidden)
-        flags += " | ::nc::rtti::PropertyFlags::HIDDEN";
+        flags += " | ::nc::types::PropertyFlags::HIDDEN";
     if (f.read_only)
-        flags += " | ::nc::rtti::PropertyFlags::READ_ONLY";
+        flags += " | ::nc::types::PropertyFlags::READ_ONLY";
     return flags;
 }
 
@@ -74,14 +77,14 @@ std::string generate_field_array( const ReflectedRecord& rec )
         return {};
 
     std::ostringstream oss;
-    oss << "        static const ::nc::rtti::FieldInfo fields[] = {\n";
+    oss << "        static const ::nc::types::FieldInfo fields[] = {\n";
     for (const auto& f : rec.fields) {
         oss << "            { \"" << f.name << "\",\n"
-            << "              ::nc::rtti::TypeId{" << f.type_id_hash << "ULL},\n"
+            << "              ::nc::types::TypeId{" << f.type_id_hash << "ULL},\n"
             << "              " << f.field_size << ",\n"
             << "              " << f.field_offset << ",\n"
             << "              " << property_flags_expr( f ) << ",\n"
-            << "              ::nc::rtti::Qualifier{";
+            << "              ::nc::types::Qualifier{";
         if (f.array_length > 0)
             oss << ".array_length = " << f.array_length;
         else if (f.pointer_count > 0) {
@@ -110,7 +113,7 @@ std::string generate_record_code( const ReflectedRecord& rec )
     // NC_COMPONENT types inherit EcsComponentBase<T>, whose registration
     // lives in a static member of a class template — only instantiated on
     // odr-use, which mere inheritance never does. Force it here by calling
-    // nc_info_() (static function wrapping a function-local
+    // CLASS_INFO() (static function wrapping a function-local
     // static, idempotent, thread-safe). Needs the complete type, so
     // generate_reflection_header #includes the source header for ECS records.
     // NSTRUCT_V's nc_register_##T sits in the non-template class body and
@@ -119,12 +122,12 @@ std::string generate_record_code( const ReflectedRecord& rec )
     // until register_type).
     if (rec.is_ecs_component || rec.has_nstruct_v) {
         if (rec.is_ecs_component) {
-            oss << "        (void)::nc::detail::EcsComponentBase<" << cpp_name << ">::nc_info_();\n";
+            oss << "        (void)::nc::EcsComponentBase<" << cpp_name << ">::CLASS_INFO();\n";
         }
         if (!rec.fields.empty()) {
             oss << "    {\n"
-                << generate_field_array( rec ) << "        ::nc::rtti::TypeRegistry::provide_fields(\n"
-                << "            ::nc::rtti::TypeId{" << type_hash << "ULL}, fields, fields + " << rec.fields.size()
+                << generate_field_array( rec ) << "        ::nc::TypeDB::provide_fields(\n"
+                << "            ::nc::types::TypeId{" << type_hash << "ULL}, fields, fields + " << rec.fields.size()
                 << " );\n"
                 << "    }\n";
         }
@@ -134,31 +137,31 @@ std::string generate_record_code( const ReflectedRecord& rec )
     // Pure REFLECT type (no ECS_COMPONENT / NSTRUCT_V): standalone plain
     // RecordInfo — the only registration path.
     oss << "    {\n"
-        << "        static ::nc::rtti::RecordInfo nc_info_(\n"
+        << "        static ::nc::types::RecordInfo CLASS_INFO(\n"
         << "            \"" << rec.qualified_name << "\",\n"
-        << "            ::nc::rtti::TypeId{" << type_hash << "ULL},\n"
+        << "            ::nc::types::TypeId{" << type_hash << "ULL},\n"
         << "            " << rec.record_size << ", " << rec.record_alignment << "\n"
         << "        );\n"
-        << "        ::nc::rtti::TypeRegistry::register_type( &nc_info_ );\n";
+        << "        ::nc::TypeDB::register_type( &CLASS_INFO );\n";
 
     // Set parent_id for NCLASS types
     if (rec.is_class && !rec.parent_name.empty()) {
         uint64_t parent_hash = compute_type_id_hash( rec.parent_name );
-        oss << "        nc_info_.parent_id = ::nc::rtti::TypeId{" << parent_hash << "ULL};\n";
+        oss << "        CLASS_INFO.parent_id = ::nc::types::TypeId{" << parent_hash << "ULL};\n";
     }
 
     if (!rec.fields.empty()) {
         oss << generate_field_array( rec );
-        oss << "        nc_info_.fields_begin = fields;\n"
-            << "        nc_info_.fields_end = fields + " << rec.fields.size()
+        oss << "        CLASS_INFO.fields_begin = fields;\n"
+            << "        CLASS_INFO.fields_end = fields + " << rec.fields.size()
             << ";\n"
             // Also hand the fields to the registry: NSTRUCT_V/NCLASS/
-            // ECS_COMPONENT RecordInfoT entries may already have won the
+            // ECS_COMPONENT ObjectClass entries may already have won the
             // type_cache (static-init order vs this TU is unspecified), and
             // the winner would otherwise keep an empty field list. provide_fields
             // attaches to whoever is cached, or defers until they register.
-            << "        ::nc::rtti::TypeRegistry::provide_fields(\n"
-            << "            ::nc::rtti::TypeId{" << type_hash << "ULL}, fields, fields + " << rec.fields.size()
+            << "        ::nc::TypeDB::provide_fields(\n"
+            << "            ::nc::types::TypeId{" << type_hash << "ULL}, fields, fields + " << rec.fields.size()
             << " );\n";
     }
 
@@ -204,7 +207,7 @@ std::string generate_reflection_header(
 {
     std::ostringstream oss;
 
-    // ECS records force odr-use of EcsComponentBase<T>::nc_info_(),
+    // ECS records force odr-use of EcsComponentBase<T>::CLASS_INFO(),
     // which requires the complete type — pull in the source header so the type
     // is declared in this TU. Dependent-type registrations also spell concrete
     // C++ types (e.g. std::vector<nc::ShaderDesc, ...> for VectorClass), which
@@ -224,7 +227,8 @@ std::string generate_reflection_header(
         << "#pragma once\n\n"
         << "#ifndef " << guard_macro << "\n"
         << "#define " << guard_macro << "\n\n"
-        << "#include <ncore/core/types.h>\n\n"
+        << "#include <ncore/types/typedb.h>\n\n"
+        << "#include <ncore/types/classinfo.h>\n\n"
         << "#include <cstddef>\n\n";
 
     if (needs_source_header)

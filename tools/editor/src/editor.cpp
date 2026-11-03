@@ -7,7 +7,6 @@
 #include <mutex>
 #include <utility>
 
-#include <ncore/application.h>
 #include <ncore/runtime/scene.h>
 #include <ncore/services/io/asset_service.h>
 #include <ncore/services/io/input_service.h>
@@ -157,7 +156,7 @@ void Editor::register_inspector_handler( Ptr<InspectorHandler> handler )
         inspector_handlers.push_back( std::move( handler ) );
 }
 
-void Editor::register_property_widget( const rtti::TypeInfo* type, PropertyWidgetFn widget )
+void Editor::register_property_widget( const types::TypeInfo* type, PropertyWidgetFn widget )
 {
     if (!type || !widget)
         return;
@@ -204,9 +203,9 @@ void Editor::create_panels()
 
     // Scene + Inspector
     register_panel(
-        DockSlot::LeftUpper, 0, std::make_unique<SceneTreePanel>( scene, selection_state, *assets_database, loader )
+        DockSlot::LeftUpper, 0, std::make_unique<SceneTreePanel>( scene, selection_state, *assets_database )
     );
-    register_inspector_handler( std::make_unique<MaterialInspectorHandler>( scene ) );
+    register_inspector_handler( std::make_unique<MaterialInspectorHandler>() );
     register_panel(
         DockSlot::RightUpper, 0,
         std::make_unique<InspectorPanel>(
@@ -217,13 +216,13 @@ void Editor::create_panels()
 
     // Assets
     register_panel(
-        DockSlot::Bottom, 0,
+        DockSlot::LeftLower, 0,
         std::make_unique<AssetsPanel>( *assets_database, *importer, *thumbnails, loader, selection_state )
     );
-    add_asset_property_widget( *this );
+    // add_asset_property_widget( *this );
 
     // Logs
-    register_panel( DockSlot::Bottom, 1, std::make_unique<LogsPanel>( log_store, false ) );
+    register_panel( DockSlot::Bottom, 0, std::make_unique<LogsPanel>( log_store, true ) );
 
     sort_panels();
     apply_settings();
@@ -379,7 +378,7 @@ void Editor::release_gpu()
         panel->release_gpu( *renderer );
 
     if (thumbnails)
-        thumbnails->release_gpu( *renderer );
+        thumbnails->release_gpu();
 }
 
 //------------------------------------------------------------------------------
@@ -389,7 +388,7 @@ void Editor::release_gpu()
 namespace {
 
 struct StagedLogLine {
-    log::Level level = log::Level::LINFO;
+    log::Level level = log::Level::Info;
     String channel;
     String text;
 };

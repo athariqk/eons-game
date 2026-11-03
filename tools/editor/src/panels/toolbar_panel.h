@@ -9,7 +9,7 @@ namespace nc::editor {
  */
 class ToolbarPanel final : public EditorPanel {
 public:
-    explicit ToolbarPanel( EditorSettings& p_settings [[clang::lifetimebound]] );
+    explicit ToolbarPanel( EditorSettings& p_settings NC_LIFETIME_BOUND );
 
     void draw_contents( EditorFrame& ctx ) override;
 

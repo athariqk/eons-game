@@ -1,15 +1,13 @@
 #pragma once
 
 #include <cstdint>
-#include <functional>
 
 #include <ncore/core/collection.h>
-#include <ncore/core/rid.h>
+#include <ncore/structs/rid.h>
 
 #include <io/asset_paths.h>
 
 namespace nc {
-class RenderService;
 class ResourceLoader;
 } // namespace nc
 
@@ -18,30 +16,21 @@ namespace nc::editor {
 class AssetImporter;
 
 /**
- * @brief Where an asset comes from.
- */
-enum class AssetOrigin : uint8_t {
-    File = 0,   // source on disk -> compiled .bin
-    Procedural, // registered generator or a loader virtual path
-};
-
-/**
  * @brief Current state of an asset, computed during scan and updated by the
- * import service / procedural generation.
+ * import service.
  */
 enum class AssetStatus : uint8_t {
-    Ready = 0,     // compiled matches source (or procedural is up-to-date)
-    Dirty,         // source/params newer than the last compile/generation
-    MissingSource, // no raw source found (file assets)
-    Compiling,     // reimport/generation job in flight
-    Error,         // last compile/generation failed (see last_error)
+    READY = 0,      // compiled matches source
+    DIRTY,          // source/params newer than the last compile
+    MISSING_SOURCE, // no raw source found
+    COMPILING,      // reimport job in flight
+    ERROR,          // last compile failed (see last_error)
 };
 
 struct AssetEntry {
     String path; // relative to the runtime asset root, no ".bin" suffix
     AssetKind kind     = AssetKind::UNKNOWN;
-    AssetOrigin origin = AssetOrigin::File;
-    AssetStatus status = AssetStatus::Ready;
+    AssetStatus status = AssetStatus::READY;
 
     int64_t source_mtime = 0;   // raw source, clock ticks
     uint64_t source_size = 0;   // raw source, bytes
@@ -49,22 +38,12 @@ struct AssetEntry {
     int64_t compiled_mtime = 0; // compiled .bin, clock ticks
     uint64_t compiled_size = 0; // compiled .bin, bytes
 
-    uint64_t source_hash = 0;   // content hash (incl. #include deps), or procedural params hash
-    String source_path;         // absolute path of the raw source (file assets)
-    String last_error;          // non-empty when status == Error
+    uint64_t source_hash = 0;   // content hash (incl. #include deps)
+    String source_path;         // absolute path of the raw source
+    String last_error;          // non-empty when status == ERROR
 };
 
-/**
- * @brief Produces (or regenerates) a procedural asset.
- *
- * The generator talks to ResourceLoader/RenderService and binds its result
- * under the asset's path (typically via ResourceLoader::add(res, path)). Runs
- * on the main thread.
- */
-using AssetGenerateFn = std::function<RID( ResourceLoader& loader, RenderService& renderer )>;
-
 StringView asset_status_name( AssetStatus status );
-StringView asset_origin_name( AssetOrigin origin );
 
 /**
  * @brief One manifest record: what we know about an asset's source at import time.
@@ -80,10 +59,9 @@ struct ManifestRecord {
 /**
  * @brief The persisted import manifest (versioned, tab-separated, atomic write).
  *
- * Records only hold "known-good" file assets: the source metadata and content
- * hash an asset had when it last matched its compiled artifact. Stale/failed
- * assets are deliberately absent so they are re-blessed on their next import.
- * Procedural assets are never persisted.
+ * Records only hold "known-good" assets: the source metadata and content hash an
+ * asset had when it last matched its compiled artifact. Stale/failed assets are
+ * deliberately absent so they are re-blessed on their next import.
  */
 struct ImportManifest {
     HashMap<String, ManifestRecord> records;
@@ -95,20 +73,13 @@ struct ImportManifest {
     bool save( StringView path ) const;
 };
 
-/** @brief A regenerable procedural asset registered by game/engine code. */
-struct ProceduralRecord {
-    AssetKind kind = AssetKind::UNKNOWN;
-    AssetGenerateFn generate;
-};
-
 /**
- * @brief Pure editor-side database of file-backed and procedural assets.
+ * @brief Pure editor-side database of file-backed assets.
  *
- * Owns the authoritative list the panels query, plus the import manifest and
- * procedural registrations. It performs no compilation or hashing: `scan` walks
- * the runtime asset root (deriving staleness from the manifest), and the
- * AssetImporter recomputes hashes on its worker. GPU thumbnails live in a
- * separate ThumbnailCache.
+ * Owns the authoritative list the panels query, plus the import manifest. It
+ * performs no compilation or hashing: `scan` walks the runtime asset root
+ * (deriving staleness from the manifest), and the AssetImporter recomputes
+ * hashes on its worker. GPU thumbnails live in a separate ThumbnailCache.
  */
 class AssetDatabase {
 public:
@@ -116,10 +87,10 @@ public:
     void configure( AssetPaths p_paths );
 
     /**
-     * @brief Rebuild file entries and reconcile procedural entries.
+     * @brief Rebuild the file entries from the asset root.
      *
      * Never hashes on the caller's thread: entries whose source hash cannot be
-     * reused from the manifest are marked Compiling and queued on the importer,
+     * reused from the manifest are marked COMPILING and queued on the importer,
      * which resolves them (and the manifest) on its worker via mark_scanned().
      */
     void scan( ResourceLoader& loader, AssetImporter& importer );
@@ -134,24 +105,12 @@ public:
         return Span<const AssetEntry>( assets.data(), assets.size() );
     }
 
-    AssetEntry* find_mut( StringView path ) [[clang::lifetimebound]];
+    AssetEntry* find_mut( StringView path ) NC_LIFETIME_BOUND;
 
-    const AssetEntry* find( StringView path ) const [[clang::lifetimebound]];
+    const AssetEntry* find( StringView path ) const NC_LIFETIME_BOUND;
 
-    /**
-     * @brief Register a regenerable procedural asset. Rejected if the path is
-     * already a file asset.
-     */
-    bool register_procedural( StringView path, AssetKind kind, AssetGenerateFn generator );
-
-    /** @brief Remove a procedural registration (and its entry, if any). */
-    void unregister_procedural( StringView path );
-
-    /** @brief Mark a procedural (or file) asset as needing rework. */
+    /** @brief Mark an asset as needing rework. */
     void mark_dirty( StringView path );
-
-    /** @brief Whether this procedural path has a registered generator (regenerable). */
-    bool has_generator( StringView path ) const;
 
     /** @brief Record a reimport/generation job as in flight. */
     void mark_compiling( StringView path );
@@ -164,7 +123,7 @@ public:
 
     /**
      * @brief Resolve a scan-time hash (computed on the import worker) into a
-     * Ready/Dirty status and the manifest record.
+     * READY/DIRTY status and the manifest record.
      */
     void mark_scanned( StringView path, uint64_t source_hash, int64_t source_mtime, uint64_t source_size );
 
@@ -174,22 +133,18 @@ public:
     /** @brief Persist the manifest if pending mark_imported/mark_scanned updates. */
     void flush_manifest();
 
-    /**
-     * @brief Load a file asset, or run a procedural generator when dirty/forced.
-     */
-    RID load_or_generate( StringView path, ResourceLoader& loader, RenderService& renderer, bool force = false );
+    /** @brief Load a file asset (cached unless `force`). */
+    RID ensure( StringView path, ResourceLoader& loader, bool force = false );
 
 private:
-    AssetEntry* ensure_procedural_entry( StringView path ) [[clang::lifetimebound]];
     void rebuild_index();
 
     DynamicArray<AssetEntry> assets;   // sorted by path; stable iteration order
     HashMap<String, uint32_t> by_path; // path -> index into assets
     AssetPaths paths;
     ImportManifest manifest;
-    HashMap<String, ProceduralRecord> generators;
     bool manifest_dirty = false;
-    bool is_scanned = false;
+    bool is_scanned     = false;
 };
 
 } // namespace nc::editor

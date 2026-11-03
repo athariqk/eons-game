@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <vector>
 
-#include <ncore/resources/resource.h>
+#include <ncore/runtime/resources/mesh.h>
 #include <ncore/services/video/renderer/vertex_format.h>
 
 namespace sea {
@@ -15,9 +15,9 @@ using namespace nc;
 
 namespace {
 
-constexpr uint64_t kInvalid     = UINT64_MAX;
-constexpr uint32_t kMaxVertices = UINT32_MAX;
-constexpr uint32_t kMaxLevels   = 24;
+constexpr uint64_t INVALID      = UINT64_MAX;
+constexpr uint32_t MAX_VERTICES = UINT32_MAX;
+constexpr uint32_t MAX_LEVELS   = 24;
 
 struct ClipmapDesc {
     uint32_t cells;
@@ -43,12 +43,12 @@ ClipmapDesc sanitize( WaterMeshDesc const& desc_in )
     if (levels == 0) {
         levels      = 1;
         float reach = static_cast<float>( d.half ) * d.base_spacing * 0.5f;
-        while (reach < desc_in.horizon && levels < kMaxLevels) {
+        while (reach < desc_in.horizon && levels < MAX_LEVELS) {
             reach *= 2.0f;
             ++levels;
         }
     }
-    d.levels = std::clamp( levels, 1u, kMaxLevels );
+    d.levels = std::clamp( levels, 1u, MAX_LEVELS );
     return d;
 }
 
@@ -84,12 +84,12 @@ void build_level_rect(
     const uint32_t rh = static_cast<uint32_t>( iz1 - iz0 ) + 1;
 
     DynamicArray<uint64_t> remap( static_cast<size_t>( rw ) * rh );
-    std::fill( remap.begin(), remap.end(), kInvalid );
+    std::fill( remap.begin(), remap.end(), INVALID );
 
     // Create a vertex the first time a quad references it.
     auto get_vertex = [&]( int32_t ix, int32_t iz ) -> uint32_t {
         uint64_t& slot = remap[static_cast<size_t>( iz - iz0 ) * rw + static_cast<uint32_t>( ix - ix0 )];
-        if (slot == kInvalid) {
+        if (slot == INVALID) {
             slot          = static_cast<uint32_t>( vertices.size() );
             const float x = static_cast<float>( ix ) * g.sp;
             const float z = static_cast<float>( iz ) * g.sp;

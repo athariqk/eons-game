@@ -1,11 +1,11 @@
 #pragma once
 
-#include <ncore/core/rid.h>
 #include <ncore/services/service.h>
+#include <ncore/structs/rid.h>
+
+#include "audio_desc.h"
 
 namespace nc {
-
-class AudioClip;
 
 /**
  * @brief AudioService provides base functionality for
@@ -21,7 +21,7 @@ public:
     Error init( ConfFile& cfg_file ) override;
     void shutdown() override;
 
-    RID create_stream( const AudioClip& p_clip );
+    RID create_stream( const AudioStreamDesc& p_desc );
     void play_sound( RID stream_rid );
 
     void destroy_rid( RID handle );

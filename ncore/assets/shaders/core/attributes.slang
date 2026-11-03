@@ -9,12 +9,6 @@ struct CullModeAttribute
 };
 
 [__AttributeUsage(_AttributeTargets.Struct)]
-struct FillModeAttribute
-{
-    int mode; // 0=SOLID, 1=WIREFRAME
-};
-
-[__AttributeUsage(_AttributeTargets.Struct)]
 struct DepthTestAttribute
 {
     int enabled;

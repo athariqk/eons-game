@@ -6,7 +6,7 @@
 
 #include <memory>
 
-#include <ncore/core/types.h>
+#include <ncore/types/typedb.h>
 #include <ncore/utils/config.h>
 
 #include "app_context.h"

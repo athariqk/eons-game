@@ -6,81 +6,81 @@
 namespace nc::log {
 
 namespace {
-std::atomic<Level> g_MinLogLevel = Level::LTRACE;
+std::atomic<Level> g_min_log_level = Level::Trace;
 }
 
-void set_min_level( Level level )
+void set_min_level( Level p_level )
 {
-    g_MinLogLevel.store( level );
+    g_min_log_level.store( p_level );
 }
 Level get_min_level()
 {
-    return g_MinLogLevel.load();
+    return g_min_log_level.load();
 }
 
-StringView level_triplet( Level l )
+StringView level_triplet( Level p_level )
 {
-    switch (l) {
-        case Level::LTRACE:
+    switch (p_level) {
+        case Level::Trace:
             return "TRC";
-        case Level::LDEBUG:
+        case Level::Debug:
             return "DBG";
-        case Level::LINFO:
+        case Level::Info:
             return "INF";
-        case Level::LWARN:
+        case Level::Warn:
             return "WRN";
-        case Level::LERROR:
+        case Level::Error:
             return "ERR";
-        case Level::LFATAL:
+        case Level::Fatal:
             return "FAT";
         default:
             return "OFF";
     }
 }
 
-StringView level_name( Level l )
+StringView level_name( Level p_level )
 {
-    switch (l) {
-        case Level::LTRACE:
+    switch (p_level) {
+        case Level::Trace:
             return "TRACE";
-        case Level::LDEBUG:
+        case Level::Debug:
             return "DEBUG";
-        case Level::LINFO:
+        case Level::Info:
             return "INFO";
-        case Level::LWARN:
+        case Level::Warn:
             return "WARN";
-        case Level::LERROR:
+        case Level::Error:
             return "ERROR";
-        case Level::LFATAL:
+        case Level::Fatal:
             return "FATAL";
         default:
             return "OFF";
     }
 }
 
-StringView level_color( Level l )
+StringView level_color( Level p_level )
 {
-    switch (l) {
-        case Level::LTRACE:
+    switch (p_level) {
+        case Level::Trace:
             return "\x1b[2;37m";
-        case Level::LDEBUG:
+        case Level::Debug:
             return "\x1b[36m";
-        case Level::LINFO:
+        case Level::Info:
             return "\x1b[32m";
-        case Level::LWARN:
+        case Level::Warn:
             return "\x1b[33m";
-        case Level::LERROR:
+        case Level::Error:
             return "\x1b[31m";
-        case Level::LFATAL:
+        case Level::Fatal:
             return "\x1b[1;31m";
         default:
             return "";
     }
 }
 
-void log_message( const LogMsg& msg )
+void log_message( const LogMsg& p_msg )
 {
-    if (msg.level < g_MinLogLevel.load())
+    if (p_msg.level < g_min_log_level.load())
         return;
 
     // Serialize sink writes and listener dispatch. The editor's reimport worker
@@ -88,34 +88,34 @@ void log_message( const LogMsg& msg )
     static std::mutex g_log_mutex;
     const std::lock_guard<std::mutex> lock( g_log_mutex );
 
-    log::Logger::get_instance().channel( msg.channel )->write( msg );
+    log::Logger::get_instance().channel( p_msg.channel )->write( p_msg );
 }
 
 NCAPI void print( const String& p_msg )
 {
-    if (Level::LINFO < g_MinLogLevel.load())
+    if (Level::Info < g_min_log_level.load())
         return;
     LogMsg msg;
     msg.channel = NC_LOG_CHANNEL_NAME;
-    msg.level   = Level::LINFO;
+    msg.level   = Level::Info;
     msg.payload = p_msg;
     log_message( msg );
 }
 
 NCAPI void print_error( const String& p_msg )
 {
-    if (Level::LERROR < g_MinLogLevel.load())
+    if (Level::Error < g_min_log_level.load())
         return;
     LogMsg msg;
     msg.channel = NC_LOG_CHANNEL_NAME;
-    msg.level   = Level::LERROR;
+    msg.level   = Level::Error;
     msg.payload = p_msg;
     log_message( msg );
 }
 
-ListenerToken add_listener( const LogMsgCallback& callback )
+ListenerToken add_listener( const LogMsgCallback& p_callback )
 {
-    return log::Logger::get_instance().add_listener( callback );
+    return log::Logger::get_instance().add_listener( p_callback );
 }
 
 } // namespace nc::log

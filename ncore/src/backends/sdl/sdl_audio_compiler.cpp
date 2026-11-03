@@ -3,7 +3,8 @@
 #include <SDL3/SDL_audio.h>
 
 #include <ncore/core/collection.h>
-#include <ncore/resources/resource_archive.h>
+#include <ncore/runtime/io/resource_archive.h>
+#include <ncore/runtime/resources/audio_clip.h>
 #include <ncore/utils/log.h>
 
 namespace nc {

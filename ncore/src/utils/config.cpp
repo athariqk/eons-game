@@ -55,7 +55,7 @@ void ConfFile::save()
     throw std::exception( "ConfFile::save() is not implemented." );
 }
 
-void ConfFile::read_into( const rtti::RecordInfo& type_info, void* result )
+void ConfFile::read_into( const types::RecordInfo& type_info, void* result )
 {
     for (auto& field : type_info.fields()) {
         std::string short_name( type_info.name );
@@ -70,27 +70,27 @@ void ConfFile::read_into( const rtti::RecordInfo& type_info, void* result )
         if (!type)
             continue;
         switch (type->kind) {
-            case rtti::TypeKind::BOOL: {
+            case types::TypeKind::BOOL: {
                 ini::Convert<bool> c;
                 c.decode( it->second.c_str(), *field.get_ptr<bool>( result ) );
                 break;
             }
-            case rtti::TypeKind::INT32: {
+            case types::TypeKind::INT32: {
                 ini::Convert<int> c;
                 c.decode( it->second.c_str(), *field.get_ptr<int>( result ) );
                 break;
             }
-            case rtti::TypeKind::FLOAT: {
+            case types::TypeKind::FLOAT: {
                 ini::Convert<float> c;
                 c.decode( it->second.c_str(), *field.get_ptr<float>( result ) );
                 break;
             }
-            case rtti::TypeKind::STRING: {
+            case types::TypeKind::STRING: {
                 *field.get_ptr<String>( result ) = it->second;
                 break;
             }
-            case rtti::TypeKind::ENUM: {
-                auto enum_t = static_cast<const rtti::EnumInfo*>( type );
+            case types::TypeKind::ENUM: {
+                auto enum_t = static_cast<const types::EnumInfo*>( type );
                 // cast raw enum value to big enough storage such as longs
                 // so we can avoid possible underflowing
                 if (enum_t->is_unsigned) {

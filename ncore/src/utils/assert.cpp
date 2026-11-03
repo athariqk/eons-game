@@ -5,11 +5,11 @@ namespace nc {
 
 void assert_fail( const char* expr, const char* msg, const char* file, int line )
 {
-    if (log::Level::LFATAL < log::get_min_level())
+    if (log::Level::Fatal < log::get_min_level())
         return;
     auto channel = log::Logger::get_instance().channel();
     channel->write(
-        log::Level::LFATAL, log::SourceLoc{ file, nullptr, line }, "**assertion failed** for \"{}\": {}", expr,
+        log::Level::Fatal, log::SourceLoc{ file, nullptr, line }, "**assertion failed** for \"{}\": {}", expr,
         msg ? msg : "Condition is true."
     );
     log::Logger::get_instance().flush_all();

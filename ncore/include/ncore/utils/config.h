@@ -2,10 +2,10 @@
 
 #include <ncore.h>
 #include <ncore/core/collection.h>
-#include <ncore/core/color.h>
-#include <ncore/core/object.h>
-#include <ncore/core/types.h>
-#include <ncore/core/vector.h>
+#include <ncore/object/object_info.h>
+#include <ncore/structs/color.h>
+#include <ncore/types/typedb.h>
+#include <ncore/structs/vector.h>
 
 namespace nc {
 
@@ -50,7 +50,7 @@ public:
     T read()
     {
         T result{};
-        auto* type_info = rtti::TypeRegistry::find_record<T>();
+        auto* type_info = TypeDB::find_record<T>();
         if (type_info) {
             read_into( *type_info, &result );
         }
@@ -61,7 +61,7 @@ private:
     /**
      * @brief Decodes data to a type-safe struct.
      */
-    void read_into( const rtti::RecordInfo& type_info, void* result );
+    void read_into( const types::RecordInfo& type_info, void* result );
 
     String path;
     OrderedHashMap<String, String> data; // ordered by field name.

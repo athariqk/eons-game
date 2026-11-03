@@ -264,7 +264,7 @@ void* EcsIterState::get_component_impl( int32_t column, size_t size, size_t alig
     return reinterpret_cast<char*>( base ) + size * current_row_;
 }
 
-void* EcsIterState::get_entity_component_impl( const rtti::TypeInfo* p_type ) const
+void* EcsIterState::get_entity_component_impl( const types::TypeInfo* p_type ) const
 {
     auto it    = static_cast<ecs_iter_t*>( it_ );
     auto world = static_cast<EcsWorld*>( ecs_get_binding_ctx( it->world ) );
@@ -272,7 +272,7 @@ void* EcsIterState::get_entity_component_impl( const rtti::TypeInfo* p_type ) co
     return ecs_get_mut_id( it->world, entity(), comp ); // pointer to stored data
 }
 
-void EcsIterState::notify_changed_impl( EcsEntity p_entity, const rtti::TypeInfo* type ) const
+void EcsIterState::notify_changed_impl( EcsEntity p_entity, const types::TypeInfo* type ) const
 {
     auto it    = static_cast<ecs_iter_t*>( it_ );
     auto world = static_cast<EcsWorld*>( ecs_get_binding_ctx( it->world ) );
@@ -280,7 +280,7 @@ void EcsIterState::notify_changed_impl( EcsEntity p_entity, const rtti::TypeInfo
     ecs_modified_id( it->world, p_entity, comp );
 }
 
-int32_t EcsIterState::resolve_term_index_impl( const rtti::TypeInfo& info ) const
+int32_t EcsIterState::resolve_term_index_impl( const types::TypeInfo& info ) const
 {
     auto cached = term_cache_.find( &info );
     if (cached != term_cache_.end()) {
@@ -310,7 +310,7 @@ int32_t EcsIterState::resolve_term_index_impl( const rtti::TypeInfo& info ) cons
     return -1;
 }
 
-int32_t EcsIterState::resolve_pair_index_impl( const rtti::TypeInfo& first, const rtti::TypeInfo& second ) const
+int32_t EcsIterState::resolve_pair_index_impl( const types::TypeInfo& first, const types::TypeInfo& second ) const
 {
     auto key    = std::pair{ &first, &second };
     auto cached = pair_cache_.find( key );
@@ -353,9 +353,9 @@ EcsQueryBuilder::~EcsQueryBuilder()
     }
 }
 
-void EcsQueryBuilder::add_term_impl( const rtti::TypeInfo* type, uint8_t inout )
+void EcsQueryBuilder::add_term_impl( const types::TypeInfo* type, uint8_t inout )
 {
-    NC_ASSERT_MSG( type, "Component type not registered in rtti::TypeRegistry" );
+    NC_ASSERT_MSG( type, "Component type not registered in TypeDB" );
     EcsComponent comp_id = pImpl->world.register_component_type( type );
 
     ecs_term_t term{};
@@ -365,7 +365,7 @@ void EcsQueryBuilder::add_term_impl( const rtti::TypeInfo* type, uint8_t inout )
 }
 
 void EcsQueryBuilder::add_term_pair_impl(
-    const rtti::TypeInfo* first_type, const rtti::TypeInfo* sec_type, uint8_t inout
+    const types::TypeInfo* first_type, const types::TypeInfo* sec_type, uint8_t inout
 )
 {
     NC_ASSERT_MSG( first_type && sec_type, "Pair component types not registered" );
@@ -378,9 +378,9 @@ void EcsQueryBuilder::add_term_pair_impl(
     pImpl->terms.push_back( term );
 }
 
-void EcsQueryBuilder::add_term_without_impl( const rtti::TypeInfo* type )
+void EcsQueryBuilder::add_term_without_impl( const types::TypeInfo* type )
 {
-    NC_ASSERT_MSG( type, "Component type not registered in rtti::TypeRegistry" );
+    NC_ASSERT_MSG( type, "Component type not registered in TypeDB" );
     EcsComponent comp_id = pImpl->world.register_component_type( type );
 
     ecs_term_t term{};
@@ -390,7 +390,7 @@ void EcsQueryBuilder::add_term_without_impl( const rtti::TypeInfo* type )
     pImpl->terms.push_back( term );
 }
 
-void EcsQueryBuilder::add_term_pair_without_impl( const rtti::TypeInfo* first_type, const rtti::TypeInfo* sec_type )
+void EcsQueryBuilder::add_term_pair_without_impl( const types::TypeInfo* first_type, const types::TypeInfo* sec_type )
 {
     NC_ASSERT_MSG( first_type && sec_type, "Pair component types not registered" );
     EcsComponent first_id  = pImpl->world.register_component_type( first_type );

@@ -4,7 +4,6 @@
 // TODO: we need to decouple this class from SDL
 
 #include <chrono>
-#include <memory>
 #include <sstream>
 
 #include <SDL3/SDL_events.h>
@@ -13,14 +12,15 @@
 
 #include <ncore/application.h>
 #include <ncore/core/memory.h>
-#include <ncore/core/types.h>
 #include <ncore/game_world.h>
+#include <ncore/object/reference.h>
+#include <ncore/runtime/register_base_types.h>
 #include <ncore/runtime/scene.h>
 #include <ncore/services/audio/audio_service.h>
 #include <ncore/services/events/event_bus.h>
 #include <ncore/services/io/asset_service.h>
 #include <ncore/services/io/input_service.h>
-#include <ncore/services/service_registry.h>
+#include <ncore/services/servicedb.h>
 #include <ncore/services/video/render_service.h>
 #include <ncore/services/video/window_service.h>
 #include <ncore/utils/config.h>
@@ -45,7 +45,8 @@ void Application::init()
 {
     NC_ZONE_COLOR( "Application::init", NC_COLOR_APP )
 
-    rtti::TypeRegistry::initialize();
+    register_base_types();
+    TypeDB::initialize();
 
     context.config.load( context.app_desc.config_file );
     auto log_cfg = context.config.read<cfg::Log>();
@@ -201,7 +202,7 @@ void Application::finish()
     game_world.reset(); // destroy heap allocations.
     context.services.cleanup_all();
     unregister_services();
-    rtti::TypeRegistry::shutdown();
+    TypeDB::shutdown();
 }
 
 } // namespace nc
