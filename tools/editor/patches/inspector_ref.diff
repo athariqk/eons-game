@@ -1,0 +1,75 @@
+--- a/tools/editor/src/panels/inspector_panel.cpp
++++ b/tools/editor/src/panels/inspector_panel.cpp
+@@ -22,6 +22,7 @@
+ #include <io/asset_importer.h>
+ #include <io/editor_assets.h>
+ #include <io/thumbnail_cache.h>
++#include <panels/asset_picker.h>
+ #include <panels/inspector_panel.h>
+ 
+ namespace nc::editor {
+@@ -205,6 +206,8 @@
+ struct PropertyGridWidgets {
+     const DynamicArray<PropertyWidget>* List = nullptr;
+     EditorFrame* ctx                         = nullptr;
++    AssetDatabase* assets                    = nullptr;
++    ResourceLoader* loader                   = nullptr;
+ 
+     bool handles( const types::TypeInfo* type ) const
+     {
+@@ -232,6 +235,13 @@
+             return widget.Draw( *ctx, owner, field, type, value, out_changed );
+         }
+         return false;
++    }
++
++    bool draw_ref( const types::TypeInfo* type, void* value ) const
++    {
++        if (!ctx || !assets || !loader || !type || !value)
++            return false;
++        return draw_ref_property( *ctx, *assets, *loader, type, value );
+     }
+ };
+ 
+@@ -999,6 +1009,16 @@
+             rec->visit( ptr, &visitor, static_cast<types::PropertyFlags>( 0xFFFF ), static_cast<unsigned>( depth ) );
+             return visitor.changed;
+         }
++        return false;
++    }
++
++    if (type->is_ref()) {
++        begin_prop_row( label, depth );
++        if (widgets)
++            return widgets->draw_ref( type, ptr );
++        String out;
++        type->to_string( out, ptr );
++        ImGui::TextDisabled( "%s", out.c_str() );
+         return false;
+     }
+ 
+@@ -1107,6 +1127,15 @@
+                 }
+             }
+         }
++    } else if (type && type->is_ref()) {
++        begin_prop_row( name, depth );
++        if (widgets)
++            changed = widgets->draw_ref( type, ptr );
++        else {
++            String out;
++            type->to_string( out, ptr );
++            ImGui::TextDisabled( "%s", out.c_str() );
++        }
+     } else if (widgets && widgets->handles( type )) {
+         begin_prop_row( name, depth );
+         bool widget_changed = false;
+@@ -1151,7 +1180,7 @@
+     ImGui::TableSetupColumn( "Property", ImGuiTableColumnFlags_WidthFixed, LABEL_WIDTH );
+     ImGui::TableSetupColumn( "Value", ImGuiTableColumnFlags_WidthStretch );
+ 
+-    PropertyGridWidgets gw{ &widgets, active_ctx };
++    PropertyGridWidgets gw{ &widgets, active_ctx, &assets, &loader };
+     bool changed = draw_record_fields( record, data, 0, active_ctx ? &gw : nullptr );
+     ImGui::EndTable();
+     return changed;
