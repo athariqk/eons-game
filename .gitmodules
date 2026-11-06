@@ -13,15 +13,6 @@
 [submodule "ncore/external/mimalloc"]
 	path = ncore/external/mimalloc
 	url = https://github.com/microsoft/mimalloc
-[submodule "tools/editor/external/imguizmo"]
-	path = tools/editor/external/imguizmo
-	url = https://github.com/CedricGuillemet/ImGuizmo.git
-[submodule "tools/editor/external/imgui"]
-	path = tools/editor/external/imgui
-	url = https://github.com/ocornut/imgui.git
-[submodule "tools/editor/external/freetype"]
-	path = tools/editor/external/freetype
-	url = https://github.com/freetype/freetype.git
 [submodule "ncore/external/tracy"]
 	path = ncore/external/tracy
 	url = https://github.com/wolfpld/tracy.git
