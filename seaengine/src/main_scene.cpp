@@ -1,13 +1,9 @@
 // Copyright (C) 2026 Ahmad Ghalib Athariq <alib.athariq@gmail.com>
 // This file is subject to the license terms in the LICENSE file
 // found in the top-level directory of this distribution.
-// File: world_scene.cpp
+// File: main_scene.cpp
 
-#include "world_scene.h"
-
-#if defined( DEBUG )
-#include <editor/ncore_editor.h>
-#endif
+#include "main_scene.h"
 
 #include <ncore/app_context.h>
 #include <ncore/runtime/components.h>
@@ -19,7 +15,9 @@
 #include <ncore/services/io/input_service.h>
 #include <ncore/services/video/render_service.h>
 #include <ncore/utils/config.h>
+#include <ncore/utils/log.h>
 
+#include "editor/editor_bootstrap.h"
 #include "water/water_mesh.h"
 #include "water/water_sim.h"
 #include "water/wave_cascade_params.h"
@@ -27,25 +25,8 @@
 
 namespace sea {
 
-using namespace nc;
-
-void WorldScene::on_ready()
+void MainScene::on_ready()
 {
-#if defined( DEBUG )
-    editor::register_editor_plugin( *this );
-
-    get_ecs().system( "HotReload" ).in( EcsSystemPhase::UPDATE ).run( []( EcsIterState& it ) {
-        auto io = it.world().get_singleton<IoServices>();
-
-        if (io->inputs->is_key_pressed( Key::F5 )) {
-            log::print( "Hot-reloading" );
-            io->resources->load<MaterialShader>( "shaders/materials/skybox.slang", true );
-            io->resources->load<MaterialShader>( "shaders/materials/water.slang", true );
-            io->resources->load<MaterialShader>( "shaders/materials/water_opaque.slang", true );
-        }
-    } );
-#endif
-
     get_ecs()
         .system( "FreeCamUpdater" )
         .with<ActiveCameraTag, Transform3DComponent, CameraComponent, InputComponent>()
@@ -102,19 +83,24 @@ void WorldScene::on_ready()
 
     create_environment();
     create_water( main_camera );
+
+    editor_mode = get_app_ctx()->app_desc.cmdline_args->get_bool( "editor" );
+    if (editor_mode) {
+        sea::editor::bootstrap_editor( *this );
+    }
 }
 
-void WorldScene::on_exit()
+void MainScene::on_exit()
 {
-#if defined( DEBUG )
-    editor::unregister_editor_plugin( *this ); // must come before subsequent ImGui context destruction
-#endif
+    if (editor_mode) {
+        sea::editor::shutdown_editor( *this );
+    }
     Scene::on_exit();
 }
 
 //------------------------------------------------------------------------------
 
-void WorldScene::create_environment()
+void MainScene::create_environment()
 {
     auto& res = get_resource_loader();
 
@@ -165,7 +151,7 @@ void WorldScene::create_environment()
     skybox->add_component<MeshInstanceComponent>( MeshInstanceComponent{ .mesh = mesh } );
 }
 
-void WorldScene::create_water( Node* camera )
+void MainScene::create_water( Node* camera )
 {
     NC_VERIFY( camera );
     NC_FAIL_MSG_RET( skybox_cubemap, "Skybox cubemap must be created before water" );
@@ -211,8 +197,8 @@ void WorldScene::create_water( Node* camera )
     material->set_param( "horizonDistance", cam_component->z_far * horizon_fade_threshold );
     material->set_param( "morphTransitionWidth", morph_width );
 
-    auto* sim            = water_sim->get_component<WaterSimComponent>();
-    sim->material        = material;
+    auto* sim     = water_sim->get_component<WaterSimComponent>();
+    sim->material = material;
     water_sim->notify_changed<WaterSimComponent>();
 
     auto water_mesh = create_water_clipmap(

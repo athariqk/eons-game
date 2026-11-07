@@ -21,7 +21,7 @@ target_sources(
 target_include_directories(EonsPrototype
                            PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
-target_link_libraries(EonsPrototype PRIVATE ncore ncore_editor)
+target_link_libraries(EonsPrototype PRIVATE ncore)
 
 target_precompile_headers(EonsPrototype PRIVATE "pch.h")
 

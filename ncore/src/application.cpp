@@ -41,7 +41,7 @@ Application::~Application()
     NC_ASSERT_MSG( !context.is_running, "Application destroyed while still running" );
 }
 
-void Application::init()
+Error Application::init()
 {
     NC_ZONE_COLOR( "Application::init", NC_COLOR_APP )
 
@@ -85,6 +85,8 @@ void Application::init()
     game_world->on_enter();
 
     NC_LOG_TRACE( "Application initialized" );
+
+    return Error::OK;
 }
 
 static void throttle_framerate( std::chrono::steady_clock::time_point& p_cur_time, double p_target_frame_time )
@@ -147,6 +149,18 @@ void Application::run()
     context.is_running = false;
 }
 
+void Application::finish()
+{
+    NC_ZONE_COLOR( "Application::finish", NC_COLOR_APP )
+
+    NC_LOG_TRACE( "Application teardown" );
+    game_world->on_exit();
+    game_world.reset(); // destroy heap allocations.
+    context.services.cleanup_all();
+    unregister_services();
+    TypeDB::shutdown();
+}
+
 void Application::process_events()
 {
     NC_ZONE_NAMED( "Application::process_events" )
@@ -174,9 +188,9 @@ void Application::register_services()
         abort(); // TODO: handle this more gracefully
     }
 
+    window   = context.services.provide<WindowService>();
     events   = context.services.provide<EventBus>();
     input    = context.services.provide<InputService>();
-    window   = context.services.provide<WindowService>();
     renderer = context.services.provide<RenderService>();
     context.services.provide<AudioService>();
     context.services.provide<AssetService>(); // TODO: opt out of this
@@ -191,18 +205,6 @@ void Application::unregister_services()
 Ptr<IGameWorld> Application::create_world()
 {
     return std::make_unique<Scene>();
-}
-
-void Application::finish()
-{
-    NC_ZONE_COLOR( "Application::finish", NC_COLOR_APP )
-
-    NC_LOG_TRACE( "Application teardown" );
-    game_world->on_exit();
-    game_world.reset(); // destroy heap allocations.
-    context.services.cleanup_all();
-    unregister_services();
-    TypeDB::shutdown();
 }
 
 } // namespace nc

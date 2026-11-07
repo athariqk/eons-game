@@ -48,7 +48,7 @@ public:
     /**
      * @brief Sets up the application, initializing important subsystems.
      */
-    virtual void init();
+    virtual Error init();
     /**
      * @brief Runs the game loop until the end.
      */

@@ -113,7 +113,7 @@ std::string generate_record_code( const ReflectedRecord& rec )
     // NC_COMPONENT types inherit EcsComponentBase<T>, whose registration
     // lives in a static member of a class template — only instantiated on
     // odr-use, which mere inheritance never does. Force it here by calling
-    // CLASS_INFO() (static function wrapping a function-local
+    // RECORD_INFO() (static function wrapping a function-local
     // static, idempotent, thread-safe). Needs the complete type, so
     // generate_reflection_header #includes the source header for ECS records.
     // NSTRUCT_V's nc_register_##T sits in the non-template class body and
@@ -122,7 +122,7 @@ std::string generate_record_code( const ReflectedRecord& rec )
     // until register_type).
     if (rec.is_ecs_component || rec.has_nstruct_v) {
         if (rec.is_ecs_component) {
-            oss << "        (void)::nc::EcsComponentBase<" << cpp_name << ">::CLASS_INFO();\n";
+            oss << "        (void)::nc::EcsComponentBase<" << cpp_name << ">::RECORD_INFO();\n";
         }
         if (!rec.fields.empty()) {
             oss << "    {\n"
@@ -207,7 +207,7 @@ std::string generate_reflection_header(
 {
     std::ostringstream oss;
 
-    // ECS records force odr-use of EcsComponentBase<T>::CLASS_INFO(),
+    // ECS records force odr-use of EcsComponentBase<T>::RECORD_INFO(),
     // which requires the complete type — pull in the source header so the type
     // is declared in this TU. Dependent-type registrations also spell concrete
     // C++ types (e.g. std::vector<nc::ShaderDesc, ...> for VectorClass), which

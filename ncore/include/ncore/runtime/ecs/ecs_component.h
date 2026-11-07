@@ -40,7 +40,7 @@ template<typename T>
 struct EcsComponentBase {
     using Self = T;
 
-    inline static ::nc::types::RecordInfo& CLASS_INFO()
+    inline static ::nc::types::RecordInfo& RECORD_INFO()
     {
         static ::nc::types::RecordInfo& ci = ::nc::TypeDB::register_type<::nc::types::ObjectClass<T>, T>(
             detail::EcsComponentTypeName<T>::value.data()
@@ -50,7 +50,7 @@ struct EcsComponentBase {
 
     const ::nc::types::RecordInfo& get_class_info() const
     {
-        return CLASS_INFO();
+        return RECORD_INFO();
     }
 };
 

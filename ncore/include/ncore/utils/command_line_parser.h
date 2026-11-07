@@ -54,6 +54,16 @@ public:
     float get_float( StringView name ) const;
     const StringView get_string( StringView name ) const;
 
+    /**
+     * @brief Override a bool argument's value programmatically.
+     *
+     * Marks the argument as provided, so required args are satisfied and
+     * was_provided() returns true. Note that parse() resets all values.
+     *
+     * @return True if a bool argument with that name exists.
+     */
+    bool set_bool( StringView name, bool value );
+
     /** @brief
      * True if the argument appeared on the command line.
      */

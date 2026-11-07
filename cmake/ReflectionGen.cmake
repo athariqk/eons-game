@@ -7,7 +7,7 @@
 #     [GEN_DIR <dir>]        # default: ${CMAKE_CURRENT_BINARY_DIR}/generated)
 #
 # Mirrors the per-header reflection generation block in ncore/CMakeLists.txt
-# for other targets (eons-game, tools/editor). Each header is processed
+# for other targets (eons-game, seaengine/editor). Each header is processed
 # individually via --single-header so changing one header only re-parses that
 # header through Clang. A filtered compilation database is derived from the
 # first compile_commands entry whose file path matches FLAGS_FROM, so each

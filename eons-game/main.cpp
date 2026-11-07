@@ -1,4 +1,3 @@
-#include <editor/ncore_editor.h>
 #include <ncore.hpp>
 #include <ncore/runtime/components.h>
 
@@ -7,21 +6,16 @@
 #include "pch.h"
 #include "test_spin.h"
 
+// NOTE: Editor functionality lives inside the single `seaengine` executable
+// (activated via `seaengine --editor`). The old ncore_editor shared lib +
+// register_editor_plugin injection model is retired. Game scenes no longer
+// auto-register editor UI. Use `seaengine --editor` (or future in-app menu)
+// for authoring workflows.
+
 class TestScene : public nc::Scene {
 public:
-    void on_exit() override
-    {
-#if defined( DEBUG )
-        nc::editor::unregister_editor_plugin( *this ); // must come before ImGui context destroy below
-#endif
-        nc::Scene::on_exit();
-    }
-
     void on_ready() override
     {
-#if defined( DEBUG )
-        nc::editor::register_editor_plugin( *this );
-#endif
         auto& res_svc = get_resource_loader();
 
         // clang-format off

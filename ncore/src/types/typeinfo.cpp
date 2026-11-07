@@ -257,6 +257,21 @@ void RecordInfo::resize( void* instance, size_t length ) const noexcept
     ( void ) length;
 }
 
+size_t RecordInfo::container_size( const void* ) const noexcept
+{
+    return 0;
+}
+
+void* RecordInfo::container_data( void* ) const noexcept
+{
+    return nullptr;
+}
+
+const TypeInfo* RecordInfo::element_type() const noexcept
+{
+    return nullptr;
+}
+
 void RecordInfo::construct( void* instance, const void* data ) const
 {
     for (auto& f : fields()) {
@@ -386,19 +401,33 @@ void RecordInfo::to_string( String& out, const void* instance ) const
 
 int64_t EnumInfo::get_value( const void* instance ) const noexcept
 {
+    if (!instance)
+        return 0;
     switch (size) {
-        case 1:
-            return is_unsigned ? static_cast<int64_t>( read_as<uint8_t>( instance ) )
-                               : static_cast<int64_t>( static_cast<int8_t>( read_as<uint8_t>( instance ) ) );
-        case 2:
-            return is_unsigned ? static_cast<int64_t>( read_as<uint16_t>( instance ) )
-                               : static_cast<int64_t>( static_cast<int16_t>( read_as<uint16_t>( instance ) ) );
-        case 4:
-            return is_unsigned ? static_cast<int64_t>( read_as<uint32_t>( instance ) )
-                               : static_cast<int64_t>( static_cast<int32_t>( read_as<uint32_t>( instance ) ) );
-        case 8:
-            return is_unsigned ? static_cast<int64_t>( read_as<uint64_t>( instance ) )
-                               : static_cast<int64_t>( read_as<uint64_t>( instance ) );
+        case 1: {
+            uint8_t u = 0;
+            std::memcpy( &u, instance, 1 );
+            return is_unsigned ? static_cast<int64_t>( u )
+                               : static_cast<int64_t>( static_cast<int8_t>( u ) );
+        }
+        case 2: {
+            uint16_t u = 0;
+            std::memcpy( &u, instance, 2 );
+            return is_unsigned ? static_cast<int64_t>( u )
+                               : static_cast<int64_t>( static_cast<int16_t>( u ) );
+        }
+        case 4: {
+            uint32_t u = 0;
+            std::memcpy( &u, instance, 4 );
+            return is_unsigned ? static_cast<int64_t>( u )
+                               : static_cast<int64_t>( static_cast<int32_t>( u ) );
+        }
+        case 8: {
+            uint64_t u = 0;
+            std::memcpy( &u, instance, 8 );
+            return is_unsigned ? static_cast<int64_t>( u )
+                               : static_cast<int64_t>( static_cast<int64_t>( u ) );
+        }
         default:
             return 0;
     }

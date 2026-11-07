@@ -1,0 +1,473 @@
+// Copyright (C) 2026 Ahmad Ghalib Athariq <alib.athariq@gmail.com>
+// This file is subject to the license terms in the LICENSE file
+// found in the top-level directory of this distribution.
+// File: assets_panel.cpp
+
+#include "assets_panel.h"
+
+#include <algorithm>
+#include <filesystem>
+#include <string>
+
+#include <ncore/runtime/components.h>
+#include <ncore/runtime/scene.h>
+
+#include <editor/editor_selection.h>
+#include <editor/fs/utils.h>
+#include <editor/io/editor_assets.h>
+
+namespace sea::editor {
+
+namespace {
+
+nc::StringView kind_label( int filter )
+{
+    if (filter == 0)
+        return "All";
+    return asset_kind_name( static_cast<AssetKind>( filter - 1 ) );
+}
+
+ImVec4 status_color( AssetStatus status )
+{
+    switch (status) {
+        case AssetStatus::DIRTY:
+            return ImVec4( 1.0f, 0.72f, 0.25f, 1.0f ); // orange
+        case AssetStatus::MISSING_SOURCE:
+            return ImVec4( 1.0f, 0.60f, 0.20f, 1.0f ); // darker orange
+        case AssetStatus::COMPILING:
+            return ImVec4( 0.45f, 0.75f, 1.0f, 1.0f ); // blue
+        case AssetStatus::ERROR:
+            return ImVec4( 1.0f, 0.35f, 0.30f, 1.0f ); // red
+        default:
+            return ImVec4( 0.6f, 0.6f, 0.6f, 1.0f );
+    }
+}
+
+const char* status_glyph( AssetStatus status )
+{
+    switch (status) {
+        case AssetStatus::DIRTY:
+            return "*";
+        case AssetStatus::MISSING_SOURCE:
+            return "?";
+        case AssetStatus::COMPILING:
+            return "...";
+        case AssetStatus::ERROR:
+            return "!";
+        default:
+            return "";
+    }
+}
+
+nc::String leaf_name( nc::StringView path )
+{
+    const size_t slash        = path.rfind( '/' );
+    const nc::StringView leaf = slash == nc::StringView::npos ? path : path.substr( slash + 1 );
+    return nc::String( leaf.data(), leaf.size() );
+}
+
+void select_asset( EditorSelection& selection, nc::StringView path )
+{
+    selection.clear();
+    selection.select_asset( path );
+}
+
+void asset_context_menu( EditorAssets& assets, EditorSelection& selection, const AssetEntry& entry )
+{
+    if (!ImGui::BeginPopupContextItem( "##asset_ctx" ))
+        return;
+
+    const bool reimportable = asset_kind_can_import( entry.kind );
+
+    ImGui::BeginDisabled( !assets.can_import() || !reimportable );
+    if (ImGui::MenuItem( "Reimport" ))
+        assets.reimport( entry.path );
+    ImGui::EndDisabled();
+
+    if (ImGui::MenuItem( "Reload" ))
+        assets.reload( entry.path );
+
+    ImGui::Separator();
+
+    if (ImGui::MenuItem( "Reveal in Explorer", nullptr, false, !entry.source_path.empty() ))
+        reveal_in_explorer( entry.source_path );
+
+    if (ImGui::MenuItem( "Copy path" ))
+        ImGui::SetClipboardText( entry.path.c_str() );
+
+    if (ImGui::MenuItem( "Deselect" ))
+        selection.clear();
+
+    ImGui::EndPopup();
+}
+
+void draw_asset_grid(
+    EditorAssets& assets, EditorSelection& selection, const nc::DynamicArray<const AssetEntry*>& visible,
+    float tile = 88.0f
+)
+{
+    if (visible.empty())
+        return;
+
+    const ImGuiStyle& style = ImGui::GetStyle();
+    const float pad         = 4.0f;
+    const float label_h     = ImGui::GetTextLineHeight();
+    const ImVec2 cell( tile + pad * 2, tile + pad * 2 + label_h + 2.0f );
+    const float spacing_x = style.ItemSpacing.x;
+    const float row_h     = cell.y + style.ItemSpacing.y;
+
+    const int columns =
+        std::max( 1, static_cast<int>( ( ImGui::GetContentRegionAvail().x + spacing_x ) / ( cell.x + spacing_x ) ) );
+    const int count = static_cast<int>( visible.size() );
+    const int rows  = ( count + columns - 1 ) / columns;
+
+    const auto& selected_path = selection.get_selected_asset();
+
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+
+    ImGuiListClipper clipper;
+    clipper.Begin( rows, row_h );
+    while (clipper.Step()) {
+        for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
+            for (int col = 0; col < columns; ++col) {
+                const int i = row * columns + col;
+                if (i >= count)
+                    break;
+                if (col > 0)
+                    ImGui::SameLine( 0.0f, spacing_x );
+
+                const AssetEntry& entry = *visible[i];
+                const bool selected     = selected_path == entry.path;
+
+                ImGui::PushID( entry.path.c_str() );
+
+                // one invisible button owns click, drag, tooltip, context menu
+                const ImVec2 p0 = ImGui::GetCursorScreenPos();
+                const ImVec2 p1( p0.x + cell.x, p0.y + cell.y );
+                ImGui::InvisibleButton( "##tile", cell );
+                const bool hovered = ImGui::IsItemHovered();
+
+                if (ImGui::IsItemClicked( ImGuiMouseButton_Left ) ||
+                    ( ImGui::IsItemClicked( ImGuiMouseButton_Right ) && !selected ))
+                    select_asset( selection, entry.path );
+
+                asset_context_menu( assets, selection, entry );
+
+                if (ImGui::BeginDragDropSource( ImGuiDragDropFlags_None )) {
+                    ImGui::SetDragDropPayload( "ASSET_PATH", entry.path.c_str(), entry.path.size() + 1 );
+                    ImGui::TextUnformatted( entry.path.c_str() );
+                    ImGui::EndDragDropSource();
+                } else if (hovered && ImGui::GetDragDropPayload() == nullptr) {
+                    ImGui::SetTooltip( "%s", entry.path.c_str() );
+                }
+
+                // background / selection
+                if (selected || hovered) {
+                    dl->AddRectFilled(
+                        p0, p1, ImGui::GetColorU32( selected ? ImGuiCol_Header : ImGuiCol_HeaderHovered ), 4.0f
+                    );
+                }
+                if (selected)
+                    dl->AddRect( p0, p1, ImGui::GetColorU32( ImGuiCol_HeaderActive ), 4.0f );
+
+                // thumbnail / placeholder
+                const ImVec2 t0( p0.x + pad, p0.y + pad );
+                const ImVec2 t1( t0.x + tile, t0.y + tile );
+                dl->AddRectFilled( t0, t1, ImGui::GetColorU32( ImGuiCol_FrameBg ), 3.0f );
+
+                bool drew_thumb = false;
+                if (entry.kind == AssetKind::IMAGE) {
+                    if (const nc::RID thumb = assets.thumbnail( entry.path ); thumb) {
+                        // TODO: if the cache exposes texture size, letterbox here instead of stretching.
+                        dl->AddImage( reinterpret_cast<ImTextureID>( static_cast<uintptr_t>( thumb.value ) ), t0, t1 );
+                        drew_thumb = true;
+                    }
+                }
+                if (!drew_thumb) {
+                    const nc::StringView label =
+                        entry.kind == AssetKind::IMAGE ? nc::StringView( "image" ) : asset_kind_name( entry.kind );
+                    const char* b   = label.data();
+                    const char* e   = b + label.size();
+                    const ImVec2 ts = ImGui::CalcTextSize( b, e );
+                    dl->AddText(
+                        ImVec2( t0.x + ( tile - ts.x ) * 0.5f, t0.y + ( tile - ts.y ) * 0.5f ),
+                        ImGui::GetColorU32( ImGuiCol_TextDisabled ), b, e
+                    );
+                }
+
+                // badges overlaid on the thumbnail (no layout shift in the name row)
+                if (entry.status != AssetStatus::READY) {
+                    const char* g   = status_glyph( entry.status );
+                    const ImVec2 gs = ImGui::CalcTextSize( g );
+                    const ImVec2 bp( t0.x + 3.0f, t0.y + 2.0f );
+                    dl->AddRectFilled(
+                        ImVec2( bp.x - 2, bp.y - 1 ), ImVec2( bp.x + gs.x + 2, bp.y + gs.y + 1 ),
+                        IM_COL32( 0, 0, 0, 170 ), 3.0f
+                    );
+                    dl->AddText( bp, ImGui::ColorConvertFloat4ToU32( status_color( entry.status ) ), g );
+                }
+
+                // name, clipped to the tile, centered if it fits
+                const char* path = entry.path.c_str();
+                const char* leaf = std::strrchr( path, '/' );
+                leaf             = leaf ? leaf + 1 : path;
+                const ImVec2 ns  = ImGui::CalcTextSize( leaf );
+                const float nx   = t0.x + std::max( 0.0f, ( tile - ns.x ) * 0.5f );
+                const ImVec2 n0( t0.x, t1.y + 2.0f );
+                const ImVec2 n1( t1.x, n0.y + label_h );
+                dl->PushClipRect( n0, n1, true );
+                dl->AddText( ImVec2( nx, n0.y ), ImGui::GetColorU32( ImGuiCol_Text ), leaf );
+                dl->PopClipRect();
+
+                ImGui::PopID();
+            }
+        }
+    }
+    clipper.End();
+}
+
+void draw_status_bar( const nc::Span<const AssetEntry> p_entries )
+{
+    int dirty_count  = 0;
+    int failed_count = 0;
+    for (const auto& entry : p_entries) {
+        if (entry.status != AssetStatus::READY)
+            ++dirty_count;
+        if (entry.status == AssetStatus::ERROR)
+            ++failed_count;
+    }
+
+    ImGui::TextDisabled(
+        "%d assets · %d dirty · %d failed", static_cast<int>( p_entries.size() ), dirty_count, failed_count
+    );
+}
+
+} // namespace
+
+AssetsPanel::AssetsPanel( EditorAssets& p_assets, EditorSelection& p_selection ) :
+    EditorPanel( "Assets", DockSlot::LEFT_LOWER ), assets( p_assets ), selection( p_selection )
+{}
+
+void AssetsPanel::draw_contents( EditorFrame& )
+{
+    const auto matches = [&]( const AssetEntry& entry ) {
+        if (kind_filter != 0 && static_cast<int>( entry.kind ) + 1 != kind_filter)
+            return false;
+        if (!asset_path_matches( entry.path, search_str ))
+            return false;
+        if (stale_only && entry.status == AssetStatus::READY)
+            return false;
+        return true;
+    };
+
+    if (ImGui::SmallButton( "Rescan" ))
+        assets.rescan();
+
+    ImGui::SameLine();
+    ImGui::BeginDisabled( !assets.can_import() );
+    if (ImGui::SmallButton( "Reimport dirty" )) {
+        for (const auto& entry : assets.get_entries()) {
+            if (entry.status != AssetStatus::DIRTY && entry.status != AssetStatus::ERROR &&
+                entry.status != AssetStatus::MISSING_SOURCE)
+                continue;
+
+            if (asset_kind_can_import( entry.kind ))
+                assets.reimport( entry.path );
+        }
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ))
+        ImGui::SetTooltip( "Reimport every asset whose source no longer matches its compiled .bin" );
+
+    // Hot reload status (auto mtime polling makes this "just work" when editing shaders etc.)
+    ImGui::SameLine();
+    ImGui::TextDisabled( "|" );
+    ImGui::SameLine();
+    if (assets.can_import()) {
+        ImGui::TextColored( ImVec4( 0.4f, 0.8f, 0.5f, 1.0f ), "Watching" );
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip(
+                "Auto hot-reload: source mtimes are polled; saving a .slang etc. will trigger recompile automatically."
+            );
+    } else {
+        ImGui::TextDisabled( "No compiler" );
+    }
+
+    ImGui::SameLine();
+    if (ImGui::SmallButton( "Reload visible" )) {
+        for (const auto& entry : assets.get_entries()) {
+            if (kind_filter != 0 && static_cast<int>( entry.kind ) + 1 != kind_filter)
+                continue;
+            if (!asset_path_matches( entry.path, search_str ))
+                continue;
+
+            assets.reload( entry.path );
+        }
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip( "Reload every asset in the current folder matching the filter" );
+
+    if (assets.busy()) {
+        ImGui::SameLine();
+        ImGui::TextDisabled( "queued: %d", assets.pending() );
+    }
+
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth( 110.0f );
+    if (ImGui::BeginCombo( "##kindfilter", kind_label( kind_filter ).data() )) {
+        for (int i = 0; i <= static_cast<int>( AssetKind::COUNT ); ++i) {
+            if (ImGui::Selectable( kind_label( i ).data(), kind_filter == i ))
+                kind_filter = i;
+        }
+        ImGui::EndCombo();
+    }
+
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth( 200.0f );
+    ImGui::InputTextWithHint( "##assetsearch", "Search assets...", search_str, sizeof( search_str ) );
+
+    ImGui::SameLine();
+    ImGui::Checkbox( "DIRTY only", &stale_only );
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip( "Show only assets whose source no longer matches the compiled .bin" );
+
+    ImGui::SameLine();
+    if (ImGui::SmallButton( grid_view ? "List" : "Grid" ))
+        grid_view = !grid_view;
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip( grid_view ? "Switch to list view" : "Switch to grid view" );
+
+    ImGui::Separator();
+
+    const float footer_h = ImGui::GetFrameHeightWithSpacing();
+
+    ImGui::SameLine();
+    ImGui::BeginChild( "##asset_list", ImVec2( 0.0f, -footer_h ), false );
+
+    const EditorAssets& catalog = assets;
+
+    nc::DynamicArray<const AssetEntry*> visible;
+    for (const auto& candidate : catalog.get_entries()) {
+        if (!matches( candidate ))
+            continue;
+        visible.push_back( &candidate );
+    }
+
+    const auto sort_visible = [&]() {
+        std::sort( visible.begin(), visible.end(), [&]( const AssetEntry* a, const AssetEntry* b ) {
+            int order = 0;
+            switch (sort_column) {
+                case 1:
+                    order = static_cast<int>( a->kind ) - static_cast<int>( b->kind );
+                    break;
+                case 2:
+                    order = a->compiled_size < b->compiled_size ? -1 : ( a->compiled_size > b->compiled_size ? 1 : 0 );
+                    break;
+                default:
+                    order = a->path.compare( b->path.c_str() );
+                    break;
+            }
+            if (order == 0)
+                order = a->path.compare( b->path.c_str() );
+            return sort_descending ? order > 0 : order < 0;
+        } );
+    };
+
+    if (grid_view) {
+        sort_visible();
+        draw_asset_grid( assets, selection, visible );
+        ImGui::EndChild();
+        draw_status_bar( assets.get_entries() );
+        return;
+    }
+
+    constexpr ImGuiTableFlags FLAGS = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY |
+                                      ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_Resizable |
+                                      ImGuiTableFlags_Sortable;
+
+    if (ImGui::BeginTable( "##assets", 4, FLAGS )) {
+        ImGui::TableSetupColumn( "Asset", ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_DefaultSort );
+        ImGui::TableSetupColumn( "Kind", ImGuiTableColumnFlags_WidthFixed, 70.0f );
+        ImGui::TableSetupColumn( "Size", ImGuiTableColumnFlags_WidthFixed, 70.0f );
+        ImGui::TableSetupScrollFreeze( 0, 1 );
+        ImGui::TableHeadersRow();
+
+        if (ImGuiTableSortSpecs* specs = ImGui::TableGetSortSpecs(); specs && specs->SpecsCount > 0) {
+            sort_column       = specs->Specs[0].ColumnIndex;
+            sort_descending   = specs->Specs[0].SortDirection == ImGuiSortDirection_Descending;
+            specs->SpecsDirty = false;
+        }
+
+        sort_visible();
+
+        for (const AssetEntry* entry_ptr : visible) {
+            const AssetEntry& entry = *entry_ptr;
+
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex( 0 );
+
+            if (entry.status != AssetStatus::READY) {
+                ImGui::TextColored( status_color( entry.status ), "%s", status_glyph( entry.status ) );
+                if (ImGui::IsItemHovered()) {
+                    if (entry.status == AssetStatus::ERROR && !entry.last_error.empty())
+                        ImGui::SetTooltip(
+                            "%s: %s", asset_status_name( entry.status ).data(), entry.last_error.c_str()
+                        );
+                    else
+                        ImGui::SetTooltip( "%s", asset_status_name( entry.status ).data() );
+                }
+                ImGui::SameLine();
+            }
+
+            if (entry.kind == AssetKind::IMAGE) {
+                const nc::RID thumb = assets.thumbnail( entry.path );
+                if (thumb) {
+                    ImGui::Image(
+                        reinterpret_cast<ImTextureID>( static_cast<uintptr_t>( thumb.value ) ), ImVec2( 18, 18 )
+                    );
+                    ImGui::SameLine();
+                }
+            }
+
+            const bool asset_selected = selection.get_selected_asset() == entry.path;
+            ImGui::Selectable( entry.path.c_str(), asset_selected, ImGuiSelectableFlags_AllowDoubleClick );
+            if (ImGui::IsItemClicked())
+                select_asset( selection, entry.path );
+
+            ImGui::PushID( entry.path.c_str() );
+            asset_context_menu( assets, selection, entry );
+            ImGui::PopID();
+
+            if (ImGui::BeginDragDropSource( ImGuiDragDropFlags_None )) {
+                ImGui::SetDragDropPayload( "ASSET_PATH", entry.path.c_str(), entry.path.size() + 1 );
+                ImGui::TextUnformatted( entry.path.c_str() );
+                ImGui::EndDragDropSource();
+            }
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip( "%s", entry.path.c_str() );
+
+            AssetImportResult result;
+            if (assets.last_result( entry.path, result ) && !result.ok) {
+                ImGui::SameLine();
+                ImGui::TextColored( ImVec4( 1.0f, 0.35f, 0.3f, 1.0f ), "!" );
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip( "%s", result.message.c_str() );
+            }
+
+            ImGui::TableSetColumnIndex( 1 );
+            const nc::StringView kind_name = asset_kind_name( entry.kind );
+            ImGui::TextDisabled( "%.*s", static_cast<int>( kind_name.size() ), kind_name.data() );
+
+            ImGui::TableSetColumnIndex( 2 );
+            ImGui::TextDisabled( "%.1f KB", static_cast<double>( entry.compiled_size ) / 1024.0 );
+        }
+
+        ImGui::EndTable();
+    }
+
+    ImGui::EndChild();
+
+    draw_status_bar( assets.get_entries() );
+}
+
+} // namespace sea::editor

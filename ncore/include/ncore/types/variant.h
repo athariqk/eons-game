@@ -1,6 +1,7 @@
 // Copyright (C) 2026 Ahmad Ghalib Athariq <alib.athariq@gmail.com>
 // This file is subject to the license terms in the LICENSE file
 // found in the top-level directory of this distribution.
+// File: variant.h - boxing of arbitrary types.
 
 #pragma once
 
@@ -99,8 +100,12 @@ public:
         if (!is_ref())
             return {};
         const types::IRefOps* ops = static_cast<const types::RecordInfo*>( type )->as_ref();
-        void* t                   = ops->get( ptr );
-        return t ? BasicTypedPtr{ ops->dynamic_type( ptr ), t } : BasicTypedPtr{};
+        // IRefOps predates const-correct views and only exposes void* slots. The
+        // operations used here (get / dynamic_type) are read-only, so following a
+        // const handle is safe: the result stays const through `Pointer`.
+        void* slot = const_cast<void*>( ptr );
+        void* t    = ops->get( slot );
+        return t ? BasicTypedPtr{ ops->dynamic_type( slot ), t } : BasicTypedPtr{};
     }
 
     // -----------------------------------------------------------------
@@ -130,7 +135,11 @@ public:
     {
         Pointer slot = f.get_void_ptr( ptr );
         if (f.qualifier.is_pointer()) {
-            slot = *static_cast<std::conditional_t<IsConst, const void* const*, void**>>( static_cast<void*>( slot ) );
+            if constexpr (IsConst) {
+                slot = *static_cast<const void* const*>( slot );
+            } else {
+                slot = *static_cast<void**>( slot );
+            }
             if (!slot)
                 return {};
             const types::TypeInfo* t = f.get_type();
@@ -388,8 +397,6 @@ inline bool coerce_value( TypedPtr p_dst, ConstTypedPtr p_src )
  * homogeneously typed values (a C array). The latter exists so fixed-size
  * arrays of reflected types (e.g. `Vec4f[8]` for a `float4 mapScales[8]`
  * uniform) can be boxed without registering a container type per element type.
- * Note that a GPU-side array may have a larger element stride than the packed
- * layout; the consumer (Material) is responsible for re-striding on upload.
  *
  * This container is directly integrated with NCORE's reflection system, which
  * means that an instance of TypeInfo is embedded within it for runtime type
@@ -560,7 +567,7 @@ public:
      * @return A view of the pointee with its DYNAMIC type, or an empty view when
      *         the value is not a ref or the handle is null.
      */
-    TypedPtr deref() const noexcept
+    ConstTypedPtr deref() const noexcept
     {
         return view().deref();
     }
@@ -739,12 +746,12 @@ public:
     {
         return { type, ptr };
     }
-    TypedPtr view() const noexcept
+    ConstTypedPtr view() const noexcept
     {
         return { type, ptr };
     }
 
-    TypedPtr operator[]( StringView p_name ) const noexcept
+    ConstTypedPtr operator[]( StringView p_name ) const noexcept
     {
         return view().field( p_name );
     }
@@ -766,7 +773,7 @@ private:
         return memalloc_aligned( p_type->size * p_count, p_type->alignment ? p_type->alignment : 1 );
     }
 
-    void copy_from( TypedPtr p_src, size_t p_count )
+    void copy_from( ConstTypedPtr p_src, size_t p_count )
     {
         if (!p_src || p_count == 0)
             return;

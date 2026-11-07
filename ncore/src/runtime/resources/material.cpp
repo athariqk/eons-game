@@ -31,7 +31,7 @@ RID resolve_texture_rid( const TypedVar& p_value )
         return p_value.get<RID>();
 
     if (p_value.is_ref()) {
-        TypedPtr pointee = p_value.deref();
+        ConstTypedPtr pointee = p_value.deref();
         if (auto* res = pointee.try_as<IResource>())
             return res->get_rid();
     }

@@ -36,6 +36,12 @@ NC_COMPONENT_API( CameraComponent )
      */
     REFLECT bool mouse_captured = false;
     /**
+     * @brief If false, this camera will never request or cause mouse capture/lock
+     * via the generic input handler. Used by the editor's free-fly camera so that
+     * RMB orbit/pan etc. (driven by ImGui) are not interfered with by cursor locking.
+     */
+    REFLECT bool allow_mouse_capture = true;
+    /**
      * @brief Whether the camera uses perspective projection.
      */
     REFLECT bool perspective = true;

@@ -20,6 +20,21 @@ struct VectorClass : public RecordInfo {
         static_cast<VecT*>( instance )->resize( length );
     }
 
+    size_t container_size( const void* instance ) const noexcept override
+    {
+        return static_cast<const VecT*>( instance )->size();
+    }
+
+    void* container_data( void* instance ) const noexcept override
+    {
+        return static_cast<VecT*>( instance )->data();
+    }
+
+    const TypeInfo* element_type() const noexcept override
+    {
+        return TypeDB::find<typename VecT::value_type>();
+    }
+
     void visit( void* instance, RecordVisitor* visitor, PropertyFlags filter, unsigned depth ) const noexcept override
     {
         if (!instance) {

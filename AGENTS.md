@@ -16,7 +16,10 @@ Guidance for AI coding agents working in this repository.
 10. `ncore/include/ncore/services/service.h` — IService base + NullService
 11. `ncore/include/ncore/services/servicedb.h` — ServiceDB (service locator)
 12. `CMakeLists.txt` (root + ncore/)
-13. `eons-game/main.cpp` — game entry point
+13. `eons-game/main.cpp` — legacy prototype entry point
+14. `seaengine/main.cpp` — primary SeaEngine entry (Explore vs --editor)
+15. `seaengine/CMakeLists.txt` — now contains the merged editor sources list + external/ vendoring
+16. `seaengine/seaengine.ini` — unified config (used for both Explore Mode (default) and Editor mode via `--editor`)
 
 ## Build And Run (Windows)
 
@@ -24,30 +27,132 @@ Guidance for AI coding agents working in this repository.
 # Configure
 cmake --preset windows-debug
 
-# Build (ninja — preferred, avoids CMake re-configure flakiness)
-ninja -C build/windows-debug ncore_d.dll ncore_editor_d.dll eons-game_d.exe
+# Build (ninja — preferred)
+ninja -C build/windows-debug seaengine
+
+# Full (including editor module)
+ninja -C build/windows-debug ncore_d.dll seaengine EonsPrototype_d.exe
 
 # Build (CMake)
 cmake --build build --config Debug
-
-# Run
-.\build\windows-debug\bin\Debug\eons-game_d.exe
 ```
+
+**Run SeaEngine (default = Explore Mode):**
+```
+.\build\windows-debug\bin\Debug\seaengine
+```
+
+**With editor mode (`--editor`):**
+```
+.\build\windows-debug\bin\Debug\seaengine --editor
+```
+
+### Editor Modes
+
+SeaEngine is a **single executable** (CMake target `seaengine`, app name "SeaEngine").
+
+- **Explore Mode** (default): Immersive, SpaceEngine-like experience. Editor UI, panels, dockspace, and editor-related ECS systems are disabled. Pure exploration / free-cam focus.
+- **Editor mode**: Activated via:
+  - CLI: `seaengine --editor`
+  - In-app: (stub) F12 prints activation instructions; full runtime menu toggle planned.
+- Editor-related systems are **disabled** when in Explore Mode (no ImGui, no authoring overhead).
+- Editor code (under `seaengine/editor/`) is **always compiled in** (not Debug-only) but inactive by default. It is included as plain sources directly in the single `seaengine` target (no separate library).
+- When `--editor` is passed, the app uses the name "SeaEngine Editor" (while still loading the single unified `seaengine.ini`). Larger editor-friendly window defaults can be set in seaengine.ini; logging uses the [Log] section (default: seaengine.log).
 
 Notes:
 - Debug builds append `_d` per `ncore/CMakeLists.txt:35`.
-- `ncore_editor_d.dll` is a separate shared library under `tools/editor/` — always build it alongside `ncore_d.dll`.
+- Uses the single unified `seaengine.ini` for both Explore Mode (default) and Editor mode (`--editor`); copied at build. (The separate seaengine_editor.ini is no longer used.)
 - Assets are compiled to `.bin` by the `asset_pipeline` target (`cmake/CompileAssets.cmake`,
   driven by `resource_compiler.exe`). Raw originals (`.slang .png .jpg .jpeg .wav .ttf .otf .webp`)
   are never staged into `bin/.../assets` — only `<name>.bin` lands there. Slang `#include`
   resolution reads the raw sources straight from `ncore/assets`, `eons-game/assets` and
   `seaengine/assets` via `--search-paths`. `.ini` files are still copied at build time.
-- Release: `cmake --preset windows-release`, target `ncore.dll ncore_editor.dll eons-game.exe`.
+- Release: `cmake --preset windows-release`, target `ncore.dll seaengine EonsPrototype_d.exe`.
 - Do NOT delete or rebuild `build/`. The existing build is canonical — full reconfigure is slow.
-- The game target is `EonsPrototype_d.exe` (not `eons-game_d.exe`): `ninja -C build/windows-debug EonsPrototype_d.exe`.
+- The prototype game target is `EonsPrototype_d.exe`: `ninja -C build/windows-debug EonsPrototype_d.exe`.
+- Main target `seaengine` (includes editor module from `seaengine/editor/`). Editor code always compiled in.
 - Linking may fail with `machine type x86 conflicts with x64` if the shell's `LIB`
   env var points at the x86 MSVC libs. Use the x64 LIB paths for the build:
   `$env:LIB = "...\VC\Tools\MSVC\<ver>\lib\x64;...\Windows Kits\10\lib\10.0.28000.0\ucrt\x64;...\um\x64"`.
+
+## Editor Migration — Removal Steps (Historical / Completed)
+
+**Status:** The `tools/editor/` directory (old ncore_editor location + original submodule trees) has been removed from the working tree and index. The checklist below is preserved as the record of the migration that was performed.
+
+Current state:
+- `tools/editor/` no longer exists.
+- All editor code is under `seaengine/editor/` (flattened; no `src/` subdir). Vendored externals under `seaengine/external/`.
+- Single `seaengine` target only.
+- No references to old plugin registration or ncore_editor in active build/runtime code.
+
+**Verification performed before `git rm`:**
+- `ninja -C build/windows-debug seaengine` succeeds cleanly.
+- SeaEngine launches in **Explore Mode** (default) and editor works via `--editor` or in-app menu.
+- No compile/runtime references to `ncore_editor`, `tools/editor`, or `register_editor_plugin` remain in active code.
+- `seaengine/external/` trees are clean (no `.git` files inside). Editor sources flattened directly under `seaengine/editor/`.
+
+### Submodule Migration Plan (Chosen: Clean Tree Copy)
+- **Approach taken:** Vendored source trees copied into `seaengine/editor/external/` (`.git` pointers and submodule metadata stripped). No re-add as submodules.
+- **Why not re-add submodules:** Reduces contributor friction (no `git submodule update --init` for editor deps), matches common practice for ImGui/ImGuizmo. External CMake already lists sources explicitly rather than relying on submodule CMake.
+- **If upstream bump needed later:** Replace tree contents under `seaengine/editor/external/{imgui,imguizmo,freetype}` (preserve the local `imgui_config.h` and any patches in `external/CMakeLists.txt`).
+- `.gitmodules` cleaned of the three `tools/editor/external/*` entries.
+- The `seaengine/editor/external/` dirs are now regular committed content (will be `git add`ed post-clean).
+
+### Exact Removal Steps (run from repo root, in order)
+```powershell
+# 1. Deinit the submodules (safe even if already partially cleaned)
+git submodule deinit -f tools/editor/external/imgui tools/editor/external/imguizmo tools/editor/external/freetype
+
+# 2. Remove the submodule working trees + index entries
+git rm -r --cached tools/editor/external/imgui tools/editor/external/imguizmo tools/editor/external/freetype
+git rm -r tools/editor   # this will also remove the (now-empty after deinit) tools/editor dir and its AGENTS.md / sources
+
+# 3. Clean .gitmodules (already edited by migration; double-check)
+#    (The edit removed the three [submodule "tools/editor/external/..."] blocks)
+
+# 4. Remove stale git module metadata (the absorbed worktrees)
+Remove-Item -Recurse -Force -ErrorAction SilentlyContinue .git/modules/tools/editor
+
+# 5. Stage the now-plain vendored external trees (they were untracked copies; now clean)
+git add seaengine/editor/external/
+
+# 6. Commit the removal + migration finalization
+git commit -m "chore(editor): remove deprecated tools/editor/ (ncore_editor)
+
+- Submodules (imgui, imguizmo, freetype) migrated as vendored trees to seaengine/editor/external/
+- seaengine/editor/external/CMakeLists.txt decoupled for standalone use
+- All references and docs updated; seaengine is the single SeaEngine target (Explore Mode by default)
+See docs/seaengine-editor-implications.md#migration-complete"
+
+# 7. Post-removal verification (build + smoke)
+ninja -C build/windows-debug seaengine
+# Run Explore Mode:
+#   .\build\windows-debug\bin\Debug\seaengine
+# Run with editor:
+#   .\build\windows-debug\bin\Debug\seaengine --editor
+# Confirm no "tools/editor" or "ncore_editor" in build output or logs.
+```
+
+### Optional Cleanup (aggressive — only if sure)
+```powershell
+git clean -fdx   # WARNING: removes ALL untracked (use with care; will nuke build/ if present)
+```
+
+**Result after executing the steps + commit:**
+- `tools/editor/` no longer exists on disk or in the repository.
+- Old `tools/editor/AGENTS.md` (historical guide) was deleted with the dir.
+- All future editor work references only `seaengine/editor/` (sources) and `seaengine/external/` (vendored).
+
+See also: `docs/seaengine-editor-implications.md` (full "Migration Complete (Nov 2026)" section).
+
+Note: As of now, `seaengine/editor/AGENTS.md` does not exist. Editor guidance lives in:
+- `seaengine/CMakeLists.txt` (editor sources + external vendoring comments)
+- `docs/seaengine-editor-implications.md`
+- `docs/seaengine-vision.md`
+- Root `AGENTS.md` (this file)
+- Code comments in `seaengine/editor/`
+
+After `tools/editor/` removal, a lightweight `seaengine/editor/AGENTS.md` may be added for future editor contributors.
 
 ## Debug = AddressSanitizer (+ leak reporter)
 
@@ -73,24 +178,25 @@ Notes:
 
 ## Runtime Logs & Crash Diagnosis
 
-Log file: `build\windows-debug\bin\Debug\logs\eons.log` (configured in `eons.ini`).
+- SeaEngine (Explore or Editor): `build\windows-debug\bin\Debug\logs\seaengine.log`. Configured via the [Log] section in the (single unified) copied `seaengine.ini`. (The editor mode shares the same log file as Explore Mode.)
+- eons-game prototype: `build\windows-debug\bin\Debug\logs\eons.log` (from `eons.ini`).
 
 ```
-# Tail logs live while the app runs
-Get-Content -Path "build\windows-debug\bin\Debug\logs\eons.log" -Wait -Tail 20
+# Tail logs live while the app runs (SeaEngine)
+Get-Content -Path "build\windows-debug\bin\Debug\logs\seaengine*.log" -Wait -Tail 20
 
 # Search for errors across all log files
-Select-String -Path "build\windows-debug\bin\Debug\logs\eons.log*" -Pattern "ERROR|sentinel|assert" | Select-Object -Last 30
+Select-String -Path "build\windows-debug\bin\Debug\logs\*.log" -Pattern "ERROR|sentinel|assert|SEA|editor" | Select-Object -Last 30
 
 # Post-crash: search for the crash location
-Select-String -Path "build\windows-debug\bin\Debug\logs\eons.log" -Pattern "ECS.*ERROR|sentinel|Access violation"
+Select-String -Path "build\windows-debug\bin\Debug\logs\seaengine*.log" -Pattern "ECS.*ERROR|sentinel|Access violation|FATAL"
 ```
 
-Auto-run + tail (PowerShell):
+Auto-run + tail (PowerShell) for SeaEngine:
 ```
-$log = "build\windows-debug\bin\Debug\logs\eons.log"
+$log = "build\windows-debug\bin\Debug\logs\seaengine.log"
 $job = Start-Job { Get-Content $using:log -Wait -Tail 10 }
-Start-Process -FilePath "build\windows-debug\bin\Debug\eons-game_d.exe" -Wait
+Start-Process -FilePath "build\windows-debug\bin\Debug\seaengine_d.exe" -Wait
 $job | Receive-Job | Select-Object -Last 20
 Remove-Job $job
 ```
@@ -120,9 +226,16 @@ ncore/                          Engine library (shared, ncore_d.dll)
     backends/                   SDL, Diligent, Box2D, Flecs helpers.
     application.cpp             Application lifecycle (init -> run -> finish).
 
-eons-game/                      Game project (executable, eons-game_d.exe).
+eons-game/                      Legacy/prototype game project (executable: EonsPrototype_d.exe).
   main.cpp                      GameApplication + TestScene subclass.
   src/microcosmos/              Game-specific ECS systems + components.
+
+seaengine/                      Primary SeaEngine application (single executable `seaengine`).
+  main.cpp                      Entry: Explore Mode (default, WorldScene) or Editor via `--editor`.
+  src/                          Ocean/water sim + WorldScene (pure immersive; systems off).
+  editor/                       Editor module (always compiled in as plain sources into the single seaengine target).
+    CMakeLists.txt              Documents "single binary, editor code always compiled".
+    src/ + external/            Editor panels, EditorWorldHost, vendored ImGui etc.
 ```
 
 ### Key abstractions
@@ -253,9 +366,12 @@ Primitives registered in `TypeDB::initialize()` in `ncore/src/core/types.cpp`.
 
 ## Build-Only Verification
 
-No automated test suite at root. Build success + runtime smoke check (main menu
-visible, scene tree populated, inspector shows component data, camera/stats
-windows toggle correctly) is the verification step.
+No automated test suite at root. Build success + runtime smoke check is the verification step.
+
+- `ninja -C build/windows-debug seaengine`
+- Run Explore Mode (default): `.\build\windows-debug\bin\Debug\seaengine` — clean immersive, no editor UI/systems.
+- Run Editor: `.\build\windows-debug\bin\Debug\seaengine --editor` — panels, scene tree, inspector, etc. functional.
+- Smoke expectations: main free-cam works in Explore; editor shows dockspace + viewport + inspector when `--editor`.
 
 ## Agent skills
 

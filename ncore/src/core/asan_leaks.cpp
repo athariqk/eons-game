@@ -234,7 +234,7 @@ void cache_project_bases()
     if (exe)
         g_project_bases[g_project_base_count++] = reinterpret_cast<uintptr_t>( exe );
 
-    const wchar_t* names[] = { L"ncore_d.dll", L"ncore.dll", L"ncore_editor_d.dll", L"ncore_editor.dll" };
+    const wchar_t* names[] = { L"ncore_d.dll", L"ncore.dll" };
     for (const wchar_t* name : names) {
         HMODULE mod = GetModuleHandleW( name );
         if (mod)

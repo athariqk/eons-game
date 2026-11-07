@@ -493,12 +493,19 @@ void register_inputs_plugin( Scene& scene )
 
     scene.get_ecs()
         .system( "SceneInputPlugin_MouseVisibilityHandler" )
-        .with<CameraComponent>()
+        .with<CameraComponent, ActiveCameraTag>()
         .in( EcsSystemPhase::UPDATE )
         .each( []( EcsIterState& it ) {
             auto vid = it.world().get_singleton_const<VideoServices>();
             auto io  = it.world().get_singleton_const<IoServices>();
             auto cam = it.get_component<CameraComponent>();
+
+            if (!cam->allow_mouse_capture) {
+                // Editor (and other special) cameras drive their own input via ImGui.
+                // Never let the generic handler toggle capture or lock the cursor for them.
+                cam->mouse_captured = false;
+                return;
+            }
 
             auto win_id = vid->window->get_main_window_id();
 

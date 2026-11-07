@@ -301,6 +301,21 @@ public:
      */
     virtual void resize( void* instance, size_t length ) const noexcept;
 
+    /**
+     * @brief Element count of a container instance (0 for non-containers).
+     */
+    virtual size_t container_size( const void* ) const noexcept;
+
+    /**
+     * @brief Pointer to the first element of a container instance, or null.
+     */
+    virtual void* container_data( void* ) const noexcept;
+
+    /**
+     * @brief Element type of a container, or null.
+     */
+    virtual const TypeInfo* element_type() const noexcept;
+
     void to_string( String& out, const void* instance ) const override;
 
     void construct( void* instance, const void* data = nullptr ) const override;

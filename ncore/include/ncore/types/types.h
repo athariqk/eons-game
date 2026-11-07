@@ -278,7 +278,12 @@ template<typename T>
 constexpr TypeKind kind_of() noexcept
 {
     using raw = std::remove_cvref_t<T>;
-    if constexpr (std::is_same_v<raw, bool>) {
+    if constexpr (std::is_same_v<raw, std::byte>) {
+        // std::byte is technically an enum (enum class byte : unsigned char {}),
+        // but we classify it as UINT8 (via this special case) so it participates
+        // cleanly as a primitive for vectors, drawing, etc.
+        return TypeKind::UINT8;
+    } else if constexpr (std::is_same_v<raw, bool>) {
         return TypeKind::BOOL;
     } else if constexpr (std::is_floating_point_v<raw>) {
         if constexpr (sizeof( raw ) == 4)

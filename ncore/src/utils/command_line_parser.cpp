@@ -335,6 +335,17 @@ const StringView CommandLineParser::get_string( StringView name ) const
     return arg->was_parsed ? arg->value : arg->default_value;
 }
 
+bool CommandLineParser::set_bool( StringView name, bool value )
+{
+    auto* arg = find_arg( bool_args, name );
+    if (!arg) {
+        return false;
+    }
+    arg->value      = value;
+    arg->was_parsed = true;
+    return true;
+}
+
 bool CommandLineParser::was_provided( StringView name ) const
 {
     if (const auto* a = find_arg( bool_args, name )) {

@@ -122,7 +122,12 @@ include(${CMAKE_SOURCE_DIR}/cmake/ReflectionGen.cmake)
 
 add_subdirectory(tools/reflection_gen) # ncore depends on this
 add_subdirectory(ncore)
-add_subdirectory(tools/editor)
+# add_subdirectory(tools/editor)   # DELETED (old ncore_editor plugin model).
+# Editor sources live under seaengine/editor/ (plain sources, listed directly
+# in seaengine/CMakeLists.txt) and are built into the single `seaengine`
+# executable (Explore Mode by default; --editor activates).
+# Vendored (external/): seaengine/external/{imgui,imguizmo,freetype}
+# (editor/CMakeLists.txt logic merged into seaengine/CMakeLists.txt)
 add_subdirectory(tools/resource_compiler)
 add_subdirectory(eons-game)
 add_subdirectory(seaengine)
@@ -146,7 +151,8 @@ add_custom_target(
   VERBATIM)
 add_dependencies(asset_pipeline resource_compiler)
 add_dependencies(EonsPrototype asset_pipeline)
-add_dependencies(SeaEngine asset_pipeline)
+add_dependencies(seaengine asset_pipeline)
+# (seaengine carries the editor module as plain sources; no separate seaengine-editor target)
 
 # --- Install rules ---
 install(
@@ -165,15 +171,10 @@ install(
   DESTINATION .
   OPTIONAL)
 
-install(
-  TARGETS ncore_editor
-  RUNTIME DESTINATION .
-  ARCHIVE DESTINATION .
-  LIBRARY DESTINATION .)
-install(
-  FILES $<TARGET_PDB_FILE:ncore_editor>
-  DESTINATION .
-  OPTIONAL)
+# Editor sources under seaengine/editor/ (no separate subdir CMake) are compiled
+# as plain sources into the single `seaengine` target (Explore Mode default;
+# --editor for authoring). tools/editor/ (old ncore_editor) removed.
+# See docs/seaengine-editor-implications.md and seaengine/CMakeLists.txt.
 
 install(FILES eons-game/eons.ini DESTINATION .)
 install(DIRECTORY eons-game/assets/ DESTINATION assets)

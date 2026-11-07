@@ -50,13 +50,13 @@ PointerAlignment: Left
 IncludeBlocks: Regroup
 IncludeCategories:
   # Third-party
-  - Regex: '^<(SDL3|imgui|flecs|inicpp|backends|misc|slang)[/.]'
+  - Regex: '^<(SDL3|imgui|imgui_internal|flecs|inicpp|backends|misc|slang)[/.]'
     Priority: 2
   # Generated engine headers
   - Regex: '^<(generated)[/.]'
     Priority: 3
   # Engine headers
-  - Regex: '^<(ncore|kernel|modules|utils|runtime|scene|shaders|editor)[/.]'
+  - Regex: '^<(ncore|kernel|modules|utils|runtime|scene|shaders)[/.]'
     Priority: 4
   # Game headers
   - Regex: '^<microcosmos[/.]'

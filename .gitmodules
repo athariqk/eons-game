@@ -16,3 +16,12 @@
 [submodule "ncore/external/tracy"]
 	path = ncore/external/tracy
 	url = https://github.com/wolfpld/tracy.git
+[submodule "seaengine/external/freetype"]
+	path = seaengine/external/freetype
+	url = https://github.com/freetype/freetype.git
+[submodule "seaengine/external/imgui"]
+	path = seaengine/external/imgui
+	url = https://github.com/ocornut/imgui.git
+[submodule "seaengine/external/imguizmo"]
+	path = seaengine/external/imguizmo
+	url = https://github.com/CedricGuillemet/ImGuizmo.git

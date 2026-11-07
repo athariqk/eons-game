@@ -211,7 +211,7 @@ private:                                                                        
 #define ADD_PROPERTY( ... )                                                                                            \
     ADD_PROPERTY_IMPL( __VA_ARGS__, ::nc::types::PropertyFlags::SERIALIZABLE | ::nc::types::PropertyFlags::EDITABLE )
 
-#define NC_PROPS_END( T )                                                                                              \
+#define NC_PROPS_END()                                                                                                 \
     }                                                                                                                  \
     ;                                                                                                                  \
     out_count = sizeof( fields ) / sizeof( fields[0] );                                                                \
@@ -222,7 +222,7 @@ private:                                                                        
     {                                                                                                                  \
         size_t count = 0;                                                                                              \
         auto* begin  = nc_get_fields_( count );                                                                        \
-        ::nc::TypeDB::provide_fields( RECORD_INFO_##T().id, begin, begin + count );                                    \
+        ::nc::TypeDB::provide_fields( RECORD_INFO().id, begin, begin + count );                                        \
     }                                                                                                                  \
     inline static const int REGISTER_FIELDS_INFO = ( FIELDS_INFO_INIT(), 0 );
 
